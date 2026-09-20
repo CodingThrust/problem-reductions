@@ -209,29 +209,20 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Recover a source solution, completed result, or aggregate from a reduction bundle
+    /// Recover a source result from a target result JSON file
     #[command(after_help = "\
 Examples:
-  pred extract bundle.json --config '[1,0,1,0]'
-  pred extract bundle.json --config '[1,0,1,0]' -o source.json
-  pred extract bundle.json --result optimum.json
-  pred extract bundle.json --value '2'
-  cat bundle.json | pred extract - --config '[1,0,1,0]'
+  pred extract bundle.json --result target-result.json
+  pred extract bundle.json --result target-result.json -o source-result.json
 
-Use this when an external solver has solved the bundle's target problem
-(e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
-the corresponding solution in the original source problem space without
-having to shell back into `pred solve`.
+Result JSON (status is required):
+  {\"status\":\"feasible\",\"solution\":[true,false]}  feasible, not necessarily optimal
+  {\"status\":\"optimal\",\"solution\":[true,false]}   solver-reported optimum
+  {\"status\":\"infeasible\"}                       no solution
+  {\"status\":\"complete\",\"value\":12}              full count or determined objective
 
---config recovers a candidate only. --result requires a completed result:
-  {\"status\":\"optimal\",\"solution\":[true,false],\"evaluation\":\"Min(1)\"}
-  {\"status\":\"infeasible\"}
-Evaluation is optional, but must match when supplied. The external solver must
-establish optimality or infeasibility under its own numerical contract.
---value maps an exact aggregate through value-capable edges, without a witness.
-
-Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
---config is the target problem's solution encoded as JSON (e.g. '[1,0,1,0]').")]
+Accepts pred solve JSON output directly. An optional evaluation must match the
+solution. Extraction does not establish optimality or infeasibility.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
@@ -340,26 +331,18 @@ pub struct ReduceArgs {
     /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
-    /// Execute value mappings; recover the external aggregate with `pred extract --value`.
+    /// Execute value mappings; supply a complete value result to `pred extract`.
     #[arg(long)]
     pub aggregate: bool,
 }
 
 #[derive(clap::Args)]
-#[group(skip)]
-#[command(group(clap::ArgGroup::new("recovery_input").required(true).args(["config", "result", "value"])))]
 pub struct ExtractArgs {
-    /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
+    /// Reduction bundle JSON (from pred reduce). Use - for stdin.
     pub input: PathBuf,
-    /// Target problem solution encoded as JSON (for example, [1,0,1,0])
+    /// Target result JSON file with an explicit status. Use - for stdin.
     #[arg(long)]
-    pub config: Option<String>,
-    /// JSON file containing a completed target result (optimal or infeasible).
-    #[arg(long)]
-    pub result: Option<PathBuf>,
-    /// Exact target aggregate encoded as JSON; uses only value mappings.
-    #[arg(long)]
-    pub value: Option<String>,
+    pub result: PathBuf,
 }
 
 #[derive(clap::Args)]
@@ -579,5 +562,26 @@ mod tests {
             .expect("create subcommand");
         assert_eq!(create.get_subcommands().count(), 0);
         assert!(create.is_allow_external_subcommands_set());
+    }
+
+    #[test]
+    fn extract_requires_a_result_file() {
+        assert!(
+            Cli::try_parse_from(["pred", "extract", "bundle.json", "--result", "result.json"])
+                .is_ok()
+        );
+        assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
+        for flag in ["--config", "--value"] {
+            assert!(Cli::try_parse_from([
+                "pred",
+                "extract",
+                "bundle.json",
+                "--result",
+                "result.json",
+                flag,
+                "2"
+            ])
+            .is_err());
+        }
     }
 }

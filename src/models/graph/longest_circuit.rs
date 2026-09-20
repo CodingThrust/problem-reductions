@@ -360,3 +360,62 @@ crate::register_brute_force! {
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/longest_circuit.rs"]
 mod tests;
+
+crate::decision_problem_meta!(LongestCircuit<SimpleGraph, i64>, "DecisionLongestCircuit");
+crate::register_decision_variant!(
+    LongestCircuit<SimpleGraph, i64>, "DecisionLongestCircuit", "2^num_vertices * num_vertices^2", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_longest_circuit_to_longest_circuit",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                LongestCircuit::new(
+                    SimpleGraph::new(
+                        6,
+                        vec![
+                            (0, 1),
+                            (1, 2),
+                            (2, 3),
+                            (3, 4),
+                            (4, 5),
+                            (5, 0),
+                            (0, 3),
+                            (1, 4),
+                            (2, 5),
+                            (3, 5),
+                        ],
+                    ),
+                    vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
+                ),
+                18,
+            );
+            let witness = serde_json::json!(vec![
+                true, false, true, false, true, false, true, true, true, false
+            ]);
+            crate::example_db::specs::rule_example_with_witness::<_, LongestCircuit<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

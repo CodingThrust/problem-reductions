@@ -339,8 +339,10 @@ mod partition_into_cliques_covering_by_cliques_reductions {
     fn test_partition_into_cliques_to_covering_by_cliques_closed_loop() {
         let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
 
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
-            .expect("reduction should succeed");
+        let reduction = ReduceTo::<
+            problemreductions::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
+        >::reduce_to(&source)
+        .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         let target_solution = BruteForce::new()
@@ -355,12 +357,14 @@ mod partition_into_cliques_covering_by_cliques_reductions {
     #[test]
     fn test_partition_into_cliques_to_covering_by_cliques_orlin_issue_counts() {
         let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
-            .expect("reduction should succeed");
+        let reduction = ReduceTo::<
+            problemreductions::models::decision::Decision<MinimumCoveringByCliques<SimpleGraph>>,
+        >::reduce_to(&source)
+        .expect("reduction should succeed");
         let target = reduction.target_problem();
 
-        assert_eq!(target.graph().num_vertices(), 14);
-        assert_eq!(target.graph().num_edges(), 53);
+        assert_eq!(target.inner().graph().num_vertices(), 14);
+        assert_eq!(target.inner().graph().num_edges(), 53);
     }
 }
 
@@ -614,7 +618,9 @@ mod qubo_reductions {
             data.source.num_vertices,
             data.source.edges,
         ));
-        let reduction = ReduceTo::<QUBO>::reduce_to(&kc).expect("reduction should succeed");
+        let reduction =
+            ReduceTo::<problemreductions::models::decision::Decision<QUBO>>::reduce_to(&kc)
+                .expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
@@ -721,7 +727,9 @@ mod qubo_reductions {
             .collect();
 
         let ksat = KSatisfiability::<K2>::new(data.source.num_variables, clauses);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&ksat).expect("reduction should succeed");
+        let reduction =
+            ReduceTo::<problemreductions::models::decision::Decision<QUBO>>::reduce_to(&ksat)
+                .expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);

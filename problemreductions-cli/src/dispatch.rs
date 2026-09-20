@@ -197,17 +197,97 @@ pub struct BundleReplay {
     pub(crate) source_name: String,
     pub(crate) target: LoadedProblem,
     pub(crate) target_name: String,
-    chain: BundleChain,
-}
-
-enum BundleChain {
-    Witness(Vec<WitnessStep>),
-    Aggregate(problemreductions::rules::AggregateReductionChain),
+    steps: Vec<WitnessStep>,
 }
 
 struct WitnessStep {
     chain: problemreductions::rules::ReductionChain,
     source_variant: &'static problemreductions::registry::VariantEntry,
+}
+
+fn load_bundle_endpoints(
+    bundle: &ReductionBundle,
+) -> Result<(
+    LoadedProblem,
+    LoadedProblem,
+    problemreductions::rules::ReductionPath,
+)> {
+    if bundle.path.len() < 2 {
+        anyhow::bail!(
+            "Malformed bundle: `path` must contain at least two steps (source and target), got {}",
+            bundle.path.len()
+        );
+    }
+    let first = bundle.path.first().unwrap();
+    let last = bundle.path.last().unwrap();
+    if first.name != bundle.source.problem_type || first.variant != bundle.source.variant {
+        anyhow::bail!(
+            "Malformed bundle: path starts with {} but source is {}",
+            format_step(&first.name, &first.variant),
+            format_step(&bundle.source.problem_type, &bundle.source.variant),
+        );
+    }
+    if last.name != bundle.target.problem_type || last.variant != bundle.target.variant {
+        anyhow::bail!(
+            "Malformed bundle: path ends with {} but target is {}",
+            format_step(&last.name, &last.variant),
+            format_step(&bundle.target.problem_type, &bundle.target.variant),
+        );
+    }
+
+    let source = load_problem(
+        &bundle.source.problem_type,
+        &bundle.source.variant,
+        bundle.source.data.clone(),
+    )?;
+
+    let target = load_problem(
+        &bundle.target.problem_type,
+        &bundle.target.variant,
+        bundle.target.data.clone(),
+    )?;
+
+    let reduction_path = problemreductions::rules::ReductionPath {
+        steps: bundle
+            .path
+            .iter()
+            .map(|s| problemreductions::rules::ReductionStep {
+                name: s.name.clone(),
+                variant: s.variant.clone(),
+            })
+            .collect(),
+    };
+
+    Ok((source, target, reduction_path))
+}
+
+fn validate_replayed_target(bundle: &ReductionBundle, target_any: &dyn Any) -> Result<()> {
+    let replayed_target_data = serialize_any_problem(
+        &bundle.target.problem_type,
+        &bundle.target.variant,
+        target_any,
+    )?;
+    if replayed_target_data != bundle.target.data {
+        anyhow::bail!(
+            "Malformed bundle: `target.data` does not match the result of replaying \
+                 `source` along `path`. The bundle is tampered or was produced by \
+                 incompatible code."
+        );
+    }
+
+    Ok(())
+}
+
+pub(crate) fn extract_bundle_value(
+    bundle: &ReductionBundle,
+    value: serde_json::Value,
+) -> Result<serde_json::Value> {
+    let (source, _target, path) = load_bundle_endpoints(bundle)?;
+    let chain = ReductionGraph::new()
+        .reduce_aggregate_along_path(&path, source.as_any())?
+        .context("Bundle requires an aggregate-capable reduction path")?;
+    validate_replayed_target(bundle, chain.target_problem_any())?;
+    Ok(chain.extract_value(value)?)
 }
 
 impl BundleReplay {
@@ -222,119 +302,36 @@ impl BundleReplay {
     ///   `reduce_along_path` actually produced are rejected)
     ///
     /// Returns an error (not a panic) for malformed bundles or paths without witness extraction.
-    pub fn prepare(
-        bundle: &ReductionBundle,
-        mode: problemreductions::rules::ReductionMode,
-    ) -> Result<Self> {
-        if bundle.path.len() < 2 {
-            anyhow::bail!(
-                "Malformed bundle: `path` must contain at least two steps (source and target), got {}",
-                bundle.path.len()
-            );
-        }
-        let first = bundle.path.first().unwrap();
-        let last = bundle.path.last().unwrap();
-        if first.name != bundle.source.problem_type || first.variant != bundle.source.variant {
-            anyhow::bail!(
-                "Malformed bundle: path starts with {} but source is {}",
-                format_step(&first.name, &first.variant),
-                format_step(&bundle.source.problem_type, &bundle.source.variant),
-            );
-        }
-        if last.name != bundle.target.problem_type || last.variant != bundle.target.variant {
-            anyhow::bail!(
-                "Malformed bundle: path ends with {} but target is {}",
-                format_step(&last.name, &last.variant),
-                format_step(&bundle.target.problem_type, &bundle.target.variant),
-            );
-        }
-
-        let source = load_problem(
-            &bundle.source.problem_type,
-            &bundle.source.variant,
-            bundle.source.data.clone(),
-        )?;
-        let source_name = source.problem_name().to_string();
-
-        let target = load_problem(
-            &bundle.target.problem_type,
-            &bundle.target.variant,
-            bundle.target.data.clone(),
-        )?;
-        let target_name = target.problem_name().to_string();
-
-        let reduction_path = problemreductions::rules::ReductionPath {
-            steps: bundle
-                .path
-                .iter()
-                .map(|s| problemreductions::rules::ReductionStep {
-                    name: s.name.clone(),
-                    variant: s.variant.clone(),
-                })
-                .collect(),
-        };
-
+    pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
+        let (source, target, reduction_path) = load_bundle_endpoints(bundle)?;
         let graph = ReductionGraph::new();
-        let chain = match mode {
-            problemreductions::rules::ReductionMode::Witness => {
-                let mut steps: Vec<WitnessStep> = Vec::new();
-                for edge in reduction_path.steps.windows(2) {
-                    let input = steps
-                        .last()
-                        .map_or(source.as_any(), |step| step.chain.target_problem_any());
-                    let path = problemreductions::rules::ReductionPath {
-                        steps: edge.to_vec(),
-                    };
-                    let chain = graph.reduce_along_path(&path, input)?.ok_or_else(|| {
-                        anyhow::anyhow!("Bundle requires a witness-capable reduction path")
-                    })?;
-                    let source_variant = problemreductions::registry::find_variant_entry(
-                        &edge[0].name,
-                        &edge[0].variant,
-                    )
+        let mut steps: Vec<WitnessStep> = Vec::new();
+        for edge in reduction_path.steps.windows(2) {
+            let input = steps
+                .last()
+                .map_or(source.as_any(), |step| step.chain.target_problem_any());
+            let path = problemreductions::rules::ReductionPath {
+                steps: edge.to_vec(),
+            };
+            let chain = graph.reduce_along_path(&path, input)?.ok_or_else(|| {
+                anyhow::anyhow!("Bundle requires a witness-capable reduction path")
+            })?;
+            let source_variant =
+                problemreductions::registry::find_variant_entry(&edge[0].name, &edge[0].variant)
                     .context("missing intermediate problem registration")?;
-                    steps.push(WitnessStep {
-                        chain,
-                        source_variant,
-                    });
-                }
-                BundleChain::Witness(steps)
-            }
-            problemreductions::rules::ReductionMode::Aggregate => BundleChain::Aggregate(
-                graph
-                    .reduce_aggregate_along_path(&reduction_path, source.as_any())?
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("Bundle requires an aggregate-capable reduction path")
-                    })?,
-            ),
-            problemreductions::rules::ReductionMode::Turing => {
-                anyhow::bail!("Turing reductions are not executable")
-            }
-        };
-
-        // Coherence check: `bundle.target.data` must equal what replaying
-        // `source` along `path` actually produces. Without this, a caller
-        // could solve/validate against the bundle's stated target but then
-        // extract through a completely different chain target.
-        let target_any = match &chain {
-            BundleChain::Witness(steps) => steps.last().unwrap().chain.target_problem_any(),
-            BundleChain::Aggregate(chain) => chain.target_problem_any(),
-        };
-        let replayed_target_data = serialize_any_problem(&last.name, &last.variant, target_any)?;
-        if replayed_target_data != bundle.target.data {
-            anyhow::bail!(
-                "Malformed bundle: `target.data` does not match the result of replaying \
-                 `source` along `path`. The bundle is tampered or was produced by \
-                 incompatible code."
-            );
+            steps.push(WitnessStep {
+                chain,
+                source_variant,
+            });
         }
 
+        validate_replayed_target(bundle, steps.last().unwrap().chain.target_problem_any())?;
         Ok(Self {
+            source_name: source.problem_name().to_string(),
+            target_name: target.problem_name().to_string(),
             source,
-            source_name,
             target,
-            target_name,
-            chain,
+            steps,
         })
     }
 
@@ -343,10 +340,8 @@ impl BundleReplay {
         &self,
         target_config: &serde_json::Value,
     ) -> Result<(serde_json::Value, String)> {
-        let BundleChain::Witness(steps) = &self.chain else {
-            anyhow::bail!("value-only reductions do not recover witnesses")
-        };
-        let source_config = steps
+        let source_config = self
+            .steps
             .iter()
             .rev()
             .try_fold(target_config.clone(), |solution, step| {
@@ -361,21 +356,12 @@ impl BundleReplay {
         Ok((source_config, source_eval))
     }
 
-    pub fn extract_value(&self, value: serde_json::Value) -> Result<serde_json::Value> {
-        let BundleChain::Aggregate(chain) = &self.chain else {
-            anyhow::bail!("value recovery requires an aggregate-capable path")
-        };
-        Ok(chain.extract_value(value)?)
-    }
-
     /// Execute recovery of a completed result. The caller establishes optimality
     /// or infeasibility under its solver contract, including numerical tolerances;
     /// evaluating a candidate cannot establish it.
     pub(crate) fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
         use problemreductions::rules::ExtractionError;
-        let BundleChain::Witness(steps) = &self.chain else {
-            anyhow::bail!("value-only reductions require an aggregate value")
-        };
+        let steps = &self.steps;
         let (mut witness, mut value) = match result {
             SolveOutcome::Optimal {
                 solution,
@@ -561,7 +547,7 @@ mod tests {
         source: &P,
         targets: Vec<problemreductions::rules::ReductionStep>,
     ) -> BundleReplay {
-        use problemreductions::rules::{ReductionMode, ReductionPath};
+        use problemreductions::rules::ReductionPath;
         let mut steps = vec![problem_step::<P>()];
         steps.extend(targets);
         let bundle = crate::commands::reduce::execute_route(
@@ -571,10 +557,9 @@ mod tests {
                 data: serde_json::to_value(source).unwrap(),
             },
             ReductionPath { steps },
-            ReductionMode::Witness,
         )
         .unwrap();
-        BundleReplay::prepare(&bundle, ReductionMode::Witness).unwrap()
+        BundleReplay::prepare(&bundle).unwrap()
     }
 
     #[test]
@@ -651,6 +636,9 @@ mod tests {
                 &source,
                 vec![
                     problem_step::<NAESatisfiability>(),
+                    problem_step::<
+                        problemreductions::models::decision::Decision<MaxCut<SimpleGraph, i64>>,
+                    >(),
                     problem_step::<MaxCut<SimpleGraph, i64>>(),
                 ],
             );
@@ -722,6 +710,11 @@ mod tests {
                 &source,
                 vec![
                     problem_step::<KSatisfiability<K3>>(),
+                    problem_step::<
+                        problemreductions::models::decision::Decision<
+                            MinimumVertexCover<SimpleGraph, i64>,
+                        >,
+                    >(),
                     problem_step::<MinimumVertexCover<SimpleGraph, i64>>(),
                 ],
             );
@@ -751,7 +744,7 @@ mod tests {
 
     #[test]
     fn aggregate_only_bundle_executes_and_recovers_without_witnesses() {
-        use problemreductions::rules::{ReductionMode, ReductionPath, ReductionStep};
+        use problemreductions::rules::{ReductionPath, ReductionStep};
         let bundle = crate::test_support::aggregate_bundle();
         let path = ReductionPath {
             steps: bundle
@@ -768,18 +761,14 @@ mod tests {
             variant: bundle.source.variant.clone(),
             data: bundle.source.data.clone(),
         };
-        let executed =
-            crate::commands::reduce::execute_route(source, path, ReductionMode::Aggregate).unwrap();
+        let executed = crate::commands::reduce::execute_aggregate_route(source, path).unwrap();
         assert_eq!(executed.target.data, serde_json::json!({"base":14}));
-        let replay = BundleReplay::prepare(&executed, ReductionMode::Aggregate).unwrap();
         assert_eq!(
-            replay.extract_value(serde_json::json!(12)).unwrap(),
+            extract_bundle_value(&executed, serde_json::json!(12)).unwrap(),
             serde_json::json!(12)
         );
-        assert!(replay.extract_value(serde_json::json!(true)).is_err());
-        assert!(replay.extract(&serde_json::json!([true])).is_err());
-        assert!(replay.extract_result(&SolveOutcome::Infeasible).is_err());
-        assert!(BundleReplay::prepare(&executed, ReductionMode::Turing).is_err());
+        assert!(extract_bundle_value(&executed, serde_json::json!(true)).is_err());
+        assert!(BundleReplay::prepare(&executed).is_err());
     }
 
     #[test]
@@ -805,27 +794,15 @@ mod tests {
             let route = crate::commands::reduce::parse_path_json(
                 r#"{"path":[{
                     "from":{"name":"KSatisfiability","variant":{"k":"K3"}},
+                    "to":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
+                },{
+                    "from":{"name":"DecisionMinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}},
                     "to":{"name":"MinimumVertexCover","variant":{"graph":"SimpleGraph","weight":"i64"}}
                 }]}"#,
             ).unwrap();
-            let bundle = crate::commands::reduce::execute_route(
-                source,
-                route,
-                problemreductions::rules::ReductionMode::Witness,
-            )
-            .unwrap();
-            let replay =
-                BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Witness)
-                    .unwrap();
-            assert!(replay.extract_value(serde_json::json!(1)).is_err());
-            let aggregate =
-                BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Aggregate)
-                    .unwrap();
-            assert!(BundleReplay::prepare(
-                &bundle,
-                problemreductions::rules::ReductionMode::Turing
-            )
-            .is_err());
+            let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
+            let replay = BundleReplay::prepare(&bundle).unwrap();
+
             {
                 let source = ProblemJson {
                     problem_type: bundle.source.problem_type.clone(),
@@ -842,20 +819,14 @@ mod tests {
                         })
                         .collect(),
                 };
-                assert!(crate::commands::reduce::execute_route(
-                    source,
-                    route,
-                    problemreductions::rules::ReductionMode::Aggregate
-                )
-                .is_ok());
+                assert!(crate::commands::reduce::execute_aggregate_route(source, route).is_ok());
             }
             let result = replay.solve(SolverRequest::BruteForce).unwrap();
             let SolveOutcome::Optimal { solution, .. } = &result.target_outcome else {
                 panic!("vertex cover always has a feasible target solution")
             };
             assert_eq!(
-                aggregate
-                    .extract_value(replay.target.evaluate_json(solution).unwrap())
+                extract_bundle_value(&bundle, replay.target.evaluate_json(solution).unwrap())
                     .unwrap(),
                 serde_json::json!(feasible)
             );
@@ -891,26 +862,17 @@ mod tests {
             }]}"#,
         )
         .unwrap();
-        let bundle = crate::commands::reduce::execute_route(
-            source,
-            route,
-            problemreductions::rules::ReductionMode::Witness,
-        )
-        .unwrap();
+        let bundle = crate::commands::reduce::execute_route(source, route).unwrap();
         let encoded = serde_json::to_vec(&bundle).unwrap();
         let mut restored: ReductionBundle = serde_json::from_slice(&encoded).unwrap();
         assert_eq!(restored.source.data, bundle.source.data);
         assert_eq!(restored.target.data, bundle.target.data);
-        BundleReplay::prepare(&restored, problemreductions::rules::ReductionMode::Witness)
-            .expect("an unchanged JSON bundle must replay exactly");
+        BundleReplay::prepare(&restored).expect("an unchanged JSON bundle must replay exactly");
 
         // A one-ULP change remains tampering; replay must not use a float tolerance.
         let coefficient = restored.target.data["objective"][0][1].as_f64().unwrap();
         restored.target.data["objective"][0][1] = json!(f64::from_bits(coefficient.to_bits() + 1));
-        let error =
-            BundleReplay::prepare(&restored, problemreductions::rules::ReductionMode::Witness)
-                .err()
-                .unwrap();
+        let error = BundleReplay::prepare(&restored).err().unwrap();
         assert!(error
             .to_string()
             .contains("does not match the result of replaying"));

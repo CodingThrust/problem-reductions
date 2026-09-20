@@ -136,3 +136,29 @@ fn test_cvp_pruning_handles_nearly_parallel_integer_columns() {
             .unwrap();
     assert_eq!(solve(&problem).unwrap(), vec![-n - 2, n + 1]);
 }
+
+#[test]
+fn decision_cvp_uses_the_exact_optimum_and_bound() {
+    use crate::models::decision::Decision;
+    let key = ExactProblemKey::new(
+        Decision::<ClosestVectorProblem>::NAME,
+        BTreeMap::from([("target".to_string(), "i64".to_string())]),
+    );
+    let solver = crate::solvers::registry::solver_capability_registry()
+        .unwrap()
+        .lookup(&key)
+        .customized
+        .unwrap();
+    for (bound, expected) in [(-1, false), (0, false), (1, true), (2, true)] {
+        let problem = Decision::new(
+            ClosestVectorProblem::new(vec![vec![2]], vec![1]).unwrap(),
+            bound,
+        );
+        let solution = (solver.solve_fn)(&problem).unwrap();
+        assert_eq!(solution.is_some(), expected);
+        if let Some(solution) = solution {
+            let solution = serde_json::from_value(solution).unwrap();
+            assert!(problem.evaluate(&solution).unwrap().0);
+        }
+    }
+}

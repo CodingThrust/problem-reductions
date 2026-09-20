@@ -18,8 +18,9 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![-2, -3]), // ¬x2 ∨ ¬x3
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -35,8 +36,9 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 fn test_ksatisfiability_to_qubo_simple() {
     // 2 vars, 1 clause: (x1 ∨ x2) → 3 satisfying assignments
     let ksat = KSatisfiability::<K2>::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -59,8 +61,9 @@ fn test_ksatisfiability_to_qubo_contradiction() {
             CNFClause::new(vec![-1, -1]), // ¬x1 ∨ ¬x1 = ¬x1
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -80,8 +83,9 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
             CNFClause::new(vec![1, 2]),
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -98,8 +102,9 @@ fn test_ksatisfiability_to_qubo_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     // QUBO should have at least the original variables
     assert!(qubo.num_variables() >= ksat.num_vars());
@@ -120,8 +125,9 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
             CNFClause::new(vec![3, -4, -5]), // x3 ∨ ¬x4 ∨ ¬x5
         ],
     );
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     // QUBO should have 5 + 7 = 12 variables
     assert_eq!(qubo.num_variables(), 12);
@@ -142,8 +148,9 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 fn test_k3satisfiability_to_qubo_single_clause() {
     // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     // 3 vars + 1 auxiliary = 4 total
     assert_eq!(qubo.num_variables(), 4);
@@ -165,8 +172,9 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 fn test_k3satisfiability_to_qubo_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ksat).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -201,8 +209,12 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         1,
                         vec![CNFClause::new(a.clone()), CNFClause::new(b.clone())],
                     );
-                    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-                    let target = ReductionResult::target_problem(&reduction);
+                    let reduction =
+                        ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(
+                            &source,
+                        )
+                        .unwrap();
+                    let target = ReductionResult::target_problem(&reduction).inner();
                     let mut minimum = i64::MAX;
                     for mask in 0..(1 << target.num_vars()) {
                         let witness: Vec<_> = (0..target.num_vars())
@@ -226,9 +238,16 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                                 _ => unreachable!(),
                             };
                         }
-                        assert_eq!(energy - reduction.zero_penalty_energy, penalty);
+                        assert_eq!(energy - *reduction.target.bound(), penalty);
                         assert_eq!(
-                            AggregateReductionResult::extract_value(&reduction, Min(Some(energy))),
+                            AggregateReductionResult::extract_value(
+                                &reduction,
+                                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                                    &(Min(Some(energy))),
+                                    crate::rules::ReductionResult::target_problem(&reduction)
+                                        .bound()
+                                ))
+                            ),
                             Or(penalty == 0)
                         );
                         if penalty == 0 {
@@ -243,11 +262,23 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         .into_iter()
                         .any(|x| source.evaluate(&vec![x]).unwrap().0);
                     assert_eq!(
-                        AggregateReductionResult::extract_value(&reduction, Min(Some(minimum))),
+                        AggregateReductionResult::extract_value(
+                            &reduction,
+                            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                                &(Min(Some(minimum))),
+                                crate::rules::ReductionResult::target_problem(&reduction).bound()
+                            ))
+                        ),
                         Or(sat)
                     );
                     assert_eq!(
-                        AggregateReductionResult::extract_value(&reduction, Min(None)),
+                        AggregateReductionResult::extract_value(
+                            &reduction,
+                            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                                &(Min(None)),
+                                crate::rules::ReductionResult::target_problem(&reduction).bound()
+                            ))
+                        ),
                         Or(false)
                     );
                     assert!(reduction.extract_solution(&vec![]).is_err());
@@ -258,7 +289,9 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
             }
             for n in [0, 3] {
                 let source = KSatisfiability::<$k>::new(n, vec![]);
-                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+                let reduction =
+                    ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&source)
+                        .unwrap();
                 assert_eq!(
                     reduction.extract_solution(&vec![false; n]).unwrap(),
                     vec![false; n]
@@ -283,11 +316,11 @@ fn test_sat_qubo_checked_numeric_boundaries() {
     let k2 = KSatisfiability::<K2>::new(n, vec![]);
     let k3 = KSatisfiability::<K3>::new(n, vec![]);
     assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&k2),
+        ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&k2),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
     assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&k3),
+        ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&k3),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
 }
@@ -301,15 +334,17 @@ fn test_sat_qubo_registered_aggregate_threshold() {
                     1,
                     clauses.into_iter().map(CNFClause::new).collect(),
                 );
-                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-                let mut witness = vec![false; reduction.target.num_vars()];
+                let reduction =
+                    ReduceTo::<crate::models::decision::Decision<QUBO<i64>>>::reduce_to(&source)
+                        .unwrap();
+                let mut witness = vec![false; reduction.target.inner().num_vars()];
                 witness[0] = expected;
                 let entries = crate::rules::registry::reduction_entries();
                 let edge = entries
                     .iter()
                     .find(|e| {
                         e.source_name == "KSatisfiability"
-                            && e.target_name == "QUBO"
+                            && e.target_name == "DecisionQUBO"
                             && (e.source_variant_fn)() == KSatisfiability::<$k>::variant()
                             && (e.target_variant_fn)() == QUBO::<i64>::variant()
                     })

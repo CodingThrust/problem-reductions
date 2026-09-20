@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::graph::{HamiltonianPathBetweenTwoVertices, LongestPath};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
@@ -14,16 +14,19 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
         0,
         4,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+    let result =
+        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = result.target_problem();
+    let target = result.target_problem().inner();
 
     assert_eq!(target.num_vertices(), 5);
     assert_eq!(target.num_edges(), 6);
     assert_eq!(target.source_vertex(), 0);
     assert_eq!(target.target_vertex(), 4);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "HamiltonianPathBetweenTwoVertices->LongestPath closed loop",
@@ -38,10 +41,13 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_path_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+    let result =
+        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "HamiltonianPathBetweenTwoVertices->LongestPath path graph",
@@ -58,11 +64,14 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
         1,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+    let result =
+        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_best = solver
-        .solve(result.target_problem())
+        .solve(result.target_problem().inner())
         .unwrap()
         .expect("LongestPath should have some valid path");
 
@@ -82,10 +91,13 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+    let result =
+        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "HamiltonianPathBetweenTwoVertices->LongestPath complete K4",
@@ -100,14 +112,17 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
         0,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+    let result =
+        ReduceTo::<crate::models::decision::Decision<LongestPath<SimpleGraph, One>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = result.target_problem();
+    let target = result.target_problem().inner();
 
     assert_eq!(target.num_vertices(), 3);
     assert_eq!(target.num_edges(), 3);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
         "HamiltonianPathBetweenTwoVertices->LongestPath triangle",
@@ -137,9 +152,12 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                         start,
                         end,
                     );
-                    let reduction =
-                        ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source).unwrap();
-                    let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+                    let reduction = ReduceTo::<
+                        crate::models::decision::Decision<LongestPath<SimpleGraph, One>>,
+                    >::reduce_to(&source)
+                    .unwrap();
+                    let target =
+                        crate::rules::AggregateReductionResult::target_problem(&reduction).inner();
                     for mask in 0usize..(1 << edges.len()) {
                         let config: Vec<_> =
                             (0..edges.len()).map(|i| (mask >> i) & 1 == 1).collect();
@@ -147,7 +165,12 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                         let expected = value.0 == Some(n as i64 - 1);
                         assert_eq!(
                             crate::rules::AggregateReductionResult::extract_value(
-                                &reduction, value
+                                &reduction,
+                                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                                    &(value),
+                                    crate::rules::ReductionResult::target_problem(&reduction)
+                                        .bound()
+                                ))
                             )
                             .0,
                             expected

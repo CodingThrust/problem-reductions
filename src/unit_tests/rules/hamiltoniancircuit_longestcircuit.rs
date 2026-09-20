@@ -1,5 +1,5 @@
 use crate::models::graph::{HamiltonianCircuit, LongestCircuit};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
@@ -13,29 +13,46 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 
 #[test]
 fn test_hamiltoniancircuit_aggregate_requires_a_spanning_cycle() {
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&cycle4_hc()).unwrap();
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &cycle4_hc(),
+        )
+        .unwrap();
     for (value, expected) in [
         (Max(None), false),
         (Max(Some(3)), false),
         (Max(Some(4)), true),
     ] {
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                ))
+            ),
             crate::types::Or(expected),
         );
     }
     let short_cycle = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&short_cycle).unwrap();
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &short_cycle,
+        )
+        .unwrap();
     assert!(reduction.extract_solution(&vec![true; 3]).is_err());
 }
 
 #[test]
 fn test_hamiltoniancircuit_to_longestcircuit_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> LongestCircuit",
@@ -45,9 +62,12 @@ fn test_hamiltoniancircuit_to_longestcircuit_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_longestcircuit_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     // Same graph structure
     assert_eq!(target.graph().num_vertices(), 4);
@@ -61,9 +81,12 @@ fn test_hamiltoniancircuit_to_longestcircuit_structure() {
 fn test_hamiltoniancircuit_to_longestcircuit_nonhamiltonian() {
     // Star graph on 4 vertices: no Hamiltonian circuit
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let witness = solver.solve(target).unwrap();
@@ -86,9 +109,12 @@ fn test_hamiltoniancircuit_to_longestcircuit_nonhamiltonian() {
 #[test]
 fn test_hamiltoniancircuit_to_longestcircuit_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     // All edges selected forms a Hamiltonian circuit on the cycle graph
     let target_solution = vec![true, true, true, true];
@@ -114,9 +140,11 @@ fn test_hamiltoniancircuit_extraction_matches_all_small_target_configurations() 
                 .filter_map(|(i, &edge)| ((graph_mask >> i) & 1 == 1).then_some(edge))
                 .collect();
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
-            let reduction =
-                ReduceTo::<LongestCircuit<SimpleGraph, i64>>::reduce_to(&source).unwrap();
-            let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+            let reduction = ReduceTo::<
+                crate::models::decision::Decision<LongestCircuit<SimpleGraph, i64>>,
+            >::reduce_to(&source)
+            .unwrap();
+            let target = crate::rules::AggregateReductionResult::target_problem(&reduction).inner();
             for mask in 0usize..(1 << target.num_edges()) {
                 let config: Vec<_> = (0..target.num_edges())
                     .map(|i| (mask >> i) & 1 == 1)

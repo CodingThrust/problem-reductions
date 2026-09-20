@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::types::{Min, Or};
 
 fn decision_mds(
     n: usize,
@@ -16,8 +17,11 @@ fn decision_mds(
 #[test]
 fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
     let source = decision_mds(3, &[(0, 1), (1, 2)], 1);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<MinMaxMulticenter<SimpleGraph, One>>,
+    >::reduce_to(&source)
+    .unwrap();
+    let target = reduction.target_problem().inner();
     assert_eq!(target.num_vertices(), 5);
     assert_eq!(target.num_edges(), 2);
     assert_eq!(target.k(), 3);
@@ -31,15 +35,28 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
         );
     }
     let source = decision_mds(4, &[(0, 1), (1, 2), (2, 3)], 1);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<MinMaxMulticenter<SimpleGraph, One>>,
+    >::reduce_to(&source)
+    .unwrap();
     let witness = BruteForce::new()
-        .solve(reduction.target_problem())
+        .solve(reduction.target_problem().inner())
         .unwrap()
         .unwrap();
-    let optimum = reduction.target_problem().evaluate(&witness).unwrap();
+    let optimum = reduction
+        .target_problem()
+        .inner()
+        .evaluate(&witness)
+        .unwrap();
     assert_eq!(optimum, Min(Some(2)));
     assert_eq!(
-        crate::rules::AggregateReductionResult::extract_value(&reduction, optimum),
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &(optimum),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            ))
+        ),
         Or(false)
     );
     assert!(reduction.extract_solution(&witness).is_err());
@@ -58,9 +75,11 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
             let n_i64 = i64::try_from(n).unwrap();
             for bound in [i64::MIN, -1, 0, 1, n_i64, n_i64 + 1, i64::MAX] {
                 let source = decision_mds(n, &edges, bound);
-                let reduction =
-                    ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
-                let target = reduction.target_problem();
+                let reduction = ReduceTo::<
+                    crate::models::decision::Decision<MinMaxMulticenter<SimpleGraph, One>>,
+                >::reduce_to(&source)
+                .unwrap();
+                let target = reduction.target_problem().inner();
                 assert_eq!(target.graph().edges(), edges);
                 assert_eq!(target.num_vertices(), n + 2);
                 assert_eq!(target.vertex_weights(), vec![One; n + 2]);
@@ -101,7 +120,13 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
                     }
                 }
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, Min(optimum)),
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                            &(Min(optimum)),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        ))
+                    ),
                     Or(source_yes)
                 );
             }
@@ -112,7 +137,10 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
 #[test]
 fn test_multicenter_duplicate_edges_and_malformed_witness() {
     let source = decision_mds(3, &[(0, 0), (0, 1), (0, 1)], 2);
-    let reduction = ReduceTo::<MinMaxMulticenter<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<MinMaxMulticenter<SimpleGraph, One>>,
+    >::reduce_to(&source)
+    .unwrap();
     let witness = vec![true, false, true, true, true];
     assert_eq!(
         reduction.extract_solution(&witness).unwrap(),
@@ -122,7 +150,13 @@ fn test_multicenter_duplicate_edges_and_malformed_witness() {
         assert!(reduction.extract_solution(&bad).is_err());
     }
     assert_eq!(
-        crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None)),
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &(Min(None)),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            ))
+        ),
         Or(false)
     );
 }

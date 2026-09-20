@@ -1,6 +1,6 @@
 use crate::models::graph::HamiltonianCircuit;
 use crate::models::misc::StackerCrane;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
@@ -15,9 +15,10 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> StackerCrane",
@@ -27,8 +28,9 @@ fn test_hamiltoniancircuit_to_stackercrane_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // 4 vertices -> 8 target vertices (2 per original vertex)
     assert_eq!(target.num_vertices(), 8);
@@ -51,8 +53,9 @@ fn test_hamiltoniancircuit_to_stackercrane_structure() {
 fn test_hamiltoniancircuit_to_stackercrane_optimal_cost() {
     // A 4-cycle has a Hamiltonian circuit; optimal StackerCrane cost = 2n = 8.
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let witness = BruteForce::new()
         .solve(target)
@@ -67,8 +70,9 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
     // Star graph on 4 vertices: no Hamiltonian circuit.
     // The optimal StackerCrane cost should exceed 2n = 8.
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let witness = BruteForce::new().solve(target).unwrap();
     match witness {
@@ -88,7 +92,8 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // The identity permutation [0, 1, 2, 3] traverses arcs in order,
     // corresponding to vertex order 0, 1, 2, 3 in the original graph.
@@ -118,9 +123,10 @@ fn test_hamiltoniancircuit_to_stackercrane_prism_graph() {
         (2, 5),
     ];
     let source = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
-    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> StackerCrane (prism graph)",
@@ -140,8 +146,10 @@ fn test_stackercrane_certificate_for_all_small_configurations() {
                 .filter_map(|(i, &e)| ((mask >> i) & 1 == 1).then_some(e))
                 .collect();
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
-            let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).unwrap();
-            let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+            let reduction =
+                ReduceTo::<crate::models::decision::Decision<StackerCrane>>::reduce_to(&source)
+                    .unwrap();
+            let target = crate::rules::AggregateReductionResult::target_problem(&reduction).inner();
             // All coordinate configurations, including repeated arc indices.
             for mut code in 0..n.pow(n as u32) {
                 let config: Vec<_> = (0..n)
@@ -154,7 +162,14 @@ fn test_stackercrane_certificate_for_all_small_configurations() {
                 let expected = source.evaluate(&config).unwrap().0;
                 let value = target.evaluate(&config).unwrap();
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                            &(value),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        ))
+                    )
+                    .0,
                     expected
                 );
                 let decoded = reduction.extract_solution(&config);

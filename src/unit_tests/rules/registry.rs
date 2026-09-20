@@ -41,7 +41,9 @@ fn registered_executors_preserve_construction_errors() {
     let source = Partition::new(vec![1_i64 << 61, 1_i64 << 61]).unwrap();
     let entry = reduction_entries()
         .into_iter()
-        .find(|entry| entry.source_name == "Partition" && entry.target_name == "OpenShopScheduling")
+        .find(|entry| {
+            entry.source_name == "Partition" && entry.target_name == "DecisionOpenShopScheduling"
+        })
         .unwrap();
     let witness_error = entry.reduce_fn.unwrap()(&source).err().unwrap();
     let aggregate_error = entry.reduce_aggregate_fn.unwrap()(&source).err().unwrap();
@@ -50,7 +52,7 @@ fn registered_executors_preserve_construction_errors() {
             error,
             crate::rules::ReductionError::Construction {
                 source_problem: "Partition",
-                target_problem: "OpenShopScheduling",
+                target_problem: "DecisionOpenShopScheduling",
                 cause: crate::registry::ConstructionError::IntegerOverflow(_),
             }
         ));

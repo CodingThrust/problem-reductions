@@ -416,3 +416,54 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/min_max_multicenter.rs"]
 mod tests;
+
+crate::decision_problem_meta!(MinMaxMulticenter<SimpleGraph, One>, "DecisionMinMaxMulticenter");
+crate::register_decision_variant!(
+    MinMaxMulticenter<SimpleGraph, One>, "DecisionMinMaxMulticenter", "1.4969^num_vertices", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "One", &["One"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "k", type_name: "usize", description: "" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_min_max_multicenter_to_min_max_multicenter",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                MinMaxMulticenter::new(
+                    SimpleGraph::new(
+                        6,
+                        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)],
+                    ),
+                    vec![crate::types::One; 6],
+                    vec![crate::types::One; 7],
+                    2,
+                ),
+                1,
+            );
+            let witness = serde_json::json!(vec![false, true, false, false, true, false]);
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MinMaxMulticenter<SimpleGraph, One>,
+            >(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

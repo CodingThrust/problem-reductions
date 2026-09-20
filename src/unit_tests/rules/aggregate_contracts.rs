@@ -34,9 +34,9 @@ fn decision_graph_encodings_preserve_small_and_native_graph_cases() {
         check_decision::<_, StrongConnectivityAugmentation<i64>>(&HamiltonianCircuit::new(
             graph.clone(),
         ));
-        check_decision::<_, RuralPostman<SimpleGraph, i64>>(&HamiltonianCircuit::new(
-            graph.clone(),
-        ));
+        check_decision::<_, crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>(
+            &HamiltonianCircuit::new(graph.clone()),
+        );
         check_decision::<_, Clustering>(&KColoring::<K3, _>::new(graph.clone()));
         check_decision::<_, PartitionIntoCliques<SimpleGraph>>(&KColoring::<KN, _>::with_k(
             graph.clone(),
@@ -243,7 +243,9 @@ fn sat_cover_threshold_supports_short_and_empty_clauses() {
             1,
             clauses.into_iter().map(CNFClause::new).collect(),
         );
-        check_decision::<_, MinimumVertexCover<SimpleGraph, i64>>(&source);
+        check_decision::<_, crate::models::decision::Decision<MinimumVertexCover<SimpleGraph, i64>>>(
+            &source,
+        );
         check_decision::<_, crate::models::graph::KClique<SimpleGraph>>(&source);
         check_decision::<_, crate::models::graph::Kernel>(&source);
         check_decision::<_, crate::models::misc::SubsetSum>(&source);

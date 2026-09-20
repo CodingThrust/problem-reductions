@@ -426,11 +426,7 @@ impl McpServer {
     pub fn reduce_inner(&self, problem_json: &str, path_json: &str) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let reduction_path = crate::commands::reduce::parse_path_json(path_json)?;
-        let bundle = crate::commands::reduce::execute_route(
-            pj,
-            reduction_path,
-            problemreductions::rules::ReductionMode::Witness,
-        )?;
+        let bundle = crate::commands::reduce::execute_route(pj, reduction_path)?;
         Ok(serde_json::to_string_pretty(&bundle)?)
     }
 
@@ -701,7 +697,7 @@ fn solve_problem_inner(
 
 /// Solve a reduction bundle: solve the target, then map the solution back.
 fn solve_bundle_inner(bundle: ReductionBundle, request: SolverRequest) -> anyhow::Result<String> {
-    let replay = BundleReplay::prepare(&bundle, problemreductions::rules::ReductionMode::Witness)?;
+    let replay = BundleReplay::prepare(&bundle)?;
     Ok(serde_json::to_string_pretty(
         &replay.solve(request)?.to_json(),
     )?)

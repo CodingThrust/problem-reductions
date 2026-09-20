@@ -25,6 +25,34 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+fn extract_target_result(
+    bundle: &std::path::Path,
+    result: serde_json::Value,
+) -> std::process::Output {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = pred()
+        .args([
+            "extract",
+            bundle.to_str().unwrap(),
+            "--result",
+            "-",
+            "--json",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(result.to_string().as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
     let command = pred()
         .args(["path", source, target, "--limit", "all", "--json"])
@@ -137,7 +165,7 @@ fn test_list_json_respects_category_filter() {
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let variants = json["variants"].as_array().unwrap();
-    assert_eq!(json["num_types"], 9);
+    assert_eq!(json["num_types"], 10);
     assert!(variants
         .iter()
         .all(|variant| variant["name"] != "MaximumIndependentSet"));
@@ -9652,6 +9680,44 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
         let expected = if bound == 1 { "infeasible" } else { "optimal" };
         assert_eq!(solved["status"], expected);
 
+        let target_file = dir.join("target.json");
+        let bundle_json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&bundle).unwrap()).unwrap();
+        std::fs::write(&target_file, bundle_json["target"].to_string()).unwrap();
+        let target_solve = pred()
+            .args([
+                "solve",
+                target_file.to_str().unwrap(),
+                "--solver",
+                "brute-force",
+                "-o",
+                result.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            target_solve.status.success(),
+            "{}",
+            String::from_utf8_lossy(&target_solve.stderr)
+        );
+        let recovered = pred()
+            .args([
+                "extract",
+                bundle.to_str().unwrap(),
+                "--result",
+                result.to_str().unwrap(),
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            recovered.status.success(),
+            "{}",
+            String::from_utf8_lossy(&recovered.stderr)
+        );
+        let recovered: serde_json::Value = serde_json::from_slice(&recovered.stdout).unwrap();
+        assert_eq!(recovered["status"], expected);
+
         let numerical = pred()
             .args([
                 "solve",
@@ -9699,36 +9765,42 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
             let recovered: serde_json::Value = serde_json::from_slice(&extracted.stdout).unwrap();
             assert_eq!(recovered["status"], expected);
         }
-        let value = pred()
-            .args([
-                "extract",
-                bundle.to_str().unwrap(),
-                "--value",
-                "2",
-                "--json",
-            ])
-            .output()
-            .unwrap();
+        let value =
+            extract_target_result(&bundle, serde_json::json!({"status":"complete","value":2}));
         assert!(
             value.status.success(),
             "{}",
             String::from_utf8_lossy(&value.stderr)
         );
         let value: serde_json::Value = serde_json::from_slice(&value.stdout).unwrap();
-        assert_eq!(value["aggregate"], json!(bound == 2));
-        let candidate = pred()
-            .args([
-                "extract",
-                bundle.to_str().unwrap(),
-                "--config",
-                "[true,true,false]",
-                "--json",
-            ])
-            .output()
-            .unwrap();
+        assert_eq!(value["status"], "complete");
+        assert_eq!(value["value"], json!(bound == 2));
+        let candidate = extract_target_result(
+            &bundle,
+            serde_json::json!({"status":"feasible","solution":[true,true,false],"evaluation":"Min(2)"}),
+        );
         assert_eq!(candidate.status.success(), bound == 2);
+        if bound == 2 {
+            let recovered: serde_json::Value = serde_json::from_slice(&candidate.stdout).unwrap();
+            assert_eq!(recovered["status"], "feasible");
+            assert_eq!(recovered["evaluation"], "Or(true)");
+        }
     }
     for invalid in [
+        json!({"solution":[true,true,false]}),
+        json!({"value":2}),
+        json!({"status":"feasible"}),
+        json!({"status":"feasible", "solution":[true,true,false], "value":2}),
+        json!({"status":"feasible", "solution":[true,true,false], "evaluation":"Min(99)"}),
+        json!({"status":"feasible", "solution":[true,true,false], "evaluation":null}),
+        json!({"status":"optimal", "solution":[true,true,false], "value":2}),
+        json!({"status":"infeasible", "solution":[true,true,false]}),
+        json!({"status":"infeasible", "value":2}),
+        json!({"status":"complete"}),
+        json!({"status":"complete", "value":2, "solution":[true,true,false]}),
+        json!({"status":"complete", "value":2, "evaluation":"Min(2)"}),
+        json!({"status":"complete", "value":true}),
+        json!({"status":"complete", "value":2, "unexpected":true}),
         json!({"status":"optimal", "solution":[true,true,false], "evaluation":"Min(99)"}),
         json!({"status":"optimal", "solution":[true,true,false], "evaluation":99}),
         json!({"status":"optimal", "solution":[true,true,false], "evaluation":null}),
@@ -9861,16 +9933,10 @@ fn test_extract_roundtrip_mis_to_qubo() {
     // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
-    let extract_out = pred()
-        .args([
-            "--json",
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &bundle_file,
+        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap()}),
+    );
     assert!(
         extract_out.status.success(),
         "extract stderr: {}",
@@ -9947,15 +10013,10 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            "[false,false,false,false,false,false,false,false,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &bundle_file,
+        serde_json::json!({"status":"feasible","solution":[false,false,false,false,false,false,false,false,false]}),
+    );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -9984,15 +10045,10 @@ fn test_extract_rejects_plain_problem_file() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            problem_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &problem_file,
+        serde_json::json!({"status":"feasible","solution":[false,true,false]}),
+    );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10033,15 +10089,10 @@ fn test_extract_rejects_wrong_config_length() {
         &bundle_file,
     );
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            "[false,true]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &bundle_file,
+        serde_json::json!({"status":"feasible","solution":[false,true]}),
+    );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10090,15 +10141,10 @@ fn test_extract_rejects_non_boolean_solution_value() {
     bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
     let bad_cfg = bad_cfg.to_string();
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            &bad_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &bundle_file,
+        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&bad_cfg).unwrap()}),
+    );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10150,15 +10196,10 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            tampered_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &tampered_file,
+        serde_json::json!({"status":"feasible","solution":[false,true,false]}),
+    );
     assert!(
         !extract_out.status.success(),
         "expected failure on malformed bundle; stdout: {}",
@@ -10220,15 +10261,10 @@ fn test_extract_rejects_tampered_target_data() {
     // Any config long enough to reach the coherence check; it must fail before
     // config validation kicks in because prepare() runs first.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
-    let extract_out = pred()
-        .args([
-            "extract",
-            tampered_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_result(
+        &tampered_file,
+        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap()}),
+    );
     assert!(
         !extract_out.status.success(),
         "expected failure on tampered target.data; stdout: {}",
@@ -10298,8 +10334,18 @@ fn test_extract_reads_bundle_from_stdin() {
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
 
+    let result_file = bundle_file.with_extension("result.json");
+    std::fs::write(&result_file, serde_json::json!({
+        "status":"feasible", "solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap(),
+    }).to_string()).unwrap();
     let mut child = pred()
-        .args(["--json", "extract", "-", "--config", &target_cfg])
+        .args([
+            "--json",
+            "extract",
+            "-",
+            "--result",
+            result_file.to_str().unwrap(),
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -10312,6 +10358,7 @@ fn test_extract_reads_bundle_from_stdin() {
         .write_all(bundle_text.as_bytes())
         .unwrap();
     let output = child.wait_with_output().unwrap();
+    std::fs::remove_file(&result_file).unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",

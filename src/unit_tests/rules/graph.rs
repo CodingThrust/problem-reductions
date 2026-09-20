@@ -131,6 +131,7 @@ fn solution_and_aggregate_chains_map_values_through_multiple_steps() {
         steps: vec![
             problem_step::<Satisfiability>(),
             problem_step::<NAESatisfiability>(),
+            problem_step::<crate::models::decision::Decision<MaxCut<SimpleGraph, i64>>>(),
             problem_step::<MaxCut<SimpleGraph, i64>>(),
         ],
     };
@@ -1215,7 +1216,8 @@ fn test_find_direct_path_variants() {
     assert!(graph
         .find_all_paths("Factoring", &src, "SpinGlass", &dst)
         .iter()
-        .any(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"]));
+        .any(|path| path.type_names()
+            == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]));
 }
 
 #[test]
@@ -1336,13 +1338,13 @@ fn test_sat_based_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, One>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, crate::models::decision::Decision<MaximumIndependentSet<SimpleGraph, One>>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
 
     // SAT -> MinimumDominatingSet
-    assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i64>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, crate::models::decision::Decision<MinimumDominatingSet<SimpleGraph, i64>>>());
 }
 
 #[test]
@@ -1357,7 +1359,7 @@ fn test_circuit_reductions() {
     assert!(graph.has_direct_reduction::<Factoring, CircuitSAT>());
 
     // CircuitSAT -> SpinGlass
-    assert!(graph.has_direct_reduction::<CircuitSAT, SpinGlass<SimpleGraph, i64>>());
+    assert!(graph.has_direct_reduction::<CircuitSAT, crate::models::decision::Decision<SpinGlass<SimpleGraph, i64>>>());
 
     // Find path from Factoring to SpinGlass<SimpleGraph, i64>
     let src = ReductionGraph::variant_to_map(&Factoring::variant());
@@ -1366,7 +1368,8 @@ fn test_circuit_reductions() {
     assert!(!paths.is_empty());
     assert!(paths
         .iter()
-        .any(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"]));
+        .any(|path| path.type_names()
+            == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]));
 }
 
 #[test]
@@ -1402,7 +1405,7 @@ fn test_ksat_reductions() {
 fn test_nae_sat_to_maxcut_reduction_registered() {
     let graph = ReductionGraph::new();
 
-    assert!(graph.has_direct_reduction::<NAESatisfiability, MaxCut<SimpleGraph, i64>>());
+    assert!(graph.has_direct_reduction::<NAESatisfiability, crate::models::decision::Decision<MaxCut<SimpleGraph, i64>>>());
 }
 
 #[test]
@@ -1848,9 +1851,14 @@ fn test_reduction_chain_with_variant_reductions() {
         )
         .into_iter()
         .find(|path| {
-            path.len() == 4
+            path.len() == 5
                 && path.type_names()
-                    == ["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
+                    == [
+                        "KSatisfiability",
+                        "Satisfiability",
+                        "DecisionMaximumIndependentSet",
+                        "MaximumIndependentSet",
+                    ]
         })
         .expect("explicit SAT route");
 

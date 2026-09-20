@@ -65,7 +65,6 @@ pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
 pub(crate) mod ksatisfiability_feasibleregisterassignment;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
-pub(crate) mod ksatisfiability_minimumvertexcover;
 pub(crate) mod ksatisfiability_monochromatictriangle;
 pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
@@ -352,7 +351,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
-    specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_monochromatictriangle::canonical_rule_example_specs());
     specs.extend(ksatisfiability_oneinthreesatisfiability::canonical_rule_example_specs());
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
@@ -448,6 +446,33 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
     specs.extend(subsetsum_partition::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
+    specs.extend(
+        crate::models::algebraic::closest_vector_problem::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::algebraic::quadratic_assignment::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::algebraic::qubo::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::formula::maximum_2_satisfiability::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::longest_circuit::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::longest_path::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::max_cut::decision_canonical_rule_example_specs());
+    specs
+        .extend(crate::models::graph::min_max_multicenter::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::graph::minimum_covering_by_cliques::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::graph::minimum_sum_multicenter::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::rural_postman::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::spin_glass::decision_canonical_rule_example_specs());
+    specs
+        .extend(crate::models::misc::open_shop_scheduling::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::sequencing_to_minimize_tardy_task_weight::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::stacker_crane::decision_canonical_rule_example_specs());
     specs.extend(
         crate::models::graph::minimum_vertex_cover::decision_canonical_rule_example_specs(),
     );

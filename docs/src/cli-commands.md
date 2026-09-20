@@ -93,10 +93,25 @@ For a problem file, JSON inspection includes `parameter_values`, the model's act
 pred path MIS QUBO --json -o paths.json
 python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
 pred reduce problem.json --via path.json -o reduced.json
-pred extract reduced.json --config '[1,0,1,0]'
+pred extract reduced.json --result target-result.json -o source-result.json
 ```
 
-The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input. `extract` maps a target-space configuration back to the source.
+The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input.
+
+`extract` accepts the target problem's `pred solve` JSON output directly, or an
+external result with an explicit `status`:
+
+| Result | JSON |
+| --- | --- |
+| Feasible solution, not necessarily optimal | `{"status":"feasible","solution":[true,false]}` |
+| Optimal solution | `{"status":"optimal","solution":[true,false]}` |
+| No solution | `{"status":"infeasible"}` |
+| Complete count or determined objective value | `{"status":"complete","value":12}` |
+
+An optional `evaluation` must match the supplied solution. Value-only results
+require value mappings along the entire route and return no witness. Conflicting
+fields or unsupported mappings are errors. Extraction runs no solver and does
+not establish optimality or infeasibility.
 
 ## Solve
 

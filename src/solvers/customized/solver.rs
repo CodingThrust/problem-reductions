@@ -99,6 +99,17 @@ register_customized_solver!(
 );
 
 register_customized_solver!(
+    crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem>,
+    "cvp-sphere-enumeration",
+    |problem: &crate::models::decision::Decision<
+        crate::models::algebraic::ClosestVectorProblem,
+    >| {
+        let solution = super::closest_vector_problem::solve(problem.inner())?;
+        Ok(problem.evaluate(&solution)?.0.then_some(solution))
+    }
+);
+
+register_customized_solver!(
     crate::models::graph::KColoring<crate::variant::K2, SimpleGraph>,
     "bipartite-coloring",
     |problem| Ok(solve_two_coloring(problem))

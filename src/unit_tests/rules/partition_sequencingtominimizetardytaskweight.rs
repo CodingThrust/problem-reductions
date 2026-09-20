@@ -1,7 +1,7 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use crate::models::misc::{Partition, SequencingToMinimizeTardyTaskWeight};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
@@ -11,10 +11,12 @@ use crate::types::Min;
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_closed_loop() {
     let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
-        .expect("reduction should succeed");
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+    >::reduce_to(&source)
+    .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "Partition -> SequencingToMinimizeTardyTaskWeight closed loop",
@@ -24,9 +26,11 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_closed_loop() {
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_structure() {
     let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
-        .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+    >::reduce_to(&source)
+    .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     assert_eq!(target.lengths(), &[3, 1, 1, 2, 2, 1]);
     assert_eq!(target.weights(), &[3, 1, 1, 2, 2, 1]);
@@ -37,8 +41,10 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_structure() {
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution() {
     let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
-        .expect("reduction should succeed");
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+    >::reduce_to(&source)
+    .expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&vec![1, 2, 4, 5, 0, 3]).unwrap(),
@@ -49,9 +55,11 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution()
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsatisfying() {
     let source = Partition::new(vec![2, 4, 5]).unwrap();
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
-        .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<
+        crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+    >::reduce_to(&source)
+    .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
     let best = BruteForce::new()
         .solve(target)
         .unwrap()
@@ -61,7 +69,10 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsat
     assert!(
         !crate::rules::AggregateReductionResult::extract_value(
             &reduction,
-            target.evaluate(&best).unwrap()
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &(target.evaluate(&best).unwrap()),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            ))
         )
         .0
     );
@@ -80,18 +91,18 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
     assert_eq!(example.source.problem, "Partition");
     assert_eq!(
         example.target.problem,
-        "SequencingToMinimizeTardyTaskWeight"
+        "DecisionSequencingToMinimizeTardyTaskWeight"
     );
     assert_eq!(
-        example.target.instance["lengths"],
+        example.target.instance["inner"]["lengths"],
         serde_json::json!([3, 1, 1, 2, 2, 1])
     );
     assert_eq!(
-        example.target.instance["weights"],
+        example.target.instance["inner"]["weights"],
         serde_json::json!([3, 1, 1, 2, 2, 1])
     );
     assert_eq!(
-        example.target.instance["deadlines"],
+        example.target.instance["inner"]["deadlines"],
         serde_json::json!([5, 5, 5, 5, 5, 5])
     );
     assert_eq!(example.solutions.len(), 1);
@@ -106,7 +117,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
 
     let source: Partition = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");
-    let target: SequencingToMinimizeTardyTaskWeight =
+    let target: crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight> =
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
@@ -130,9 +141,11 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 })
                 .collect();
             let source = Partition::new(sizes).unwrap();
-            let reduction =
-                ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source).unwrap();
-            let target = crate::rules::AggregateReductionResult::target_problem(&reduction);
+            let reduction = ReduceTo::<
+                crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+            >::reduce_to(&source)
+            .unwrap();
+            let target = crate::rules::AggregateReductionResult::target_problem(&reduction).inner();
             let source_feasible = (0..1usize << n).any(|mask| {
                 let bits = (0..n).map(|i| mask & (1 << i) != 0).collect();
                 source.evaluate(&bits).unwrap().0
@@ -150,8 +163,14 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 if let Some(weight) = value.0 {
                     optimum = optimum.min(weight);
                 }
-                let certified =
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, value).0;
+                let certified = crate::rules::AggregateReductionResult::extract_value(
+                    &reduction,
+                    crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                        &(value),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound(),
+                    )),
+                )
+                .0;
                 let extracted = reduction.extract_solution(&schedule);
                 assert_eq!(extracted.is_ok(), certified);
                 if let Ok(bits) = extracted {
@@ -161,7 +180,10 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
             assert_eq!(
                 crate::rules::AggregateReductionResult::extract_value(
                     &reduction,
-                    Min(Some(optimum)),
+                    crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                        &(Min(Some(optimum))),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound()
+                    ))
                 )
                 .0,
                 source_feasible
@@ -171,7 +193,14 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 .extract_solution(&vec![n as usize; n as usize])
                 .is_err());
             assert!(
-                !crate::rules::AggregateReductionResult::extract_value(&reduction, Min(None),).0
+                !crate::rules::AggregateReductionResult::extract_value(
+                    &reduction,
+                    crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                        &(Min(None)),
+                        crate::rules::ReductionResult::target_problem(&reduction).bound()
+                    ))
+                )
+                .0
             );
         }
     }
@@ -187,12 +216,25 @@ fn test_partition_to_tardy_weight_full_i64_domain() {
         (vec![half - 1, half - 1, 1, 1], vec![0, 2, 1, 3], half, true),
     ] {
         let source = Partition::new(sizes).unwrap();
-        let reduction =
-            ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source).unwrap();
-        let value = reduction.target_problem().evaluate(&schedule).unwrap();
+        let reduction = ReduceTo::<
+            crate::models::decision::Decision<SequencingToMinimizeTardyTaskWeight>,
+        >::reduce_to(&source)
+        .unwrap();
+        let value = reduction
+            .target_problem()
+            .inner()
+            .evaluate(&schedule)
+            .unwrap();
         assert_eq!(value, Min(Some(expected)));
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
+            crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                ))
+            )
+            .0,
             balanced
         );
         let extracted = reduction.extract_solution(&schedule);

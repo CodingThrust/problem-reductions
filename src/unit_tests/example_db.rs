@@ -973,7 +973,7 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
         variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),
     };
     let target = ProblemRef {
-        name: "MinimumVertexCover".to_string(),
+        name: "DecisionMinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -981,7 +981,7 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "KSatisfiability");
-    assert_eq!(example.target.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "DecisionMinimumVertexCover");
 }
 
 #[test]
@@ -1057,12 +1057,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_stackercrane() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "StackerCrane".to_string(),
+        name: "DecisionStackerCrane".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "StackerCrane");
+    assert_eq!(example.target.problem, "DecisionStackerCrane");
 }
 
 #[test]
@@ -1072,7 +1072,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "RuralPostman".to_string(),
+        name: "DecisionRuralPostman".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1080,7 +1080,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "RuralPostman");
+    assert_eq!(example.target.problem, "DecisionRuralPostman");
 }
 
 #[test]
@@ -1108,12 +1108,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "QuadraticAssignment".to_string(),
+        name: "DecisionQuadraticAssignment".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "QuadraticAssignment");
+    assert_eq!(example.target.problem, "DecisionQuadraticAssignment");
 }
 
 // PR #804 rules
@@ -1179,7 +1179,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "LongestCircuit".to_string(),
+        name: "DecisionLongestCircuit".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1187,7 +1187,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "LongestCircuit");
+    assert_eq!(example.target.problem, "DecisionLongestCircuit");
 }
 
 #[test]
@@ -1343,7 +1343,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
         variant: BTreeMap::new(),
     };
     let target = ProblemRef {
-        name: "MaxCut".to_string(),
+        name: "DecisionMaxCut".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1351,7 +1351,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "NAESatisfiability");
-    assert_eq!(example.target.problem, "MaxCut");
+    assert_eq!(example.target.problem, "DecisionMaxCut");
 }
 
 #[test]

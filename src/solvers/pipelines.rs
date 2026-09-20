@@ -125,6 +125,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DecisionMinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "One")]),
+    ("DecisionMinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
@@ -205,6 +206,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("HamiltonianCircuit", [("graph", "SimpleGraph")]),
+    ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }

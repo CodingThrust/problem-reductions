@@ -246,3 +246,52 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/quadratic_assignment.rs"]
 mod tests;
+
+crate::decision_problem_meta!(QuadraticAssignment, "DecisionQuadraticAssignment");
+crate::register_decision_variant!(
+    QuadraticAssignment, "DecisionQuadraticAssignment", "factorial(num_facilities)", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Algebraic,
+    dims: [],
+    fields: [
+        crate::registry::FieldInfo { name: "cost_matrix", type_name: "Vec<Vec<i64>>", description: "Flow/cost matrix between facilities" },
+        crate::registry::FieldInfo { name: "distance_matrix", type_name: "Vec<Vec<i64>>", description: "Distance matrix between locations" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_quadratic_assignment_to_quadratic_assignment",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                QuadraticAssignment::new(
+                    vec![
+                        vec![0, 5, 2, 0],
+                        vec![5, 0, 0, 3],
+                        vec![2, 0, 0, 4],
+                        vec![0, 3, 4, 0],
+                    ],
+                    vec![
+                        vec![0, 4, 1, 1],
+                        vec![4, 0, 3, 4],
+                        vec![1, 3, 0, 4],
+                        vec![1, 4, 4, 0],
+                    ],
+                ),
+                56,
+            );
+            let witness = serde_json::json!(vec![3, 0, 1, 2]);
+            crate::example_db::specs::rule_example_with_witness::<_, QuadraticAssignment>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

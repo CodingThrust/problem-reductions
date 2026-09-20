@@ -338,7 +338,10 @@ its witness representation remain model constraints.
 
 ### Result mappings
 
-Rules follow mathematical contracts, without mandatory category tags:
+Rules follow mathematical contracts, without mandatory category tags.
+When a target asks whether an objective meets a bound, construct `Decision<P>`:
+the target owns the bound and evaluates the predicate; the rule only decodes
+YES witnesses and maps completed `Or` answers identically.
 
 | Reduction | Completed-result workflow | Example |
 | --- | --- | --- |

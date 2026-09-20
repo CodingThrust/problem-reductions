@@ -56,7 +56,7 @@ fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
                 variant: ReductionGraph::variant_to_map(&KColoring::<KN, SimpleGraph>::variant()),
             },
             ReductionStep {
-                name: QUBO::<i64>::NAME.to_string(),
+                name: Decision::<QUBO<i64>>::NAME.to_string(),
                 variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
             },
         ],
@@ -151,7 +151,7 @@ fn test_reduction_graph_discovers_registered_reductions() {
     // Specific reductions should exist
     assert!(graph.has_direct_reduction_by_name("MaximumIndependentSet", "MinimumVertexCover"));
     assert!(graph.has_direct_reduction_by_name("MaxCut", "SpinGlass"));
-    assert!(graph.has_direct_reduction_by_name("Satisfiability", "MaximumIndependentSet"));
+    assert!(graph.has_direct_reduction_by_name("Satisfiability", "DecisionMaximumIndependentSet"));
 }
 
 #[test]
@@ -197,12 +197,14 @@ fn test_multi_step_path() {
     let path = graph
         .find_all_paths("Factoring", &src, "SpinGlass", &dst)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route should exist");
-    assert_eq!(path.len(), 2, "Should be a 2-step path");
+    assert_eq!(path.len(), 3, "Should include the explicit decision target");
     assert_eq!(
         path.type_names(),
-        vec!["Factoring", "CircuitSAT", "SpinGlass"]
+        vec!["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
     );
 }
 
@@ -416,7 +418,9 @@ fn test_reduction_path_display() {
     let path = graph
         .find_all_paths("Factoring", &src_var, "SpinGlass", &dst_var)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route");
 
     let s = format!("{path}");
@@ -900,15 +904,15 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
 
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >(ReductionMode::Aggregate));
     assert!(!graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinMaxMulticenter<SimpleGraph, One>,
+        Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >(ReductionMode::Turing));
     let entries = crate::rules::registry::reduction_entries();
     let variant = Decision::<MinimumDominatingSet<SimpleGraph, One>>::variant();
@@ -916,7 +920,7 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
         .iter()
         .find(|e| {
             e.source_name == "DecisionMinimumDominatingSet"
-                && e.target_name == "MinMaxMulticenter"
+                && e.target_name == "DecisionMinMaxMulticenter"
                 && (e.source_variant_fn)() == variant
                 && (e.target_variant_fn)() == variant
         })
@@ -944,15 +948,15 @@ fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_wi
 
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     >(ReductionMode::Witness));
     assert!(graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     >(ReductionMode::Aggregate));
     assert!(!graph.has_direct_reduction_mode::<
         Decision<MinimumDominatingSet<SimpleGraph, One>>,
-        MinimumSumMulticenter<SimpleGraph, i64>,
+        Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     >(ReductionMode::Turing));
 }
 
