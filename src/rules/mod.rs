@@ -271,7 +271,6 @@ pub(crate) mod shortestweightconstrainedpath_ilp;
 pub(crate) mod sparsematrixcompression_ilp;
 pub(crate) mod stackercrane_ilp;
 pub(crate) mod steinertree_ilp;
-pub(crate) mod steinertreeingraphs_ilp;
 pub(crate) mod stringtostringcorrection_ilp;
 pub(crate) mod strongconnectivityaugmentation_ilp;
 pub(crate) mod subgraphisomorphism_ilp;
@@ -571,7 +570,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(sparsematrixcompression_ilp::canonical_rule_example_specs());
         specs.extend(stackercrane_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
-        specs.extend(steinertreeingraphs_ilp::canonical_rule_example_specs());
         specs.extend(stringtostringcorrection_ilp::canonical_rule_example_specs());
         specs.extend(strongconnectivityaugmentation_ilp::canonical_rule_example_specs());
         specs.extend(subgraphisomorphism_ilp::canonical_rule_example_specs());
