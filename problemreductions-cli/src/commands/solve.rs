@@ -87,27 +87,23 @@ pub fn solve(
     let timeout_seconds =
         u64::try_from(timeout).map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
 
+    let run = move |out: &OutputConfig| match parsed {
+        SolveInput::Problem(pj) => {
+            solve_problem(&pj.problem_type, &pj.variant, pj.data, request, out)
+        }
+        SolveInput::Bundle(b) => solve_bundle(b, request, out),
+    };
     if timeout_seconds > 0 {
         let out = out.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let result = match parsed {
-                SolveInput::Problem(pj) => {
-                    solve_problem(&pj.problem_type, &pj.variant, pj.data, request, &out)
-                }
-                SolveInput::Bundle(b) => solve_bundle(b, request, &out),
-            };
+            let result = run(&out);
             tx.send(result).ok();
         });
         rx.recv_timeout(Duration::from_secs(timeout_seconds))
             .map_err(|error| crate::dispatch::solve_worker_error(error, timeout_seconds))?
     } else {
-        match parsed {
-            SolveInput::Problem(pj) => {
-                solve_problem(&pj.problem_type, &pj.variant, pj.data, request, out)
-            }
-            SolveInput::Bundle(b) => solve_bundle(b, request, out),
-        }
+        run(out)
     }
 }
 

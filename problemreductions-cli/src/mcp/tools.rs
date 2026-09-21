@@ -447,33 +447,25 @@ impl McpServer {
             && json.get("target").is_some()
             && json.get("path").is_some();
 
+        let run = move || -> anyhow::Result<String> {
+            if is_bundle {
+                let bundle: ReductionBundle = serde_json::from_value(json)?;
+                solve_bundle_inner(bundle, request)
+            } else {
+                let pj: ProblemJson = serde_json::from_value(json)?;
+                solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
+            }
+        };
         if timeout_secs > 0 {
-            let json_clone = json.clone();
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
-                let result = if is_bundle {
-                    match serde_json::from_value::<ReductionBundle>(json_clone) {
-                        Ok(b) => solve_bundle_inner(b, request),
-                        Err(e) => Err(anyhow::Error::from(e)),
-                    }
-                } else {
-                    match serde_json::from_value::<ProblemJson>(json_clone) {
-                        Ok(pj) => {
-                            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
-                        }
-                        Err(e) => Err(anyhow::Error::from(e)),
-                    }
-                };
+                let result = run();
                 tx.send(result).ok();
             });
             rx.recv_timeout(std::time::Duration::from_secs(timeout_secs))
                 .map_err(|error| crate::dispatch::solve_worker_error(error, timeout_secs))?
-        } else if is_bundle {
-            let bundle: ReductionBundle = serde_json::from_value(json)?;
-            solve_bundle_inner(bundle, request)
         } else {
-            let pj: ProblemJson = serde_json::from_value(json)?;
-            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
+            run()
         }
     }
 }

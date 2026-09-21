@@ -86,15 +86,6 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
     let ilp = registered.ilp.map(|pipeline| IlpSolverCapabilityView {
         reduction_path: pipeline.path_labels(),
     });
-    let default_solver = if customized.is_some() {
-        "customized"
-    } else if ilp.is_some() {
-        "ilp"
-    } else if registered.brute_force {
-        "brute-force"
-    } else {
-        anyhow::bail!("no solver is registered for {}", key.label());
-    };
     let mut solvers = Vec::with_capacity(3);
     if customized.is_some() {
         solvers.push("customized");
@@ -105,6 +96,9 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
     if registered.brute_force {
         solvers.push("brute-force");
     }
+    let default_solver = *solvers
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("no solver is registered for {}", key.label()))?;
 
     Ok(SolverCapabilitiesView {
         solvers,
