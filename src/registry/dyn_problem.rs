@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::traits::{EvaluationError, Problem};
-use crate::types::{Aggregate, SolutionAggregate};
+use crate::types::SolutionAggregate;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
@@ -21,8 +21,6 @@ where
 ///
 /// Implemented for serializable problems whose values support solution witnesses.
 pub trait DynProblem: Any {
-    /// Aggregate for an exhausted problem with no feasible witnesses.
-    fn empty_aggregate_json(&self) -> Result<Value, EvaluationError>;
     /// Whether a completed aggregate admits a representative witness.
     fn aggregate_witness_evaluation(
         &self,
@@ -55,14 +53,6 @@ where
     T::Solution: serde::de::DeserializeOwned,
     T::Value: SolutionAggregate + fmt::Display + Serialize,
 {
-    fn empty_aggregate_json(&self) -> Result<Value, EvaluationError> {
-        serde_json::to_value(T::Value::identity()).map_err(|error| {
-            EvaluationError::InvalidConfiguration(format!(
-                "cannot serialize aggregate identity: {error}"
-            ))
-        })
-    }
-
     fn aggregate_witness_evaluation(
         &self,
         value: &Value,

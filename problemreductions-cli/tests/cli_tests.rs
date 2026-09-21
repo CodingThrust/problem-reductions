@@ -9901,6 +9901,57 @@ fn test_completed_decision_recovery_and_aggregate_cli() {
 }
 
 #[test]
+fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible() {
+    use problemreductions::models::{OpenShopScheduling, ILP};
+    use problemreductions::rules::{ReduceTo, ReductionResult};
+    use serde_json::json;
+
+    let source = OpenShopScheduling::new(1, vec![vec![1]]);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let bundle = std::env::temp_dir().join(format!(
+        "pred-extract-target-feasibility-{}.json",
+        std::process::id()
+    ));
+    let source_key = json!({"name":"OpenShopScheduling","variant":{}});
+    let target_variant = json!({"variable":"i64","coefficient":"i64"});
+    std::fs::write(
+        &bundle,
+        json!({
+            "source":{"type":"OpenShopScheduling","variant":{},"data":source},
+            "target":{"type":"ILP","variant":target_variant,"data":reduction.target_problem()},
+            "path":[source_key,{"name":"ILP","variant":target_variant}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    // Both assignments decode to start time 0; only C=1 satisfies C-start >= 1.
+    for status in ["feasible", "optimal"] {
+        for evaluation in [None, Some("Min(None)")] {
+            let mut result = json!({"status":status,"solution":[0,0]});
+            if let Some(evaluation) = evaluation {
+                result["evaluation"] = json!(evaluation);
+            }
+            let output = extract_target_result(&bundle, result);
+            assert!(!output.status.success());
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("target witness is infeasible"), "{stderr}");
+        }
+        let output = extract_target_result(&bundle, json!({"status":status,"solution":[0,1]}));
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(result["status"], status);
+        assert_eq!(result["solution"], json!([0]));
+        assert_eq!(result["evaluation"], "Min(1)");
+    }
+    std::fs::remove_file(bundle).unwrap();
+}
+
+#[test]
 fn test_extract_roundtrip_mis_to_qubo() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_extract_bundle.json");

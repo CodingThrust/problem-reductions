@@ -79,7 +79,10 @@ pub fn extract(args: &ExtractArgs, out: &OutputConfig) -> Result<()> {
         }
         ExternalResult::Feasible { ref solution } | ExternalResult::Optimal { ref solution } => {
             let replay = BundleReplay::prepare(&bundle)?;
-            let actual = replay.target.evaluate_dyn(solution)?;
+            let actual = replay
+                .target
+                .evaluate_witness_dyn(solution)?
+                .context("target witness is infeasible")?;
             if evaluation
                 .as_ref()
                 .is_some_and(|value| value != &serde_json::json!(actual))

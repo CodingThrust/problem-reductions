@@ -783,13 +783,6 @@ fn rule_specs_solution_pairs_are_consistent() {
                         "Rule {label}: aggregate and witness mappings disagree"
                     );
                     if source_eval == "Or(true)" {
-                        assert_eq!(
-                            chain
-                                .extract_value(target.empty_aggregate_json().unwrap())
-                                .unwrap(),
-                            serde_json::json!(false),
-                            "Rule {label}: infeasible target must map to NO"
-                        );
                         if let Some(config) = pair.target_config.as_array() {
                             for bit in [false, true] {
                                 let candidate = serde_json::Value::Array(

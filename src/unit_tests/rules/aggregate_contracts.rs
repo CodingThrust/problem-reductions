@@ -61,6 +61,7 @@ where
     <S as ReduceTo<T>>::Result: AggregateReductionResult<Source = S, Target = T>,
 {
     let reduction = source.reduce_to().unwrap();
+    assert_eq!(reduction.extract_value(T::Value::identity()), Or(false));
     let target = ReductionResult::target_problem(&reduction);
     let (total, witnesses) = BruteForce::new().solve_with_witnesses(target).unwrap();
     let expected = Or(BruteForce::new().solve(source).unwrap().is_some());
