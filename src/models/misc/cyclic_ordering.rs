@@ -176,7 +176,7 @@ impl Problem for CyclicOrdering {
 
 impl crate::solvers::BruteForceProblem for CyclicOrdering {
     fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_elements; self.num_elements]
+        super::lehmer_dims(self.num_elements)
     }
 }
 
@@ -185,7 +185,7 @@ crate::declare_variants! {
 }
 
 crate::register_brute_force! {
-    CyclicOrdering,
+    CyclicOrdering decode |problem: &CyclicOrdering, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_elements()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]

@@ -4,6 +4,71 @@ use crate::types::{AggregationError, Max, Min, Or, Sum};
 use std::cell::Cell;
 use std::rc::Rc;
 
+#[test]
+fn test_brute_force_permutation_models_preserve_all_optimal_witnesses() {
+    use crate::models::misc::{
+        Betweenness, CyclicOrdering, MinimumCodeGenerationUnlimitedRegisters,
+    };
+
+    fn check<P>(problem: P)
+    where
+        P: BruteForceProblem<Solution = Vec<usize>> + 'static,
+        P::Value: SolutionAggregate + PartialEq + 'static,
+    {
+        let n = problem.num_variables();
+        assert_eq!(
+            problem.dimensions().iter().product::<usize>(),
+            (1..=n).product::<usize>()
+        );
+        let candidates = CartesianIndices::new(vec![n; n])
+            .unwrap()
+            .map(|solution| {
+                let value = problem.evaluate(&solution).unwrap();
+                (solution, value)
+            })
+            .collect::<Vec<_>>();
+        let expected_value = candidates
+            .iter()
+            .fold(P::Value::identity(), |total, (_, value)| {
+                total.combine(value.clone()).unwrap()
+            });
+        let mut expected = candidates
+            .into_iter()
+            .filter(|(_, value)| P::Value::contributes_to_solution(value, &expected_value))
+            .map(|(solution, _)| solution)
+            .collect::<Vec<_>>();
+        let (actual_value, mut actual) = BruteForce::new().solve_with_witnesses(&problem).unwrap();
+        expected.sort();
+        actual.sort();
+        assert_eq!(actual_value, expected_value);
+        assert_eq!(actual, expected);
+        let solution = BruteForce::new().solve(&problem).unwrap();
+        assert_eq!(solution.is_none(), expected.is_empty());
+        if let Some(solution) = solution {
+            assert!(expected.contains(&solution));
+        }
+    }
+
+    for n in 1..=5 {
+        check(CyclicOrdering::new(n, vec![]));
+        check(Betweenness::new(n, vec![]));
+    }
+    check(CyclicOrdering::new(3, vec![(0, 1, 2), (0, 2, 1)]));
+    check(Betweenness::new(3, vec![(0, 1, 2), (1, 0, 2)]));
+    check(CyclicOrdering::new(4, vec![(0, 2, 1), (1, 3, 2)]));
+    check(Betweenness::new(4, vec![(0, 2, 1), (1, 3, 2)]));
+    check(MinimumCodeGenerationUnlimitedRegisters::new(
+        2,
+        vec![],
+        vec![],
+    ));
+    check(MinimumCodeGenerationUnlimitedRegisters::new(
+        5,
+        vec![(1, 3), (2, 3), (0, 1)],
+        vec![(1, 4), (2, 4), (0, 2)],
+    ));
+}
+
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct MaxSumProblem {
     weights: Vec<i64>,

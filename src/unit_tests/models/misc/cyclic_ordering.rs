@@ -14,7 +14,7 @@ fn test_cyclic_ordering_basic() {
     assert_eq!(problem.num_elements(), 5);
     assert_eq!(problem.num_triples(), 3);
     assert_eq!(problem.triples(), &[(0, 1, 2), (2, 3, 0), (1, 3, 4)]);
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
     assert_eq!(problem.num_variables(), 5);
     assert_eq!(<CyclicOrdering as Problem>::NAME, "CyclicOrdering");
     assert_eq!(<CyclicOrdering as Problem>::variant(), vec![]);

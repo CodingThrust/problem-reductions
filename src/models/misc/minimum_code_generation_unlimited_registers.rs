@@ -393,8 +393,7 @@ impl Problem for MinimumCodeGenerationUnlimitedRegisters {
 
 impl crate::solvers::BruteForceProblem for MinimumCodeGenerationUnlimitedRegisters {
     fn dimensions(&self) -> Vec<usize> {
-        let n_internal = self.num_internal();
-        vec![n_internal; n_internal]
+        super::lehmer_dims(self.num_internal())
     }
 }
 
@@ -403,7 +402,7 @@ crate::declare_variants! {
 }
 
 crate::register_brute_force! {
-    MinimumCodeGenerationUnlimitedRegisters,
+    MinimumCodeGenerationUnlimitedRegisters decode |problem: &MinimumCodeGenerationUnlimitedRegisters, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_internal()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
