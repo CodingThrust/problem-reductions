@@ -15384,6 +15384,29 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Return the $n m$ start-time variables $s_{j,i}$ directly in job-major order.
 ]
 
+#let doss_ilp = load-example("DecisionOpenShopScheduling", "ILP")
+#reduction-rule("DecisionOpenShopScheduling", "ILP",
+  example: true,
+  example-caption: [A bounded open-shop schedule],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(doss_ilp.source) + " -o schedule.json",
+      "pred reduce schedule.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate schedule.json --config " + cli-config(doss_ilp.solutions.at(0).source_config),
+    )
+    The canonical instance has processing times #repr(doss_ilp.source.instance.inner.processing_times) and bound #doss_ilp.source.instance.bound. Add the makespan constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which satisfy the bound. The fixture stores one witness.
+  ],
+)[
+  Impose the decision bound on the open-shop makespan variable. The optimization formulation gains one constraint and no variables.
+][
+  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= B$, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A schedule of makespan at most $B$ gives feasible ordering variables and start times, with $C$ equal to its makespan. The existing horizon bounds can be met by removing unnecessary idle time. ($arrow.l.double$) Every feasible target assignment decodes to a schedule whose makespan is at most $C <= B$. Thus target feasibility is equivalent to the source YES answer; no optimum needs to be computed.
+
+  _Solution extraction._ Check target feasibility, then use the existing job-major start-time decoder. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
+]
+
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
   A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
 ][
@@ -15723,6 +15746,29 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Given any simple circuit, select its edges and vertices and choose any of its vertices as root. For each selected non-root destination, send one unit along a simple path on the circuit from the root to that destination; set all other commodity flows to zero. Every constraint holds, and the objective equals the circuit length. ($arrow.l.double$) Degree constraints make the nonempty selected subgraph a disjoint union of simple circuits. If a selected destination $t$ were outside the root's component, summing its commodity's divergence over its component would give $-1$: the destination consumes one unit and every other vertex there has zero divergence. But no flow can cross that component's boundary, a contradiction. Thus all selected vertices lie in the root's component, giving exactly one simple circuit. The objective is preserved in both directions.
 
   _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+#let dlc_ilp = load-example("DecisionLongestCircuit", "ILP")
+#reduction-rule("DecisionLongestCircuit", "ILP",
+  example: true,
+  example-caption: [A circuit meeting a length bound],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dlc_ilp.source) + " -o circuit.json",
+      "pred reduce circuit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuit.json --config " + cli-config(dlc_ilp.solutions.at(0).source_config),
+    )
+    The canonical instance has edge lengths #repr(dlc_ilp.source.instance.inner.edge_lengths) and bound #dlc_ilp.source.instance.bound. Add the selected-length constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to edge selections #fmt-values(dlc_ilp.solutions.at(0).source_config), whose total length meets the bound. The fixture stores one witness.
+  ],
+)[
+  Impose the decision bound on the selected circuit length. The optimization formulation gains one constraint and no variables.
+][
+  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, add $sum_(e in E) l_e y_e >= B$, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. A graph with no circuit remains infeasible regardless of the bound.
+
+  _Solution extraction._ Check target feasibility, then return the existing edge-selection vector. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
 ]
 
 #reduction-rule("QuadraticAssignment", "ILP")[

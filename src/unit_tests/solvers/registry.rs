@@ -151,6 +151,23 @@ fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
         path: original.path.clone(),
         reducers: original.reducers.clone(),
     };
+    // Exercise completed-value recovery through the explicit optimization route.
+    pipeline.path.insert(
+        2,
+        ExactProblemKey::new("LongestCircuit", pipeline.path[1].variant.clone()),
+    );
+    pipeline.reducers = pipeline
+        .path
+        .windows(2)
+        .map(|pair| {
+            let entry = reduction_entries()
+                .iter()
+                .copied()
+                .find(|entry| edge_key(entry, true) == pair[0] && edge_key(entry, false) == pair[1])
+                .unwrap();
+            (entry.reduce_fn.unwrap(), entry.aggregate_view_fn)
+        })
+        .collect();
     pipeline.reducers[0].1 = None;
     let result = pipeline.solve(&problem, &ILPSolver::new());
     assert!(

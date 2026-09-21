@@ -207,7 +207,6 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("HamiltonianCircuit", [("graph", "SimpleGraph")]),
     ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
-    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
 
@@ -851,7 +850,6 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
-    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64")]),
 }
 
@@ -890,7 +888,6 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DecisionOpenShopScheduling", []),
-    ("OpenShopScheduling", []),
     ("ILP", [("variable", "i64"), ("coefficient", "i64")]),
 }
 

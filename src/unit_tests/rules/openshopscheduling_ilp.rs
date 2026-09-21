@@ -11,6 +11,45 @@ fn small_instance() -> OpenShopScheduling {
     OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]])
 }
 
+#[test]
+fn test_decision_openshopscheduling_to_ilp_bound_is_a_constraint() {
+    let inner = small_instance();
+    let optimization = ReduceTo::<ILP<i64>>::reduce_to(&inner).unwrap();
+    let solver = ILPSolver::new();
+    let optimal = solver.solve(optimization.target_problem()).unwrap();
+    for bound in [-1, 2, 3, 4] {
+        let source = Decision::new(inner.clone(), bound);
+        let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        assert!(target.objective().is_empty());
+        assert_eq!(target.num_vars(), optimization.target_problem().num_vars());
+        assert_eq!(
+            target.num_constraints(),
+            optimization.target_problem().num_constraints() + 1
+        );
+        let result = solver.solve(&source);
+        if bound < 3 {
+            assert!(matches!(
+                result,
+                Err(crate::solvers::ILPSolveError::Infeasible)
+            ));
+            assert!(reduction.extract_solution(&optimal).is_err());
+        } else {
+            assert_eq!(
+                source.evaluate(&result.unwrap()).unwrap(),
+                crate::types::Or(true)
+            );
+            assert!(reduction
+                .extract_solution(&vec![0; target.num_vars()])
+                .is_err());
+        }
+    }
+    assert_eq!(
+        inner.evaluate(&solver.solve(&inner).unwrap()).unwrap(),
+        Min(Some(3))
+    );
+}
+
 /// 3 machines, 2 jobs.
 fn medium_instance() -> OpenShopScheduling {
     OpenShopScheduling::new(3, vec![vec![3, 1, 2], vec![2, 3, 1]])

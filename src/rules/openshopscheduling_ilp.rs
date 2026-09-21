@@ -28,6 +28,7 @@
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OpenShopScheduling;
+use crate::models::Decision;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
@@ -49,6 +50,12 @@ pub struct ReductionOSSToILP {
 }
 
 impl ReductionOSSToILP {
+    fn decode_schedule(&self, solution: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
+        let start = self.num_order_vars;
+        let end = start + self.num_jobs * self.num_machines;
+        crate::rules::ilp_helpers::decode_usize_values(&solution[start..end])
+    }
+
     fn pair_idx(&self, j: usize, k: usize) -> usize {
         debug_assert!(j < k);
         let n = self.num_jobs;
@@ -92,9 +99,7 @@ impl ReductionResult for ReductionOSSToILP {
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let start = self.num_order_vars;
-        let end = start + self.num_jobs * self.num_machines;
-        crate::rules::ilp_helpers::decode_usize_values(&target_solution[start..end])
+        self.decode_schedule(target_solution)
     }
 }
 
@@ -272,16 +277,96 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
     }
 }
 
+/// Feasibility encoding of the makespan bound, with the existing schedule decoder.
+#[derive(Debug, Clone)]
+pub struct ReductionDecisionOpenShopSchedulingToILP {
+    inner: ReductionOSSToILP,
+}
+
+impl ReductionResult for ReductionDecisionOpenShopSchedulingToILP {
+    type Source = Decision<OpenShopScheduling>;
+    type Target = ILP<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        self.inner.target_problem()
+    }
+
+    fn extract_solution(&self, solution: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<usize>> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "ILP assignment does not satisfy the bounded scheduling constraints",
+            ));
+        }
+        self.inner.decode_schedule(solution)
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedulingToILP {
+    type Source = Decision<OpenShopScheduling>;
+    type Target = ILP<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        self.inner.target_problem()
+    }
+
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
+#[reduction(
+    transform = exact {
+        num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
+        num_constraints = "3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2",
+    },
+    unavailable = {
+        num_nonzeros = "depends on the generated scheduling constraints",
+    }
+)]
+impl ReduceTo<ILP<i64>> for Decision<OpenShopScheduling> {
+    type Result = ReductionDecisionOpenShopSchedulingToILP;
+
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let mut inner = ReduceTo::<ILP<i64>>::reduce_to(self.inner())?;
+        let mut constraints = inner.target.constraints().to_vec();
+        constraints.push(LinearConstraint::le(
+            inner.target.objective().to_vec(),
+            *self.bound(),
+        ));
+        inner.target = ILP::with_variables(
+            inner.target.variables().to_vec(),
+            constraints,
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        Ok(ReductionDecisionOpenShopSchedulingToILP { inner })
+    }
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "openshopscheduling_to_ilp",
-        build: || {
-            // Small 2x2 instance for canonical example
-            let source = OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "decisionopenshopscheduling_to_ilp",
+            build: || {
+                let source =
+                    Decision::new(OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]), 3);
+                crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "openshopscheduling_to_ilp",
+            build: || {
+                // Small 2x2 instance for canonical example
+                let source = OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]);
+                crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            },
+        },
+    ]
 }
 
 #[cfg(test)]
