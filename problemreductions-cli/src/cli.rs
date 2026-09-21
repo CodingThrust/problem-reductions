@@ -209,20 +209,16 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Recover a source result from a target result JSON file
+    /// Recover a source configuration or value through the reduction rules
     #[command(after_help = "\
 Examples:
-  pred extract bundle.json --result target-result.json
-  pred extract bundle.json --result target-result.json -o source-result.json
+  pred extract bundle.json --config '[true,false]'
+  pred extract bundle.json --config '[true,false]' -o source.json
+  pred extract bundle.json --value 2
 
-Result JSON (status is required):
-  {\"status\":\"feasible\",\"solution\":[true,false]}  feasible, not necessarily optimal
-  {\"status\":\"optimal\",\"solution\":[true,false]}   solver-reported optimum
-  {\"status\":\"infeasible\"}                       no solution
-  {\"status\":\"complete\",\"value\":12}              full count or determined objective
-
-Accepts pred solve JSON output directly. An optional evaluation must match the
-solution. Extraction does not establish optimality or infeasibility.")]
+--config calls the rules' solution mapping; --value calls their aggregate mapping.
+Supply the completed target aggregate for --value, such as an optimum or count.
+Extraction does not solve the target or prove that the supplied value is optimal.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
@@ -331,7 +327,7 @@ pub struct ReduceArgs {
     /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
-    /// Execute value mappings; supply a complete value result to `pred extract`.
+    /// Construct an aggregate-value path for recovery with pred extract --value.
     #[arg(long)]
     pub aggregate: bool,
 }
@@ -340,9 +336,12 @@ pub struct ReduceArgs {
 pub struct ExtractArgs {
     /// Reduction bundle JSON (from pred reduce). Use - for stdin.
     pub input: PathBuf,
-    /// Target result JSON file with an explicit status. Use - for stdin.
+    /// Target problem configuration encoded as JSON.
+    #[arg(long, required_unless_present = "value", conflicts_with = "value")]
+    pub config: Option<String>,
+    /// Completed target aggregate encoded as JSON, passed to the rules' value mapping.
     #[arg(long)]
-    pub result: PathBuf,
+    pub value: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -565,19 +564,24 @@ mod tests {
     }
 
     #[test]
-    fn extract_requires_a_result_file() {
-        assert!(
-            Cli::try_parse_from(["pred", "extract", "bundle.json", "--result", "result.json"])
-                .is_ok()
-        );
+    fn extract_requires_exactly_one_mapping_input() {
+        assert!(Cli::try_parse_from([
+            "pred",
+            "extract",
+            "bundle.json",
+            "--config",
+            "[true,false]"
+        ])
+        .is_ok());
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
-        for flag in ["--config", "--value"] {
+        assert!(Cli::try_parse_from(["pred", "extract", "bundle.json", "--value", "2"]).is_ok());
+        for flag in ["--result", "--value", "--status"] {
             assert!(Cli::try_parse_from([
                 "pred",
                 "extract",
                 "bundle.json",
-                "--result",
-                "result.json",
+                "--config",
+                "[true,false]",
                 flag,
                 "2"
             ])

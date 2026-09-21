@@ -25,32 +25,20 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
-fn extract_target_result(
+fn extract_target_config(
     bundle: &std::path::Path,
-    result: serde_json::Value,
+    config: serde_json::Value,
 ) -> std::process::Output {
-    use std::io::Write;
-    use std::process::Stdio;
-    let mut child = pred()
+    pred()
         .args([
             "extract",
             bundle.to_str().unwrap(),
-            "--result",
-            "-",
+            "--config",
+            &config.to_string(),
             "--json",
         ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child
-        .stdin
-        .take()
+        .output()
         .unwrap()
-        .write_all(result.to_string().as_bytes())
-        .unwrap();
-    child.wait_with_output().unwrap()
 }
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
@@ -9618,286 +9606,96 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
 }
 
 #[test]
-fn test_completed_decision_recovery_and_aggregate_cli() {
+fn test_decision_extract_checks_bound_while_solve_recovers_no() {
     use problemreductions::models::{graph::MinimumVertexCover, Decision};
+    use problemreductions::rules::{ReduceTo, ReductionResult};
     use problemreductions::topology::SimpleGraph;
     use serde_json::json;
-    let dir = std::env::temp_dir().join(format!("pred-completed-recovery-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let input = dir.join("source.json");
-    let route = dir.join("route.json");
-    let bundle = dir.join("bundle.json");
-    let result = dir.join("result.json");
-    let variant = json!({"graph":"SimpleGraph", "weight":"i64"});
-    std::fs::write(
-        &route,
-        json!({"path":[{
-            "from":{"name":"DecisionMinimumVertexCover","variant":variant},
-            "to":{"name":"MinimumVertexCover","variant":variant}
-        }]})
-        .to_string(),
-    )
-    .unwrap();
+    let bundle =
+        std::env::temp_dir().join(format!("pred-decision-extract-{}.json", std::process::id()));
+    let variant = json!({"graph":"SimpleGraph","weight":"i64"});
     for bound in [1, 2] {
-        let problem = Decision::new(
-            MinimumVertexCover::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-                vec![1i64; 3],
-            ),
+        let source = Decision::new(
+            MinimumVertexCover::new(SimpleGraph::cycle(3), vec![1i64; 3]),
             bound,
         );
-        std::fs::write(
-            &input,
-            json!({"type":"DecisionMinimumVertexCover", "variant":variant,"data":problem})
-                .to_string(),
-        )
-        .unwrap();
-        let reduced = pred()
-            .args([
-                "reduce",
-                input.to_str().unwrap(),
-                "--via",
-                route.to_str().unwrap(),
-                "--aggregate",
-                "-o",
-                bundle.to_str().unwrap(),
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            reduced.status.success(),
-            "{}",
-            String::from_utf8_lossy(&reduced.stderr)
-        );
-        let solved = pred()
-            .args([
-                "solve",
-                bundle.to_str().unwrap(),
-                "--solver",
-                "brute-force",
-                "--json",
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            solved.status.success(),
-            "{}",
-            String::from_utf8_lossy(&solved.stderr)
-        );
-        let solved: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
-        let expected = if bound == 1 { "infeasible" } else { "optimal" };
-        assert_eq!(solved["status"], expected);
-
-        let target_file = dir.join("target.json");
-        let bundle_json: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(&bundle).unwrap()).unwrap();
-        std::fs::write(&target_file, bundle_json["target"].to_string()).unwrap();
-        let target_solve = pred()
-            .args([
-                "solve",
-                target_file.to_str().unwrap(),
-                "--solver",
-                "brute-force",
-                "-o",
-                result.to_str().unwrap(),
-            ])
-            .output()
-            .unwrap();
-        assert!(
-            target_solve.status.success(),
-            "{}",
-            String::from_utf8_lossy(&target_solve.stderr)
-        );
-        let recovered = pred()
+        let reduction =
+            ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        std::fs::write(&bundle, json!({
+            "source":{"type":"DecisionMinimumVertexCover","variant":variant,"data":source},
+            "target":{"type":"MinimumVertexCover","variant":variant,"data":reduction.target_problem()},
+            "path":[{"name":"DecisionMinimumVertexCover","variant":variant},
+                    {"name":"MinimumVertexCover","variant":variant}]
+        }).to_string()).unwrap();
+        let mapped = pred()
             .args([
                 "extract",
                 bundle.to_str().unwrap(),
-                "--result",
-                result.to_str().unwrap(),
+                "--value",
+                "2",
                 "--json",
             ])
             .output()
             .unwrap();
         assert!(
-            recovered.status.success(),
+            mapped.status.success(),
             "{}",
-            String::from_utf8_lossy(&recovered.stderr)
+            String::from_utf8_lossy(&mapped.stderr)
         );
-        let recovered: serde_json::Value = serde_json::from_slice(&recovered.stdout).unwrap();
-        assert_eq!(recovered["status"], expected);
-
-        let numerical = pred()
+        let mapped: serde_json::Value = serde_json::from_slice(&mapped.stdout).unwrap();
+        assert_eq!(mapped["value"], json!(bound == 2));
+        assert!(mapped.get("status").is_none());
+        assert!(mapped.get("solution").is_none());
+        let invalid = pred()
             .args([
-                "solve",
+                "extract",
                 bundle.to_str().unwrap(),
-                "--solver",
-                "ilp",
+                "--value",
+                "true",
                 "--json",
             ])
             .output()
             .unwrap();
-        assert!(
-            numerical.status.success(),
-            "{}",
-            String::from_utf8_lossy(&numerical.stderr)
-        );
-        let numerical: serde_json::Value = serde_json::from_slice(&numerical.stdout).unwrap();
-        assert_eq!(numerical["status"], expected);
-
-        for (evaluation, solver) in [
-            (None, "brute-force"),
-            (Some("Min(2)"), "brute-force"),
-            (None, "ilp"),
-            (Some("Min(2)"), "ilp"),
-        ] {
-            let mut external = json!({"status":"optimal","solution":[true,true,false],"problem":"MinimumVertexCover","solver":{"kind":solver}});
-            if let Some(evaluation) = evaluation {
-                external["evaluation"] = json!(evaluation);
-            }
-            std::fs::write(&result, external.to_string()).unwrap();
-            let extracted = pred()
-                .args([
-                    "extract",
-                    bundle.to_str().unwrap(),
-                    "--result",
-                    result.to_str().unwrap(),
-                    "--json",
-                ])
-                .output()
-                .unwrap();
+        assert!(!invalid.status.success());
+        assert!(String::from_utf8_lossy(&invalid.stderr).contains("deserialization failed"));
+        let extracted = extract_target_config(&bundle, json!([true, true, false]));
+        if bound == 1 {
+            assert!(!extracted.status.success());
+            assert!(String::from_utf8_lossy(&extracted.stderr).contains("decision bound"));
+        } else {
             assert!(
                 extracted.status.success(),
                 "{}",
                 String::from_utf8_lossy(&extracted.stderr)
             );
-            let recovered: serde_json::Value = serde_json::from_slice(&extracted.stdout).unwrap();
-            assert_eq!(recovered["status"], expected);
+            let output: serde_json::Value = serde_json::from_slice(&extracted.stdout).unwrap();
+            assert_eq!(output["evaluation"], "Or(true)");
+            assert!(output.get("status").is_none());
         }
-        let value =
-            extract_target_result(&bundle, serde_json::json!({"status":"complete","value":2}));
-        assert!(
-            value.status.success(),
-            "{}",
-            String::from_utf8_lossy(&value.stderr)
-        );
-        let value: serde_json::Value = serde_json::from_slice(&value.stdout).unwrap();
-        assert_eq!(value["status"], "complete");
-        assert_eq!(value["value"], json!(bound == 2));
-        let candidate = extract_target_result(
-            &bundle,
-            serde_json::json!({"status":"feasible","solution":[true,true,false],"evaluation":"Min(2)"}),
-        );
-        assert_eq!(candidate.status.success(), bound == 2);
-        if bound == 2 {
-            let recovered: serde_json::Value = serde_json::from_slice(&candidate.stdout).unwrap();
-            assert_eq!(recovered["status"], "feasible");
-            assert_eq!(recovered["evaluation"], "Or(true)");
+        for solver in ["brute-force", "ilp"] {
+            let solved = pred()
+                .args([
+                    "solve",
+                    bundle.to_str().unwrap(),
+                    "--solver",
+                    solver,
+                    "--json",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                solved.status.success(),
+                "{}",
+                String::from_utf8_lossy(&solved.stderr)
+            );
+            let output: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+            assert_eq!(
+                output["status"],
+                if bound == 1 { "infeasible" } else { "optimal" }
+            );
         }
     }
-    for invalid in [
-        json!({"solution":[true,true,false]}),
-        json!({"value":2}),
-        json!({"status":"feasible"}),
-        json!({"status":"feasible", "solution":[true,true,false], "value":2}),
-        json!({"status":"feasible", "solution":[true,true,false], "evaluation":"Min(99)"}),
-        json!({"status":"feasible", "solution":[true,true,false], "evaluation":null}),
-        json!({"status":"optimal", "solution":[true,true,false], "value":2}),
-        json!({"status":"infeasible", "solution":[true,true,false]}),
-        json!({"status":"infeasible", "value":2}),
-        json!({"status":"complete"}),
-        json!({"status":"complete", "value":2, "solution":[true,true,false]}),
-        json!({"status":"complete", "value":2, "evaluation":"Min(2)"}),
-        json!({"status":"complete", "value":true}),
-        json!({"status":"complete", "value":2, "unexpected":true}),
-        json!({"status":"optimal", "solution":[true,true,false], "evaluation":"Min(99)"}),
-        json!({"status":"optimal", "solution":[true,true,false], "evaluation":99}),
-        json!({"status":"optimal", "solution":[true,true,false], "evaluation":null}),
-        json!({"status":"optimal", "solution":[false,false,false]}),
-        json!({"status":"timeout"}),
-        json!({"status":"infeasible", "evaluation":"Min(2)"}),
-        json!({"status":"optimal", "solution":[true,true,false], "evaluation":"Min(99)", "solver":{"kind":"ilp"}}),
-    ] {
-        std::fs::write(&result, invalid.to_string()).unwrap();
-        let output = pred()
-            .args([
-                "extract",
-                bundle.to_str().unwrap(),
-                "--result",
-                result.to_str().unwrap(),
-            ])
-            .output()
-            .unwrap();
-        assert!(!output.status.success());
-    }
-    for options in [
-        vec![],
-        vec!["--value", "2", "--config", "[true,true,false]"],
-        vec!["--value", "true"],
-    ] {
-        let output = pred()
-            .args(["extract", bundle.to_str().unwrap()])
-            .args(options)
-            .output()
-            .unwrap();
-        assert!(!output.status.success());
-    }
-    let sat = problemreductions::models::formula::Satisfiability::new(
-        1,
-        vec![
-            problemreductions::models::formula::CNFClause::new(vec![1]),
-            problemreductions::models::formula::CNFClause::new(vec![-1]),
-        ],
-    );
-    std::fs::write(
-        &input,
-        json!({"type":"Satisfiability", "data":sat}).to_string(),
-    )
-    .unwrap();
-    std::fs::write(
-        &route,
-        json!({"path":[{
-            "from":{"name":"Satisfiability","variant":{}},
-            "to":{"name":"NAESatisfiability","variant":{}}
-        }]})
-        .to_string(),
-    )
-    .unwrap();
-    let reduced = pred()
-        .args([
-            "reduce",
-            input.to_str().unwrap(),
-            "--via",
-            route.to_str().unwrap(),
-            "-o",
-            bundle.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(reduced.status.success());
-    std::fs::write(
-        &result,
-        json!({"status":"infeasible", "solver":{"kind":"ilp"}}).to_string(),
-    )
-    .unwrap();
-    let recovered = pred()
-        .args([
-            "extract",
-            bundle.to_str().unwrap(),
-            "--result",
-            result.to_str().unwrap(),
-            "--json",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        recovered.status.success(),
-        "{}",
-        String::from_utf8_lossy(&recovered.stderr)
-    );
-    let recovered: serde_json::Value = serde_json::from_slice(&recovered.stdout).unwrap();
-    assert_eq!(recovered["status"], "infeasible");
-    assert!(recovered.get("solution").is_none());
-    std::fs::remove_dir_all(dir).unwrap();
+    std::fs::remove_file(bundle).unwrap();
 }
 
 #[test]
@@ -9926,28 +9724,21 @@ fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible()
     .unwrap();
 
     // Both assignments decode to start time 0; only C=1 satisfies C-start >= 1.
-    for status in ["feasible", "optimal"] {
-        for evaluation in [None, Some("Min(None)")] {
-            let mut result = json!({"status":status,"solution":[0,0]});
-            if let Some(evaluation) = evaluation {
-                result["evaluation"] = json!(evaluation);
-            }
-            let output = extract_target_result(&bundle, result);
-            assert!(!output.status.success());
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(stderr.contains("target witness is infeasible"), "{stderr}");
-        }
-        let output = extract_target_result(&bundle, json!({"status":status,"solution":[0,1]}));
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-        assert_eq!(result["status"], status);
-        assert_eq!(result["solution"], json!([0]));
-        assert_eq!(result["evaluation"], "Min(1)");
-    }
+    let output = extract_target_config(&bundle, json!([0, 0]));
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("target witness is infeasible"), "{stderr}");
+    let output = extract_target_config(&bundle, json!([0, 1]));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["solution"], json!([0]));
+    assert_eq!(result["evaluation"], "Min(1)");
+    assert!(result.get("status").is_none());
+    assert!(result["intermediate"].get("status").is_none());
     std::fs::remove_file(bundle).unwrap();
 }
 
@@ -9992,10 +9783,8 @@ fn test_extract_roundtrip_mis_to_qubo() {
     // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
-    let extract_out = extract_target_result(
-        &bundle_file,
-        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap()}),
-    );
+    let extract_out =
+        extract_target_config(&bundle_file, serde_json::from_str(&target_cfg).unwrap());
     assert!(
         extract_out.status.success(),
         "extract stderr: {}",
@@ -10072,9 +9861,9 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
-    let extract_out = extract_target_result(
+    let extract_out = extract_target_config(
         &bundle_file,
-        serde_json::json!({"status":"feasible","solution":[false,false,false,false,false,false,false,false,false]}),
+        serde_json::json!([false, false, false, false, false, false, false, false, false]),
     );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
@@ -10104,10 +9893,7 @@ fn test_extract_rejects_plain_problem_file() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let extract_out = extract_target_result(
-        &problem_file,
-        serde_json::json!({"status":"feasible","solution":[false,true,false]}),
-    );
+    let extract_out = extract_target_config(&problem_file, serde_json::json!([false, true, false]));
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10148,10 +9934,7 @@ fn test_extract_rejects_wrong_config_length() {
         &bundle_file,
     );
 
-    let extract_out = extract_target_result(
-        &bundle_file,
-        serde_json::json!({"status":"feasible","solution":[false,true]}),
-    );
+    let extract_out = extract_target_config(&bundle_file, serde_json::json!([false, true]));
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10198,12 +9981,7 @@ fn test_extract_rejects_non_boolean_solution_value() {
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let mut bad_cfg: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
     bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
-    let bad_cfg = bad_cfg.to_string();
-
-    let extract_out = extract_target_result(
-        &bundle_file,
-        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&bad_cfg).unwrap()}),
-    );
+    let extract_out = extract_target_config(&bundle_file, bad_cfg);
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -10255,10 +10033,8 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
-    let extract_out = extract_target_result(
-        &tampered_file,
-        serde_json::json!({"status":"feasible","solution":[false,true,false]}),
-    );
+    let extract_out =
+        extract_target_config(&tampered_file, serde_json::json!([false, true, false]));
     assert!(
         !extract_out.status.success(),
         "expected failure on malformed bundle; stdout: {}",
@@ -10320,10 +10096,8 @@ fn test_extract_rejects_tampered_target_data() {
     // Any config long enough to reach the coherence check; it must fail before
     // config validation kicks in because prepare() runs first.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
-    let extract_out = extract_target_result(
-        &tampered_file,
-        serde_json::json!({"status":"feasible","solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap()}),
-    );
+    let extract_out =
+        extract_target_config(&tampered_file, serde_json::from_str(&target_cfg).unwrap());
     assert!(
         !extract_out.status.success(),
         "expected failure on tampered target.data; stdout: {}",
@@ -10393,18 +10167,8 @@ fn test_extract_reads_bundle_from_stdin() {
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
 
-    let result_file = bundle_file.with_extension("result.json");
-    std::fs::write(&result_file, serde_json::json!({
-        "status":"feasible", "solution":serde_json::from_str::<serde_json::Value>(&target_cfg).unwrap(),
-    }).to_string()).unwrap();
     let mut child = pred()
-        .args([
-            "--json",
-            "extract",
-            "-",
-            "--result",
-            result_file.to_str().unwrap(),
-        ])
+        .args(["--json", "extract", "-", "--config", &target_cfg])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -10417,7 +10181,6 @@ fn test_extract_reads_bundle_from_stdin() {
         .write_all(bundle_text.as_bytes())
         .unwrap();
     let output = child.wait_with_output().unwrap();
-    std::fs::remove_file(&result_file).unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",

@@ -17934,8 +17934,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example DecisionMaximumIndependentSet/One -o independent-set.json",
       "pred reduce independent-set.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "echo '{\"status\":\"feasible\",\"solution\":" + json.encode(mis_ifb_sol.target_config) + "}' > target-result.json",
-      "pred extract bundle.json --result target-result.json",
+      "pred extract bundle.json --config " + cli-config(mis_ifb_sol.target_config),
     )
     Source bound: #mis_ifb.source.instance.bound; selected vertices: #fmt-values(mis_ifb_sol.source_config) \
     Target: #mis_ifb.target.instance.graph.num_vertices vertices, #mis_ifb.target.instance.graph.arcs.len() arcs, #mis_ifb.target.instance.bundles.len() bundles; requirement #mis_ifb.target.instance.requirement \
