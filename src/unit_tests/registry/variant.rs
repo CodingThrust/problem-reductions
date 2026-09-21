@@ -381,7 +381,7 @@ fn established_random_generation_models_remain_registered() {
         DecisionMinimumVertexCover MaximumIndependentSet MinimumVertexCover MaximumClique
         MinimumDominatingSet MaximalIS KClique MinimumCutIntoBoundedSets HamiltonianCircuit
         HamiltonianPath HamiltonianPathBetweenTwoVertices LongestCircuit MinimumMaximalMatching
-        RootedTreeArrangement SteinerTree SteinerTreeInGraphs LengthBoundedDisjointPaths
+        RootedTreeArrangement SteinerTree LengthBoundedDisjointPaths
         MaximumAchromaticNumber MaximumDomaticNumber MinimumCoveringByCliques
         MinimumIntersectionGraphBasis MaximumLeafSpanningTree GeneralizedHex
         BottleneckTravelingSalesman MaxCut MaximumMatching TravelingSalesman SpinGlass KColoring
@@ -428,7 +428,7 @@ fn unit_variants_construct_without_unit_inputs() {
             "MaximumCoKPlex" => json!({"graph":graph,"k":1}),
             "MinimumFeedbackVertexSet" => json!({"graph":{"num_vertices":3,"arcs":[[0,1],[1,2]]}}),
             "MaximumSetPacking" => json!({"subsets":[[0,1],[1,2]]}),
-            "SteinerTree" | "SteinerTreeInGraphs" => json!({"graph":graph,"terminals":[0,2]}),
+            "SteinerTree" => json!({"graph":graph,"terminals":[0,2]}),
             "MaximumIndependentSet" => match entry.variant_map()["graph"].as_str() {
                 "SimpleGraph" => json!({"graph":[[0,1],[1,2]]}),
                 "KingsSubgraph" => json!({"positions":[[0,0],[1,0],[2,0]]}),
@@ -505,10 +505,6 @@ fn unit_construction_preserves_model_validation() {
         ("SteinerTree", json!({"graph":graph,"terminals":[]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,0]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,3]})),
-        (
-            "SteinerTreeInGraphs",
-            json!({"graph":graph,"terminals":[3]}),
-        ),
         (
             "MinimumTardinessSequencing",
             json!({"deadlines":[1,2],"precedences":[[0,2]]}),

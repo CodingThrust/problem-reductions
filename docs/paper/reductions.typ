@@ -415,7 +415,6 @@
   "ShortestCommonSuperstring": [Shortest Common Superstring],
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
-  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumAxiomSet": [Minimum Axiom Set],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
@@ -3887,75 +3886,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [Partition into Paths of Length 2 on a $3 times 3$ grid-like graph ($q = #q$). The row partition #range(q).map(g => $V_#(g + 1) = {#groups.at(g).map(i => $v_#i$).join(", ")}$).join(", ") is shown; cross-edges also admit a column partition and mixed groupings.],
     ) <fig:partition-paths2>
-    ]
-  ]
-}
-
-#{
-  let x = load-model-example("SteinerTreeInGraphs")
-  let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.edges
-  let ne = edges.len()
-  let terminals = x.instance.terminals
-  let weights = x.instance.edge_weights
-  let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt-weight = metric-value(sol.metric)
-  // Derive tree edges from optimal config
-  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
-  let tree-edges = tree-edge-indices.map(i => edges.at(i))
-  // Steiner vertices: non-terminal vertices that appear in tree edges
-  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
-  [
-    #problem-def("SteinerTreeInGraphs")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
-    ][
-    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
-
-    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
-
-    #pred-commands(
-      "pred create --example SteinerTreeInGraphs -o steiner-tree-in-graphs.json",
-      "pred solve steiner-tree-in-graphs.json",
-      "pred evaluate steiner-tree-in-graphs.json --config " + cli-config(x.optimal_config),
-    )
-
-    #figure({
-      // Graph: 6 vertices arranged in two rows (layout positions)
-      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
-      canvas(length: 1cm, {
-        import draw: *
-        // Edge (0,2) idx=1 would otherwise pass straight through the collinear
-        // vertex $v_1$ at $(1.5, 1)$, so route it as a quadratic Bezier arc above.
-        let arc-ctrl = ("1": (1.5, 1.85))
-        for (idx, (u, v)) in edges.enumerate() {
-          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
-          let stk = if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) }
-          let key = str(idx)
-          if key in arc-ctrl {
-            let c = arc-ctrl.at(key)
-            bezier(verts.at(u), verts.at(v), c, stroke: stk)
-            let mx = 0.25 * verts.at(u).at(0) + 0.5 * c.at(0) + 0.25 * verts.at(v).at(0)
-            let my = 0.25 * verts.at(u).at(1) + 0.5 * c.at(1) + 0.25 * verts.at(v).at(1)
-            draw.content((mx, my + 0.18), text(7pt, fill: luma(80))[#weights.at(idx)])
-          } else {
-            g-edge(verts.at(u), verts.at(v), stroke: stk)
-            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
-            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
-            draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
-          }
-        }
-        for (k, pos) in verts.enumerate() {
-          let is-terminal = terminals.contains(k)
-          let is-steiner = steiner-verts.contains(k)
-          g-node(pos, name: "v" + str(k),
-            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
-            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
-            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-        }
-      })
-    },
-    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
-    ) <fig:steiner-tree-example>
     ]
   ]
 }
@@ -15323,24 +15253,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   Thus feasibility is equivalent in both directions and the constant offset preserves every optimum. Zero lengths and repeated or self-loop required arcs do not alter the argument. When $m=1$, the product is $x_(0,0)^2=x_(0,0)$ and still enforces a reachable return. When $m=0$, both models have the empty solution with value zero.
 
   _Solution extraction._ For each position $p$, return the unique $i$ with $x_(i,p)=1$, using the existing one-hot decoder. There are $m^2+m^3$ binary variables and $2m+3m^3+m r$ constraints, where $r$ is the number of unreachable ordered required-arc pairs; hence at most $2m+4m^3$ constraints.
-]
-
-#reduction-rule("SteinerTreeInGraphs", "ILP")[
-  Select edges and certify terminal connectivity by sending one unit of flow from a root terminal to every other terminal through the selected subgraph.
-][
-  _Construction._ Fix a root terminal $r in R$. Variables: binary $y_(u,v)$ for each undirected edge $\{u,v\}$ and nonnegative flow variables $f^t_(u,v)$ on each directed edge orientation for every terminal $t in R backslash {r}$. The ILP is:
-  $
-    min quad & sum_({u,v} in E) w_(u,v) y_(u,v) \
-    "subject to" quad & sum_(u) f^t_(u,v) - sum_(w) f^t_(v,w) = b_(t,v) quad forall t in R backslash {r}, v in V \
-    & f^t_(u,v) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
-    & f^t_(v,u) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
-    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0),
-  $
-  where $b_(t,v) = -1$ if $v = r$, $b_(t,v) = 1$ if $v = t$, and $b_(t,v) = 0$ otherwise.
-
-  _Correctness._ ($arrow.r.double$) A Steiner tree supports a unit flow from the root to every other terminal using exactly its selected edges, with the same total weight. ($arrow.l.double$) Any feasible ILP solution selects a connected subgraph spanning all terminals, and with nonnegative edge weights an optimum solution is a minimum-weight Steiner tree.
-
-  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
 ]
 
 // Scheduling
