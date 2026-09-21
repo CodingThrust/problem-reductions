@@ -147,17 +147,13 @@ fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
         original.solve(&problem, &ILPSolver::new()),
         Err(ILPSolveError::Infeasible)
     ));
-    let mut pipeline = CompiledIlpPipeline {
-        path: original.path.clone(),
-        reducers: original.reducers.clone(),
-    };
     // Exercise completed-value recovery through the explicit optimization route.
-    pipeline.path.insert(
+    let mut path = original.path.clone();
+    path.insert(
         2,
-        ExactProblemKey::new("LongestCircuit", pipeline.path[1].variant.clone()),
+        ExactProblemKey::new("LongestCircuit", path[1].variant.clone()),
     );
-    pipeline.reducers = pipeline
-        .path
+    let reducers = path
         .windows(2)
         .map(|pair| {
             let entry = reduction_entries()
@@ -168,6 +164,7 @@ fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
             (entry.reduce_fn.unwrap(), entry.aggregate_view_fn)
         })
         .collect();
+    let mut pipeline = CompiledIlpPipeline { path, reducers };
     pipeline.reducers[0].1 = None;
     let result = pipeline.solve(&problem, &ILPSolver::new());
     assert!(
