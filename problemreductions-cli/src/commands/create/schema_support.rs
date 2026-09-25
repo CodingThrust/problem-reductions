@@ -20,6 +20,7 @@ pub(crate) enum InputValueKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CreateInput {
     pub name: String,
+    pub description: String,
     pub kind: InputValueKind,
 }
 
@@ -375,9 +376,35 @@ pub(crate) fn create_inputs_for(
         }
     }
 
+    let schema = problemreductions::registry::find_problem_type(canonical);
+    let registered_inputs = variant_entry.inputs();
+    let random_inputs = variant_entry
+        .random
+        .map(|random| (random.inputs)())
+        .unwrap_or_default();
     inputs
         .into_iter()
-        .map(|(name, (kind, _))| CreateInput { name, kind })
+        .map(|(name, (kind, origin))| {
+            let description = schema
+                .as_ref()
+                .and_then(|schema| schema.fields.iter().find(|field| field.name == origin))
+                .map(|field| field.description)
+                .filter(|description| !description.is_empty())
+                .or_else(|| {
+                    registered_inputs
+                        .iter()
+                        .chain(&random_inputs)
+                        .find(|input| input.name == origin && !input.description.is_empty())
+                        .map(|input| input.description)
+                })
+                .unwrap_or(&origin)
+                .to_string();
+            CreateInput {
+                name,
+                kind,
+                description,
+            }
+        })
         .collect()
 }
 

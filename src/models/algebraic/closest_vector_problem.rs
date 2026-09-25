@@ -227,11 +227,11 @@ inventory::submit! {
     crate::registry::ProblemSchemaEntry {
         name: "DecisionClosestVectorProblem", display_name: "Decision ClosestVectorProblem", aliases: &[],
         dimensions: &[VariantDimension::new("coefficient", "i64", &["i64"])], category: crate::registry::ProblemCategory::Algebraic, module_path: module_path!(),
-        description: "Does a feasible solution meet the objective bound?",
+        description: "Does a feasible solution have objective value <= the bound?",
         fields: &[
         crate::registry::FieldInfo { name: "basis", type_name: "Vec<Vec<i64>>", description: "Basis matrix as semicolon-separated column vectors." },
         crate::registry::FieldInfo { name: "target_vec", type_name: "Vec<i64>", description: "Target vector." },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     }
 }

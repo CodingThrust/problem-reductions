@@ -267,14 +267,14 @@ crate::decision_problem_meta!(
 );
 crate::register_decision_variant!(
     SequencingToMinimizeTardyTaskWeight, "DecisionSequencingToMinimizeTardyTaskWeight", "factorial(num_tasks)", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Misc,
     dims: [],
     fields: [
 crate::registry::FieldInfo { name: "lengths", type_name: "Vec<i64>", description: "Lengths" },
 crate::registry::FieldInfo { name: "weights", type_name: "Option<Vec<i64>>", description: "Weights" },
 crate::registry::FieldInfo { name: "deadlines", type_name: "Vec<i64>", description: "Deadlines" },
-crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
 ],
     decode: |_, indices: Vec<usize>| indices
 );

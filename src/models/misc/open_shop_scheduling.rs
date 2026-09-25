@@ -333,13 +333,13 @@ mod tests;
 crate::decision_problem_meta!(OpenShopScheduling, "DecisionOpenShopScheduling");
 crate::register_decision_variant!(
     OpenShopScheduling, "DecisionOpenShopScheduling", "(schedule_horizon + 1)^(num_jobs * num_machines)", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Misc,
     dims: [],
     fields: [
         crate::registry::FieldInfo { name: "num_processors", type_name: "usize", description: "Number of machines m." },
         crate::registry::FieldInfo { name: "processing_times", type_name: "Vec<Vec<i64>>", description: "Processing time of each job on each machine (n x m)." },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| indices
 );

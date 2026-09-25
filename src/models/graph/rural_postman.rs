@@ -422,18 +422,18 @@ mod tests;
 crate::decision_problem_meta!(RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman");
 crate::register_decision_variant!(
     RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman", "2^num_vertices * num_vertices^2", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Graph,
     dims: [
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i64", &["i64"]),
         ],
     fields: [
-        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
-        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "" },
-        crate::registry::FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "" },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "Weights for each edge in graph order." },
+        crate::registry::FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "Indices of edges that the route must traverse." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| indices
 );

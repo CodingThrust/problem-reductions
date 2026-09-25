@@ -230,14 +230,14 @@ crate::decision_problem_meta!(
 );
 crate::register_decision_variant!(
     MinimumCoveringByCliques<SimpleGraph>, "DecisionMinimumCoveringByCliques", "2^num_edges", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Graph,
     dims: [
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
     fields: [
 crate::registry::FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
 ],
     decode: |_, indices: Vec<usize>| indices
 );

@@ -420,17 +420,17 @@ mod tests;
 crate::decision_problem_meta!(MinMaxMulticenter<SimpleGraph, One>, "DecisionMinMaxMulticenter");
 crate::register_decision_variant!(
     MinMaxMulticenter<SimpleGraph, One>, "DecisionMinMaxMulticenter", "1.4969^num_vertices", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Graph,
     dims: [
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "One", &["One"]),
         ],
     fields: [
-        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
-        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "k", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "k", type_name: "usize", description: "Number of centers." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
 );

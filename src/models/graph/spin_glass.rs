@@ -448,7 +448,7 @@ mod tests;
 crate::decision_problem_meta!(SpinGlass<SimpleGraph, i64>, "DecisionSpinGlass");
 crate::register_decision_variant!(
     SpinGlass<SimpleGraph, i64>, "DecisionSpinGlass", "2^num_spins", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Graph,
     dims: [
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
@@ -459,7 +459,7 @@ crate::register_decision_variant!(
         crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Vertex count, needed to preserve isolated spins." },
         crate::registry::FieldInfo { name: "couplings", type_name: "Vec<i64>", description: "Pairwise couplings; defaults to one per edge." },
         crate::registry::FieldInfo { name: "fields", type_name: "Vec<i64>", description: "On-site fields; defaults to zero per vertex." },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| SpinGlass::<SimpleGraph, i64>::config_to_spins(&indices).expect("enumerated spin bits are valid")
 );

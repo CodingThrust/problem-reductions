@@ -331,18 +331,18 @@ mod tests;
 crate::decision_problem_meta!(LongestPath<SimpleGraph, One>, "DecisionLongestPath");
 crate::register_decision_variant!(
     LongestPath<SimpleGraph, One>, "DecisionLongestPath", "num_vertices * 2^num_vertices", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value >= the bound?",
     category: crate::registry::ProblemCategory::Graph,
     dims: [
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "One", &["One"]),
         ],
     fields: [
-        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "" },
-        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "source_vertex", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "target_vertex", type_name: "usize", description: "" },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "source_vertex", type_name: "usize", description: "Start vertex of the path." },
+        crate::registry::FieldInfo { name: "target_vertex", type_name: "usize", description: "End vertex of the path." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values >= this bound" },
     ],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
 );

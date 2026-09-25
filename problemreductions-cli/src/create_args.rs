@@ -160,7 +160,9 @@ fn add_selected_problem_args(
     let inputs = crate::commands::create::create_inputs_for(canonical, variant);
 
     for input in inputs {
-        let mut arg = Arg::new(input.name.clone()).long(input.name.clone());
+        let mut arg = Arg::new(input.name.clone())
+            .long(input.name.clone())
+            .help(input.description);
         if input.kind == crate::commands::create::InputValueKind::Bool {
             arg = arg.action(ArgAction::SetTrue);
         } else {
@@ -207,8 +209,8 @@ pub(crate) fn command_for_selected_problem(
     let mut selected_command = Command::new(canonical_spec.clone())
         .about(problem.description)
         .long_about(format!(
-            "Create a {} instance ({canonical_spec})",
-            problem.canonical_name
+            "Create a {} instance ({canonical_spec})\n\n{}",
+            problem.canonical_name, problem.description
         ))
         .disable_help_subcommand(true);
     if selected != canonical_spec {
@@ -277,5 +279,31 @@ fn add_value_parser(arg: Arg, kind: crate::commands::create::InputValueKind) -> 
         InputValueKind::F64 => arg.value_parser(clap::value_parser!(f64)),
         InputValueKind::Text => arg,
         InputValueKind::Bool => unreachable!("boolean inputs use SetTrue"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn decision_create_help_includes_field_descriptions_and_bound_direction() {
+        for (spec, direction) in [("DecisionMaxCut", ">="), ("DecisionQUBO", "<=")] {
+            let error = crate::cli::Cli::try_parse_from(["pred", "create", spec, "--help"])
+                .err()
+                .unwrap();
+            let help = error.to_string();
+            assert!(
+                help.contains(&format!("objective value {direction} the bound")),
+                "{help}"
+            );
+            assert!(
+                help.contains(&format!("Accept objective values {direction} this bound")),
+                "{help}"
+            );
+            if spec == "DecisionMaxCut" {
+                for description in ["Graph edges", "Number of vertices", "Weights for each edge"] {
+                    assert!(help.contains(description), "{help}");
+                }
+            }
+        }
     }
 }

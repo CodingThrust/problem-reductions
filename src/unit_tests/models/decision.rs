@@ -418,3 +418,31 @@ fn test_decision_mis_unit_dynamic_identity_edges() {
     assert!(reverse.reduce_fn.is_none());
     assert_eq!((reverse.parameter_declarations_fn)().fields.len(), 2);
 }
+
+#[test]
+fn decision_help_describes_fields_and_bound_direction() {
+    let schemas = crate::registry::collect_schemas();
+    for (name, direction) in [
+        ("DecisionQUBO", "<="),
+        ("DecisionQuadraticAssignment", "<="),
+        ("DecisionClosestVectorProblem", "<="),
+        ("DecisionMaximum2Satisfiability", ">="),
+        ("DecisionStackerCrane", "<="),
+        ("DecisionLongestPath", ">="),
+        ("DecisionSequencingToMinimizeTardyTaskWeight", "<="),
+        ("DecisionMinMaxMulticenter", "<="),
+        ("DecisionRuralPostman", "<="),
+        ("DecisionMaxCut", ">="),
+        ("DecisionMinimumCoveringByCliques", "<="),
+        ("DecisionOpenShopScheduling", "<="),
+        ("DecisionSpinGlass", "<="),
+        ("DecisionLongestCircuit", ">="),
+        ("DecisionMinimumSumMulticenter", "<="),
+    ] {
+        let schema = schemas.iter().find(|schema| schema.name == name).unwrap();
+        assert!(schema.description.contains(direction), "{name}");
+        for field in &schema.fields {
+            assert!(!field.description.is_empty(), "{name}: {}", field.name);
+        }
+    }
+}

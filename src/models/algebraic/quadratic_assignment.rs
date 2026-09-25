@@ -250,13 +250,13 @@ mod tests;
 crate::decision_problem_meta!(QuadraticAssignment, "DecisionQuadraticAssignment");
 crate::register_decision_variant!(
     QuadraticAssignment, "DecisionQuadraticAssignment", "factorial(num_facilities)", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Algebraic,
     dims: [],
     fields: [
         crate::registry::FieldInfo { name: "cost_matrix", type_name: "Vec<Vec<i64>>", description: "Flow/cost matrix between facilities" },
         crate::registry::FieldInfo { name: "distance_matrix", type_name: "Vec<Vec<i64>>", description: "Distance matrix between locations" },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| indices
 );

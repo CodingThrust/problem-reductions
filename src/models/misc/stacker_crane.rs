@@ -427,7 +427,7 @@ mod tests;
 crate::decision_problem_meta!(StackerCrane, "DecisionStackerCrane");
 crate::register_decision_variant!(
     StackerCrane, "DecisionStackerCrane", "num_vertices^2 * 2^num_arcs", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value <= the bound?",
     category: crate::registry::ProblemCategory::Misc,
     dims: [],
     fields: [
@@ -436,7 +436,7 @@ crate::register_decision_variant!(
         crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Vertex count, needed to preserve isolated vertices." },
         crate::registry::FieldInfo { name: "arc_lengths", type_name: "Vec<i64>", description: "Required-arc lengths; defaults to one per arc." },
         crate::registry::FieldInfo { name: "edge_lengths", type_name: "Vec<i64>", description: "Connector-edge lengths; defaults to one per edge." },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
     ],
     decode: |_, indices: Vec<usize>| indices
 );

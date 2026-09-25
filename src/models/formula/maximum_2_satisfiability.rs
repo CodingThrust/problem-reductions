@@ -196,13 +196,13 @@ mod tests;
 crate::decision_problem_meta!(Maximum2Satisfiability, "DecisionMaximum2Satisfiability");
 crate::register_decision_variant!(
     Maximum2Satisfiability, "DecisionMaximum2Satisfiability", "2^(0.7905 * num_vars)", &[],
-    "Does a feasible solution meet the objective bound?",
+    "Does a feasible solution have objective value >= the bound?",
     category: crate::registry::ProblemCategory::Formula,
     dims: [],
     fields: [
         crate::registry::FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
         crate::registry::FieldInfo { name: "clauses", type_name: "Vec<CNFClause>", description: "Collection of 2-literal clauses" },
-        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values >= this bound" },
     ],
     decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
 );
