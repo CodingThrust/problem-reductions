@@ -201,7 +201,7 @@ fn test_path_constrained_network_flow_deserialization_rejects_invalid_instances(
         (
             "capacities",
             serde_json::json!([1, 1]),
-            "capacities length must match graph num_arcs",
+            "capacities has length 2, expected 10",
         ),
         (
             "source",

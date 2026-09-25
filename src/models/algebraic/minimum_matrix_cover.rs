@@ -51,9 +51,23 @@ inventory::submit! {
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "Data")]
 pub struct MinimumMatrixCover {
     /// The n×n nonnegative integer matrix.
     matrix: Vec<Vec<i64>>,
+}
+
+#[derive(Deserialize)]
+struct Data {
+    matrix: Vec<Vec<i64>>,
+}
+
+impl TryFrom<Data> for MinimumMatrixCover {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: Data) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix)
+    }
 }
 
 impl MinimumMatrixCover {
@@ -61,18 +75,26 @@ impl MinimumMatrixCover {
     ///
     /// # Panics
     ///
-    /// Panics if the matrix is not square or has inconsistent row lengths.
+    /// Panics if the matrix is not square or contains a negative entry.
     pub fn new(matrix: Vec<Vec<i64>>) -> Self {
+        Self::try_new(matrix).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(matrix: Vec<Vec<i64>>) -> Result<Self, crate::registry::ConstructionError> {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                n,
-                "Matrix must be square: row {i} has {} columns, expected {n}",
-                row.len()
-            );
+            if row.len() != n {
+                return Err(format!(
+                    "Matrix must be square: row {i} has {} columns, expected {n}",
+                    row.len()
+                )
+                .into());
+            }
+            if row.iter().any(|&entry| entry < 0) {
+                return Err(format!("matrix row {i} contains a negative entry").into());
+            }
         }
-        Self { matrix }
+        Ok(Self { matrix })
     }
 
     /// Returns the number of rows (= columns) of the matrix.

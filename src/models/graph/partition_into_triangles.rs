@@ -51,10 +51,28 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "PartitionIntoTrianglesData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoTriangles<G> {
     /// The underlying graph.
     graph: G,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoTrianglesData<G> {
+    graph: G,
+}
+
+impl<G> TryFrom<PartitionIntoTrianglesData<G>> for PartitionIntoTriangles<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoTrianglesData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph)
+    }
 }
 
 impl<G: Graph> PartitionIntoTriangles<G> {
@@ -63,12 +81,18 @@ impl<G: Graph> PartitionIntoTriangles<G> {
     /// # Panics
     /// Panics if the number of vertices is not divisible by 3.
     pub fn new(graph: G) -> Self {
-        assert!(
-            graph.num_vertices().is_multiple_of(3),
-            "Number of vertices ({}) must be divisible by 3",
-            graph.num_vertices()
-        );
-        Self { graph }
+        Self::try_new(graph).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !graph.num_vertices().is_multiple_of(3) {
+            return Err(format!(
+                "Number of vertices ({}) must be divisible by 3",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.

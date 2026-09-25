@@ -31,10 +31,29 @@ inventory::submit! {
 /// sorted edge list. A valid solution selects exactly the edges of one simple
 /// path for each terminal pair, with all such paths pairwise vertex-disjoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "DisjointConnectingPathsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct DisjointConnectingPaths<G> {
     graph: G,
     terminal_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct DisjointConnectingPathsData<G> {
+    graph: G,
+    terminal_pairs: Vec<(usize, usize)>,
+}
+
+impl<G> TryFrom<DisjointConnectingPathsData<G>> for DisjointConnectingPaths<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: DisjointConnectingPathsData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.terminal_pairs)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -69,27 +88,7 @@ impl TryFrom<DisjointConnectingPathsCreateSpec> for DisjointConnectingPaths<Simp
         if count < inferred {
             return Err("num_vertices is too small for graph endpoints".into());
         }
-        if spec.terminal_pairs.is_empty() {
-            return Err("terminal_pairs must contain at least one pair".into());
-        }
-        let mut used = vec![false; count];
-        for &(source, sink) in &spec.terminal_pairs {
-            if source >= count || sink >= count {
-                return Err("terminal pair endpoint is out of bounds".into());
-            }
-            if source == sink {
-                return Err("terminal pair endpoints must be distinct".into());
-            }
-            if used[source] || used[sink] {
-                return Err("terminal vertices must be pairwise disjoint".into());
-            }
-            used[source] = true;
-            used[sink] = true;
-        }
-        Ok(Self {
-            graph: SimpleGraph::new(count, spec.graph),
-            terminal_pairs: spec.terminal_pairs,
-        })
+        Self::try_new(SimpleGraph::new(count, spec.graph), spec.terminal_pairs)
     }
 }
 
@@ -101,33 +100,43 @@ impl<G: Graph> DisjointConnectingPaths<G> {
     /// Panics if no terminal pairs are provided, if a pair uses invalid or
     /// repeated endpoints, or if any terminal appears in more than one pair.
     pub fn new(graph: G, terminal_pairs: Vec<(usize, usize)>) -> Self {
-        assert!(
-            !terminal_pairs.is_empty(),
-            "terminal_pairs must contain at least one pair"
-        );
+        Self::try_new(graph, terminal_pairs).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        terminal_pairs: Vec<(usize, usize)>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if terminal_pairs.is_empty() {
+            return Err("terminal_pairs must contain at least one pair".into());
+        }
 
         let num_vertices = graph.num_vertices();
         let mut used = vec![false; num_vertices];
         for &(source, sink) in &terminal_pairs {
-            assert!(source < num_vertices, "terminal pair source out of bounds");
-            assert!(sink < num_vertices, "terminal pair sink out of bounds");
-            assert_ne!(source, sink, "terminal pair endpoints must be distinct");
-            assert!(
-                !used[source],
-                "terminal vertices must be pairwise disjoint across pairs"
-            );
-            assert!(
-                !used[sink],
-                "terminal vertices must be pairwise disjoint across pairs"
-            );
+            if source >= num_vertices {
+                return Err("terminal pair source out of bounds".into());
+            }
+            if sink >= num_vertices {
+                return Err("terminal pair sink out of bounds".into());
+            }
+            if source == sink {
+                return Err("terminal pair endpoints must be distinct".into());
+            }
+            if used[source] {
+                return Err("terminal vertices must be pairwise disjoint across pairs".into());
+            }
+            if used[sink] {
+                return Err("terminal vertices must be pairwise disjoint across pairs".into());
+            }
             used[source] = true;
             used[sink] = true;
         }
 
-        Self {
+        Ok(Self {
             graph,
             terminal_pairs,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

@@ -5,11 +5,53 @@ use crate::models::graph::{MinimumFeedbackArcSet, MinimumVertexCover};
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
-#[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
-#[cfg(feature = "example-db")]
 use crate::traits::Problem;
+
+#[test]
+fn test_signed_weights_preserve_all_target_optima() {
+    for weights in [vec![-10, 1, 1], vec![-3, -2, -1], vec![0, 0, 0]] {
+        let source = MinimumVertexCover::new(SimpleGraph::new(3, vec![(1, 2)]), weights);
+        let reduction = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).unwrap();
+        let expected = source
+            .evaluate(&BruteForce::new().solve(&source).unwrap().unwrap())
+            .unwrap();
+        for mask in 0..32 {
+            let config: Vec<bool> = (0..5).map(|bit| mask & (1 << bit) != 0).collect();
+            if reduction.target_problem().evaluate(&config).unwrap() == expected {
+                let recovered = reduction.extract_solution(&config).unwrap();
+                assert_eq!(source.evaluate(&recovered).unwrap(), expected);
+            }
+        }
+        let optimum = BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            reduction.target_problem().evaluate(&optimum).unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn test_extraction_rejects_uncovered_edges_and_penalty_overflow() {
+    let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1_i64; 2]);
+    let reduction = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).unwrap();
+    assert!(reduction
+        .target_problem()
+        .evaluate(&vec![false, false, true, true])
+        .unwrap()
+        .is_valid());
+    assert!(reduction
+        .extract_solution(&vec![false, false, true, true])
+        .is_err());
+    for weights in [vec![i64::MAX, 0], vec![i64::MAX, 1]] {
+        let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), weights);
+        assert!(ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).is_err());
+    }
+}
 
 fn triangle_source() -> MinimumVertexCover<SimpleGraph, i64> {
     // Triangle: 0-1-2-0, unit weights; MVC = 2

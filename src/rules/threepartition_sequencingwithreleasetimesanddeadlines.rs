@@ -51,7 +51,12 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         Ok({
             // Simulate the schedule to find start times
@@ -85,6 +90,9 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
         })
     }
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionThreePartitionToSRTD {}
 
 #[reduction(
     transform = exact {

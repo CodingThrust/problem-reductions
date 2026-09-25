@@ -161,12 +161,18 @@ impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
         edge_weights: Vec<W>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if arc_weights.len() != graph.num_arcs() {
-            return Err("arc_weights length must match num_arcs".to_string().into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "arc_weights",
+                arc_weights.len(),
+                graph.num_arcs(),
+            ));
         }
         if edge_weights.len() != graph.num_edges() {
-            return Err("edge_weights length must match num_edges"
-                .to_string()
-                .into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
         }
         for (index, weight) in arc_weights.iter().enumerate() {
             if !matches!(

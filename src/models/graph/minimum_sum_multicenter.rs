@@ -55,6 +55,8 @@ inventory::submit! {
 /// assert_eq!(solution, vec![false, true, false]);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumSumMulticenterData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumSumMulticenter<G, W> {
     /// The underlying graph.
     graph: G,
@@ -64,6 +66,27 @@ pub struct MinimumSumMulticenter<G, W> {
     edge_lengths: Vec<W>,
     /// Number of centers to place.
     k: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
+struct MinimumSumMulticenterData<G, W> {
+    graph: G,
+    vertex_weights: Vec<W>,
+    edge_lengths: Vec<W>,
+    k: usize,
+}
+
+impl<G, W> TryFrom<MinimumSumMulticenterData<G, W>> for MinimumSumMulticenter<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumSumMulticenterData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.vertex_weights, data.edge_lengths, data.k)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -98,29 +121,10 @@ impl TryFrom<MinimumSumMulticenterCreateSpec> for MinimumSumMulticenter<SimpleGr
         let vertex_weights = spec
             .weights
             .unwrap_or_else(|| vec![1; graph.num_vertices()]);
-        if vertex_weights.len() != graph.num_vertices() {
-            return Err(format!(
-                "weights has length {}, expected {}",
-                vertex_weights.len(),
-                graph.num_vertices()
-            )
-            .into());
-        }
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if spec.k == 0 || spec.k > graph.num_vertices() {
-            return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
-        }
-        Ok(Self::new(graph, vertex_weights, edge_lengths, spec.k))
+        Self::try_new(graph, vertex_weights, edge_lengths, spec.k)
     }
 }
 
@@ -160,24 +164,42 @@ impl<G: Graph, W: Clone + Default> MinimumSumMulticenter<G, W> {
     /// - If `edge_lengths.len() != graph.num_edges()`
     /// - If `k == 0` or `k > graph.num_vertices()`
     pub fn new(graph: G, vertex_weights: Vec<W>, edge_lengths: Vec<W>, k: usize) -> Self {
-        assert_eq!(
-            vertex_weights.len(),
-            graph.num_vertices(),
-            "vertex_weights length must match num_vertices"
-        );
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        assert!(k > 0, "k must be positive");
-        assert!(k <= graph.num_vertices(), "k must not exceed num_vertices");
-        Self {
+        Self::try_new(graph, vertex_weights, edge_lengths, k)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        vertex_weights: Vec<W>,
+        edge_lengths: Vec<W>,
+        k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if vertex_weights.len() != graph.num_vertices() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "vertex_weights",
+                vertex_weights.len(),
+                graph.num_vertices(),
+            ));
+        }
+        if edge_lengths.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_lengths",
+                edge_lengths.len(),
+                graph.num_edges(),
+            ));
+        }
+        if k == 0 {
+            return Err("k must be positive".into());
+        }
+        if k > graph.num_vertices() {
+            return Err("k must not exceed num_vertices".into());
+        }
+        Ok(Self {
             graph,
             vertex_weights,
             edge_lengths,
             k,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -409,3 +431,65 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/minimum_sum_multicenter.rs"]
 mod tests;
+
+crate::decision_problem_meta!(MinimumSumMulticenter<SimpleGraph, i64>, "DecisionMinimumSumMulticenter");
+crate::register_decision_variant!(
+    MinimumSumMulticenter<SimpleGraph, i64>, "DecisionMinimumSumMulticenter", "2^num_vertices", &[],
+    "Does a feasible solution have objective value <= the bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Weights for each vertex." },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "Weights for each edge in graph order." },
+        crate::registry::FieldInfo { name: "k", type_name: "usize", description: "Number of centers." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_minimum_sum_multicenter_to_minimum_sum_multicenter",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                MinimumSumMulticenter::new(
+                    SimpleGraph::new(
+                        7,
+                        vec![
+                            (0, 1),
+                            (1, 2),
+                            (2, 3),
+                            (3, 4),
+                            (4, 5),
+                            (5, 6),
+                            (0, 6),
+                            (2, 5),
+                        ],
+                    ),
+                    vec![1i64; 7],
+                    vec![1i64; 8],
+                    2,
+                ),
+                6,
+            );
+            let witness = serde_json::json!(vec![false, false, true, false, false, true, false]);
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MinimumSumMulticenter<SimpleGraph, i64>,
+            >(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

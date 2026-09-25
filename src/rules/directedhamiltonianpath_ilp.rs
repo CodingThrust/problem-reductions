@@ -34,7 +34,12 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let n = self.num_vertices;
@@ -45,10 +50,13 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
     }
 }
 
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionDirectedHamiltonianPathToILP {}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_vertices^2",
-        num_constraints = "3 * num_vertices + (num_vertices - 1) * (num_vertices^2 - num_arcs)",
+        num_constraints = "3 * num_vertices + num_vertices^3",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",

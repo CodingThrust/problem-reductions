@@ -694,6 +694,27 @@ fn rule_specs_solution_pairs_are_consistent() {
         let chain = chain.unwrap_or_else(|error| {
             panic!("Rule {label}: witness reduction execution failed: {error}")
         });
+        let aggregate_chain = if chain
+            .as_ref()
+            .is_some_and(|chain| chain.has_value_mapping())
+        {
+            let aggregate_chain = graph
+                .reduce_aggregate_along_path(witness_path.as_ref().unwrap(), source.as_any())
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                crate::registry::serialize_any(
+                    &example.target.problem,
+                    &example.target.variant,
+                    aggregate_chain.target_problem_any()
+                ),
+                Some(example.target.instance.clone()),
+                "Rule {label}: witness and aggregate execution construct different targets"
+            );
+            Some(aggregate_chain)
+        } else {
+            None
+        };
 
         for pair in &example.solutions {
             // Verify configs produce feasible evaluations.
@@ -739,6 +760,55 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
+                if source_eval == "Or(true)" {
+                    assert!(
+                        chain.has_value_mapping(),
+                        "Rule {label}: decision recovery requires an explicit YES/NO map"
+                    );
+                }
+                if chain.has_value_mapping() {
+                    let target_value = target.evaluate_json(&pair.target_config).unwrap();
+                    assert_eq!(
+                        aggregate_chain
+                            .as_ref()
+                            .unwrap()
+                            .extract_value(target_value.clone())
+                            .unwrap(),
+                        source_val,
+                        "Rule {label}: aggregate-only execution disagrees with witness evaluation"
+                    );
+                    assert_eq!(
+                        chain.extract_value(target_value).unwrap(),
+                        source_val,
+                        "Rule {label}: aggregate and witness mappings disagree"
+                    );
+                    if source_eval == "Or(true)" {
+                        if let Some(config) = pair.target_config.as_array() {
+                            for bit in [false, true] {
+                                let candidate = serde_json::Value::Array(
+                                    config
+                                        .iter()
+                                        .map(|value| match value {
+                                            serde_json::Value::Bool(_) => serde_json::json!(bit),
+                                            serde_json::Value::Number(_) => {
+                                                serde_json::json!(i64::from(bit))
+                                            }
+                                            _ => value.clone(),
+                                        })
+                                        .collect(),
+                                );
+                                // Only test well-formed candidates whose mapped value is NO.
+                                if let Ok(value) = target.evaluate_json(&candidate) {
+                                    if chain.extract_value(value).unwrap()
+                                        == serde_json::json!(false)
+                                    {
+                                        assert!(chain.extract_solution_json(candidate).is_err(), "Rule {label}: a negative certificate produced a witness");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 let extracted = chain
                     .extract_solution_json(pair.target_config.clone())
                     .unwrap();
@@ -890,21 +960,21 @@ fn test_find_rule_example_satisfiability_to_naesatisfiability() {
 // PR #779 rules
 
 #[test]
-fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
+fn test_find_rule_example_ksatisfiability_to_decisionminimumvertexcover() {
     let source = ProblemRef {
         name: "KSatisfiability".to_string(),
         variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),
     };
     let target = ProblemRef {
-        name: "MinimumVertexCover".to_string(),
+        name: "DecisionMinimumVertexCover".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i64".to_string()),
+            ("weight".to_string(), "One".to_string()),
         ]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "KSatisfiability");
-    assert_eq!(example.target.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "DecisionMinimumVertexCover");
 }
 
 #[test]
@@ -980,12 +1050,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_stackercrane() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "StackerCrane".to_string(),
+        name: "DecisionStackerCrane".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "StackerCrane");
+    assert_eq!(example.target.problem, "DecisionStackerCrane");
 }
 
 #[test]
@@ -995,7 +1065,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "RuralPostman".to_string(),
+        name: "DecisionRuralPostman".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1003,7 +1073,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "RuralPostman");
+    assert_eq!(example.target.problem, "DecisionRuralPostman");
 }
 
 #[test]
@@ -1031,12 +1101,12 @@ fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "QuadraticAssignment".to_string(),
+        name: "DecisionQuadraticAssignment".to_string(),
         variant: BTreeMap::new(),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "QuadraticAssignment");
+    assert_eq!(example.target.problem, "DecisionQuadraticAssignment");
 }
 
 // PR #804 rules
@@ -1102,7 +1172,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let target = ProblemRef {
-        name: "LongestCircuit".to_string(),
+        name: "DecisionLongestCircuit".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1110,7 +1180,7 @@ fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
-    assert_eq!(example.target.problem, "LongestCircuit");
+    assert_eq!(example.target.problem, "DecisionLongestCircuit");
 }
 
 #[test]
@@ -1266,7 +1336,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
         variant: BTreeMap::new(),
     };
     let target = ProblemRef {
-        name: "MaxCut".to_string(),
+        name: "DecisionMaxCut".to_string(),
         variant: BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
             ("weight".to_string(), "i64".to_string()),
@@ -1274,7 +1344,7 @@ fn test_find_rule_example_naesatisfiability_to_maxcut() {
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "NAESatisfiability");
-    assert_eq!(example.target.problem, "MaxCut");
+    assert_eq!(example.target.problem, "DecisionMaxCut");
 }
 
 #[test]
@@ -1329,4 +1399,23 @@ fn test_find_rule_example_maxcut_to_minimumcutintoboundedsets() {
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "MaxCut");
     assert_eq!(example.target.problem, "MinimumCutIntoBoundedSets");
+}
+
+#[test]
+fn test_small_decision_model_examples_have_valid_witnesses() {
+    for spec in [
+        "DecisionOpenShopScheduling",
+        "DecisionLongestCircuit",
+        "DecisionMinimumVertexCover/SimpleGraph/One",
+    ] {
+        let problem = crate::registry::parse_catalog_problem_ref(spec)
+            .unwrap()
+            .to_export_ref();
+        let example = find_model_example(&problem).unwrap();
+        let model = load_dyn(&example.problem, &example.variant, example.instance.clone()).unwrap();
+        assert_eq!(
+            model.evaluate_witness_dyn(&example.optimal_config).unwrap(),
+            Some("Or(true)".to_string())
+        );
+    }
 }

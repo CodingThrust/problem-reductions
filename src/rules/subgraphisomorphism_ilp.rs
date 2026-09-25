@@ -38,7 +38,12 @@ impl ReductionResult for ReductionSubIsoToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         one_hot_decode_rows(
             target_solution,
@@ -48,6 +53,9 @@ impl ReductionResult for ReductionSubIsoToILP {
         )
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionSubIsoToILP {}
 
 #[reduction(
     transform = upper_bound {
@@ -79,9 +87,6 @@ impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
         for &(v, w) in &pat_edges {
             for u in 0..n_host {
                 for u_prime in 0..n_host {
-                    if u == u_prime {
-                        continue;
-                    }
                     if host.has_edge(u, u_prime) {
                         continue;
                     }

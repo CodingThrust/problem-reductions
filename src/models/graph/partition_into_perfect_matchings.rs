@@ -56,12 +56,31 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "PartitionIntoPerfectMatchingsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoPerfectMatchings<G> {
     /// The underlying graph.
     graph: G,
     /// Maximum number of matching groups.
     num_matchings: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoPerfectMatchingsData<G> {
+    graph: G,
+    num_matchings: usize,
+}
+
+impl<G> TryFrom<PartitionIntoPerfectMatchingsData<G>> for PartitionIntoPerfectMatchings<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoPerfectMatchingsData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.num_matchings)
+    }
 }
 
 impl<G: Graph> PartitionIntoPerfectMatchings<G> {
@@ -70,15 +89,20 @@ impl<G: Graph> PartitionIntoPerfectMatchings<G> {
     /// # Panics
     /// Panics if `num_matchings` is zero or greater than `graph.num_vertices()`.
     pub fn new(graph: G, num_matchings: usize) -> Self {
-        assert!(num_matchings >= 1, "num_matchings must be at least 1");
-        assert!(
-            num_matchings <= graph.num_vertices(),
-            "num_matchings must be at most num_vertices"
-        );
-        Self {
+        Self::try_new(graph, num_matchings).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, num_matchings: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_matchings == 0 {
+            return Err("num_matchings must be at least 1".into());
+        }
+        if num_matchings > graph.num_vertices() {
+            return Err("num_matchings must be at most num_vertices".into());
+        }
+        Ok(Self {
             graph,
             num_matchings,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

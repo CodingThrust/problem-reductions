@@ -29,16 +29,24 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionAcyclicPartitionToILP {}
+
 #[reduction(
     transform = exact {
-        num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs",
-        num_constraints = "2 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
+        num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices",
+        num_constraints = "num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -59,7 +67,8 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
         let x_idx = |v: usize, c: usize| -> usize { v * n + c };
         let s_idx = |t: usize, c: usize| -> usize { n * n + t * n + c };
         let y_idx = |t: usize| -> usize { n * n + m * n + t };
-        let num_vars = n * n + m * n + m;
+        let used_idx = |c: usize| -> usize { n * n + m * n + m + c };
+        let num_vars = n * n + m * n + m + n;
         let mut constraints = Vec::new();
         let vertex_weights = self.vertex_weights();
         let arc_costs = self.arc_costs();
@@ -72,14 +81,32 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
             constraints.push(LinearConstraint::eq(terms, 1));
         }
 
-        // 2) Weight bound: Σ_v w_v * x_{v,c} ≤ B  for each class c
+        // 2) Only occupied classes must meet the weight bound, which can be negative.
         for c in 0..n {
-            let terms: Vec<(usize, i64)> = vertex_weights
+            constraints.push(LinearConstraint::le(vec![(used_idx(c), 1)], 1));
+            let mut occupied = vec![(used_idx(c), -1)];
+            for v in 0..n {
+                constraints.push(LinearConstraint::le(
+                    vec![(x_idx(v, c), 1), (used_idx(c), -1)],
+                    0,
+                ));
+                occupied.push((x_idx(v, c), 1));
+            }
+            constraints.push(LinearConstraint::ge(occupied, 0));
+            let mut terms: Vec<(usize, i64)> = vertex_weights
                 .iter()
                 .enumerate()
                 .map(|(vertex, &weight)| (x_idx(vertex, c), weight))
                 .collect();
-            constraints.push(LinearConstraint::le(terms, weight_bound));
+            terms.push((
+                used_idx(c),
+                weight_bound.checked_neg().ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<Self, ILP<i64>>(
+                        "negating the partition weight bound",
+                    )
+                })?,
+            ));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         // 3) McCormick: s_{t,c} = x_{u_t,c} * x_{v_t,c}

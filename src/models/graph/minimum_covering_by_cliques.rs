@@ -223,3 +223,59 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/minimum_covering_by_cliques.rs"]
 mod tests;
+
+crate::decision_problem_meta!(
+    MinimumCoveringByCliques<SimpleGraph>,
+    "DecisionMinimumCoveringByCliques"
+);
+crate::register_decision_variant!(
+    MinimumCoveringByCliques<SimpleGraph>, "DecisionMinimumCoveringByCliques", "2^num_edges", &[],
+    "Does a feasible solution have objective value <= the bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
+    fields: [
+crate::registry::FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
+],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_minimum_covering_by_cliques_to_minimum_covering_by_cliques",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                MinimumCoveringByCliques::new(SimpleGraph::new(
+                    6,
+                    vec![
+                        (0, 1),
+                        (1, 2),
+                        (2, 3),
+                        (3, 0),
+                        (0, 2),
+                        (4, 0),
+                        (4, 1),
+                        (5, 2),
+                        (5, 3),
+                    ],
+                )),
+                4,
+            );
+            let witness = serde_json::json!(vec![0, 0, 1, 1, 0, 2, 2, 3, 3]);
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MinimumCoveringByCliques<SimpleGraph>,
+            >(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

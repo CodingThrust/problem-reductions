@@ -8,11 +8,11 @@
 //! where q counts distinct directed non-loop adjacencies. Each side includes
 //! a private vertex, so its forced clique exists even for an empty source.
 
+use crate::models::decision::Decision;
 use crate::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{Min, OptimizationValue, Or};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -87,7 +87,7 @@ impl OrlinLayout {
         let overflow = |operation: &str| {
             crate::rules::ReductionError::integer_overflow::<
                 PartitionIntoCliques<SimpleGraph>,
-                MinimumCoveringByCliques<SimpleGraph>,
+                Decision<MinimumCoveringByCliques<SimpleGraph>>,
             >(operation)
         };
         // The two sides each have n+q+1 vertices, including their private
@@ -106,10 +106,9 @@ impl OrlinLayout {
             .and_then(|s| s.checked_add(n))
             .and_then(|s| q.checked_mul(4).and_then(|cross| s.checked_add(cross)))
             .ok_or_else(|| overflow("counting target edges"))?;
-        <PartitionIntoCliques<SimpleGraph> as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
-            target_edges,
-            "representing every target cover value",
-        )?;
+        <PartitionIntoCliques<SimpleGraph> as ReduceTo<
+            Decision<MinimumCoveringByCliques<SimpleGraph>>,
+        >>::exact_i64(target_edges, "representing every target cover value")?;
         Ok((target_vertices, target_edges))
     }
 }
@@ -132,7 +131,7 @@ fn target_clique_bound(
         .ok_or_else(|| {
             crate::rules::ReductionError::integer_overflow::<
                 PartitionIntoCliques<SimpleGraph>,
-                MinimumCoveringByCliques<SimpleGraph>,
+                Decision<MinimumCoveringByCliques<SimpleGraph>>,
             >("computing target clique bound")
         })
 }
@@ -140,15 +139,13 @@ fn target_clique_bound(
 /// Result of reducing PartitionIntoCliques to MinimumCoveringByCliques.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
-    target: MinimumCoveringByCliques<SimpleGraph>,
+    target: Decision<MinimumCoveringByCliques<SimpleGraph>>,
     num_source_vertices: usize,
-    source_num_cliques: usize,
-    target_bound: i64,
 }
 
 impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
     type Source = PartitionIntoCliques<SimpleGraph>;
-    type Target = MinimumCoveringByCliques<SimpleGraph>;
+    type Target = Decision<MinimumCoveringByCliques<SimpleGraph>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -158,17 +155,16 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !Min::meets_bound(&value, &self.target_bound) {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target cover does not certify the source clique bound",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target cover does not certify the source clique bound",
+        )?;
 
         Ok({
             let n = self.num_source_vertices;
-            let target_edges = self.target.graph().edges();
+            let target_edges = self.target.inner().graph().edges();
             let mut matching_labels = vec![None; n];
             for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
                 let matching_index = if *u < n && *v == n + *u {
@@ -198,14 +194,6 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
                 })
                 .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
 
-            if label_map.len() > self.source_num_cliques {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "target cover uses {} cliques, exceeding source bound {}",
-                    label_map.len(),
-                    self.source_num_cliques
-                )));
-            }
-
             // Equal matching-edge labels imply pairwise source adjacency.
             // The target certificate leaves at most K labels for these edges.
             extracted
@@ -213,29 +201,21 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
     }
 }
 
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 {
-    type Source = PartitionIntoCliques<SimpleGraph>;
-    type Target = MinimumCoveringByCliques<SimpleGraph>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, target_value: Min<i64>) -> Or {
-        Or(Min::meets_bound(&target_value, &self.target_bound))
-    }
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "2 * num_vertices + 4 * num_edges + 4",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 4 * num_vertices + 14 * num_edges + 2",
     }
 )]
-impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<SimpleGraph> {
+impl ReduceTo<Decision<MinimumCoveringByCliques<SimpleGraph>>>
+    for PartitionIntoCliques<SimpleGraph>
+{
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -243,14 +223,16 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
         let layout = OrlinLayout::new(self.graph());
         let q = layout.num_directed_pairs();
         let (target_vertices, target_edges) = layout.dimensions()?;
-        let source_bound = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
-            self.num_cliques().min(n),
-            "converting effective clique bound",
-        )?;
-        let directed_pairs = <Self as ReduceTo<MinimumCoveringByCliques<SimpleGraph>>>::exact_i64(
-            q,
-            "converting gadget count",
-        )?;
+        let source_bound =
+            <Self as ReduceTo<Decision<MinimumCoveringByCliques<SimpleGraph>>>>::exact_i64(
+                self.num_cliques().min(n),
+                "converting effective clique bound",
+            )?;
+        let directed_pairs =
+            <Self as ReduceTo<Decision<MinimumCoveringByCliques<SimpleGraph>>>>::exact_i64(
+                q,
+                "converting gadget count",
+            )?;
         let target_bound = target_clique_bound(source_bound, directed_pairs)?;
         let left_vertices = layout.left_vertices();
         let right_vertices = layout.right_vertices();
@@ -285,10 +267,8 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
         let target = MinimumCoveringByCliques::new(target_graph);
 
         Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
-            target,
+            target: Decision::new(target, target_bound),
             num_source_vertices: n,
-            source_num_cliques: self.num_cliques(),
-            target_bound,
         })
     }
 }
@@ -325,12 +305,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partitionintocliques_to_minimumcoveringbycliques",
         build: || {
             let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-            let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
-                .expect("reduction should succeed");
+            let reduction =
+                ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let layout = OrlinLayout::new(source.graph());
 
             let target_config = edge_labels_from_clique_cover(
-                reduction.target_problem().graph(),
+                reduction.target_problem().inner().graph(),
                 &[
                     vec![layout.x(0), layout.x(1), layout.y(0), layout.y(1)],
                     vec![layout.x(2), layout.y(2)],
@@ -351,7 +332,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumCoveringByCliques<SimpleGraph>,
+                Decision<MinimumCoveringByCliques<SimpleGraph>>,
             >(
                 source,
                 SolutionPair {

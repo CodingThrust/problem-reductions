@@ -175,7 +175,11 @@ impl<W: WeightElement> AcyclicPartition<W> {
         vertex_weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if vertex_weights.len() != graph.num_vertices() {
-            return Err("vertex_weights length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "vertex_weights",
+                vertex_weights.len(),
+                graph.num_vertices(),
+            ));
         }
         Ok(())
     }
@@ -191,7 +195,11 @@ impl<W: WeightElement> AcyclicPartition<W> {
         arc_costs: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if arc_costs.len() != graph.num_arcs() {
-            return Err("arc_costs length must match graph num_arcs".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "arc_costs",
+                arc_costs.len(),
+                graph.num_arcs(),
+            ));
         }
         Ok(())
     }
@@ -318,9 +326,13 @@ fn is_valid_acyclic_partition<W: WeightElement>(
             vertex_weights[vertex].to_sum(),
             "summing acyclic partition vertex weights",
         )?;
-        if partition_weights[label] > *weight_bound {
-            return Ok(false);
-        }
+    }
+    if partition_weights
+        .iter()
+        .zip(&used_labels)
+        .any(|(weight, used)| *used && weight > weight_bound)
+    {
+        return Ok(false);
     }
 
     let mut dense_label = vec![usize::MAX; num_vertices];
@@ -345,13 +357,11 @@ fn is_valid_acyclic_partition<W: WeightElement>(
             cost.to_sum(),
             "summing acyclic partition arc costs",
         )?;
-        if total_cost > *cost_bound {
-            return Ok(false);
-        }
         quotient_arcs.insert((dense_label[source_label], dense_label[target_label]));
     }
 
-    Ok(DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
+    Ok(total_cost <= *cost_bound
+        && DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
 }
 
 crate::declare_variants! {

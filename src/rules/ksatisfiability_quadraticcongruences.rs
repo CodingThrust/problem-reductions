@@ -40,13 +40,12 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target integer does not satisfy the bounded quadratic congruence",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target integer does not satisfy the bounded quadratic congruence",
+        )?;
         // Validation gives 0 < x <= H. Each prime power divides exactly one
         // of H-x and H+x. The coordinate zero sign chooses x or -x so that
         // the odd linear target, rather than its negative, is recovered.
@@ -314,6 +313,9 @@ fn witness_config_for_assignment(
     let alphas = build_alphas(&construction, assignment)?;
     Some(witness_value_from_alphas(&alphas, &construction.thetas))
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for Reduction3SATToQuadraticCongruences {}
 
 #[reduction(
     transform = upper_bound {

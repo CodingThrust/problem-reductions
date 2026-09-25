@@ -168,10 +168,29 @@ pub(crate) fn validate_target_solution<P: Problem>(
     Ok(target.evaluate(solution)?)
 }
 
+/// Validate once, then require the evaluated target to certify a source witness.
+/// The rule supplies its feasibility predicate or value-map threshold and rejection reason.
+/// A rejected candidate is an extraction error, not a completed infeasibility result.
+pub(crate) fn validate_target_witness<P: Problem>(
+    target: &P,
+    solution: &P::Solution,
+    certifies_source: impl FnOnce(P::Value) -> bool,
+    message: &str,
+) -> ExtractionResult<()> {
+    let value = validate_target_solution(target, solution)?;
+    if !certifies_source(value) {
+        return Err(ExtractionError::invalid(message));
+    }
+    Ok(())
+}
+
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods
 /// to extract solutions back to the source problem space.
+/// Construction must preserve existence: a feasible source has a feasible target.
+/// Consequently, established target infeasibility implies source infeasibility,
+/// without a witness or an aggregate-value mapping.
 pub trait ReductionResult {
     /// The source problem type.
     type Source: Problem;
@@ -259,6 +278,13 @@ pub trait AggregateReductionResult {
     fn target_problem(&self) -> &Self::Target;
 
     /// Extract an aggregate value from target problem space back to source space.
+    ///
+    /// The caller supplies the completed target aggregate: an exact optimum,
+    /// exhaustive YES/NO, count, or universal fold. Evaluating one candidate is
+    /// not a substitute for that aggregate when establishing NO or optimality.
+    /// A decision rule may also use its map to certify a candidate witness.
+    /// Each rule defines its own map;
+    /// source and target value types alone do not establish equivalence.
     fn extract_value(
         &self,
         target_value: <Self::Target as crate::traits::Problem>::Value,
@@ -333,6 +359,8 @@ impl<S: Problem, T: Problem<Value = S::Value>> AggregateReductionResult
 /// Implemented automatically for all `ReductionResult` types via blanket impl.
 /// Used internally by `ReductionChain`.
 pub trait DynReductionResult {
+    /// Borrow the executed concrete result, including its optional value mapping.
+    fn as_any(&self) -> &dyn Any;
     /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract a solution from target space to source space.
@@ -357,6 +385,9 @@ where
     <R::Source as Problem>::Solution: 'static,
     <R::Source as Problem>::Solution: serde::Serialize,
 {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem() as &dyn Any
     }
@@ -398,19 +429,36 @@ where
     }
 }
 
+/// Borrow the value mapping of the same result used for witness extraction.
+pub fn aggregate_view<R>(
+    result: &dyn DynReductionResult,
+) -> ExtractionResult<&dyn DynAggregateReductionResult>
+where
+    R: DynAggregateReductionResult + 'static,
+{
+    result
+        .as_any()
+        .downcast_ref::<R>()
+        .map(|result| result as &dyn DynAggregateReductionResult)
+        .ok_or_else(|| ExtractionError::invalid("executed reduction type mismatch"))
+}
+
 /// Type-erased aggregate reduction result for runtime-discovered paths.
 pub trait DynAggregateReductionResult {
     /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract an aggregate value from target space to source space.
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value;
-    /// Map the value of a target solution without erasing the source value's type.
+    fn extract_value_dyn(
+        &self,
+        target_value: serde_json::Value,
+    ) -> ExtractionResult<serde_json::Value>;
+    /// Map the value of a target solution to a serialized source aggregate.
     /// The caller must establish that the solution realizes the target aggregate
     /// before interpreting the result as the source aggregate.
     fn extract_value_from_solution_dyn(
         &self,
         target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>>;
+    ) -> ExtractionResult<serde_json::Value>;
 }
 
 impl<R: AggregateReductionResult + 'static> DynAggregateReductionResult for R
@@ -424,18 +472,23 @@ where
         self.target_problem() as &dyn Any
     }
 
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
-        let target_value = serde_json::from_value(target_value)
-            .expect("DynAggregateReductionResult target value deserialize failed");
+    fn extract_value_dyn(
+        &self,
+        target_value: serde_json::Value,
+    ) -> ExtractionResult<serde_json::Value> {
+        let target_value = serde_json::from_value(target_value).map_err(|error| {
+            ExtractionError::invalid(format!("target aggregate deserialization failed: {error}"))
+        })?;
         let source_value = self.extract_value(target_value);
-        serde_json::to_value(source_value)
-            .expect("DynAggregateReductionResult source value serialize failed")
+        serde_json::to_value(source_value).map_err(|error| {
+            ExtractionError::invalid(format!("source aggregate serialization failed: {error}"))
+        })
     }
 
     fn extract_value_from_solution_dyn(
         &self,
         target_solution: &dyn Any,
-    ) -> ExtractionResult<Box<dyn Any>> {
+    ) -> ExtractionResult<serde_json::Value> {
         let target_solution = target_solution
             .downcast_ref::<<R::Target as Problem>::Solution>()
             .ok_or_else(|| {
@@ -445,10 +498,12 @@ where
                 ))
             })?;
         let target_value = self.target_problem().evaluate(target_solution)?;
-        Ok(Box::new(self.extract_value(target_value)))
+        serde_json::to_value(self.extract_value(target_value)).map_err(|error| {
+            ExtractionError::invalid(format!("source aggregate serialization failed: {error}"))
+        })
     }
 }
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/traits.rs"]
-mod tests;
+pub(crate) mod tests;

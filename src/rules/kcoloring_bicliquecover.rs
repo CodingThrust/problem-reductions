@@ -72,13 +72,12 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a biclique cover",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0.is_some(),
+            "target configuration is not a biclique cover",
+        )?;
 
         Ok({
             let n = self.num_vertices;
@@ -118,6 +117,20 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
             }
             coloring
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToBicliqueCover {
+    type Source = KColoring<KN, SimpleGraph>;
+    type Target = BicliqueCover;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0.is_some())
     }
 }
 

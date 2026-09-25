@@ -28,11 +28,19 @@ impl ReductionResult for ReductionCBMToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionCBMToILP {}
 
 #[reduction(
     transform = upper_bound {
@@ -84,6 +92,9 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
 
         // Block-start indicators
         for r in 0..m {
+            if n == 0 {
+                break;
+            }
             // b_{r,0} = a_{r,0}
             let b_idx = b_offset + r * n;
             let a_idx = a_offset + r * n;

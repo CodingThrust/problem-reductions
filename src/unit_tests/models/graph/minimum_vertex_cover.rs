@@ -1,3 +1,21 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid =
+        serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"weights":[1,1,1]});
+    let problem: MinimumVertexCover<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumVertexCover<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    let mut data = valid.clone();
+    data["weights"] = serde_json::json!([]);
+    assert!(
+        serde_json::from_value::<MinimumVertexCover<SimpleGraph, i64>>(data.clone()).is_err(),
+        "accepted {data}"
+    );
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 

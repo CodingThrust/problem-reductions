@@ -1,3 +1,20 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]}});
+    let problem: MaximumLeafSpanningTree<SimpleGraph> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MaximumLeafSpanningTree<SimpleGraph> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    let mut data = valid.clone();
+    data["graph"] = serde_json::json!({"num_vertices":1,"edges":[]});
+    assert!(
+        serde_json::from_value::<MaximumLeafSpanningTree<SimpleGraph>>(data.clone()).is_err(),
+        "accepted {data}"
+    );
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};

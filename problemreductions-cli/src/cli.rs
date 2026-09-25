@@ -209,20 +209,18 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Extract a source-space solution from a reduction bundle and a target-space config
+    /// Recover a source configuration or value through the reduction rules
     #[command(after_help = "\
 Examples:
-  pred extract bundle.json --config '[1,0,1,0]'
-  pred extract bundle.json --config '[1,0,1,0]' -o source.json
-  cat bundle.json | pred extract - --config '[1,0,1,0]'
+  pred extract bundle.json --config '[true,false]'
+  pred extract bundle.json --config '[true,false]' -o source.json
+  pred extract bundle.json --value 2
+  pred extract - --config '[true,false]' < bundle.json
 
-Use this when an external solver has solved the bundle's target problem
-(e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
-the corresponding solution in the original source problem space without
-having to shell back into `pred solve`.
-
-Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
---config is the target problem's solution encoded as JSON (e.g. '[1,0,1,0]').")]
+--config calls the rules' solution mapping; --value calls their aggregate mapping.
+Supply raw JSON of the completed target aggregate for --value: 2, true, or null.
+Do not use wrapper syntax such as Min(2).
+Extraction does not solve the target or prove that the supplied value is optimal.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
@@ -331,15 +329,21 @@ pub struct ReduceArgs {
     /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
+    /// Construct an aggregate-value path for recovery with pred extract --value.
+    #[arg(long)]
+    pub aggregate: bool,
 }
 
 #[derive(clap::Args)]
 pub struct ExtractArgs {
-    /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
+    /// Reduction bundle JSON (from pred reduce). Use - for stdin.
     pub input: PathBuf,
-    /// Target problem solution encoded as JSON (for example, [1,0,1,0])
+    /// Target problem configuration encoded as JSON.
+    #[arg(long, required_unless_present = "value", conflicts_with = "value")]
+    pub config: Option<String>,
+    /// Completed target aggregate encoded as JSON, passed to the rules' value mapping.
     #[arg(long)]
-    pub config: String,
+    pub value: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -559,5 +563,29 @@ mod tests {
             .expect("create subcommand");
         assert_eq!(create.get_subcommands().count(), 0);
         assert!(create.is_allow_external_subcommands_set());
+    }
+
+    #[test]
+    fn extract_requires_exactly_one_mapping_input() {
+        assert!(Cli::try_parse_from([
+            "pred",
+            "extract",
+            "bundle.json",
+            "--config",
+            "[true,false]"
+        ])
+        .is_ok());
+        assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
+        assert!(Cli::try_parse_from(["pred", "extract", "bundle.json", "--value", "2"]).is_ok());
+        assert!(Cli::try_parse_from([
+            "pred",
+            "extract",
+            "bundle.json",
+            "--config",
+            "[true,false]",
+            "--value",
+            "2"
+        ])
+        .is_err());
     }
 }

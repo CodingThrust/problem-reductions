@@ -55,11 +55,19 @@ impl ReductionResult for ReductionU2CIFToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         crate::rules::ilp_helpers::decode_usize_values(&target_solution[..4 * self.num_edges])
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
 
 #[reduction(
     transform = exact {
@@ -151,7 +159,8 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
                     if vertex == u {
                         terms.push((uv, -1));
                         terms.push((vu, 1));
-                    } else if vertex == v {
+                    }
+                    if vertex == v {
                         terms.push((uv, 1));
                         terms.push((vu, -1));
                     }
@@ -168,7 +177,8 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
             if sink_1 == v {
                 sink1_terms.push((f1_uv(edge_idx), 1));
                 sink1_terms.push((f1_vu(edge_idx), -1));
-            } else if sink_1 == u {
+            }
+            if sink_1 == u {
                 sink1_terms.push((f1_uv(edge_idx), -1));
                 sink1_terms.push((f1_vu(edge_idx), 1));
             }
@@ -182,7 +192,8 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
             if sink_2 == v {
                 sink2_terms.push((f2_uv(edge_idx), 1));
                 sink2_terms.push((f2_vu(edge_idx), -1));
-            } else if sink_2 == u {
+            }
+            if sink_2 == u {
                 sink2_terms.push((f2_uv(edge_idx), -1));
                 sink2_terms.push((f2_vu(edge_idx), 1));
             }

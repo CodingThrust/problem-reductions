@@ -61,10 +61,10 @@ pub(crate) fn parse_path_json(content: &str) -> Result<ReductionPath> {
     Ok(ReductionPath { steps })
 }
 
-pub(crate) fn execute_route(
-    problem_json: ProblemJson,
-    reduction_path: ReductionPath,
-) -> Result<ReductionBundle> {
+fn load_route_source(
+    problem_json: &ProblemJson,
+    reduction_path: &ReductionPath,
+) -> Result<crate::dispatch::LoadedProblem> {
     let source = load_problem(
         &problem_json.problem_type,
         &problem_json.variant,
@@ -86,25 +86,19 @@ pub(crate) fn execute_route(
         );
     }
 
-    let graph = ReductionGraph::new();
-    let chain = graph
-        .reduce_along_path(&reduction_path, source.as_any())
-        .map_err(|error| anyhow::anyhow!("Reduction path execution failed: {error}"))?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
-            )
-        })?;
-    let target_step = reduction_path
-        .steps
-        .last()
-        .expect("route parser requires at least one edge");
-    let target_data = serialize_any_problem(
-        &target_step.name,
-        &target_step.variant,
-        chain.target_problem_any(),
-    )?;
+    Ok(source)
+}
 
+fn make_bundle(
+    problem_json: ProblemJson,
+    reduction_path: ReductionPath,
+    source: &crate::dispatch::LoadedProblem,
+    target: &dyn std::any::Any,
+) -> Result<ReductionBundle> {
+    let source_name = source.problem_name();
+    let source_variant = source.variant_map();
+    let target_step = reduction_path.steps.last().expect("route has a target");
+    let target_data = serialize_any_problem(&target_step.name, &target_step.variant, target)?;
     Ok(ReductionBundle {
         source: ProblemJsonOutput {
             problem_type: source_name.to_string(),
@@ -127,13 +121,49 @@ pub(crate) fn execute_route(
     })
 }
 
-pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
+pub(crate) fn execute_route(
+    problem_json: ProblemJson,
+    reduction_path: ReductionPath,
+) -> Result<ReductionBundle> {
+    let source = load_route_source(&problem_json, &reduction_path)?;
+    let chain = ReductionGraph::new()
+        .reduce_along_path(&reduction_path, source.as_any())?
+        .context("Reduction bundle requires a witness-capable path")?;
+    make_bundle(
+        problem_json,
+        reduction_path,
+        &source,
+        chain.target_problem_any(),
+    )
+}
+
+pub(crate) fn execute_aggregate_route(
+    problem_json: ProblemJson,
+    reduction_path: ReductionPath,
+) -> Result<ReductionBundle> {
+    let source = load_route_source(&problem_json, &reduction_path)?;
+    let chain = ReductionGraph::new()
+        .reduce_aggregate_along_path(&reduction_path, source.as_any())?
+        .context("Reduction bundle requires an aggregate-capable path")?;
+    make_bundle(
+        problem_json,
+        reduction_path,
+        &source,
+        chain.target_problem_any(),
+    )
+}
+
+pub fn reduce(input: &Path, via: &Path, aggregate: bool, out: &OutputConfig) -> Result<()> {
     let content = read_input(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
     let reduction_path = load_path_file(via)?;
     let route_len = reduction_path.len();
     let route_text = reduction_path.to_string();
-    let bundle = execute_route(problem_json, reduction_path)?;
+    let bundle = if aggregate {
+        execute_aggregate_route(problem_json, reduction_path)?
+    } else {
+        execute_route(problem_json, reduction_path)?
+    };
 
     out.emit(
         || {

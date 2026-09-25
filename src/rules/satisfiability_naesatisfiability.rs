@@ -33,16 +33,14 @@ impl ReductionResult for ReductionSATToNAESAT {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment does not satisfy NAE clauses",
+        )?;
 
         let n = self.source_num_vars;
-        if target_solution.len() != n + 1 {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} target truth values, got {}",
-                n + 1,
-                target_solution.len()
-            )));
-        }
         let sentinel = target_solution[n];
         Ok(target_solution[..n]
             .iter()
@@ -50,6 +48,9 @@ impl ReductionResult for ReductionSATToNAESAT {
             .collect())
     }
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSATToNAESAT {}
 
 #[reduction(
     transform = exact {

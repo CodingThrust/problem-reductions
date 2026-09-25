@@ -46,26 +46,21 @@ pub trait BruteForceProblem: Problem {
 pub(crate) struct CartesianIndices {
     dimensions: Vec<usize>,
     current: Option<Vec<usize>>,
-    remaining: usize,
 }
 
 impl CartesianIndices {
     pub(crate) fn new(dimensions: Vec<usize>) -> Result<Self, SolveError> {
-        let total = if dimensions.is_empty() {
-            1
-        } else if dimensions.contains(&0) {
-            0
+        let current = if dimensions.contains(&0) {
+            None
         } else {
-            dimensions.iter().try_fold(1usize, |total, &dimension| {
-                total
-                    .checked_mul(dimension)
-                    .ok_or_else(|| SolveError::SearchSpaceOverflow(dimensions.clone()))
-            })?
+            let mut current = Vec::new();
+            current.try_reserve_exact(dimensions.len())?;
+            current.resize(dimensions.len(), 0);
+            Some(current)
         };
         Ok(Self {
-            current: (total != 0).then(|| vec![0; dimensions.len()]),
+            current,
             dimensions,
-            remaining: total,
         })
     }
 }
@@ -79,23 +74,22 @@ impl Iterator for CartesianIndices {
         for index in (0..self.dimensions.len()).rev() {
             next[index] += 1;
             if next[index] < self.dimensions[index] {
+                self.current = Some(next);
                 break;
             }
             next[index] = 0;
-        }
-        self.remaining -= 1;
-        if self.remaining != 0 {
-            self.current = Some(next);
         }
         Some(current)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.remaining, Some(self.remaining))
+        if self.current.is_some() {
+            (1, None)
+        } else {
+            (0, Some(0))
+        }
     }
 }
-
-impl ExactSizeIterator for CartesianIndices {}
 
 /// Exact reference solver for variants with a registered finite enumeration.
 #[derive(Debug, Clone, Default)]

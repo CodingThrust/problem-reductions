@@ -68,11 +68,31 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaxCutData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaxCut<G, W> {
     /// The underlying graph structure.
     graph: G,
     /// Weights for each edge (in the same order as graph.edges()).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaxCutData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<G, W> TryFrom<MaxCutData<G, W>> for MaxCut<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaxCutData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
+    }
 }
 
 macro_rules! max_cut_create_spec {
@@ -94,15 +114,7 @@ macro_rules! max_cut_create_spec {
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; graph.num_edges()] } };
-                if edge_weights.len() != graph.num_edges() {
-                    return Err(format!(
-                        "edge_weights has length {}, expected {}",
-                        edge_weights.len(),
-                        graph.num_edges()
-                    )
-                    .into());
-                }
-                Ok(Self::new(graph, edge_weights))
+                Self::try_new(graph, edge_weights)
             }
         }
     };
@@ -146,15 +158,21 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     /// * `graph` - The underlying graph
     /// * `edge_weights` - Weights for each edge (must match graph.num_edges())
     pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a MaxCut problem with unit weights.
@@ -337,3 +355,46 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/max_cut.rs"]
 mod tests;
+
+crate::decision_problem_meta!(MaxCut<SimpleGraph, i64>, "DecisionMaxCut");
+crate::register_decision_variant!(
+    MaxCut<SimpleGraph, i64>, "DecisionMaxCut", "2^(2.372 * num_vertices / 3)", &[],
+    "Does a feasible solution have objective value >= the bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "Weights for each edge in graph order." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values >= this bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_max_cut_to_max_cut",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                MaxCut::<_, i64>::unweighted(SimpleGraph::new(
+                    5,
+                    vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+                )),
+                5,
+            );
+            let witness = serde_json::json!(vec![true, false, false, true, false]);
+            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

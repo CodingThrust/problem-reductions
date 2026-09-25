@@ -381,11 +381,14 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
 fn test_solve() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    let result = server.solve_inner(&problem_json, Some("brute-force"), None);
-    assert!(result.is_ok());
-    let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-    assert!(json["solution"].is_array());
-    assert_eq!(json["solver"]["kind"], "brute-force");
+    for timeout in [None, Some(5)] {
+        let result = server
+            .solve_inner(&problem_json, Some("brute-force"), timeout)
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert!(json["solution"].is_array());
+        assert_eq!(json["solver"]["kind"], "brute-force");
+    }
 }
 
 #[test]
@@ -487,11 +490,14 @@ fn test_solve_bundle() {
             ),
         )
         .unwrap();
-    let result = server.solve_inner(&bundle_json, Some("brute-force"), None);
-    assert!(result.is_ok());
-    let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-    assert!(json["solution"].is_array());
-    assert_eq!(json["problem"], "MaximumIndependentSet");
+    for timeout in [None, Some(5)] {
+        let result = server
+            .solve_inner(&bundle_json, Some("brute-force"), timeout)
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert!(json["solution"].is_array());
+        assert_eq!(json["problem"], "MaximumIndependentSet");
+    }
 }
 
 #[test]

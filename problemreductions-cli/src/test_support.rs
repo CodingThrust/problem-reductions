@@ -139,24 +139,24 @@ fn decode_bits(indices: Vec<usize>) -> Vec<bool> {
 fn cartesian_indices(
     dimensions: Vec<usize>,
 ) -> Result<impl Iterator<Item = Vec<usize>>, problemreductions::solvers::SolveError> {
-    let total = if dimensions.is_empty() {
-        1
-    } else if dimensions.contains(&0) {
-        0
+    let first = if dimensions.contains(&0) {
+        None
     } else {
-        dimensions.iter().try_fold(1usize, |total, &dimension| {
-            total.checked_mul(dimension).ok_or_else(|| {
-                problemreductions::solvers::SolveError::SearchSpaceOverflow(dimensions.clone())
-            })
-        })?
+        let mut coordinates = Vec::new();
+        coordinates.try_reserve_exact(dimensions.len())?;
+        coordinates.resize(dimensions.len(), 0);
+        Some(coordinates)
     };
-    Ok((0..total).map(move |mut index| {
-        let mut coordinates = vec![0; dimensions.len()];
+    Ok(std::iter::successors(first, move |current| {
+        let mut coordinates = current.clone();
         for position in (0..dimensions.len()).rev() {
-            coordinates[position] = index % dimensions[position];
-            index /= dimensions[position];
+            coordinates[position] += 1;
+            if coordinates[position] < dimensions[position] {
+                return Some(coordinates);
+            }
+            coordinates[position] = 0;
         }
-        coordinates
+        None
     }))
 }
 
@@ -168,6 +168,9 @@ where
     let mut total = P::Value::identity();
     for indices in cartesian_indices(problem.dimensions())? {
         total = total.combine(problem.evaluate(&decode_bits(indices))?)?;
+        if total.is_absorbing() {
+            break;
+        }
     }
     Ok(total)
 }
@@ -316,6 +319,7 @@ problemreductions::inventory::submit! {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
         },
+        borrow_fn: |any| any.downcast_ref::<AggregateValueSource>().map(|p| p as &dyn problemreductions::registry::DynProblem),
         serialize_fn: |any| {
             let problem = any.downcast_ref::<AggregateValueSource>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueSource failed"))
@@ -364,6 +368,7 @@ problemreductions::inventory::submit! {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))
         },
+        borrow_fn: |any| any.downcast_ref::<AggregateValueTarget>().map(|p| p as &dyn problemreductions::registry::DynProblem),
         serialize_fn: |any| {
             let problem = any.downcast_ref::<AggregateValueTarget>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueTarget failed"))
@@ -403,6 +408,7 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
+        aggregate_view_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
             let source = any
                 .downcast_ref::<AggregateValueSource>()
@@ -443,6 +449,7 @@ problemreductions::inventory::submit! {
         },
         module_path: module_path!(),
         reduce_fn: None,
+        aggregate_view_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
             let _source = any
                 .downcast_ref::<AggregateValueSource>()

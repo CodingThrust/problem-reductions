@@ -1,3 +1,20 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"k":2});
+    let problem: KClique<SimpleGraph> = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: KClique<SimpleGraph> = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for k in [0, 4] {
+        let mut data = valid.clone();
+        data["k"] = serde_json::json!(k);
+        assert!(
+            serde_json::from_value::<KClique<SimpleGraph>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]

@@ -87,7 +87,11 @@ impl CapacityAssignment {
         let num_capacities = capacities.len();
         for (link, row) in cost.iter().enumerate() {
             if row.len() != num_capacities {
-                return Err(format!("cost row {link} length must match capacities length").into());
+                return Err(crate::registry::ConstructionError::length_mismatch(
+                    &format!("cost row {link}"),
+                    row.len(),
+                    num_capacities,
+                ));
             }
             if row.windows(2).any(|w| w[0] > w[1]) {
                 return Err(format!("cost row {link} must be non-decreasing").into());
@@ -95,7 +99,11 @@ impl CapacityAssignment {
         }
         for (link, row) in delay.iter().enumerate() {
             if row.len() != num_capacities {
-                return Err(format!("delay row {link} length must match capacities length").into());
+                return Err(crate::registry::ConstructionError::length_mismatch(
+                    &format!("delay row {link}"),
+                    row.len(),
+                    num_capacities,
+                ));
             }
             if row.windows(2).any(|w| w[0] < w[1]) {
                 return Err(format!("delay row {link} must be non-increasing").into());

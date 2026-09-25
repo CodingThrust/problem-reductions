@@ -43,13 +43,12 @@ impl ReductionResult for Reduction3SATToCyclicOrdering {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a feasible cyclic ordering",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target configuration is not a feasible cyclic ordering",
+        )?;
         let mut assignment = vec![false; self.source_num_vars];
         for (compact, &original) in self.source_variables.iter().enumerate() {
             let (alpha, beta, gamma) = variable_triple(compact);
@@ -161,6 +160,9 @@ fn normalize(
         clauses: normalized,
     })
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for Reduction3SATToCyclicOrdering {}
 
 #[reduction(
     transform = upper_bound {

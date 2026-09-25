@@ -27,7 +27,12 @@ impl ReductionResult for ReductionSCAToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok(target_solution[..self.num_candidates]
             .iter()
@@ -36,10 +41,13 @@ impl ReductionResult for ReductionSCAToILP {
     }
 }
 
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
-        num_constraints = "1 + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
+        num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",

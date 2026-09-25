@@ -171,7 +171,7 @@ impl Problem for Betweenness {
 
 impl crate::solvers::BruteForceProblem for Betweenness {
     fn dimensions(&self) -> Vec<usize> {
-        vec![self.num_elements; self.num_elements]
+        super::lehmer_dims(self.num_elements)
     }
 }
 
@@ -180,7 +180,7 @@ crate::declare_variants! {
 }
 
 crate::register_brute_force! {
-    Betweenness,
+    Betweenness decode |problem: &Betweenness, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_elements()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]

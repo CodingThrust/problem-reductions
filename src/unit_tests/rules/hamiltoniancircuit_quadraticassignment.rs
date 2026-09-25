@@ -1,6 +1,7 @@
 use crate::models::algebraic::QuadraticAssignment;
+use crate::models::decision::Decision;
 use crate::models::graph::HamiltonianCircuit;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
@@ -15,10 +16,10 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> QuadraticAssignment",
@@ -28,9 +29,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     assert_eq!(target.num_facilities(), 4);
     assert_eq!(target.num_locations(), 4);
@@ -57,9 +58,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_is_zero() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // The identity permutation [0,1,2,3] is a valid HC on a 4-cycle,
     // so the QAP optimum should be zero.
@@ -75,9 +76,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_is_zero() {
 fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
     // Star graph on 4 vertices has no Hamiltonian circuit
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction =
-        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let best = BruteForce::new()
         .solve(target)
@@ -98,8 +99,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
     let source = cycle4_hc();
-    let reduction =
-        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Permutation [0,1,2,3] visits 0->1->2->3->0 on cycle4
     let target_config = vec![0, 1, 2, 3];
@@ -131,9 +132,10 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
 
     // HC → QAP → ILP → solve → extract back
-    let r1 = ReduceTo::<QuadraticAssignment>::reduce_to(&hc).expect("reduction should succeed");
-    let r2 =
-        ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem()).expect("reduction should succeed");
+    let r1 = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&hc)
+        .expect("reduction should succeed");
+    let r2 = ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem().inner())
+        .expect("reduction should succeed");
     let ilp_sol = ILPSolver::new()
         .solve(r2.target_problem())
         .expect("ILP should be feasible");
@@ -159,21 +161,29 @@ fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
     ] {
         let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
         assert!(!source.evaluate(&(0..n).collect()).unwrap().0);
-        let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source).unwrap();
-        let target = reduction.target_problem();
+        let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem().inner();
         assert_eq!(target.num_facilities(), 3);
         assert_eq!(target.num_locations(), 3);
         let best = BruteForce::new().solve(target).unwrap().unwrap();
         let value = target.evaluate(&best).unwrap();
         assert_eq!(value, Min(Some(3)));
-        assert!(!crate::rules::AggregateReductionResult::extract_value(&reduction, value).0);
+        assert!(
+            !crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::rules::ReductionResult::target_problem(&reduction)
+                    .evaluate(&best)
+                    .unwrap()
+            )
+            .0
+        );
         assert!(reduction.extract_solution(&best).is_err());
     }
 }
 
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_rejects_invalid_certificates() {
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&cycle4_hc()).unwrap();
+    let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&cycle4_hc()).unwrap();
     for config in [
         vec![],
         vec![0, 1, 2],
@@ -183,10 +193,28 @@ fn test_hamiltoniancircuit_to_quadraticassignment_rejects_invalid_certificates()
     ] {
         assert!(reduction.extract_solution(&config).is_err(), "{config:?}");
     }
-    for value in [Min(None), Min(Some(-1)), Min(Some(1))] {
-        assert!(!crate::rules::AggregateReductionResult::extract_value(&reduction, value).0);
+    for value in [Min(None), Min(Some(1))] {
+        assert!(
+            !crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                ))
+            )
+            .0
+        );
     }
-    assert!(crate::rules::AggregateReductionResult::extract_value(&reduction, Min(Some(0))).0);
+    assert!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &(Min(Some(0))),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            ))
+        )
+        .0
+    );
 }
 
 #[test]
@@ -206,7 +234,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
             edges.extend((0..n).map(|v| (v, v)));
             edges.extend(edges.clone());
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
-            let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source).unwrap();
+            let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
             for mut encoded in 0..n.pow(u32::try_from(n).unwrap()) {
                 let order: Vec<_> = (0..n)
                     .map(|_| {
@@ -221,7 +249,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
                     .any(|(i, v)| order[..i].contains(v))
                 {
                     assert_eq!(
-                        reduction.target_problem().evaluate(&order).unwrap(),
+                        reduction.target_problem().inner().evaluate(&order).unwrap(),
                         Min(None)
                     );
                     assert!(reduction.extract_solution(&order).is_err());
@@ -230,11 +258,17 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
                 let missing = (0..n)
                     .filter(|&i| !source.graph().has_edge(order[i], order[(i + 1) % n]))
                     .count();
-                let value = reduction.target_problem().evaluate(&order).unwrap();
+                let value = reduction.target_problem().inner().evaluate(&order).unwrap();
                 assert_eq!(value, Min(Some(i64::try_from(missing).unwrap())));
                 let expected = source.evaluate(&order).unwrap().0;
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, value).0,
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&order)
+                            .unwrap()
+                    )
+                    .0,
                     expected
                 );
                 if expected {
@@ -263,6 +297,10 @@ fn test_hamiltoniancircuit_to_quadraticassignment_registered_aggregate_path() {
                     .collect(),
             },
             ReductionStep {
+                name: "DecisionQuadraticAssignment".to_string(),
+                variant: Default::default(),
+            },
+            ReductionStep {
                 name: QuadraticAssignment::NAME.to_string(),
                 variant: Default::default(),
             },
@@ -284,7 +322,9 @@ fn test_hamiltoniancircuit_to_quadraticassignment_registered_aggregate_path() {
         let best = BruteForce::new().solve(target).unwrap().unwrap();
         let optimum = target.evaluate(&best).unwrap();
         assert_eq!(
-            chain.extract_value_dyn(serde_json::to_value(optimum).unwrap()),
+            chain
+                .extract_value(serde_json::to_value(optimum).unwrap())
+                .unwrap(),
             serde_json::to_value(Or(expected)).unwrap(),
         );
         assert_eq!(

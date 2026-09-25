@@ -78,9 +78,11 @@ fn main() -> anyhow::Result<()> {
         Commands::Solve(args) => {
             commands::solve::solve(&args.input, args.solver.as_deref(), args.timeout, &out)
         }
-        Commands::Reduce(args) => commands::reduce::reduce(&args.input, &args.via, &out),
+        Commands::Reduce(args) => {
+            commands::reduce::reduce(&args.input, &args.via, args.aggregate, &out)
+        }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
-        Commands::Extract(args) => commands::extract::extract(&args.input, &args.config, &out),
+        Commands::Extract(args) => commands::extract::extract(&args, &out),
         #[cfg(feature = "mcp")]
         Commands::Mcp => mcp::run(),
         Commands::Completions { shell } => {

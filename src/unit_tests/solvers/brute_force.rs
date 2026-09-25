@@ -4,6 +4,71 @@ use crate::types::{AggregationError, Max, Min, Or, Sum};
 use std::cell::Cell;
 use std::rc::Rc;
 
+#[test]
+fn test_brute_force_permutation_models_preserve_all_optimal_witnesses() {
+    use crate::models::misc::{
+        Betweenness, CyclicOrdering, MinimumCodeGenerationUnlimitedRegisters,
+    };
+
+    fn check<P>(problem: P)
+    where
+        P: BruteForceProblem<Solution = Vec<usize>> + 'static,
+        P::Value: SolutionAggregate + PartialEq + 'static,
+    {
+        let n = problem.num_variables();
+        assert_eq!(
+            problem.dimensions().iter().product::<usize>(),
+            (1..=n).product::<usize>()
+        );
+        let candidates = CartesianIndices::new(vec![n; n])
+            .unwrap()
+            .map(|solution| {
+                let value = problem.evaluate(&solution).unwrap();
+                (solution, value)
+            })
+            .collect::<Vec<_>>();
+        let expected_value = candidates
+            .iter()
+            .fold(P::Value::identity(), |total, (_, value)| {
+                total.combine(value.clone()).unwrap()
+            });
+        let mut expected = candidates
+            .into_iter()
+            .filter(|(_, value)| P::Value::contributes_to_solution(value, &expected_value))
+            .map(|(solution, _)| solution)
+            .collect::<Vec<_>>();
+        let (actual_value, mut actual) = BruteForce::new().solve_with_witnesses(&problem).unwrap();
+        expected.sort();
+        actual.sort();
+        assert_eq!(actual_value, expected_value);
+        assert_eq!(actual, expected);
+        let solution = BruteForce::new().solve(&problem).unwrap();
+        assert_eq!(solution.is_none(), expected.is_empty());
+        if let Some(solution) = solution {
+            assert!(expected.contains(&solution));
+        }
+    }
+
+    for n in 1..=5 {
+        check(CyclicOrdering::new(n, vec![]));
+        check(Betweenness::new(n, vec![]));
+    }
+    check(CyclicOrdering::new(3, vec![(0, 1, 2), (0, 2, 1)]));
+    check(Betweenness::new(3, vec![(0, 1, 2), (1, 0, 2)]));
+    check(CyclicOrdering::new(4, vec![(0, 2, 1), (1, 3, 2)]));
+    check(Betweenness::new(4, vec![(0, 2, 1), (1, 3, 2)]));
+    check(MinimumCodeGenerationUnlimitedRegisters::new(
+        2,
+        vec![],
+        vec![],
+    ));
+    check(MinimumCodeGenerationUnlimitedRegisters::new(
+        5,
+        vec![(1, 3), (2, 3), (0, 1)],
+        vec![(1, 4), (2, 4), (0, 2)],
+    ));
+}
+
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct MaxSumProblem {
     weights: Vec<i64>,
@@ -563,18 +628,34 @@ fn cartesian_indices_zero_dimension_has_no_candidates() {
 }
 
 #[test]
-fn cartesian_indices_is_exact_size() {
-    let mut indices = CartesianIndices::new(vec![2, 3]).unwrap();
-    assert_eq!(indices.len(), 6);
-    indices.next();
-    assert_eq!(indices.len(), 5);
+fn cartesian_indices_stays_exhausted() {
+    let mut indices = CartesianIndices::new(vec![1]).unwrap();
+    assert_eq!(indices.size_hint(), (1, None));
+    assert_eq!(indices.next(), Some(vec![0]));
+    assert_eq!(indices.size_hint(), (0, Some(0)));
+    assert_eq!(indices.next(), None);
+    assert_eq!(indices.next(), None);
 }
 
 #[test]
-fn cartesian_indices_reports_cardinality_overflow() {
-    assert!(matches!(
-        CartesianIndices::new(vec![usize::MAX, 2]),
-        Err(crate::solvers::SolveError::SearchSpaceOverflow(dimensions))
-            if dimensions == vec![usize::MAX, 2]
-    ));
+fn cartesian_indices_enumerates_without_representable_cardinality() {
+    let indices = CartesianIndices::new(vec![usize::MAX, 2]).unwrap();
+    assert_eq!(
+        indices.take(3).collect::<Vec<_>>(),
+        vec![vec![0, 0], vec![0, 1], vec![1, 0]]
+    );
+}
+
+#[test]
+fn brute_force_finds_sat_witness_without_representable_cardinality() {
+    use crate::models::formula::{CNFClause, Satisfiability};
+
+    let num_vars = usize::BITS as usize;
+    let clauses = (1..=num_vars)
+        .map(|variable| CNFClause::new(vec![-(variable as i64)]))
+        .collect();
+    let problem = Satisfiability::new(num_vars, clauses);
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(solution, vec![false; num_vars]);
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }

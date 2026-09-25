@@ -9,7 +9,6 @@ impl_variant_reduction!(
     MaximumSetPacking,
     <One> => <i64>,
     fields: [num_sets, universe_size],
-    aggregate: identity,
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),
         vec![1_i64; src.num_sets()])
@@ -47,3 +46,7 @@ impl_variant_reduction!(
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumsetpacking_casts.rs"]
 mod tests;
+
+crate::register_aggregate_reduction!(
+    crate::rules::VariantReductionResult<MaximumSetPacking<One>, MaximumSetPacking<i64>>
+);

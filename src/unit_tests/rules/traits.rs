@@ -7,6 +7,7 @@ use crate::rules::traits::{
     validate_target_solution, AggregateReductionResult, DynAggregateReductionResult, ReduceTo,
     ReduceToAggregate, ReductionResult,
 };
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Sum;
 use serde_json::json;
@@ -132,7 +133,6 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
     use crate::models::graph::MinimumVertexCover;
     use crate::rules::ExtractionError;
     use crate::topology::SimpleGraph;
-    use crate::types::Or;
 
     let source = Decision::new(
         MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]),
@@ -142,7 +142,7 @@ fn aggregate_value_from_solution_keeps_evaluation_errors_distinct_from_false() {
     let value = reduction
         .extract_value_from_solution_dyn(&vec![true, false])
         .unwrap();
-    assert_eq!(value.downcast_ref::<Or>(), Some(&Or(false)));
+    assert_eq!(value, json!(false));
     assert!(matches!(
         reduction.extract_value_from_solution_dyn(&vec![true]),
         Err(ExtractionError::Evaluation(_))
@@ -274,5 +274,292 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
         .target_problem_any()
         .downcast_ref::<AggregateTargetProblem>()
         .is_some());
-    assert_eq!(dyn_result.extract_value_dyn(json!(7)), json!(9));
+    assert_eq!(dyn_result.extract_value_dyn(json!(7)).unwrap(), json!(9));
+    assert!(matches!(
+        dyn_result.extract_value_dyn(json!("not a count")),
+        Err(crate::rules::ExtractionError::InvalidTargetSolution(_))
+    ));
+}
+
+#[derive(Clone)]
+struct UnserializableValue;
+
+impl serde::Serialize for UnserializableValue {
+    fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+        Err(serde::ser::Error::custom("aggregate cannot be serialized"))
+    }
+}
+
+impl Problem for UnserializableValue {
+    const NAME: &'static str = "UnserializableValue";
+    type Solution = ();
+    type Value = Self;
+    fn parameter_names() -> &'static [&'static str] {
+        &[]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        Default::default()
+    }
+    fn evaluate(&self, _: &()) -> Result<Self, crate::traits::EvaluationError> {
+        Ok(self.clone())
+    }
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+struct UnserializableReduction(AggregateTargetProblem);
+
+impl AggregateReductionResult for UnserializableReduction {
+    type Source = UnserializableValue;
+    type Target = AggregateTargetProblem;
+    fn target_problem(&self) -> &Self::Target {
+        &self.0
+    }
+    fn extract_value(&self, _: Sum<u64>) -> UnserializableValue {
+        UnserializableValue
+    }
+}
+
+#[test]
+fn dynamic_aggregate_serialization_failure_returns_an_error() {
+    let reduction = UnserializableReduction(AggregateTargetProblem);
+    assert!(reduction
+        .extract_value_from_solution_dyn(&vec![0usize])
+        .is_err());
+    let error = reduction.extract_value_dyn(json!(0)).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ExtractionError::InvalidTargetSolution(_)
+    ));
+    assert!(error
+        .to_string()
+        .contains("source aggregate serialization failed"));
+}
+
+#[derive(Clone)]
+pub(crate) struct CountingOrCircuit;
+
+#[derive(Clone)]
+pub(crate) struct CountingTseitinFormula;
+
+impl Problem for CountingOrCircuit {
+    const NAME: &'static str = "CountingOrCircuit";
+    type Solution = Vec<usize>;
+    type Value = Sum<u64>;
+    crate::problem_parameters![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        bits: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(u64::from(bits[0] != 0 || bits[1] != 0)))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for CountingOrCircuit {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; 2]
+    }
+}
+
+impl Problem for CountingTseitinFormula {
+    const NAME: &'static str = "CountingTseitinFormula";
+    type Solution = Vec<usize>;
+    type Value = Sum<u64>;
+    crate::problem_parameters![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        bits: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        let (x, y, z) = (bits[0] != 0, bits[1] != 0, bits[2] != 0);
+        // z <=> (x OR y), with output z asserted.
+        let clauses = [!x || z, !y || z, x || y || !z, z];
+        Ok(Sum(u64::from(clauses.into_iter().all(|clause| clause))))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for CountingTseitinFormula {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; 3]
+    }
+}
+
+pub(crate) struct CountingTseitinReduction(CountingTseitinFormula);
+
+impl AggregateReductionResult for CountingTseitinReduction {
+    type Source = CountingOrCircuit;
+    type Target = CountingTseitinFormula;
+    fn target_problem(&self) -> &Self::Target {
+        &self.0
+    }
+    fn extract_value(&self, count: Sum<u64>) -> Sum<u64> {
+        count
+    }
+}
+
+impl ReduceToAggregate<CountingTseitinFormula> for CountingOrCircuit {
+    type Result = CountingTseitinReduction;
+    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(CountingTseitinReduction(CountingTseitinFormula))
+    }
+}
+
+#[test]
+fn counting_reduction_preserves_the_number_of_satisfying_assignments() {
+    use crate::solvers::BruteForce;
+    let source = CountingOrCircuit;
+    let reduction = source.reduce_to_aggregate().unwrap();
+    let solver = BruteForce::new();
+    let source_count = solver.solve_cartesian(&source, |bits| bits).unwrap();
+    let target_count = solver
+        .solve_cartesian(reduction.target_problem(), |bits| bits)
+        .unwrap();
+    assert_eq!(source_count, Sum(3));
+    assert_eq!(target_count, Sum(3));
+    assert_eq!(reduction.extract_value(target_count), source_count);
+    assert_eq!(reduction.extract_value_dyn(json!(3)).unwrap(), json!(3));
+}
+
+#[derive(Clone)]
+pub(crate) struct UniversalFormula {
+    pub(crate) variable: usize,
+    pub(crate) tautology: bool,
+}
+
+impl Problem for UniversalFormula {
+    const NAME: &'static str = "UniversalFormula";
+    type Solution = Vec<usize>;
+    type Value = crate::types::And;
+    crate::problem_parameters![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        bits: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
+        // x OR NOT x when tautology is true; otherwise just x.
+        let x = bits[self.variable] != 0;
+        Ok(crate::types::And(self.tautology || x))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for UniversalFormula {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; 2]
+    }
+}
+
+pub(crate) struct RenameUniversalVariable(UniversalFormula);
+
+impl AggregateReductionResult for RenameUniversalVariable {
+    type Source = UniversalFormula;
+    type Target = UniversalFormula;
+    fn target_problem(&self) -> &Self::Target {
+        &self.0
+    }
+    fn extract_value(&self, value: crate::types::And) -> crate::types::And {
+        value
+    }
+}
+
+impl ReduceToAggregate<UniversalFormula> for UniversalFormula {
+    type Result = RenameUniversalVariable;
+    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(RenameUniversalVariable(Self {
+            variable: 1 - self.variable,
+            tautology: self.tautology,
+        }))
+    }
+}
+
+#[test]
+fn universal_reduction_preserves_true_and_false_aggregates_without_witnesses() {
+    use crate::solvers::BruteForce;
+    for tautology in [false, true] {
+        let source = UniversalFormula {
+            variable: 0,
+            tautology,
+        };
+        let reduction = source.reduce_to_aggregate().unwrap();
+        let solver = BruteForce::new();
+        let expected = solver.solve_cartesian(&source, |bits| bits).unwrap();
+        let target_value = solver
+            .solve_cartesian(reduction.target_problem(), |bits| bits)
+            .unwrap();
+        assert_eq!(expected, crate::types::And(tautology));
+        assert_eq!(reduction.extract_value(target_value), expected);
+        assert_eq!(
+            reduction.extract_value_dyn(json!(tautology)).unwrap(),
+            json!(tautology)
+        );
+        assert!(reduction.extract_value_dyn(json!("not a Boolean")).is_err());
+    }
+}
+
+#[derive(Clone)]
+struct CountedTarget(std::cell::Cell<usize>);
+
+impl Problem for CountedTarget {
+    const NAME: &'static str = "CountedTarget";
+    type Solution = Vec<usize>;
+    type Value = i64;
+    fn parameter_names() -> &'static [&'static str] {
+        &[]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![])
+    }
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+
+    fn evaluate(&self, solution: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
+        self.0.set(self.0.get() + 1);
+        TargetProblem.evaluate(solution)
+    }
+}
+
+#[test]
+fn target_witness_validation_evaluates_once_and_preserves_rejection() {
+    use crate::rules::{traits::validate_target_witness, ExtractionError};
+    let target = CountedTarget(std::cell::Cell::new(0));
+    validate_target_witness(
+        &target,
+        &vec![1, 1],
+        |value| value == 2,
+        "threshold not met",
+    )
+    .unwrap();
+    assert_eq!(target.0.get(), 1);
+    let error = validate_target_witness(
+        &target,
+        &vec![1, 0],
+        |value| value == 2,
+        "threshold not met",
+    )
+    .unwrap_err();
+    assert_eq!(error, ExtractionError::invalid("threshold not met"));
+    assert_eq!(target.0.get(), 2);
+    let error = validate_target_witness(
+        &target,
+        &vec![2, 0],
+        |_| panic!("invalid input must not reach the predicate"),
+        "threshold not met",
+    )
+    .unwrap_err();
+    assert!(matches!(error, ExtractionError::Evaluation(_)));
+    assert_eq!(target.0.get(), 3);
 }

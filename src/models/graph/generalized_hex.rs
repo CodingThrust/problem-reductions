@@ -33,11 +33,31 @@ inventory::submit! {
 /// instance fully determines the question, so `evaluate([])` runs a memoized
 /// game-tree search from the initial empty board.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "GeneralizedHexData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct GeneralizedHex<G> {
     graph: G,
     source: usize,
     target: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct GeneralizedHexData<G> {
+    graph: G,
+    source: usize,
+    target: usize,
+}
+
+impl<G> TryFrom<GeneralizedHexData<G>> for GeneralizedHex<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: GeneralizedHexData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.source, data.target)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -54,25 +74,7 @@ impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
-        let num_vertices = spec.graph.num_vertices();
-        if spec.source >= num_vertices {
-            return Err(format!(
-                "source {} is outside graph with {num_vertices} vertices",
-                spec.source
-            )
-            .into());
-        }
-        if spec.sink >= num_vertices {
-            return Err(format!(
-                "sink {} is outside graph with {num_vertices} vertices",
-                spec.sink
-            )
-            .into());
-        }
-        if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string().into());
-        }
-        Ok(Self::new(spec.graph, spec.source, spec.sink))
+        Self::try_new(spec.graph, spec.source, spec.sink)
     }
 }
 
@@ -86,15 +88,29 @@ enum ClaimState {
 impl<G: Graph> GeneralizedHex<G> {
     /// Create a new Generalized Hex instance.
     pub fn new(graph: G, source: usize, target: usize) -> Self {
+        Self::try_new(graph, source, target).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        source: usize,
+        target: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
-        assert!(source < num_vertices, "source must be a valid graph vertex");
-        assert!(target < num_vertices, "target must be a valid graph vertex");
-        assert_ne!(source, target, "source and target must be distinct");
-        Self {
+        if source >= num_vertices {
+            return Err("source must be a valid graph vertex".into());
+        }
+        if target >= num_vertices {
+            return Err("target must be a valid graph vertex".into());
+        }
+        if source == target {
+            return Err("source and target must be distinct".into());
+        }
+        Ok(Self {
             graph,
             source,
             target,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

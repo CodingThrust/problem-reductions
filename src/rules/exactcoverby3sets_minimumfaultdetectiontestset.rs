@@ -14,6 +14,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionXC3SToMinimumFaultDetectionTestSet {
     target: MinimumFaultDetectionTestSet,
+    source_universe_size: usize,
 }
 
 impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
@@ -28,17 +29,43 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).0,
+            "target witness does not certify a YES answer for the source",
+        )?;
 
+        if self.source_universe_size == 0 {
+            return Ok(vec![]);
+        }
         Ok(target_solution.iter().map(|row| row[0]).collect())
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
+    type Source = ExactCoverBy3Sets;
+    type Target = MinimumFaultDetectionTestSet;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(
+            value
+                .0
+                .is_some_and(|count| i128::from(count) == self.source_universe_size as i128 / 3),
+        )
+    }
+}
+
 #[reduction(
-    transform = exact {
-        num_vertices = "num_subsets + universe_size + 1",
-        num_arcs = "3 * num_subsets + universe_size",
-        num_inputs = "num_subsets",
+    transform = upper_bound {
+        num_vertices = "num_subsets + universe_size + 2",
+        num_arcs = "3 * num_subsets + universe_size + 1",
+        num_inputs = "num_subsets + 1",
         num_outputs = "1",
     })]
 impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
@@ -46,6 +73,14 @@ impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_inputs = self.num_subsets();
+        if num_inputs == 0 {
+            // The target requires an input and an output. With no internal
+            // vertices its optimum is zero, matching q only for an empty universe.
+            return Ok(ReductionXC3SToMinimumFaultDetectionTestSet {
+                target: MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]),
+                source_universe_size: self.universe_size(),
+            });
+        }
         let element_offset = num_inputs;
         let output = element_offset + self.universe_size();
 
@@ -60,6 +95,7 @@ impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
         }
 
         Ok(ReductionXC3SToMinimumFaultDetectionTestSet {
+            source_universe_size: self.universe_size(),
             target: MinimumFaultDetectionTestSet::new(
                 output + 1,
                 arcs,

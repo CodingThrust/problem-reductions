@@ -121,6 +121,12 @@ pub enum ConstructionError {
     InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
 }
 
+impl ConstructionError {
+    pub(crate) fn length_mismatch(field: &str, actual: usize, expected: usize) -> Self {
+        Self::Conversion(format!("{field} has length {actual}, expected {expected}"))
+    }
+}
+
 impl From<String> for ConstructionError {
     fn from(message: String) -> Self {
         Self::Conversion(message)
@@ -254,6 +260,8 @@ pub struct VariantEntry {
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
     pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
+    /// Borrow a registered concrete instance without serializing or cloning it.
+    pub borrow_fn: fn(&dyn Any) -> Option<&dyn DynProblem>,
 }
 
 impl VariantEntry {

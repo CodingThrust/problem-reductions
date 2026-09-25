@@ -1,3 +1,29 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"terminal_pairs":[[0,2]]});
+    let problem: DisjointConnectingPaths<SimpleGraph> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: DisjointConnectingPaths<SimpleGraph> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("terminal_pairs", serde_json::json!([])),
+        ("terminal_pairs", serde_json::json!([[3, 2]])),
+        ("terminal_pairs", serde_json::json!([[0, 3]])),
+        ("terminal_pairs", serde_json::json!([[0, 0]])),
+        ("terminal_pairs", serde_json::json!([[0, 1], [0, 2]])),
+        ("terminal_pairs", serde_json::json!([[0, 1], [2, 1]])),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<DisjointConnectingPaths<SimpleGraph>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]

@@ -59,10 +59,28 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "PartitionIntoPathsOfLength2Data<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoPathsOfLength2<G> {
     /// The underlying graph.
     graph: G,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoPathsOfLength2Data<G> {
+    graph: G,
+}
+
+impl<G> TryFrom<PartitionIntoPathsOfLength2Data<G>> for PartitionIntoPathsOfLength2<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoPathsOfLength2Data<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph)
+    }
 }
 
 impl<G: Graph> PartitionIntoPathsOfLength2<G> {
@@ -71,13 +89,18 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
     /// # Panics
     /// Panics if `graph.num_vertices()` is not divisible by 3.
     pub fn new(graph: G) -> Self {
-        assert_eq!(
-            graph.num_vertices() % 3,
-            0,
-            "Number of vertices ({}) must be divisible by 3",
-            graph.num_vertices()
-        );
-        Self { graph }
+        Self::try_new(graph).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+        if !graph.num_vertices().is_multiple_of(3) {
+            return Err(format!(
+                "Number of vertices ({}) must be divisible by 3",
+                graph.num_vertices()
+            )
+            .into());
+        }
+        Ok(Self { graph })
     }
 
     /// Get a reference to the underlying graph.
@@ -118,29 +141,24 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
             return false;
         }
 
-        // Count vertices per group
-        let mut group_sizes = vec![0usize; q];
-        for &g in config {
-            group_sizes[g] += 1;
+        let mut groups = vec![Vec::new(); q];
+        for (vertex, &group) in config.iter().enumerate() {
+            groups[group].push(vertex);
         }
 
         // Each group must have exactly 3 vertices
-        if group_sizes.iter().any(|&s| s != 3) {
+        if groups.iter().any(|vertices| vertices.len() != 3) {
             return false;
         }
 
-        // Check each group induces at least 2 edges (single pass over edges)
-        let mut group_edge_counts = vec![0usize; q];
-        for (u, v) in self.graph.edges() {
-            if config[u] == config[v] {
-                group_edge_counts[config[u]] += 1;
-            }
-        }
-        if group_edge_counts.iter().any(|&c| c < 2) {
-            return false;
-        }
-
-        true
+        // Count distinct pairs: loops and parallel edges cannot form a path.
+        groups.iter().all(|vertices| {
+            let [a, b, c] = [vertices[0], vertices[1], vertices[2]];
+            usize::from(self.graph.has_edge(a, b))
+                + usize::from(self.graph.has_edge(a, c))
+                + usize::from(self.graph.has_edge(b, c))
+                >= 2
+        })
     }
 }
 

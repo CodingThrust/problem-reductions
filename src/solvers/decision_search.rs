@@ -27,17 +27,26 @@ where
     P::Solution: 'static,
 {
     if lower > upper {
-        return Ok(None);
+        return Err(crate::solvers::SolveError::InvalidSearchInterval { lower, upper });
     }
 
     if !is_satisfiable(&Decision::new(problem.clone(), upper))? {
+        if upper != i64::MAX && is_satisfiable(&Decision::new(problem.clone(), i64::MAX))? {
+            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
+        }
         return Ok(None);
+    }
+    if let Some(bound) = lower.checked_sub(1) {
+        if is_satisfiable(&Decision::new(problem.clone(), bound))? {
+            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
+        }
     }
 
     let mut lo = lower;
     let mut hi = upper;
     while lo < hi {
-        let mid = lo + (hi - lo) / 2;
+        let mid = i64::try_from((i128::from(lo) + i128::from(hi)).div_euclid(2))
+            .expect("midpoint lies within the i64 interval");
         if is_satisfiable(&Decision::new(problem.clone(), mid))? {
             hi = mid;
         } else {
@@ -58,17 +67,26 @@ where
     P::Solution: 'static,
 {
     if lower > upper {
-        return Ok(None);
+        return Err(crate::solvers::SolveError::InvalidSearchInterval { lower, upper });
     }
 
     if !is_satisfiable(&Decision::new(problem.clone(), lower))? {
+        if lower != i64::MIN && is_satisfiable(&Decision::new(problem.clone(), i64::MIN))? {
+            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
+        }
         return Ok(None);
+    }
+    if let Some(bound) = upper.checked_add(1) {
+        if is_satisfiable(&Decision::new(problem.clone(), bound))? {
+            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
+        }
     }
 
     let mut lo = lower;
     let mut hi = upper;
     while lo < hi {
-        let mid = lo + (hi - lo + 1) / 2;
+        let mid = i64::try_from((i128::from(lo) + i128::from(hi)).div_euclid(2) + 1)
+            .expect("midpoint lies within the i64 interval");
         if is_satisfiable(&Decision::new(problem.clone(), mid))? {
             lo = mid;
         } else {
@@ -122,6 +140,9 @@ impl DecisionSearchValue for Max<i64> {
 }
 
 /// Recover an optimization value by querying the problem's decision wrapper.
+///
+/// Uses the brute-force reference solver. Returns `None` only for infeasibility;
+/// an invalid interval or an optimum outside `[lower, upper]` is an error.
 pub fn solve_via_decision<P>(
     problem: &P,
     lower: i64,

@@ -1,8 +1,9 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::formula::CNFClause;
 use crate::models::formula::NAESatisfiability;
 use crate::models::graph::MaxCut;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -19,16 +20,16 @@ fn test_naesatisfiability_to_maxcut_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // 2*3 = 6 vertices
     assert_eq!(target.num_vertices(), 6);
     // 3 variable edges + 3 + 3 = 9 clause edges
     assert_eq!(target.num_edges(), 9);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &naesat,
         &reduction,
         "NAESAT -> MaxCut closed loop",
@@ -39,15 +40,15 @@ fn test_naesatisfiability_to_maxcut_closed_loop() {
 fn test_naesatisfiability_to_maxcut_single_clause() {
     // Single clause: (x1, x2, x3) — NAE-satisfying iff not all same
     let naesat = NAESatisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // 6 vertices, 3 variable + 3 clause = 6 edges
     assert_eq!(target.num_vertices(), 6);
     assert_eq!(target.num_edges(), 6);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &naesat,
         &reduction,
         "NAESAT single clause -> MaxCut",
@@ -59,15 +60,15 @@ fn test_naesatisfiability_to_maxcut_two_literal_clause() {
     // Clause with 2 literals: (x1, ~x2) — always NAE-satisfying unless x1=T, x2=F or x1=F, x2=T... actually (x1, ~x2) is NAE-unsatisfied when both literals are same: x1=T,~x2=T (x2=F) or x1=F,~x2=F (x2=T).
     // NAE-satisfied when x1 != ~x2, i.e., x1 == x2.
     let naesat = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // 4 vertices, 2 variable + 1 clause = 3 edges
     assert_eq!(target.num_vertices(), 4);
     assert_eq!(target.num_edges(), 3);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &naesat,
         &reduction,
         "NAESAT 2-literal clause -> MaxCut",
@@ -78,15 +79,15 @@ fn test_naesatisfiability_to_maxcut_two_literal_clause() {
 fn test_naesatisfiability_to_maxcut_four_literal_clause() {
     // Clause with 4 literals: (x1, x2, ~x3, x4)
     let naesat = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, -3, 4])]);
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // One auxiliary variable and two triangles: 10 vertices, 5 + 6 edges.
     assert_eq!(target.num_vertices(), 10);
     assert_eq!(target.num_edges(), 11);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &naesat,
         &reduction,
         "NAESAT 4-literal clause -> MaxCut",
@@ -103,8 +104,8 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
             CNFClause::new(vec![-1, 3, 2]),
         ],
     );
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
 
     // Vertices: x1(0), ~x1(1), x2(2), ~x2(3), x3(4), ~x3(5)
     // x1=T -> vertex 0 in set 1, vertex 1 in set 0
@@ -129,15 +130,15 @@ fn test_naesatisfiability_to_maxcut_mixed_clause_sizes() {
             CNFClause::new(vec![-1, -3]),  // 2 literals -> 1 pair
         ],
     );
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     // 6 vertices, 3 variable + (1 + 3 + 1) = 8 edges
     assert_eq!(target.num_vertices(), 6);
     assert_eq!(target.num_edges(), 8);
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &naesat,
         &reduction,
         "NAESAT mixed clause sizes -> MaxCut",
@@ -155,9 +156,9 @@ fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction =
-        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
+        .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let witness = solver.solve(target).unwrap();
@@ -172,8 +173,8 @@ fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
 
 fn check_every_cut(source: &NAESatisfiability) {
     use crate::rules::AggregateReductionResult;
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(source).unwrap();
-    let target = AggregateReductionResult::target_problem(&reduction);
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(source).unwrap();
+    let target = AggregateReductionResult::target_problem(&reduction).inner();
     let mut decoded = vec![false; 1 << source.num_vars()];
     let mut best = i64::MIN;
     for mask in 0..(1usize << target.num_vertices()) {
@@ -182,7 +183,13 @@ fn check_every_cut(source: &NAESatisfiability) {
             .collect();
         let value = target.evaluate(&cut).unwrap();
         best = best.max(value.0.unwrap());
-        let certificate = AggregateReductionResult::extract_value(&reduction, value).0;
+        let certificate = AggregateReductionResult::extract_value(
+            &reduction,
+            crate::rules::ReductionResult::target_problem(&reduction)
+                .evaluate(&cut)
+                .unwrap(),
+        )
+        .0;
         match reduction.extract_solution(&cut) {
             Ok(assignment) => {
                 assert!(certificate);
@@ -209,10 +216,17 @@ fn check_every_cut(source: &NAESatisfiability) {
         assert_eq!(has_extension, source.evaluate(&assignment).unwrap().0);
     }
     assert_eq!(
-        AggregateReductionResult::extract_value(&reduction, crate::types::Max(Some(best))).0,
+        AggregateReductionResult::extract_value(
+            &reduction,
+            crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                &(crate::types::Max(Some(best))),
+                crate::rules::ReductionResult::target_problem(&reduction).bound()
+            ))
+        )
+        .0,
         decoded.iter().any(|&valid| valid)
     );
-    assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Max(None)).0);
+    assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Or(false)).0);
     assert!(reduction
         .extract_solution(&vec![false; target.num_vertices() + 1])
         .is_err());
@@ -251,8 +265,8 @@ fn test_naesatisfiability_to_maxcut_long_clause_interactions() {
         ],
     );
     check_every_cut(&source);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.feasible_cut, 26);
+    let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&source).unwrap();
+    assert_eq!(*reduction.target.bound(), 26);
     for clauses in [
         vec![vec![1, 1, 1, 1, 1]],
         vec![vec![1, 2, 3, 1, 2], vec![1, -2], vec![2, -3]],

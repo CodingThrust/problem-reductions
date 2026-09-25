@@ -45,13 +45,12 @@ impl ReductionResult for ReductionKColoringToTDCS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target grouping is not a consecutive-set partition",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target grouping is not a consecutive-set partition",
+        )?;
 
         Ok({
             // The target solution is config[symbol] = group_index.
@@ -77,6 +76,9 @@ impl ReductionResult for ReductionKColoringToTDCS {
         })
     }
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToTDCS {}
 
 #[reduction(
     transform = upper_bound {

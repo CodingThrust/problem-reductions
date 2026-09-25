@@ -30,7 +30,12 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         if target_solution.len() != self.source_n {
             return Err(crate::rules::ExtractionError::invalid(format!(
@@ -43,8 +48,11 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
     }
 }
 
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToSubsetSum {}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_elements = "num_elements",
     })]
 impl ReduceTo<SubsetSum> for Partition {

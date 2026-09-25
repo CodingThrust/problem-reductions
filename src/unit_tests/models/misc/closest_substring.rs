@@ -4,6 +4,17 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
+#[test]
+fn large_window_product_does_not_restrict_model_evaluation() {
+    let problem = ClosestSubstring::new(1, vec![vec![0, 0]; 64], 1).unwrap();
+    let restored: ClosestSubstring =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&vec![0; 65]).unwrap(), Min(Some(0)));
+    assert_eq!(restored.parameters(), problem.parameters());
+    assert_eq!(restored.parameters().get("total_num_windows"), Some(128));
+    assert_eq!(restored.dimensions(), [vec![1], vec![2; 64]].concat());
+}
+
 fn issue_instance() -> ClosestSubstring {
     // The #1033 canonical example: q = 2, ell = 3, three length-5 binary strings.
     ClosestSubstring::new(
@@ -26,7 +37,6 @@ fn test_closest_substring_creation() {
     assert_eq!(problem.substring_length(), 3);
     assert_eq!(problem.total_length(), 15);
     assert_eq!(problem.total_num_windows(), 9);
-    assert_eq!(problem.num_window_choice_product(), 27);
     // dims: 3 center slots (each of size 2) + one window-position slot per
     // string (each of size W_i = 5 - 3 + 1 = 3).
     assert_eq!(problem.dimensions(), vec![2, 2, 2, 3, 3, 3]);
@@ -120,7 +130,6 @@ fn test_closest_substring_specializes_to_closest_string() {
         3,
     )
     .unwrap();
-    assert_eq!(problem.num_window_choice_product(), 1);
     assert_eq!(problem.dimensions(), vec![2, 2, 2, 1, 1, 1, 1]);
     let solver = BruteForce::new();
     assert_eq!(

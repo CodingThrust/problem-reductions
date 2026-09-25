@@ -4,6 +4,29 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
+#[test]
+fn sink_self_loop_cannot_supply_commodity_flow() {
+    let source = DirectedTwoCommodityIntegralFlow::new(
+        DirectedGraph::new(4, vec![(1, 1)]),
+        vec![1],
+        0,
+        1,
+        2,
+        3,
+        1,
+        0,
+    );
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    assert!(!source.evaluate(&vec![1, 0]).unwrap().0);
+    assert!(reduction
+        .target_problem()
+        .evaluate(&vec![1, 0])
+        .unwrap()
+        .value
+        .is_none());
+    assert!(reduction.extract_solution(&vec![1, 0]).is_err());
+}
+
 fn feasible_instance() -> DirectedTwoCommodityIntegralFlow {
     // 6-vertex network: s1=0, s2=1, t1=4, t2=5
     // Arcs: (0,2),(0,3),(1,2),(1,3),(2,4),(2,5),(3,4),(3,5), all cap=1

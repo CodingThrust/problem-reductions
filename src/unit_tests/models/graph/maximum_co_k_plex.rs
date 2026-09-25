@@ -1,4 +1,44 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"weights":[1,1,1],"bound_k":2});
+    let problem: MaximumCoKPlex<SimpleGraph, i64, KN> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MaximumCoKPlex<SimpleGraph, i64, KN> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("weights", serde_json::json!([])),
+        ("bound_k", serde_json::json!(0)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i64, KN>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
+
+#[test]
+fn test_json_rejects_mismatched_fixed_k() {
+    let problem =
+        MaximumCoKPlex::<_, i64, crate::variant::K2>::new(SimpleGraph::new(2, vec![]), vec![1, 1]);
+    let mut data = serde_json::to_value(&problem).unwrap();
+    assert!(
+        serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i64, crate::variant::K2>>(
+            data.clone()
+        )
+        .is_ok()
+    );
+    data["bound_k"] = serde_json::json!(3);
+    assert!(
+        serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i64, crate::variant::K2>>(data)
+            .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
@@ -160,7 +200,7 @@ fn test_maximum_co_k_plex_rejects_zero_k() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match graph num_vertices")]
+#[should_panic(expected = "weights has length 4, expected 5")]
 fn test_maximum_co_k_plex_rejects_weight_length_mismatch() {
     let _ = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 4], 2);
 }

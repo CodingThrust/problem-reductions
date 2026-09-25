@@ -53,11 +53,31 @@ inventory::submit! {
 /// assert!(solutions.contains(&vec![true, false, false, false]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumDominatingSetData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumDominatingSet<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MinimumDominatingSetData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<G, W> TryFrom<MinimumDominatingSetData<G, W>> for MinimumDominatingSet<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumDominatingSetData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -73,27 +93,25 @@ impl<W: Clone + Default> TryFrom<MinimumDominatingSetCreateSpec<W>>
 {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDominatingSetCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, spec.weights))
+        Self::try_new(spec.graph, spec.weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
     /// Create a Dominating Set problem from a graph with given weights.
     pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.
@@ -227,7 +245,7 @@ impl TryFrom<MinimumDominatingSetOneCreateSpec> for MinimumDominatingSet<SimpleG
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDominatingSetOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        Ok(Self::new(spec.graph, weights))
+        Self::try_new(spec.graph, weights)
     }
 }
 

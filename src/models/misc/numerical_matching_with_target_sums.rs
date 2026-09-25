@@ -153,17 +153,21 @@ impl Problem for NumericalMatchingWithTargetSums {
                 // Check config is valid permutation of 0..m
                 let mut used = vec![false; m];
                 for &idx in config {
-                    if idx >= m || used[idx] {
+                    if used[idx] {
                         return Ok(Or(false));
                     }
                     used[idx] = true;
                 }
 
                 // Compute pair sums and compare multisets
-                let mut pair_sums: Vec<i64> = (0..m)
-                    .map(|i| self.sizes_x[i] + self.sizes_y[config[i]])
+                let mut pair_sums: Vec<i128> = (0..m)
+                    .map(|i| i128::from(self.sizes_x[i]) + i128::from(self.sizes_y[config[i]]))
                     .collect();
-                let mut sorted_targets = self.targets.clone();
+                let mut sorted_targets: Vec<_> = self
+                    .targets
+                    .iter()
+                    .map(|&value| i128::from(value))
+                    .collect();
                 pair_sums.sort();
                 sorted_targets.sort();
                 pair_sums == sorted_targets

@@ -28,7 +28,12 @@ impl ReductionResult for ReductionBCBSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok(target_solution[..self.num_vertices]
             .iter()
@@ -36,6 +41,9 @@ impl ReductionResult for ReductionBCBSToILP {
             .collect())
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionBCBSToILP {}
 
 #[reduction(
     transform = upper_bound {

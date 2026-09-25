@@ -1,3 +1,29 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"weights":[1,1],"root":0,"requirements":[0,1,1],"capacity":2});
+    let problem: MinimumCapacitatedSpanningTree<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumCapacitatedSpanningTree<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("weights", serde_json::json!([])),
+        ("requirements", serde_json::json!([])),
+        ("root", serde_json::json!(3)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumCapacitatedSpanningTree<SimpleGraph, i64>>(
+                data.clone()
+            )
+            .is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 
@@ -60,14 +86,14 @@ fn test_creation() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match num_edges")]
+#[should_panic(expected = "weights has length 3, expected 2")]
 fn test_rejects_wrong_weight_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1, 1], 0, vec![0, 1, 1], 3);
 }
 
 #[test]
-#[should_panic(expected = "requirements length must match num_vertices")]
+#[should_panic(expected = "requirements has length 2, expected 3")]
 fn test_rejects_wrong_requirements_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 0, vec![0, 1], 3);

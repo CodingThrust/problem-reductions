@@ -124,10 +124,18 @@ impl IntegralFlowWithMultipliers {
         requirement: i64,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if capacities.len() != graph.num_arcs() {
-            return Err("capacities length must match graph num_arcs".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "capacities",
+                capacities.len(),
+                graph.num_arcs(),
+            ));
         }
         if multipliers.len() != graph.num_vertices() {
-            return Err("multipliers length must match num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "multipliers",
+                multipliers.len(),
+                graph.num_vertices(),
+            ));
         }
 
         let num_vertices = graph.num_vertices();

@@ -6,6 +6,67 @@ use crate::registry::{ConstructionError, CreateInputCodec, CreateInputInfo, Fiel
 use std::collections::{BTreeMap, BTreeSet};
 
 #[test]
+fn complexity_bounds_cover_heterogeneous_choice_counts() {
+    use crate::models::misc::{
+        ClosestSubstring, ConsistencyOfDatabaseFrequencyTables,
+        MinimumDiscretePlanarInverseKinematics,
+    };
+    let cases: Vec<(&str, Box<dyn std::any::Any>, f64, f64)> = vec![
+        (
+            "ClosestSubstring",
+            Box::new(ClosestSubstring::new(1, vec![vec![0; 2], vec![0; 4]], 1).unwrap()),
+            8.0,
+            9.0,
+        ),
+        (
+            "MinimumDiscretePlanarInverseKinematics",
+            Box::new(
+                MinimumDiscretePlanarInverseKinematics::new(
+                    vec![1.0, 1.0],
+                    (2.0, 0.0),
+                    vec![vec![0.0, 1.0], vec![0.0, 1.0, 2.0, 3.0]],
+                    vec![vec![(0, 0)]],
+                )
+                .unwrap(),
+            ),
+            8.0,
+            9.0,
+        ),
+        (
+            "ConsistencyOfDatabaseFrequencyTables",
+            Box::new(ConsistencyOfDatabaseFrequencyTables::new(
+                2,
+                vec![2, 3],
+                vec![],
+                vec![],
+            )),
+            36.0,
+            81.0,
+        ),
+        (
+            "ConsistencyOfDatabaseFrequencyTables",
+            Box::new(ConsistencyOfDatabaseFrequencyTables::new(
+                0,
+                vec![],
+                vec![],
+                vec![],
+            )),
+            1.0,
+            1.0,
+        ),
+    ];
+    for (name, problem, exact_count, expected_bound) in cases {
+        let entry = variant_entries()
+            .into_iter()
+            .find(|entry| entry.name == name)
+            .unwrap();
+        let bound = (entry.complexity_eval_fn)(problem.as_ref());
+        assert_eq!(bound, expected_bound, "{name}");
+        assert!(bound >= exact_count, "{name}");
+    }
+}
+
+#[test]
 fn variant_alias_inventory_is_valid() {
     if let Err(conflicts) = validate_variant_aliases() {
         panic!("variant alias validation failed:\n{}", conflicts.join("\n"));
@@ -377,7 +438,13 @@ fn unit_variants_construct_without_unit_inputs() {
                 graph => panic!("missing construction case for {graph}"),
             },
             "DecisionMaximumIndependentSet" => json!({"graph":[[0,1],[1,2]],"bound":2}),
-            "DecisionMinimumDominatingSet" => json!({"graph":graph,"bound":1}),
+            "DecisionLongestPath" => {
+                json!({"graph":[[0,1],[1,2]],"source_vertex":0,"target_vertex":2,"bound":2})
+            }
+            "DecisionMinMaxMulticenter" => json!({"graph":[[0,1],[1,2]],"k":1,"bound":1}),
+            "DecisionMinimumDominatingSet" | "DecisionMinimumVertexCover" => {
+                json!({"graph":graph,"bound":1})
+            }
             "MaxCut" => json!({"graph":[[0,1],[1,2]]}),
             "LongestPath" => json!({"graph":[[0,1],[1,2]],"source_vertex":0,"target_vertex":2}),
             "MinMaxMulticenter" => json!({"graph":[[0,1],[1,2]],"k":1}),
@@ -435,7 +502,7 @@ fn unit_construction_preserves_model_validation() {
     let graph = json!({"num_vertices":3,"edges":[[0,1],[1,2]]});
     for (name, data) in [
         ("MaximumCoKPlex", json!({"graph":graph,"k":0})),
-        ("SteinerTree", json!({"graph":graph,"terminals":[0]})),
+        ("SteinerTree", json!({"graph":graph,"terminals":[]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,0]})),
         ("SteinerTree", json!({"graph":graph,"terminals":[0,3]})),
         (

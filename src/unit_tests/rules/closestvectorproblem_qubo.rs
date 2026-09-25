@@ -2,7 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
-fn canonical_cvp() -> ClosestVectorProblem<i64> {
+fn canonical_cvp() -> ClosestVectorProblem {
     ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
 }
 
@@ -59,7 +59,7 @@ fn test_closestvectorproblem_to_qubo_twelve_dimensional_identity() {
     }
     let solution = reduction.extract_solution(&bits).unwrap();
     assert_eq!(solution, vec![1; size]);
-    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0.0));
+    assert_eq!(source.evaluate(&solution).unwrap().0, Some(0));
 }
 
 #[test]
@@ -73,8 +73,44 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(source_solution, vec![1, 1]);
-    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0.0));
+    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0));
     assert_eq!(reduction.target_problem().num_vars(), 11);
+}
+
+#[test]
+fn test_closestvectorproblem_to_qubo_preserves_squared_distance_up_to_constant() {
+    for (basis, target) in [
+        (vec![vec![2, 0]], vec![1, 1]),
+        (vec![vec![2, 0], vec![1, 2]], vec![1, -1]),
+        (vec![], vec![3, 4]),
+    ] {
+        let source = ClosestVectorProblem::new(basis, target).unwrap();
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let qubo = reduction.target_problem();
+        let zero = vec![false; qubo.num_vars()];
+        let constant = source
+            .evaluate(&reduction.extract_solution(&zero).unwrap())
+            .unwrap()
+            .unwrap();
+        for mask in 0..1usize << qubo.num_vars() {
+            let bits = (0..qubo.num_vars()).map(|i| mask & (1 << i) != 0).collect();
+            let witness = reduction.extract_solution(&bits).unwrap();
+            assert_eq!(
+                source.evaluate(&witness).unwrap().unwrap(),
+                qubo.evaluate(&bits).unwrap().unwrap() + constant
+            );
+        }
+        let optimum = BruteForce::new().solve(qubo).unwrap().unwrap();
+        let witness = reduction.extract_solution(&optimum).unwrap();
+        let direct = crate::solvers::customized::closest_vector_problem::solve(&source).unwrap();
+        assert_eq!(
+            source.evaluate(&witness).unwrap(),
+            source.evaluate(&direct).unwrap()
+        );
+        assert!(reduction
+            .extract_solution(&vec![false; qubo.num_vars() + 1])
+            .is_err());
+    }
 }
 
 #[test]

@@ -235,7 +235,7 @@ fn test_maximum_edge_weighted_k_clique_rejects_weight_length_mismatch() {
     assert!(matches!(
         error,
         crate::registry::ConstructionError::Conversion(message)
-            if message == "edge_weights length must match graph num_edges"
+            if message == "edge_weights has length 4, expected 5"
     ));
 }
 

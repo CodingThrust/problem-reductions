@@ -41,9 +41,9 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
 
     assert_eq!(
         reduction
-            .extract_solution(&vec![true, false, true])
+            .extract_solution(&vec![true, true, false])
             .unwrap(),
-        vec![true, false, true]
+        vec![true, true, false]
     );
 }
 

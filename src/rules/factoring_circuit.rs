@@ -47,13 +47,12 @@ impl ReductionResult for ReductionFactoringToCircuit {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not satisfy the multiplication circuit",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment does not satisfy the multiplication circuit",
+        )?;
 
         Ok({
             let var_names = self.target.variable_names();
@@ -211,6 +210,9 @@ fn build_multiplier_cell(
 
     (assignments, ancillas)
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionFactoringToCircuit {}
 
 #[reduction(
     transform = upper_bound {

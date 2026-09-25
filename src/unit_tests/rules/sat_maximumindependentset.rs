@@ -1,9 +1,11 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::models::formula::CNFClause;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
+use crate::types::{Max, Or};
 include!("../jl_helpers.rs");
 
 #[test]
@@ -46,9 +48,9 @@ fn test_boolvar_complement() {
 fn test_sat_to_maximumindependentset_closed_loop() {
     // Simple SAT: (x1) - one clause with one literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     // Should have 1 vertex (one literal)
     assert_eq!(is_problem.graph().num_vertices(), 1);
@@ -61,9 +63,9 @@ fn test_two_clause_sat_to_is() {
     // SAT: (x1) AND (NOT x1)
     // This is unsatisfiable
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     // Should have 2 vertices
     assert_eq!(is_problem.graph().num_vertices(), 2);
@@ -82,7 +84,7 @@ fn test_two_clause_sat_to_is() {
 fn test_extract_solution_basic() {
     // Simple case: (x1 OR x2)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
     // Select vertex 0 (literal x1)
@@ -100,7 +102,7 @@ fn test_extract_solution_basic() {
 fn test_extract_solution_with_negation() {
     // (NOT x1) - selecting NOT x1 means x1 should be false
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
     let is_sol = vec![true];
@@ -112,9 +114,9 @@ fn test_extract_solution_with_negation() {
 fn test_clique_edges_in_clause() {
     // A clause with 3 literals should form a clique (3 edges)
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     // 3 vertices, 3 edges (complete graph K3)
     assert_eq!(is_problem.graph().num_vertices(), 3);
@@ -134,9 +136,9 @@ fn test_complement_edges_across_clauses() {
             CNFClause::new(vec![2]),
         ],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     assert_eq!(is_problem.graph().num_vertices(), 3);
     assert_eq!(is_problem.graph().num_edges(), 1); // Only the complement edge
@@ -148,9 +150,9 @@ fn test_is_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     // IS should have vertices for literals in clauses
     assert_eq!(is_problem.graph().num_vertices(), 4); // 2 + 2 literals
@@ -160,9 +162,9 @@ fn test_is_structure() {
 fn test_empty_sat() {
     // Empty SAT (trivially satisfiable)
     let sat = Satisfiability::new(0, vec![]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
-    let is_problem = reduction.target_problem();
+    let is_problem = reduction.target_problem().inner();
 
     assert_eq!(is_problem.graph().num_vertices(), 0);
     assert_eq!(is_problem.graph().num_edges(), 0);
@@ -172,7 +174,7 @@ fn test_empty_sat() {
 #[test]
 fn test_literals_accessor() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
+    let reduction = ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
     let literals = reduction.literals();
@@ -216,8 +218,9 @@ fn test_jl_parity_sat_to_independentset() {
         let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
         let (num_vars, clauses) = jl_parse_sat_clauses(inst);
         let source = Satisfiability::new(num_vars, clauses);
-        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source)
-            .expect("reduction should succeed");
+        let result =
+            ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&source)
+                .expect("reduction should succeed");
         let solver = BruteForce::new();
         let sat_solutions: HashSet<Vec<bool>> = solver
             .find_all_witnesses(&source)
@@ -227,19 +230,21 @@ fn test_jl_parity_sat_to_independentset() {
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
                 let target_solution = BruteForce::new()
-                    .solve(result.target_problem())
+                    .solve(result.target_problem().inner())
                     .unwrap()
                     .expect("SAT->IS: target should have an optimal solution");
                 assert!(result.extract_solution(&target_solution).is_err());
                 assert_eq!(
                     crate::rules::AggregateReductionResult::extract_value(
                         &result,
-                        result.target_problem().evaluate(&target_solution).unwrap(),
+                        crate::rules::ReductionResult::target_problem(&result)
+                            .evaluate(&target_solution)
+                            .unwrap()
                     ),
                     Or(false),
                 );
             } else {
-                assert_satisfaction_round_trip_from_optimization_target(
+                assert_satisfaction_round_trip_from_satisfaction_target(
                     &source,
                     &result,
                     &format!("SAT->IS [{label}]"),
@@ -275,11 +280,12 @@ fn test_sat_to_independentset_all_certificates() {
                 ],
             );
             let reduction =
-                ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-            let target = reduction.target_problem();
+                ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&source)
+                    .unwrap();
+            let target = reduction.target_problem().inner();
             assert!(std::ptr::eq(
                 target,
-                crate::rules::AggregateReductionResult::target_problem(&reduction)
+                crate::rules::AggregateReductionResult::target_problem(&reduction).inner()
             ));
             let mut accepted = false;
             for mask in 0..(1usize << target.num_vertices()) {
@@ -289,7 +295,12 @@ fn test_sat_to_independentset_all_certificates() {
                 let value = target.evaluate(&config).unwrap();
                 let certificate = value == Max(Some(2));
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&config)
+                            .unwrap()
+                    ),
                     Or(certificate)
                 );
                 match reduction.extract_solution(&config) {
@@ -313,13 +324,17 @@ fn test_sat_to_independentset_all_certificates() {
     for num_vars in [0, 3] {
         let source = Satisfiability::new(num_vars, vec![]);
         let reduction =
-            ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+            ReduceTo::<Decision<MaximumIndependentSet<SimpleGraph, One>>>::reduce_to(&source)
+                .unwrap();
         assert_eq!(
             reduction.extract_solution(&vec![]).unwrap(),
             vec![false; num_vars]
         );
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, Max(None)),
+            crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::types::Or(false)
+            ),
             Or(false)
         );
     }

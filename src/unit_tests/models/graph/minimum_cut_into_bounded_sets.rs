@@ -1,3 +1,28 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"edge_weights":[1,1],"source":0,"sink":2,"size_bound":2});
+    let problem: MinimumCutIntoBoundedSets<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumCutIntoBoundedSets<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("edge_weights", serde_json::json!([])),
+        ("source", serde_json::json!(3)),
+        ("sink", serde_json::json!(3)),
+        ("sink", serde_json::json!(0)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>(data.clone())
+                .is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 

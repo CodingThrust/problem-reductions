@@ -8,6 +8,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToKnapsack {
     target: Knapsack,
+    source_sum: i64,
 }
 
 impl ReductionResult for ReductionPartitionToKnapsack {
@@ -22,9 +23,28 @@ impl ReductionResult for ReductionPartitionToKnapsack {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).0,
+            "target witness does not certify a YES answer for the source",
+        )?;
 
         Ok(target_solution.to_vec())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToKnapsack {
+    type Source = Partition;
+    type Target = Knapsack;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Max<i64>) -> crate::types::Or {
+        crate::types::Or(self.source_sum % 2 == 0 && value.0 == Some(self.source_sum / 2))
     }
 }
 
@@ -43,6 +63,7 @@ impl ReduceTo<Knapsack> for Partition {
         let capacity = self.total_sum() / 2;
 
         Ok(ReductionPartitionToKnapsack {
+            source_sum: self.total_sum(),
             target: Knapsack::new(weights, values, capacity),
         })
     }

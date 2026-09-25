@@ -1,4 +1,41 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"lengths":[1,2],"deadlines":[1,3],"precedences":[[0,1]]});
+    let problem: MinimumTardinessSequencing<i64> = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumTardinessSequencing<i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("lengths", serde_json::json!([0, 2])),
+        ("deadlines", serde_json::json!([])),
+        ("precedences", serde_json::json!([[2, 1]])),
+        ("precedences", serde_json::json!([[0, 2]])),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumTardinessSequencing<i64>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
+
+#[test]
+fn test_unit_json_rejects_invalid_task_data() {
+    let problem = MinimumTardinessSequencing::new(2, vec![1, 2], vec![(0, 1)]);
+    let valid = serde_json::to_value(&problem).unwrap();
+    for (field, value) in [
+        ("deadlines", serde_json::json!([])),
+        ("precedences", serde_json::json!([[0, 2]])),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(serde_json::from_value::<MinimumTardinessSequencing<One>>(data).is_err());
+    }
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

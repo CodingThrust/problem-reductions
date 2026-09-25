@@ -55,13 +55,75 @@ inventory::submit! {
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![false, true]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "QuboInputData<W>")]
+#[serde(bound(deserialize = "W: WeightElement + Deserialize<'de>"))]
 pub struct QUBO<W = i64> {
     /// Number of variables.
     num_vars: usize,
-    /// Q matrix stored as upper triangular (row-major).
-    /// `Q[i][j]` for i <= j represents the coefficient of x_i * x_j
-    matrix: Vec<Vec<W>>,
+    /// Nonzero upper-triangular coefficients `(i, j, Q[i][j])` with `i <= j`,
+    /// sorted by `(i, j)`; absent entries are zero.
+    entries: Vec<(usize, usize, W)>,
+    /// Zero coefficient returned by [`QUBO::get`] for absent entries.
+    zero: W,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuboData<W> {
+    num_vars: usize,
+    entries: Vec<(usize, usize, W)>,
+}
+
+// Keep parse-error format guidance separate from constructor validation errors.
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct QuboInputData<W> {
+    #[serde(
+        deserialize_with = "deserialize_qubo_data",
+        bound(deserialize = "W: Deserialize<'de>")
+    )]
+    data: QuboData<W>,
+}
+
+fn deserialize_qubo_data<'de, W: Deserialize<'de>, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<QuboData<W>, D::Error> {
+    QuboData::deserialize(deserializer).map_err(|error| {
+        serde::de::Error::custom(format!(
+            "{error}; expected QUBO format: num_vars and sparse entries [row, col, value] with row <= col"
+        ))
+    })
+}
+
+impl<W: WeightElement> TryFrom<QuboInputData<W>> for QUBO<W> {
+    type Error = ConstructionError;
+
+    fn try_from(input: QuboInputData<W>) -> Result<Self, Self::Error> {
+        Self::try_from(input.data)
+    }
+}
+
+impl<W: WeightElement + Serialize> Serialize for QUBO<W> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        QuboData {
+            num_vars: self.num_vars,
+            entries: self
+                .entries
+                .iter()
+                .map(|(i, j, value)| (*i, *j, value))
+                .collect(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
+    type Error = ConstructionError;
+
+    fn try_from(data: QuboData<W>) -> Result<Self, Self::Error> {
+        Self::from_entries(data.num_vars, data.entries)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -100,7 +162,59 @@ impl<W: WeightElement> QUBO<W> {
                 value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
             }
         }
-        Ok(Self { num_vars, matrix })
+        let entries = matrix
+            .into_iter()
+            .enumerate()
+            .flat_map(|(row, values)| {
+                values
+                    .into_iter()
+                    .enumerate()
+                    .skip(row)
+                    .map(move |(column, value)| (row, column, value))
+            })
+            .collect();
+        Self::from_entries(num_vars, entries)
+    }
+
+    /// Create a QUBO from sparse coefficients `(i, j, Q[i][j])`.
+    ///
+    /// Indices must be in `0..num_vars` with `i <= j`, and each pair may
+    /// appear at most once. Zero coefficients are dropped.
+    pub fn from_entries(
+        num_vars: usize,
+        mut entries: Vec<(usize, usize, W)>,
+    ) -> Result<Self, ConstructionError> {
+        for (row, column, value) in &entries {
+            if *row >= num_vars || *column >= num_vars {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO index ({row}, {column}) is outside 0..{num_vars}"
+                )));
+            }
+            if row > column {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO index ({row}, {column}) is below the diagonal; use ({column}, {row}) instead"
+                )));
+            }
+            value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
+        }
+        entries.sort_by_key(|&(row, column, _)| (row, column));
+        if let Some(pair) = entries
+            .windows(2)
+            .find(|pair| (pair[0].0, pair[0].1) == (pair[1].0, pair[1].1))
+        {
+            return Err(ConstructionError::Conversion(format!(
+                "duplicate QUBO index ({}, {})",
+                pair[0].0, pair[0].1
+            )));
+        }
+        Ok(Self {
+            num_vars,
+            entries: entries
+                .into_iter()
+                .filter(|(_, _, value)| !value.to_sum().is_zero())
+                .collect(),
+            zero: W::default(),
+        })
     }
 
     /// Create a QUBO from linear and quadratic terms.
@@ -138,20 +252,36 @@ impl<W: WeightElement> QUBO<W> {
     }
 }
 
-impl<W> QUBO<W> {
+impl<W: Clone> QUBO<W> {
     /// Get the number of variables.
     pub fn num_vars(&self) -> usize {
         self.num_vars
     }
 
-    /// Get the Q matrix.
-    pub fn matrix(&self) -> &[Vec<W>] {
-        &self.matrix
+    /// Nonzero upper-triangular coefficients `(i, j, Q[i][j])`, sorted by `(i, j)`.
+    pub fn entries(&self) -> &[(usize, usize, W)] {
+        &self.entries
     }
 
-    /// Get a specific matrix element `Q[i][j]`.
+    /// Dense upper-triangular copy of Q. Allocates `num_vars^2` elements.
+    pub fn matrix(&self) -> Vec<Vec<W>> {
+        let mut matrix = vec![vec![self.zero.clone(); self.num_vars]; self.num_vars];
+        for (i, j, value) in &self.entries {
+            matrix[*i][*j] = value.clone();
+        }
+        matrix
+    }
+
+    /// Get a specific matrix element `Q[i][j]`; entries below the diagonal are zero.
     pub fn get(&self, i: usize, j: usize) -> Option<&W> {
-        self.matrix.get(i).and_then(|row| row.get(j))
+        if i >= self.num_vars || j >= self.num_vars {
+            return None;
+        }
+        Some(
+            self.entries
+                .binary_search_by_key(&(i, j), |&(row, column, _)| (row, column))
+                .map_or(&self.zero, |index| &self.entries[index].2),
+        )
     }
 }
 
@@ -179,24 +309,13 @@ where
             ));
         }
         let mut value = W::Sum::zero();
-
-        for i in 0..self.num_vars {
-            if !solution[i] {
-                continue;
-            }
-
-            for (j, &selected) in solution.iter().enumerate().skip(i) {
-                if !selected {
-                    continue;
-                }
-
-                if let Some(q_ij) = self.matrix.get(i).and_then(|row| row.get(j)) {
-                    value = W::checked_add_to_sum(
-                        value,
-                        q_ij.to_sum(),
-                        "summing selected QUBO coefficients",
-                    )?;
-                }
+        for (i, j, coefficient) in &self.entries {
+            if solution[*i] && solution[*j] {
+                value = W::checked_add_to_sum(
+                    value,
+                    coefficient.to_sum(),
+                    "summing selected QUBO coefficients",
+                )?;
             }
         }
 
@@ -242,3 +361,38 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/qubo.rs"]
 mod tests;
+
+crate::decision_problem_meta!(QUBO<i64>, "DecisionQUBO");
+crate::register_decision_variant!(
+    QUBO<i64>, "DecisionQUBO", "2^num_vars", &[],
+    "Does a feasible solution have objective value <= the bound?",
+    category: crate::registry::ProblemCategory::Algebraic,
+    dims: [VariantDimension::new("weight", "i64", &["i64"])],
+    fields: [
+        crate::registry::FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Q matrix; the number of variables is its row count." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_qubo_to_qubo",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                QUBO::from_matrix(vec![vec![-1, 2, 0], vec![0, -1, 2], vec![0, 0, -1]]).unwrap(),
+                -2,
+            );
+            let witness = serde_json::json!(vec![true, false, true]);
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

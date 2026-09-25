@@ -47,7 +47,6 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
-        let matrix = self.matrix();
 
         // Convert Q matrix to J interactions and h fields
         // Using substitution s = 2x - 1:
@@ -63,27 +62,24 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
         let mut interactions = Vec::new();
         let mut onsite = vec![0.0; n];
 
-        for i in 0..n {
-            for j in i..n {
-                let q = matrix[i][j];
-                if q.abs() < 1e-10 {
-                    continue;
-                }
+        for &(i, j, q) in self.entries() {
+            if q.abs() < 1e-10 {
+                continue;
+            }
 
-                if i == j {
-                    // Diagonal: Q_ii * x_i = Q_ii/2 * s_i + Q_ii/2 (constant)
-                    onsite[i] += q / 2.0;
-                } else {
-                    // Off-diagonal: Q_ij * x_i * x_j
-                    // J_ij contribution
-                    let j_ij = q / 4.0;
-                    if j_ij.abs() > 1e-10 {
-                        interactions.push(((i, j), j_ij));
-                    }
-                    // h_i and h_j contributions
-                    onsite[i] += q / 4.0;
-                    onsite[j] += q / 4.0;
+            if i == j {
+                // Diagonal: Q_ii * x_i = Q_ii/2 * s_i + Q_ii/2 (constant)
+                onsite[i] += q / 2.0;
+            } else {
+                // Off-diagonal: Q_ij * x_i * x_j
+                // J_ij contribution
+                let j_ij = q / 4.0;
+                if j_ij.abs() > 1e-10 {
+                    interactions.push(((i, j), j_ij));
                 }
+                // h_i and h_j contributions
+                onsite[i] += q / 4.0;
+                onsite[j] += q / 4.0;
             }
         }
 

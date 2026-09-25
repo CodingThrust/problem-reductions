@@ -94,13 +94,12 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a biclique cover",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0.is_some(),
+            "target configuration is not a biclique cover",
+        )?;
         // Variables absent from every clause may be assigned false.
         // This also defines the inverse map for the empty-formula YES target.
         let mut source_assignment = vec![false; self.source_num_vars];
@@ -235,6 +234,18 @@ fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
 // satisfy n <= 4(s+1), M <= m+4(s+1), ell <= s+1, ceil(log2 M) <= M.
 // Hence each partition is <= 31s+5m+39 and rank <= 14s+2m+22.
 // The declared coarser bounds also cover the fixed YES and NO targets.
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKSatisfiabilityToBicliqueCover {
+    type Source = KSatisfiability<K3>;
+    type Target = BicliqueCover;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         left_size = "32 * num_vars + 8 * num_clauses + 48",

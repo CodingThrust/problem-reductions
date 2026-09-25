@@ -1,4 +1,45 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"edge_weights":[1,1],"weight_bound":2,"diameter_bound":2});
+    let problem: BoundedDiameterSpanningTree<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: BoundedDiameterSpanningTree<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("edge_weights", serde_json::json!([])),
+        ("edge_weights", serde_json::json!([0, 1])),
+        ("weight_bound", serde_json::json!(0)),
+        ("diameter_bound", serde_json::json!(0)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<BoundedDiameterSpanningTree<SimpleGraph, i64>>(data.clone())
+                .is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
+
+#[test]
+fn test_json_rebuilds_edge_list() {
+    let problem = BoundedDiameterSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![1i64, 1],
+        2,
+        2,
+    );
+    let mut data = serde_json::to_value(&problem).unwrap();
+    data["edge_list"] = serde_json::json!([[0, 99]]);
+    let restored: BoundedDiameterSpanningTree<SimpleGraph, i64> =
+        serde_json::from_value(data).unwrap();
+    assert_eq!(restored.edge_list(), &[(0, 1), (1, 2)]);
+    assert!(restored.evaluate(&vec![true, true]).unwrap());
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
@@ -142,7 +183,7 @@ fn test_bounded_diameter_spanning_tree_zero_diameter_panics() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
+#[should_panic(expected = "weights has length 1, expected 2")]
 fn test_bounded_diameter_spanning_tree_wrong_weights_length_panics() {
     let _ =
         BoundedDiameterSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1], 5, 2);

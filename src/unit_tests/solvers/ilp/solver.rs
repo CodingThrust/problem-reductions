@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{IntegerVariable, LinearConstraint};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::traits::Problem;
 
 fn binary_ilp(
@@ -114,22 +114,16 @@ fn test_ilp_solver_rejects_inexact_integer_transport() {
 }
 
 #[test]
-fn test_backend_errors_are_classified_without_losing_the_cause() {
-    assert_eq!(
-        classify_backend_error(ResolutionError::Infeasible, None),
-        ILPSolveError::Infeasible,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Unbounded, None),
-        ILPSolveError::Unbounded,
-    );
-    assert_eq!(
-        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
-        ILPSolveError::Timeout,
+fn test_native_integer_coefficient_transport_reports_backend_error() {
+    let ilp = binary_ilp(
+        1,
+        vec![],
+        vec![(0, crate::types::MAX_EXACT_F64_INTEGER + 1)],
+        ObjectiveSense::Maximize,
     );
     assert!(matches!(
-        classify_backend_error(ResolutionError::Other("SolveError"), None),
-        ILPSolveError::BackendFailure(message) if message.contains("SolveError")
+        ILPSolver::new().solve(&ilp),
+        Err(ILPSolveError::InexactTransport(_))
     ));
 }
 
@@ -324,4 +318,28 @@ fn test_float_qubo_objective_matches_reference_within_tolerance() {
             reference_value.0.unwrap()
         ));
     }
+}
+#[test]
+fn test_ilp_solver_rejects_invalid_time_limits() {
+    let problem = binary_ilp(0, vec![], vec![], ObjectiveSense::Minimize);
+    for seconds in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(matches!(
+            ILPSolver::with_time_limit(seconds).solve(&problem),
+            Err(ILPSolveError::BackendFailure(message)) if message.contains("time limit")
+        ));
+    }
+}
+#[test]
+fn test_ilp_solver_rejects_source_objective_overflow() {
+    let problem = ILP::<i64>::with_variables(
+        vec![IntegerVariable::new(Some(1025), Some(1025)).unwrap()],
+        vec![],
+        vec![(0, crate::types::MAX_EXACT_F64_INTEGER)],
+        ObjectiveSense::Maximize,
+    )
+    .unwrap();
+    assert!(matches!(
+        ILPSolver::new().solve(&problem),
+        Err(ILPSolveError::InvalidSolution(_))
+    ));
 }

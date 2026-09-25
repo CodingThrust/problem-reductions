@@ -32,7 +32,12 @@ impl ReductionResult for ReductionKColoringToClustering {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness is not satisfying",
+        )?;
 
         Ok(target_solution[..self.source_num_vertices].to_vec())
     }
@@ -52,9 +57,12 @@ fn build_distances(graph: &SimpleGraph) -> Vec<Vec<i64>> {
     distances
 }
 
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToClustering {}
+
 #[reduction(
-    transform = exact {
-        num_elements = "num_vertices",
+    transform = upper_bound {
+        num_elements = "num_vertices + 2",
         num_clusters = "num_colors",
     }
 )]
@@ -62,6 +70,14 @@ impl ReduceTo<Clustering> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToClustering;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        if self.graph().edges().iter().any(|&(u, v)| u == v) {
+            // A loop is uncolorable. Two separated elements cannot share one
+            // diameter-zero cluster; the target diagonal remains zero.
+            return Ok(ReductionKColoringToClustering {
+                target: Clustering::new(vec![vec![0, 1], vec![1, 0]], 1, 0),
+                source_num_vertices: self.graph().num_vertices(),
+            });
+        }
         Ok(ReductionKColoringToClustering {
             target: Clustering::new(build_distances(self.graph()), self.num_colors(), 0),
             source_num_vertices: self.graph().num_vertices(),

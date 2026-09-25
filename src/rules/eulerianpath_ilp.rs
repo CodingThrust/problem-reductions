@@ -74,7 +74,12 @@ impl ReductionResult for ReductionEulerianPathToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let m = self.num_arcs;
@@ -138,6 +143,9 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
     }
     pairs
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionEulerianPathToILP {}
 
 #[reduction(
     transform = upper_bound {

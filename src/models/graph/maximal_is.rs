@@ -54,11 +54,31 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximalISData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximalIS<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximalISData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<G, W> TryFrom<MaximalISData<G, W>> for MaximalIS<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximalISData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,27 +92,25 @@ struct MaximalISCreateSpec {
 impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i64> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximalISCreateSpec) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        Ok(Self::new(spec.graph, spec.weights))
+        Self::try_new(spec.graph, spec.weights)
     }
 }
 
 impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
     /// Create a Maximal Independent Set problem from a graph with given weights.
     pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.

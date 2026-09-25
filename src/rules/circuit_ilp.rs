@@ -40,14 +40,12 @@ impl ReductionResult for ReductionCircuitToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .value
-            .is_none()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             self.source_variables
@@ -192,6 +190,9 @@ impl ILPBuilder {
         })
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionCircuitToILP {}
 
 #[reduction(
     transform = upper_bound {

@@ -34,12 +34,19 @@ impl ReductionResult for ReductionFSSToILP {
         &self.target
     }
 
-    /// Extract solution by sorting jobs by final-machine completion time C_{j,m-1}.
+    /// Sort by the sum of completion times across all machines. A predecessor
+    /// cannot have a larger sum; ties can reverse only zero-duration jobs,
+    /// which do not delay the remaining schedule.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let n = self.num_jobs;
@@ -47,15 +54,25 @@ impl ReductionResult for ReductionFSSToILP {
             let c_offset = self.num_order_vars;
             let mut jobs: Vec<usize> = (0..n).collect();
             jobs.sort_by_key(|&j| {
-                let idx = c_offset + j * m + (m - 1);
-                (target_solution[idx], j)
+                let start = c_offset + j * m;
+                (
+                    target_solution[start..start + m]
+                        .iter()
+                        .map(|&time| i128::from(time))
+                        .sum::<i128>(),
+                    j,
+                )
             });
             jobs
         })
     }
 }
 
-#[reduction(transform = upper_bound {
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionFSSToILP {}
+
+#[reduction(
+    transform = upper_bound {
     num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
     num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
 },
@@ -112,7 +129,9 @@ impl ReduceTo<ILP<i64>> for FlowShopScheduling {
 
         // 2. C_{j,0} >= p_{j,0} for all j
         for (j, p_j) in p.iter().enumerate() {
-            constraints.push(LinearConstraint::ge(vec![(c_var(j, 0), 1)], p_j[0]));
+            if let Some(&length) = p_j.first() {
+                constraints.push(LinearConstraint::ge(vec![(c_var(j, 0), 1)], length));
+            }
         }
 
         // 3. Machine chain: C_{j,q+1} >= C_{j,q} + p_{j,q+1} for all j, q in 0..m-1
@@ -128,19 +147,6 @@ impl ReduceTo<ILP<i64>> for FlowShopScheduling {
 
         // 4. Disjunctive: C_{j,q} >= C_{i,q} + p_{j,q} - M*(1 - y_{i,j}) for i != j, all q
         // For i < j: y_{i,j} is the variable.
-        //   C_{j,q} - C_{i,q} + M*y_{i,j} >= p_{j,q} + M  ... wrong
-        //   Actually: C_{j,q} >= C_{i,q} + p_{j,q} - M*(1 - y_{i,j})
-        //   => C_{j,q} - C_{i,q} + M*y_{i,j} >= p_{j,q}   ... when y_{i,j}=0 (i NOT before j): inactive
-        //                                                        when y_{i,j}=1 (i before j): C_{j,q} >= C_{i,q} + p_{j,q}
-        //   Wait, this needs reconsideration. The paper says:
-        //   C_{j,q} >= C_{i,q} + p_{j,q} - M*(1 - y_{i,j})
-        //   => C_{j,q} - C_{i,q} - M*y_{i,j} >= p_{j,q} - M
-        //   No let me expand directly:
-        //   C_{j,q} - C_{i,q} + M*y_{i,j} >= p_{j,q} + M*(0)... hmm
-        //
-        // Let me re-derive: C_{j,q} >= C_{i,q} + p_{j,q} - M*(1 - y_{i,j})
-        //   = C_{j,q} - C_{i,q} + M*(1 - y_{i,j}) >= p_{j,q}
-        //   = C_{j,q} - C_{i,q} + M - M*y_{i,j} >= p_{j,q}
         //   = C_{j,q} - C_{i,q} - M*y_{i,j} >= p_{j,q} - M
         for i in 0..n {
             for (j, p_j) in p.iter().enumerate() {

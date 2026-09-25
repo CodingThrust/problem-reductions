@@ -36,7 +36,12 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment is not satisfying",
+        )?;
 
         Ok({
             // Only return the original variables, discarding ancillas
@@ -44,6 +49,11 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         })
     }
 }
+
+crate::register_aggregate_reduction!(ReductionSATToKSAT<K3>);
+
+#[crate::aggregate_reduction(identity)]
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionSATToKSAT<K> {}
 
 /// Add a clause to the K-SAT formula, splitting or padding as necessary.
 ///
@@ -121,8 +131,8 @@ macro_rules! impl_sat_to_ksat {
         #[rustfmt::skip]
         #[reduction(
     transform = upper_bound {
-        num_clauses = "4 * num_clauses + num_literals",
-        num_vars = "num_vars + 3 * num_clauses + num_literals",
+        num_clauses = "8 * num_clauses + num_literals",
+        num_vars = "num_vars + 7 * num_clauses + num_literals",
     },
     unavailable = {
         num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -186,7 +196,12 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment is not satisfying",
+        )?;
 
         Ok({
             // Direct mapping - no transformation needed
@@ -194,6 +209,11 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         })
     }
 }
+
+crate::register_aggregate_reduction!(ReductionKSATToSAT<KN>);
+
+#[crate::aggregate_reduction(identity)]
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKSATToSAT<K> {}
 
 /// Helper function for KSAT -> SAT reduction logic (generic over K).
 fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSAT<K> {

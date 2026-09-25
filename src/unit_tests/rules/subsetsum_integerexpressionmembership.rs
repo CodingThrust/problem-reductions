@@ -52,12 +52,9 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
             .unwrap(),
         issue_example_source_config()
     );
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![true, false, false, true])
-            .unwrap(),
-        vec![true, false, false, true]
-    );
+    assert!(reduction
+        .extract_solution(&vec![true, false, false, true])
+        .is_err());
 }
 
 #[test]

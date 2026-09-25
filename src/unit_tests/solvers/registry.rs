@@ -1,10 +1,25 @@
 use super::*;
 use std::collections::BTreeMap;
 
-const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "i64")];
 const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "f64")];
 const FLOAT_I64_VARIANT: &[(&str, &str)] = &[("variable", "i64"), ("coefficient", "f64")];
 const NO_VARIANT: &[(&str, &str)] = &[];
+
+#[test]
+fn decision_variants_support_ilp_when_the_inner_problem_does() {
+    let registry = solver_capability_registry().unwrap();
+    for edge in reduction_entries().iter().filter(|edge| edge.turing) {
+        let inner = edge_key(edge, true);
+        let decision = edge_key(edge, false);
+        if registry.lookup(&inner).ilp.is_some() {
+            assert!(
+                registry.lookup(&decision).ilp.is_some(),
+                "{} lacks ILP support",
+                decision.label()
+            );
+        }
+    }
+}
 
 #[test]
 fn generic_decision_ilp_respects_maximization_bounds() {
@@ -13,40 +28,14 @@ fn generic_decision_ilp_respects_maximization_bounds() {
     use crate::solvers::BruteForce;
     use crate::topology::SimpleGraph;
 
-    // Exercise the same generic decision edge without adding a production solver registration.
-    static PIPELINE: IlpPipelineRegistration = IlpPipelineRegistration {
-        path: &[
-            StaticProblemStep {
-                name: "DecisionMaximumIndependentSet",
-                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "MaximumIndependentSet",
-                variant: &[("graph", "SimpleGraph"), ("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "MaximumSetPacking",
-                variant: &[("weight", "i64")],
-            },
-            StaticProblemStep {
-                name: "ILP",
-                variant: BOOL_VARIANT,
-            },
-            StaticProblemStep {
-                name: "ILP",
-                variant: FLOAT_BOOL_VARIANT,
-            },
-        ],
-    };
-    let registry = build_registry(
-        &registered_variant_keys(),
-        inventory::iter::<CustomizedSolverRegistration>(),
-        inventory::iter::<IlpPipelineRegistration>().chain([&PIPELINE]),
-        inventory::iter::<crate::solvers::BruteForceRegistration>(),
-        &reduction_entries(),
-    )
-    .unwrap();
-    let source = ExactProblemKey::from_static(&PIPELINE.path[0]);
+    let registry = solver_capability_registry().unwrap();
+    let source = ExactProblemKey::new(
+        "DecisionMaximumIndependentSet",
+        BTreeMap::from([
+            ("graph".into(), "SimpleGraph".into()),
+            ("weight".into(), "i64".into()),
+        ]),
+    );
     let pipeline = registry.lookup(&source).ilp.unwrap();
     let inner = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
@@ -58,7 +47,7 @@ fn generic_decision_ilp_respects_maximization_bounds() {
         if bound > 1 {
             assert!(matches!(
                 result,
-                Err(crate::solvers::ILPSolveError::UnresolvedDecision(_))
+                Err(crate::solvers::ILPSolveError::Infeasible)
             ));
             assert!(BruteForce::new().solve(&decision).unwrap().is_none());
             continue;
@@ -72,26 +61,40 @@ fn generic_decision_ilp_respects_maximization_bounds() {
 }
 
 #[test]
-fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
+fn generic_decision_ilp_reports_infeasibility_but_preserves_extraction_errors() {
     use crate::models::decision::Decision;
     use crate::models::graph::MinimumVertexCover;
-    use crate::rules::{ExtractionError, ReductionResult};
+    use crate::rules::{AggregateReductionResult, ExtractionError, ReductionResult};
     use crate::solvers::{ILPSolveError, ILPSolver};
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
     type Inner = MinimumVertexCover<SimpleGraph, i64>;
-    struct BrokenExtractor(Inner);
+    struct BrokenExtractor(Decision<Inner>);
     impl ReductionResult for BrokenExtractor {
         type Source = Decision<Inner>;
         type Target = Inner;
 
         fn target_problem(&self) -> &Inner {
-            &self.0
+            self.0.inner()
         }
 
         fn extract_solution(&self, _: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
             Err(ExtractionError::invalid("broken witness decoder"))
+        }
+    }
+
+    impl AggregateReductionResult for BrokenExtractor {
+        type Source = Decision<Inner>;
+        type Target = Inner;
+
+        fn target_problem(&self) -> &Inner {
+            self.0.inner()
+        }
+
+        fn extract_value(&self, value: <Inner as Problem>::Value) -> crate::types::Or {
+            use crate::types::OptimizationValue;
+            crate::types::Or(OptimizationValue::meets_bound(&value, self.0.bound()))
         }
     }
 
@@ -110,18 +113,64 @@ fn generic_decision_ilp_reports_unresolved_but_preserves_extraction_errors() {
     };
     pipeline.reducers[0].0 = |source| {
         let source = source.downcast_ref::<Decision<Inner>>().unwrap();
-        Ok(Box::new(BrokenExtractor(source.inner().clone())))
+        Ok(Box::new(BrokenExtractor(source.clone())))
     };
+    pipeline.reducers[0].1 = Some(crate::rules::aggregate_view::<BrokenExtractor>);
     let inner = Inner::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
     assert!(matches!(
         pipeline.solve(&Decision::new(inner.clone(), 0), &ILPSolver::new()),
-        Err(ILPSolveError::UnresolvedDecision(_))
+        Err(ILPSolveError::Infeasible)
     ));
     assert!(matches!(
         pipeline.solve(&Decision::new(inner, 1), &ILPSolver::new()),
         Err(ILPSolveError::Extraction(ExtractionError::Reduction { message, .. }))
             if message == "broken witness decoder"
     ));
+}
+
+#[test]
+fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
+    use crate::models::graph::HamiltonianCircuit;
+    use crate::solvers::{ILPSolveError, ILPSolver};
+    use crate::topology::SimpleGraph;
+    use crate::traits::Problem;
+
+    // The triangle is optimal for LongestCircuit but cannot cover all four vertices.
+    let problem = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]));
+    let key = ExactProblemKey::new(
+        HamiltonianCircuit::<SimpleGraph>::NAME,
+        crate::export::variant_to_map(HamiltonianCircuit::<SimpleGraph>::variant()),
+    );
+    let registry = solver_capability_registry().unwrap();
+    let original = registry.lookup(&key).ilp.unwrap();
+    assert!(matches!(
+        original.solve(&problem, &ILPSolver::new()),
+        Err(ILPSolveError::Infeasible)
+    ));
+    // Exercise completed-value recovery through the explicit optimization route.
+    let mut path = original.path.clone();
+    path.insert(
+        2,
+        ExactProblemKey::new("LongestCircuit", path[1].variant.clone()),
+    );
+    let reducers = path
+        .windows(2)
+        .map(|pair| {
+            let entry = reduction_entries()
+                .iter()
+                .copied()
+                .find(|entry| edge_key(entry, true) == pair[0] && edge_key(entry, false) == pair[1])
+                .unwrap();
+            (entry.reduce_fn.unwrap(), entry.aggregate_view_fn)
+        })
+        .collect();
+    let mut pipeline = CompiledIlpPipeline { path, reducers };
+    pipeline.reducers[0].1 = None;
+    let result = pipeline.solve(&problem, &ILPSolver::new());
+    assert!(
+        matches!(&result, Err(ILPSolveError::Infeasible)),
+        "{result:?}"
+    );
 }
 
 static DIRECT_BOOL_A: IlpPipelineRegistration = IlpPipelineRegistration {
@@ -406,11 +455,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        [
-            "MaximumClique<SimpleGraph, i64>",
-            "ILP<i64, bool>",
-            "ILP<f64, bool>"
-        ]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -435,10 +480,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let ilp_itself =
         solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(
-        ilp_itself.ilp.unwrap().path_labels(),
-        ["ILP<i64, bool>", "ILP<f64, bool>"]
-    );
+    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
 }
 
 #[test]

@@ -54,12 +54,31 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "PartitionIntoCliquesData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoCliques<G> {
     /// The underlying graph.
     graph: G,
     /// Maximum number of clique groups.
     num_cliques: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct PartitionIntoCliquesData<G> {
+    graph: G,
+    num_cliques: usize,
+}
+
+impl<G> TryFrom<PartitionIntoCliquesData<G>> for PartitionIntoCliques<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoCliquesData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.num_cliques)
+    }
 }
 
 impl<G: Graph> PartitionIntoCliques<G> {
@@ -68,12 +87,17 @@ impl<G: Graph> PartitionIntoCliques<G> {
     /// # Panics
     /// Panics if `num_cliques` is zero or greater than `graph.num_vertices()`.
     pub fn new(graph: G, num_cliques: usize) -> Self {
-        assert!(num_cliques >= 1, "num_cliques must be at least 1");
-        assert!(
-            num_cliques <= graph.num_vertices(),
-            "num_cliques must be at most num_vertices"
-        );
-        Self { graph, num_cliques }
+        Self::try_new(graph, num_cliques).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, num_cliques: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if num_cliques == 0 {
+            return Err("num_cliques must be at least 1".into());
+        }
+        if num_cliques > graph.num_vertices() {
+            return Err("num_cliques must be at most num_vertices".into());
+        }
+        Ok(Self { graph, num_cliques })
     }
 
     /// Get a reference to the underlying graph.

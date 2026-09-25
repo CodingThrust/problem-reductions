@@ -47,6 +47,8 @@ inventory::submit! {
 /// - Selected edges form a tree (connected + acyclic)
 /// - All terminal vertices are included
 ///
+/// With one terminal, selecting no edges represents that vertex alone.
+///
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
@@ -96,17 +98,25 @@ struct SteinerTreeCreateSpec<W> {
 impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<SimpleGraph, W> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: SteinerTreeCreateSpec<W>) -> Result<Self, Self::Error> {
-        Self::try_new(spec.graph, spec.edge_weights, spec.terminals).map_err(Into::into)
+        Self::try_new(spec.graph, spec.edge_weights, spec.terminals)
     }
 }
 
 impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
-    fn try_new(graph: G, edge_weights: Vec<W>, terminals: Vec<usize>) -> Result<Self, String> {
+    fn try_new(
+        graph: G,
+        edge_weights: Vec<W>,
+        terminals: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if edge_weights.len() != graph.num_edges() {
-            return Err("edge_weights length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
         }
-        if terminals.len() < 2 {
-            return Err("at least 2 terminals required".into());
+        if terminals.is_empty() {
+            return Err("at least one terminal required".into());
         }
         let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
         if distinct_terminals.len() != terminals.len() {
@@ -114,9 +124,7 @@ impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
         }
         let n = graph.num_vertices();
         if let Some(&terminal) = terminals.iter().find(|&&terminal| terminal >= n) {
-            return Err(format!(
-                "terminal {terminal} out of range (num_vertices = {n})"
-            ));
+            return Err(format!("terminal {terminal} out of range (num_vertices = {n})").into());
         }
         Ok(Self {
             graph,
@@ -222,7 +230,7 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[boo
     }
 
     if selected_count == 0 {
-        return false;
+        return terminals.len() == 1;
     }
 
     // BFS from first terminal to check connectivity
@@ -341,12 +349,12 @@ impl TryFrom<SteinerTreeOneCreateSpec> for SteinerTree<SimpleGraph, One> {
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: SteinerTreeOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_edges()];
-        Self::try_new(spec.graph, weights, spec.terminals).map_err(Into::into)
+        Self::try_new(spec.graph, weights, spec.terminals)
     }
 }
 
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
+    default SteinerTree<SimpleGraph, i64> => "2^num_vertices * 0.5^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeOneCreateSpec,
 }
 

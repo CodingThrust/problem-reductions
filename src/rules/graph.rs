@@ -3,7 +3,7 @@
 //! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
 //! Nodes come from `VariantEntry` inventory, and `ReductionEntry` inventory supplies edges.
 //!
-//! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
+//! Edges combine registered constructions and their result mappings.
 //!
 //! This module implements:
 //! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
@@ -11,7 +11,7 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn, ReductionEntry,
+    AggregateReduceFn, EdgeCapabilities, ParameterContractError, ReduceFn,
     ReductionParameterContract,
 };
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
@@ -44,6 +44,7 @@ pub(crate) struct ReductionEdgeData {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
+    pub aggregate_view_fn: Option<crate::rules::registry::AggregateViewFn>,
     pub turing: bool,
 }
 
@@ -350,10 +351,10 @@ pub struct NeighborTree {
 /// Runtime graph of all registered reductions.
 ///
 /// Uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
-/// All edges come from `inventory::iter::<ReductionEntry>` registrations.
+/// All edges come from the resolved reduction registry.
 ///
 /// The graph supports:
-/// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
+/// - Auto-discovery of registered reductions and result mappings
 /// - Path finding by problem type or by name
 pub struct ReductionGraph {
     /// Graph with node indices as node data, edge weights as ReductionEdgeData.
@@ -433,7 +434,7 @@ impl ReductionGraph {
         }
 
         // Phase 2: Build edges from ReductionEntry inventory
-        for entry in inventory::iter::<ReductionEntry> {
+        for entry in crate::rules::registry::reduction_entries() {
             let source_variant = Self::variant_to_map(&entry.source_variant());
             let target_variant = Self::variant_to_map(&entry.target_variant());
 
@@ -455,6 +456,7 @@ impl ReductionGraph {
                         parameter_contract,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
+                        aggregate_view_fn: entry.aggregate_view_fn,
                         turing: entry.turing,
                     },
                 );
@@ -1439,7 +1441,7 @@ impl ReductionGraph {
         src_variant: &BTreeMap<String, String>,
         dst_variant: &BTreeMap<String, String>,
     ) -> String {
-        for entry in inventory::iter::<ReductionEntry> {
+        for entry in crate::rules::registry::reduction_entries() {
             if entry.source_name == src_name && entry.target_name == dst_name {
                 let entry_src = Self::variant_to_map(&entry.source_variant());
                 let entry_dst = Self::variant_to_map(&entry.target_variant());
@@ -1528,16 +1530,150 @@ pub struct MatchedEntry {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
+/// One executed edge and its source instance for completed-result recovery.
+pub(crate) struct RecoveryStep<'a> {
+    pub result: &'a dyn DynReductionResult,
+    pub aggregate_view: Option<crate::rules::registry::AggregateViewFn>,
+    pub source: &'a dyn crate::registry::DynProblem,
+}
+
+/// Recover a completed result under the caller's solver contract.
+/// `None` denotes established infeasibility, never an extraction failure.
+pub(crate) fn recover_completed_result(
+    steps: &[RecoveryStep<'_>],
+    target: &dyn crate::registry::DynProblem,
+    outcome: &crate::solvers::SolveOutcome,
+) -> crate::rules::ExtractionResult<Option<(Box<dyn Any>, String)>> {
+    use crate::rules::ExtractionError;
+    use crate::solvers::SolveOutcome;
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = outcome
+    else {
+        return Ok(None);
+    };
+    let mut value = target.evaluate_json(solution)?;
+    let mut actual = target
+        .aggregate_witness_evaluation(&value)?
+        .ok_or_else(|| ExtractionError::invalid("target witness is infeasible"))?;
+    if evaluation != &actual {
+        return Err(ExtractionError::invalid(
+            "target evaluation does not match the witness",
+        ));
+    }
+    let last = steps
+        .last()
+        .ok_or_else(|| ExtractionError::invalid("recovery requires a reduction edge"))?;
+    let mut witness = last.result.target_solution_from_json(solution.clone())?;
+    for step in steps.iter().rev() {
+        let mapped = step
+            .aggregate_view
+            .map(|view| view(step.result)?.extract_value_dyn(value.clone()))
+            .transpose()?;
+        if let Some(mapped_value) = &mapped {
+            if step
+                .source
+                .aggregate_witness_evaluation(mapped_value)?
+                .is_none()
+            {
+                return Ok(None);
+            }
+        }
+        witness = step.result.extract_solution_dyn(witness.as_ref())?;
+        value = step
+            .source
+            .evaluate_json(&step.result.source_solution_json(witness.as_ref())?)?;
+        actual = step
+            .source
+            .aggregate_witness_evaluation(&value)?
+            .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?;
+        if mapped.is_some_and(|mapped| mapped != value) {
+            return Err(ExtractionError::invalid(
+                "extracted witness does not realize the mapped aggregate",
+            ));
+        }
+    }
+    Ok(Some((witness, actual)))
+}
+
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
 ///
 /// Holds the intermediate reduction results from executing a multi-step
 /// reduction path. Provides access to the final target problem and
-/// solution extraction back to the source problem space.
+/// solution and aggregate-value mappings back to the source problem space.
+/// Callers establish solver status before recovering a completed result.
 pub struct ReductionChain {
     steps: Vec<Box<dyn DynReductionResult>>,
+    aggregate_views: Vec<Option<crate::rules::registry::AggregateViewFn>>,
+    path: ReductionPath,
 }
 
 impl ReductionChain {
+    /// Recover a completed target result, checking mapped values against extracted witnesses.
+    /// The caller establishes optimality or infeasibility under its solver's contract.
+    pub fn extract_result(
+        &self,
+        source: &dyn crate::registry::DynProblem,
+        outcome: &crate::solvers::SolveOutcome,
+    ) -> crate::rules::ExtractionResult<crate::solvers::SolveOutcome> {
+        use crate::rules::ExtractionError;
+        use crate::solvers::SolveOutcome;
+        let borrow = |index: usize, problem| {
+            let node = &self.path.steps[index];
+            crate::registry::find_variant_entry(&node.name, &node.variant)
+                .and_then(|entry| (entry.borrow_fn)(problem))
+                .ok_or_else(|| ExtractionError::invalid("intermediate problem type mismatch"))
+        };
+        let steps = self
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| {
+                Ok(RecoveryStep {
+                    result: step.as_ref(),
+                    aggregate_view: self.aggregate_views[index],
+                    source: if index == 0 {
+                        source
+                    } else {
+                        borrow(index, self.steps[index - 1].target_problem_any())?
+                    },
+                })
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
+        let target = borrow(self.steps.len(), self.target_problem_any())?;
+        match recover_completed_result(&steps, target, outcome)? {
+            None => Ok(SolveOutcome::Infeasible),
+            Some((witness, evaluation)) => Ok(SolveOutcome::Optimal {
+                solution: steps[0].result.source_solution_json(witness.as_ref())?,
+                evaluation,
+            }),
+        }
+    }
+
+    /// Whether every step can map an aggregate value using its existing construction.
+    pub fn has_value_mapping(&self) -> bool {
+        self.aggregate_views.iter().all(Option::is_some)
+    }
+
+    /// Map a target aggregate back to the source using the executed reductions.
+    /// Every step must provide a value mapping. This does not establish that
+    /// the supplied value is the target optimum or aggregate.
+    pub fn extract_value(
+        &self,
+        target_value: serde_json::Value,
+    ) -> crate::rules::ExtractionResult<serde_json::Value> {
+        self.steps.iter().zip(&self.aggregate_views).rev().try_fold(
+            target_value,
+            |value, (step, view)| {
+                let view = view.ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid("reduction has no value mapping")
+                })?;
+                view(step.as_ref())?.extract_value_dyn(value)
+            },
+        )
+    }
+
     /// Get the final target problem as a type-erased reference.
     pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
@@ -1611,11 +1747,14 @@ impl AggregateReductionChain {
     }
 
     /// Extract an aggregate value from target space back to source space.
-    pub fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
+    pub fn extract_value(
+        &self,
+        target_value: serde_json::Value,
+    ) -> crate::rules::ExtractionResult<serde_json::Value> {
         self.steps
             .iter()
             .rev()
-            .fold(target_value, |value, step| step.extract_value_dyn(value))
+            .try_fold(target_value, |value, step| step.extract_value_dyn(value))
     }
 }
 
@@ -1626,10 +1765,6 @@ impl ReductionGraph {
         input: &dyn Any,
     ) -> Result<Option<Box<dyn DynAggregateReductionResult>>, crate::rules::ReductionError> {
         let edge = &self.graph[edge_idx];
-        if !Self::edge_supports_mode(edge, ReductionMode::Aggregate) {
-            return Ok(None);
-        }
-
         let Some(reduce) = edge.reduce_aggregate_fn else {
             return Ok(None);
         };
@@ -1661,6 +1796,7 @@ impl ReductionGraph {
         }
         // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
+        let mut aggregate_views = Vec::new();
         for window in path.steps.windows(2) {
             let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
                 return Ok(None);
@@ -1678,6 +1814,7 @@ impl ReductionGraph {
                 return Ok(None);
             };
             edge_fns.push(reduce);
+            aggregate_views.push(self.graph[edge_idx].aggregate_view_fn);
         }
         // Execute the chain
         let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -1690,7 +1827,11 @@ impl ReductionGraph {
             };
             steps.push(step);
         }
-        Ok(Some(ReductionChain { steps }))
+        Ok(Some(ReductionChain {
+            steps,
+            aggregate_views,
+            path: path.clone(),
+        }))
     }
 
     /// Execute an aggregate-value reduction path on a source problem instance.

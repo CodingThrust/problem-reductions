@@ -17,7 +17,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -42,7 +42,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_unsatisfiable() {
             CNFClause::new(vec![1, 1, 1]),
         ],
     );
-    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -53,7 +53,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_unsatisfiable() {
 #[test]
 fn test_ksatisfiability_to_decisionminimumvertexcover_structure_and_bound() {
     let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, -1, 2])]);
-    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
@@ -71,7 +71,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source)
         .expect("reduction should succeed");
     let cover = vec![
         false, true, false, true, true, false, true, true, false, true, true, false,
@@ -85,4 +85,33 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
         reduction.extract_solution(&cover).unwrap(),
         vec![false, false, true]
     );
+}
+
+#[test]
+fn test_ksatisfiability_to_decisionminimumvertexcover_short_clauses_closed_loop() {
+    let source = KSatisfiability::<K3>::new_allow_less(
+        2,
+        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1, 2])],
+    );
+    let reduction =
+        ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &reduction,
+        "short clauses -> Decision MVC",
+    );
+}
+
+#[test]
+fn test_ksatisfiability_to_decisionminimumvertexcover_empty_clause() {
+    let source = KSatisfiability::<K3>::new_allow_less(0, vec![CNFClause::new(vec![])]);
+    let reduction =
+        ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().bound(), &2);
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
+    assert!(BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .is_none());
+    assert!(reduction.extract_solution(&vec![true; 3]).is_err());
 }

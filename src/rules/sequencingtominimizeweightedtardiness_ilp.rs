@@ -37,7 +37,12 @@ impl ReductionResult for ReductionSTMWTToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let n = self.num_tasks;
@@ -49,7 +54,11 @@ impl ReductionResult for ReductionSTMWTToILP {
     }
 }
 
-#[reduction(transform = upper_bound {
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionSTMWTToILP {}
+
+#[reduction(
+    transform = upper_bound {
     num_vars = "num_tasks^2 + 2 * num_tasks",
     num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
 },

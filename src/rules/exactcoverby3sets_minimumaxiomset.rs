@@ -27,13 +27,18 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
     /// Extract the chosen source subsets from the set-sentence coordinates.
     ///
     /// For YES-instances, every optimal target witness of value q consists only of
-    /// q set-sentences, which form an exact cover. For NO-instances, the extracted
-    /// vector may be non-satisfying, which is expected for an `Or -> Min` rule.
+    /// q set-sentences, which form an exact cover. Witnesses outside this bound
+    /// are rejected; the completed optimum maps to YES/NO via `extract_value`.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).0,
+            "target witness does not certify a YES answer for the source",
+        )?;
 
         Ok({
             let set_offset = self.source_universe_size;
@@ -41,6 +46,24 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
                 .map(|j| target_solution[set_offset + j])
                 .collect()
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionXC3SToMinimumAxiomSet {
+    type Source = ExactCoverBy3Sets;
+    type Target = MinimumAxiomSet;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(
+            value
+                .0
+                .is_some_and(|count| i128::from(count) == self.source_universe_size as i128 / 3),
+        )
     }
 }
 

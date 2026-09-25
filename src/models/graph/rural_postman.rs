@@ -53,6 +53,8 @@ inventory::submit! {
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edge lengths (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RuralPostmanData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct RuralPostman<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -60,6 +62,26 @@ pub struct RuralPostman<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Indices of required edges (subset E' ⊆ E).
     required_edges: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct RuralPostmanData<G, W: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<W>,
+    required_edges: Vec<usize>,
+}
+
+impl<G, W> TryFrom<RuralPostmanData<G, W>> for RuralPostman<G, W>
+where
+    G: Graph,
+    W: WeightElement,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: RuralPostmanData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_lengths, data.required_edges)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -81,22 +103,7 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i64> {
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if let Some(&edge) = spec
-            .required_edges
-            .iter()
-            .find(|&&edge| edge >= graph.num_edges())
-        {
-            return Err(format!("required edge index {edge} is out of bounds").into());
-        }
-        Ok(Self::new(graph, edge_lengths, spec.required_edges))
+        Self::try_new(graph, edge_lengths, spec.required_edges)
     }
 }
 
@@ -138,24 +145,30 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
     /// Panics if edge_lengths length does not match graph edges,
     /// or if any required edge index is out of bounds.
     pub fn new(graph: G, edge_lengths: Vec<W>, required_edges: Vec<usize>) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
+        Self::try_new(graph, edge_lengths, required_edges).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        edge_lengths: Vec<W>,
+        required_edges: Vec<usize>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_lengths)?;
         for &idx in &required_edges {
-            assert!(
-                idx < graph.num_edges(),
-                "required edge index {} out of bounds (graph has {} edges)",
-                idx,
-                graph.num_edges()
-            );
+            if idx >= graph.num_edges() {
+                return Err(format!(
+                    "required edge index {} out of bounds (graph has {} edges)",
+                    idx,
+                    graph.num_edges()
+                )
+                .into());
+            }
         }
-        Self {
+        Ok(Self {
             graph,
             edge_lengths,
             required_edges,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -190,8 +203,19 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
     /// Set new edge lengths.
     pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+        Self::check_weights(&self.graph, &weights).unwrap_or_else(|error| panic!("{error}"));
         self.edge_lengths = weights;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        Ok(())
     }
 
     /// Get the edge lengths as a Vec.
@@ -400,3 +424,57 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/rural_postman.rs"]
 mod tests;
+
+crate::decision_problem_meta!(RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman");
+crate::register_decision_variant!(
+    RuralPostman<SimpleGraph, i64>, "DecisionRuralPostman", "2^num_vertices * num_vertices^2", &[],
+    "Does a feasible solution have objective value <= the bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "Weights for each edge in graph order." },
+        crate::registry::FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "Indices of edges that the route must traverse." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values <= this bound" },
+    ],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_rural_postman_to_rural_postman",
+        build: || {
+            let graph = SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 4),
+                    (4, 5),
+                    (5, 0),
+                    (0, 3),
+                    (1, 4),
+                ],
+            );
+            let source = crate::models::decision::Decision::new(
+                RuralPostman::new(graph, vec![1, 1, 1, 1, 1, 1, 2, 2], vec![0, 2, 4]),
+                6,
+            );
+            let witness = serde_json::json!(vec![1, 1, 1, 1, 1, 1, 0, 0]);
+            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

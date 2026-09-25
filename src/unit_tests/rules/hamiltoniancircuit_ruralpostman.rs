@@ -1,5 +1,5 @@
 use crate::models::graph::{HamiltonianCircuit, RuralPostman};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
 use crate::solvers::BruteForce;
@@ -18,10 +18,13 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> RuralPostman (triangle)",
@@ -31,10 +34,13 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "HamiltonianCircuit -> RuralPostman (cycle4)",
@@ -44,9 +50,12 @@ fn test_hamiltoniancircuit_to_ruralpostman_closed_loop_cycle4() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     // 3 vertices -> 6 vertices
     assert_eq!(target.num_vertices(), 6);
@@ -65,9 +74,12 @@ fn test_hamiltoniancircuit_to_ruralpostman_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_structure_cycle4() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     // 4 vertices -> 8 vertices
     assert_eq!(target.num_vertices(), 8);
@@ -81,9 +93,12 @@ fn test_hamiltoniancircuit_to_ruralpostman_structure_cycle4() {
 fn test_hamiltoniancircuit_to_ruralpostman_optimal_cost() {
     // Triangle has a Hamiltonian circuit, so optimal RPP cost should be 2n = 6
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
     let best = BruteForce::new()
         .solve(target)
         .unwrap()
@@ -99,9 +114,12 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
     let n = source.num_vertices();
     assert_eq!(n, 4);
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
 
     // Verify source has no Hamiltonian circuit
     let source_witness = BruteForce::new().solve(&source).unwrap();
@@ -127,10 +145,13 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
     let source = triangle_hc();
-    let reduction = ReduceTo::<RuralPostman<SimpleGraph, i64>>::reduce_to(&source)
+    let reduction =
+        ReduceTo::<crate::models::decision::Decision<RuralPostman<SimpleGraph, i64>>>::reduce_to(
+            &source,
+        )
         .expect("reduction should succeed");
 
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
     let best = BruteForce::new()
         .solve(target)
         .unwrap()

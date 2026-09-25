@@ -207,7 +207,7 @@ fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
 }
 
 #[test]
-#[should_panic(expected = "capacities length must match")]
+#[should_panic(expected = "capacities has length 1, expected 2")]
 fn test_undirected_two_commodity_integral_flow_panics_wrong_capacity_count() {
     UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),

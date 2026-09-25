@@ -138,10 +138,10 @@ impl SATColoringConstructor {
     /// For a single-literal clause, just set the literal to TRUE.
     /// For multi-literal clauses, build OR-gadgets recursively.
     fn add_clause(&mut self, literals: &[i64]) {
-        assert!(
-            !literals.is_empty(),
-            "Clause must have at least one literal"
-        );
+        if literals.is_empty() {
+            self.add_edge(self.true_vertex(), self.true_vertex());
+            return;
+        }
 
         let first_var = BoolVar::from_literal(literals[0]);
         let mut output_node = self.get_vertex(&first_var);
@@ -218,7 +218,6 @@ pub struct ReductionSATToColoring {
     /// Mapping from variable index (0-indexed) to negative literal vertex index.
     neg_vertices: Vec<usize>,
     /// Number of variables in the source SAT problem.
-    num_source_variables: usize,
     /// Number of clauses in the source SAT problem.
     num_clauses: usize,
 }
@@ -234,50 +233,22 @@ impl ReductionResult for ReductionSATToColoring {
     /// Extract a SAT solution from a KColoring solution.
     ///
     /// The coloring solution maps each vertex to a color (0, 1, or 2).
-    /// - Color 0: TRUE
-    /// - Color 1: FALSE
-    /// - Color 2: AUX
-    ///
-    /// For each variable, we check if its positive literal vertex has TRUE color (0).
-    /// If so, the variable is assigned true (1); otherwise false (0).
+    /// The color of vertex 0 represents TRUE, independently of color labels.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            // First determine which color is TRUE, FALSE, and AUX
-            // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
-            let true_color = target_solution[0];
-            let false_color = target_solution[1];
-            let aux_color = target_solution[2];
-
-            if true_color == false_color || true_color == aux_color || false_color == aux_color {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target coloring does not distinguish true, false, and auxiliary colors",
-                ));
-            }
-
-            let mut assignment = vec![false; self.num_source_variables];
-
-            for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
-                let vertex_color = target_solution[pos_vertex];
-
-                // Sanity check: variable vertices should not have AUX color
-                if vertex_color == aux_color {
-                    return Err(crate::rules::ExtractionError::invalid(format!(
-                        "variable {i} has the auxiliary color"
-                    )));
-                }
-
-                // If positive literal has TRUE color, variable is true (1)
-                // Otherwise, variable is false (0)
-                assignment[i] = vertex_color == true_color;
-            }
-
-            assignment
-        })
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target coloring is not valid",
+        )?;
+        Ok(self
+            .pos_vertices
+            .iter()
+            .map(|&vertex| target_solution[vertex] == target_solution[0])
+            .collect())
     }
 }
 
@@ -298,10 +269,13 @@ impl ReductionSATToColoring {
     }
 }
 
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSATToColoring {}
+
 #[reduction(
-    transform = exact {
-        num_vertices = "2 * num_vars + 3 + 5 * (num_literals - num_clauses)",
-        num_edges = "3 + 3 * num_vars + 11 * num_literals - 9 * num_clauses",
+    transform = upper_bound {
+        num_vertices = "2 * num_vars + 3 + 5 * num_literals",
+        num_edges = "3 + 3 * num_vars + 11 * num_literals + 2 * num_clauses",
         num_colors = "3",
     }
 )]
@@ -322,7 +296,6 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
             target,
             pos_vertices: constructor.pos_vertices,
             neg_vertices: constructor.neg_vertices,
-            num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
         })
     }

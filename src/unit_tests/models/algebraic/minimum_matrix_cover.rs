@@ -1,3 +1,18 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"matrix":[[0,1],[1,0]]});
+    let problem: MinimumMatrixCover = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumMatrixCover = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    let mut data = valid.clone();
+    data["matrix"] = serde_json::json!([[1, 2]]);
+    assert!(
+        serde_json::from_value::<MinimumMatrixCover>(data.clone()).is_err(),
+        "accepted {data}"
+    );
+}
+
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
@@ -166,4 +181,29 @@ fn test_minimum_matrix_cover_canonical_example_spec() {
         spec.optimal_config,
         serde_json::json!([false, true, true, false])
     );
+}
+#[test]
+fn test_minimum_matrix_cover_rejects_negative_entries() {
+    assert!(
+        serde_json::from_value::<MinimumMatrixCover>(serde_json::json!({"matrix": [[-1]]}))
+            .is_err()
+    );
+    assert!(std::panic::catch_unwind(|| MinimumMatrixCover::new(vec![vec![-1]])).is_err());
+}
+
+#[test]
+fn test_deserialization_preserves_data_shape_errors() {
+    for (input, expected) in [
+        (
+            serde_json::Value::Null,
+            "invalid type: null, expected struct Data",
+        ),
+        (
+            serde_json::json!([]),
+            "invalid length 0, expected struct Data with 1 element",
+        ),
+    ] {
+        let error = serde_json::from_value::<MinimumMatrixCover>(input).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+    }
 }

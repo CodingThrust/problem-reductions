@@ -57,11 +57,31 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumMatchingData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximumMatching<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumMatchingData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<G, W> TryFrom<MaximumMatchingData<G, W>> for MaximumMatching<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumMatchingData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -81,15 +101,7 @@ impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i64> {
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        Ok(Self::new(graph, edge_weights))
+        Self::try_new(graph, edge_weights)
     }
 }
 
@@ -131,15 +143,15 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     /// * `graph` - The graph
     /// * `edge_weights` - Weight for each edge (in graph.edges() order)
     pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a MaximumMatching problem with unit weights.
@@ -209,8 +221,22 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
 
     /// Set new weights for the problem.
     pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_edges());
+        Self::check_weights(&self.graph, &weights).unwrap_or_else(|error| panic!("{error}"));
         self.edge_weights = weights;
+    }
+
+    fn check_weights(
+        graph: &G,
+        edge_weights: &[W],
+    ) -> Result<(), crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        Ok(())
     }
 
     /// Get the weights for the problem.

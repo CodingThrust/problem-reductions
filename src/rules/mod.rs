@@ -6,12 +6,13 @@ pub use registry::{
     EdgeCapabilities, ParameterContractError, ReductionEntry, ReductionParameterContract,
     ReductionParameterDeclarations, UnavailableParameterField,
 };
+#[doc(hidden)]
+pub use traits::aggregate_view;
 
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
-mod closestvectorproblem_casts;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
@@ -28,6 +29,7 @@ pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod exactcoverby3sets_subsetproduct;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) use graph::{recover_completed_result, RecoveryStep};
 pub(crate) mod graph_helpers;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;
@@ -64,7 +66,6 @@ pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
 pub(crate) mod ksatisfiability_feasibleregisterassignment;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
-pub(crate) mod ksatisfiability_minimumvertexcover;
 pub(crate) mod ksatisfiability_monochromatictriangle;
 pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
@@ -147,6 +148,10 @@ pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/aggregate_contracts.rs"]
+mod aggregate_contracts;
 pub(crate) mod threedimensionalmatching_minimumweightdecoding;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
@@ -346,7 +351,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
-    specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_monochromatictriangle::canonical_rule_example_specs());
     specs.extend(ksatisfiability_oneinthreesatisfiability::canonical_rule_example_specs());
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
@@ -442,6 +446,33 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
     specs.extend(subsetsum_partition::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
+    specs.extend(
+        crate::models::algebraic::closest_vector_problem::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::algebraic::quadratic_assignment::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::algebraic::qubo::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::formula::maximum_2_satisfiability::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::longest_circuit::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::longest_path::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::max_cut::decision_canonical_rule_example_specs());
+    specs
+        .extend(crate::models::graph::min_max_multicenter::decision_canonical_rule_example_specs());
+    specs.extend(
+        crate::models::graph::minimum_covering_by_cliques::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::graph::minimum_sum_multicenter::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(crate::models::graph::rural_postman::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::graph::spin_glass::decision_canonical_rule_example_specs());
+    specs
+        .extend(crate::models::misc::open_shop_scheduling::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::sequencing_to_minimize_tardy_task_weight::decision_canonical_rule_example_specs());
+    specs.extend(crate::models::misc::stacker_crane::decision_canonical_rule_example_specs());
     specs.extend(
         crate::models::graph::minimum_vertex_cover::decision_canonical_rule_example_specs(),
     );
@@ -609,13 +640,11 @@ macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
      fields: [$($field:ident),+],
-     $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
             transform = exact {
                 $($field = $field),+
             }
-            $(, aggregate = $aggregate)?
         )]
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>

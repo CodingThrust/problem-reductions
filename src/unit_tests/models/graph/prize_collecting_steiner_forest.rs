@@ -185,7 +185,7 @@ fn test_prize_collecting_steiner_forest_rejects_vertex_prizes_length_mismatch() 
     assert!(matches!(
         error,
         crate::registry::ConstructionError::Conversion(message)
-            if message == "vertex_prizes length must match graph num_vertices"
+            if message == "vertex_prizes has length 2, expected 3"
     ));
 }
 
@@ -202,7 +202,7 @@ fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
     assert!(matches!(
         error,
         crate::registry::ConstructionError::Conversion(message)
-            if message == "edge_costs length must match graph num_edges"
+            if message == "edge_costs has length 3, expected 2"
     ));
 }
 
@@ -245,4 +245,41 @@ fn create_specs_default_prizes_and_costs_to_one() {
     assert_eq!(floating.edge_costs(), &[1.0]);
     assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[2].required);
     assert!(!PrizeCollectingSteinerForestI64CreateSpec::inputs()[3].required);
+}
+#[test]
+fn test_prize_collecting_steiner_forest_rejects_negative_inputs() {
+    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    for values in [[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]] {
+        let [prize, cost, beta, omega] = values;
+        assert!(PrizeCollectingSteinerForest::new(
+            graph.clone(),
+            vec![prize, 0],
+            vec![cost],
+            beta,
+            omega
+        )
+        .is_err());
+        assert!(PrizeCollectingSteinerForest::new(
+            graph.clone(),
+            vec![prize as f64, 0.0],
+            vec![cost as f64],
+            beta as f64,
+            omega as f64
+        )
+        .is_err());
+    }
+    let valid = serde_json::to_value(canonical_problem()).unwrap();
+    for (field, value) in [
+        ("vertex_prizes", serde_json::json!([-1, 2, 5])),
+        ("edge_costs", serde_json::json!([-1, 6])),
+        ("beta", serde_json::json!(-1)),
+        ("omega", serde_json::json!(-1)),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(
+            serde_json::from_value::<PrizeCollectingSteinerForest<SimpleGraph, i64>>(invalid)
+                .is_err()
+        );
+    }
 }

@@ -58,7 +58,8 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[serde(try_from = "MonochromaticTriangleData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct MonochromaticTriangle<G> {
     /// The underlying graph.
     graph: G,
@@ -66,6 +67,24 @@ pub struct MonochromaticTriangle<G> {
     triangles: Vec<[usize; 3]>,
     /// Ordered edge list (mirrors `graph.edges()` order).
     edge_list: Vec<(usize, usize)>,
+}
+
+// The persisted triangle and edge lists are derived data; loading rebuilds them.
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct MonochromaticTriangleData<G> {
+    graph: G,
+}
+
+impl<G> TryFrom<MonochromaticTriangleData<G>> for MonochromaticTriangle<G>
+where
+    G: Graph,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MonochromaticTriangleData<G>) -> Result<Self, Self::Error> {
+        Ok(Self::new(data.graph))
+    }
 }
 
 impl<G: Graph> MonochromaticTriangle<G> {

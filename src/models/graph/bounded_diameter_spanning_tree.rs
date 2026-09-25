@@ -60,8 +60,9 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BoundedDiameterSpanningTreeData<G, W>")]
 #[serde(bound(
-    deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>, W::Sum: serde::Deserialize<'de>"
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
 ))]
 pub struct BoundedDiameterSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
@@ -74,6 +75,34 @@ pub struct BoundedDiameterSpanningTree<G, W: WeightElement> {
     diameter_bound: usize,
     /// Ordered edge list (mirrors `graph.edges()` order).
     edge_list: Vec<(usize, usize)>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct BoundedDiameterSpanningTreeData<G, W: WeightElement> {
+    graph: G,
+    edge_weights: Vec<W>,
+    weight_bound: W::Sum,
+    diameter_bound: usize,
+}
+
+impl<G, W> TryFrom<BoundedDiameterSpanningTreeData<G, W>> for BoundedDiameterSpanningTree<G, W>
+where
+    G: Graph,
+    W: WeightElement,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BoundedDiameterSpanningTreeData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.edge_weights,
+            data.weight_bound,
+            data.diameter_bound,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,29 +126,7 @@ impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if edge_weights.iter().any(|&weight| weight <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
-        if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string().into());
-        }
-        if spec.diameter_bound == 0 {
-            return Err("diameter_bound must be at least 1".to_string().into());
-        }
-        Ok(Self::new(
-            graph,
-            edge_weights,
-            spec.weight_bound,
-            spec.diameter_bound,
-        ))
+        Self::try_new(graph, edge_weights, spec.weight_bound, spec.diameter_bound)
     }
 }
 
@@ -163,26 +170,32 @@ impl<G: Graph, W: WeightElement> BoundedDiameterSpanningTree<G, W> {
         weight_bound: W::Sum,
         diameter_bound: usize,
     ) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
+        Self::try_new(graph, edge_weights, weight_bound, diameter_bound)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        edge_weights: Vec<W>,
+        weight_bound: W::Sum,
+        diameter_bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_weights)?;
         let zero = W::Sum::zero();
-        assert!(
-            edge_weights.iter().all(|w| w.to_sum() > zero.clone()),
-            "All edge weights must be positive (> 0)"
-        );
-        assert!(weight_bound > zero, "weight_bound must be positive (> 0)");
-        assert!(diameter_bound >= 1, "diameter_bound must be at least 1");
+        if weight_bound.partial_cmp(&zero) != Some(std::cmp::Ordering::Greater) {
+            return Err("weight_bound must be positive (> 0)".into());
+        }
+        if diameter_bound == 0 {
+            return Err("diameter_bound must be at least 1".into());
+        }
         let edge_list = graph.edges();
-        Self {
+        Ok(Self {
             graph,
             edge_weights,
             weight_bound,
             diameter_bound,
             edge_list,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -197,17 +210,25 @@ impl<G: Graph, W: WeightElement> BoundedDiameterSpanningTree<G, W> {
 
     /// Set new edge weights.
     pub fn set_weights(&mut self, edge_weights: Vec<W>) {
-        assert_eq!(
-            edge_weights.len(),
-            self.graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        let zero = W::Sum::zero();
-        assert!(
-            edge_weights.iter().all(|w| w.to_sum() > zero.clone()),
-            "All edge weights must be positive (> 0)"
-        );
+        Self::check_weights(&self.graph, &edge_weights).unwrap_or_else(|error| panic!("{error}"));
         self.edge_weights = edge_weights;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        if !weights
+            .iter()
+            .all(|weight| weight.to_sum() > W::Sum::zero())
+        {
+            return Err("All edge weights must be positive (> 0)".into());
+        }
+        Ok(())
     }
 
     /// Get the weight bound B.

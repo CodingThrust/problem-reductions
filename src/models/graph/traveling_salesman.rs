@@ -48,11 +48,31 @@ inventory::submit! {
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`)
 /// * `W` - The weight type for edges (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "TravelingSalesmanData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct TravelingSalesman<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct TravelingSalesmanData<G, W> {
+    graph: G,
+    edge_weights: Vec<W>,
+}
+
+impl<G, W> TryFrom<TravelingSalesmanData<G, W>> for TravelingSalesman<G, W>
+where
+    G: Graph,
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: TravelingSalesmanData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,15 +92,7 @@ impl TryFrom<TravelingSalesmanCreateSpec> for TravelingSalesman<SimpleGraph, i64
         let edge_weights = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_weights.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_weights.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        Ok(Self::new(graph, edge_weights))
+        Self::try_new(graph, edge_weights)
     }
 }
 
@@ -118,15 +130,21 @@ fn simple_graph_from_create(
 impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     /// Create a TravelingSalesman problem from a graph with given edge weights.
     pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        Self {
+        Self::try_new(graph, edge_weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        Ok(Self {
             graph,
             edge_weights,
-        }
+        })
     }
 
     /// Create a TravelingSalesman problem with unit weights.
@@ -233,13 +251,11 @@ where
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
                 if selected {
-                    if let Some(w) = self.edge_weights.get(idx) {
-                        total = W::checked_add_to_sum(
-                            total,
-                            w.to_sum(),
-                            "summing traveling salesman edge weights",
-                        )?;
-                    }
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.edge_weights[idx].to_sum(),
+                        "summing traveling salesman edge weights",
+                    )?;
                 }
             }
             Min(Some(total))

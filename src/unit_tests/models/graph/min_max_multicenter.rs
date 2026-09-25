@@ -1,3 +1,29 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"vertex_weights":[1,1,1],"edge_lengths":[1,1],"k":1});
+    let problem: MinMaxMulticenter<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinMaxMulticenter<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("vertex_weights", serde_json::json!([])),
+        ("edge_lengths", serde_json::json!([])),
+        ("vertex_weights", serde_json::json!([-1, 1, 1])),
+        ("edge_lengths", serde_json::json!([-1, 1])),
+        ("k", serde_json::json!(0)),
+        ("k", serde_json::json!(4)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MinMaxMulticenter<SimpleGraph, i64>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
@@ -213,14 +239,14 @@ fn test_minmaxmulticenter_nonunit_edge_lengths() {
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
+#[should_panic(expected = "vertex_weights has length 2, expected 3")]
 fn test_minmaxmulticenter_wrong_vertex_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinMaxMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "edge_lengths has length 2, expected 1")]
 fn test_minmaxmulticenter_wrong_edge_lengths_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);

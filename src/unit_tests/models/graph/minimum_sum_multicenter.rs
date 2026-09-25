@@ -1,3 +1,28 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"vertex_weights":[1,1,1],"edge_lengths":[1,1],"k":1});
+    let problem: MinimumSumMulticenter<SimpleGraph, i64> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: MinimumSumMulticenter<SimpleGraph, i64> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("vertex_weights", serde_json::json!([])),
+        ("edge_lengths", serde_json::json!([])),
+        ("k", serde_json::json!(0)),
+        ("k", serde_json::json!(4)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<MinimumSumMulticenter<SimpleGraph, i64>>(data.clone())
+                .is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
@@ -207,14 +232,14 @@ fn test_min_sum_multicenter_all_centers() {
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
+#[should_panic(expected = "vertex_weights has length 2, expected 3")]
 fn test_min_sum_multicenter_wrong_vertex_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinimumSumMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "edge_lengths has length 2, expected 1")]
 fn test_min_sum_multicenter_wrong_edge_lengths_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);

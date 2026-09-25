@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn tuple_count_must_fit_usize() {
+    let sets = vec![vec![1, 2]; usize::BITS as usize];
+    assert!(matches!(
+        KthLargestMTuple::try_new(sets.clone(), 1, 1),
+        Err(crate::registry::ConstructionError::IntegerOverflow(_))
+    ));
+    assert!(serde_json::from_value::<KthLargestMTuple>(
+        serde_json::json!({"sets": sets, "k": 1, "bound": 1})
+    )
+    .is_err());
+    let problem =
+        KthLargestMTuple::try_new(vec![vec![1, 2]; usize::BITS as usize - 1], 1, 1).unwrap();
+    assert_eq!(problem.total_tuples(), 1usize << (usize::BITS - 1));
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
@@ -169,8 +185,7 @@ fn test_kth_largest_m_tuple_many_singleton_sets_do_not_use_call_stack() {
 }
 
 #[test]
-#[should_panic(expected = "total tuple count exceeds usize")]
-fn test_kth_largest_m_tuple_total_tuples_overflow_panics() {
-    let p = KthLargestMTuple::new(vec![vec![1, 2]; usize::BITS as usize], 1, 1);
-    p.total_tuples();
+#[should_panic(expected = "representing the total tuple count")]
+fn constructor_rejects_unrepresentable_tuple_count() {
+    KthLargestMTuple::new(vec![vec![1, 2]; usize::BITS as usize], 1, 1);
 }

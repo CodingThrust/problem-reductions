@@ -25,7 +25,97 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical issue-#1027 instance: path 0 - 1 - 2 with c=(10,10), p=(5,1,5),
+#[test]
+fn test_low_prizes_do_not_bypass_component_costs() {
+    for (prizes, beta, omega, expected) in [
+        (vec![1, 2], 1, 5, 3),
+        (vec![1, 2], 0, 5, 0),
+        (vec![1, 2], 1, 0, 0),
+        (vec![0, 2], 1, 5, 2),
+    ] {
+        let source =
+            PrizeCollectingSteinerForest::new(SimpleGraph::path(2), prizes, vec![0], beta, omega)
+                .unwrap();
+        let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let offset = (omega + 1) * source.num_vertices_with_prize() as i64;
+        let trees = BruteForce::new()
+            .find_all_witnesses(reduction.target_problem())
+            .unwrap();
+        assert!(!trees.is_empty());
+        for tree in trees {
+            assert_eq!(
+                reduction.target_problem().evaluate(&tree).unwrap(),
+                Min(Some(expected + offset))
+            );
+            let forest = reduction.extract_solution(&tree).unwrap();
+            assert_eq!(source.evaluate(&forest).unwrap(), Min(Some(expected)));
+        }
+        assert!(reduction
+            .extract_solution(&vec![false; reduction.target_problem().num_edges()])
+            .is_err());
+    }
+}
+
+#[test]
+fn test_gadget_cost_overflow_is_reported() {
+    for (prize, beta, omega) in [(1, 1, i64::MAX), (i64::MAX, 2, 0), (i64::MAX, 1, 0)] {
+        let source = PrizeCollectingSteinerForest::new(
+            SimpleGraph::empty(1),
+            vec![prize],
+            vec![],
+            beta,
+            omega,
+        )
+        .unwrap();
+        assert!(matches!(
+            ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_zero_prize_forests_preserve_empty_optimum() {
+    for n in [0, 1, 2] {
+        let source = PrizeCollectingSteinerForest::new(
+            SimpleGraph::empty(n),
+            vec![0; n],
+            vec![],
+            1,
+            i64::MAX,
+        )
+        .unwrap();
+        let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let tree = vec![false; n];
+        assert_eq!(
+            reduction.target_problem().evaluate(&tree).unwrap(),
+            Min(Some(0))
+        );
+        let forest = reduction.extract_solution(&tree).unwrap();
+        assert_eq!(source.evaluate(&forest).unwrap(), Min(Some(0)));
+    }
+}
+
+#[test]
+fn test_zero_prize_forest_through_steiner_tree_ilp() {
+    for n in [0, 2] {
+        let source =
+            PrizeCollectingSteinerForest::new(SimpleGraph::empty(n), vec![0; n], vec![], 1, 1)
+                .unwrap();
+        let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        let ilp =
+            ReduceTo::<crate::models::algebraic::ILP<bool>>::reduce_to(reduction.target_problem())
+                .unwrap();
+        let solution = crate::solvers::ILPSolver::new()
+            .solve(ilp.target_problem())
+            .unwrap();
+        let tree = ilp.extract_solution(&solution).unwrap();
+        let forest = reduction.extract_solution(&tree).unwrap();
+        assert_eq!(source.evaluate(&forest).unwrap(), Min(Some(0)));
+    }
+}
+
+/// Canonical instance: path 0 - 1 - 2 with c=(10,10), p=(5,1,5),
 /// beta = 1, omega = 1. The PCSF optimum drops vertex 1 because paying
 /// `beta * p(1) = 1` is cheaper than paying any incident edge (cost 10).
 fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i64> {
@@ -53,14 +143,14 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_closed_loop() {
         "PCSF -> SteinerTree canonical closed loop",
     );
 
-    // Numeric sanity: both optima must agree, and equal 3 on this instance.
+    // Each of the three gadget terminals contributes an offset of omega + 1 = 2.
     let target = reduction.target_problem();
     let source_opt_solution = BruteForce::new().solve(&source).unwrap().unwrap();
     let source_opt = source.evaluate(&source_opt_solution).unwrap();
     let target_opt_solution = BruteForce::new().solve(target).unwrap().unwrap();
     let target_opt = target.evaluate(&target_opt_solution).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
-    assert_eq!(target_opt, Min(Some(3)));
+    assert_eq!(target_opt, Min(Some(9)));
 }
 
 #[test]
@@ -148,17 +238,9 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
     let target_opt_solution = BruteForce::new().solve(target).unwrap().unwrap();
     let target_opt = target.evaluate(&target_opt_solution).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
-    assert_eq!(target_opt, Min(Some(3)));
+    assert_eq!(target_opt, Min(Some(9)));
 }
 
-/// No vertex carries a positive prize, so no gadget terminals are added.
-/// Only the artificial root remains as a terminal, but SteinerTree requires
-/// at least two terminals — so this corner case is covered by size-contract
-/// inspection plus a degenerate single-vertex source case that still has
-/// the construction proceed when `omega = 0`. We skip the SteinerTree
-/// instantiation when `k = 0` (which would produce a single-terminal
-/// SteinerTree); the closed-loop check uses a near-empty case where one
-/// vertex has prize 0 and one has a positive prize.
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_mixed_zero_prize() {
     // Two-vertex path with one prize-zero vertex.

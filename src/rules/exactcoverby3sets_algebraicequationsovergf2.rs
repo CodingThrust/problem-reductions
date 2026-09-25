@@ -22,13 +22,22 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness is not satisfying",
+        )?;
 
         Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(transform = upper_bound {
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {}
+
+#[reduction(
+    transform = upper_bound {
     num_variables = "num_sets",
     num_equations = "universe_size + 9 * num_sets^2",
 })]

@@ -21,7 +21,7 @@
 //! Flow conservation at non-terminal vertices.
 //! Net flow into sink ≥ requirement.
 //!
-//! Size upper bound: 3*|E| variables, 4*|E| + |V| + 1 constraints (conservative for non-terminals).
+//! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
@@ -58,7 +58,12 @@ impl ReductionResult for ReductionUFLBToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let e = self.num_edges;
@@ -70,10 +75,13 @@ impl ReductionResult for ReductionUFLBToILP {
     }
 }
 
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "3 * num_edges",
-        num_constraints = "4 * num_edges + num_vertices + 1",
+        num_constraints = "5 * num_edges + num_vertices + 1",
     },
     unavailable = {
         num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -139,7 +147,8 @@ impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
                     // f_{uv} leaves vertex u, f_{vu} enters
                     terms.push((f_uv(edge_idx), -1));
                     terms.push((f_vu(edge_idx), 1));
-                } else if vertex == v {
+                }
+                if vertex == v {
                     // f_{uv} enters vertex v, f_{vu} leaves
                     terms.push((f_uv(edge_idx), 1));
                     terms.push((f_vu(edge_idx), -1));
@@ -159,7 +168,8 @@ impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
                 // f_{uv} flows into sink, f_{vu} flows out
                 sink_terms.push((f_uv(edge_idx), 1));
                 sink_terms.push((f_vu(edge_idx), -1));
-            } else if u == sink {
+            }
+            if u == sink {
                 // f_{vu} flows into sink (from v side), f_{uv} flows out
                 sink_terms.push((f_uv(edge_idx), -1));
                 sink_terms.push((f_vu(edge_idx), 1));

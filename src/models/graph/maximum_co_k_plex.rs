@@ -64,7 +64,10 @@ inventory::submit! {
 /// assert_eq!(problem.bound_k(), 2);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>"))]
+#[serde(try_from = "MaximumCoKPlexData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>, K: KValue"
+))]
 pub struct MaximumCoKPlex<G, W, K: KValue> {
     /// The underlying graph.
     graph: G,
@@ -79,6 +82,26 @@ pub struct MaximumCoKPlex<G, W, K: KValue> {
     bound_k: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Deserialize)]
+struct MaximumCoKPlexData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+    bound_k: usize,
+}
+
+impl<G, W, K> TryFrom<MaximumCoKPlexData<G, W>> for MaximumCoKPlex<G, W, K>
+where
+    G: Graph,
+    W: Clone + Default,
+    K: KValue,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumCoKPlexData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_with_k(data.graph, data.weights, data.bound_k)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -97,18 +120,7 @@ impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.weights.len() != spec.graph.num_vertices() {
-            return Err(format!(
-                "weights has {} entries, expected {}",
-                spec.weights.len(),
-                spec.graph.num_vertices()
-            )
-            .into());
-        }
-        if spec.k == 0 {
-            return Err("k must be at least 1".to_string().into());
-        }
-        Ok(Self::with_k(spec.graph, spec.weights, spec.k))
+        Self::try_with_k(spec.graph, spec.weights, spec.k)
     }
 }
 
@@ -120,24 +132,35 @@ impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
     /// `bound_k == 0`, or if `K` declares a fixed value that disagrees with
     /// `bound_k`.
     pub fn with_k(graph: G, weights: Vec<W>, bound_k: usize) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        assert!(bound_k >= 1, "co-k-plex parameter k must be at least 1");
-        if let Some(fixed) = K::K {
-            assert_eq!(
-                fixed, bound_k,
-                "fixed K type disagrees with runtime bound_k"
-            );
+        Self::try_with_k(graph, weights, bound_k).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_with_k(
+        graph: G,
+        weights: Vec<W>,
+        bound_k: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
         }
-        Self {
+        if bound_k == 0 {
+            return Err("co-k-plex parameter k must be at least 1".into());
+        }
+        if let Some(fixed) = K::K {
+            if fixed != bound_k {
+                return Err("fixed K type disagrees with runtime bound_k".into());
+            }
+        }
+        Ok(Self {
             graph,
             weights,
             bound_k,
             _phantom: std::marker::PhantomData,
-        }
+        })
     }
 
     /// Create a new instance using the compile-time `K`.
@@ -279,10 +302,7 @@ impl TryFrom<MaximumCoKPlexOneCreateSpec> for MaximumCoKPlex<SimpleGraph, One, K
     type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCoKPlexOneCreateSpec) -> Result<Self, Self::Error> {
         let weights = vec![One; spec.graph.num_vertices()];
-        if spec.k == 0 {
-            return Err("k must be at least 1".into());
-        }
-        Ok(Self::with_k(spec.graph, weights, spec.k))
+        Self::try_with_k(spec.graph, weights, spec.k)
     }
 }
 

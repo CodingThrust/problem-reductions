@@ -207,10 +207,11 @@ impl Problem for PrecedenceConstrainedScheduling {
                     ));
                 }
                 // Check processor capacity: at most num_processors tasks per time slot
-                let mut slot_count = vec![0usize; deadline];
+                let mut slot_count = std::collections::BTreeMap::new();
                 for &slot in config {
-                    slot_count[slot] += 1;
-                    if slot_count[slot] > self.num_processors {
+                    let count = slot_count.entry(slot).or_insert(0usize);
+                    *count += 1;
+                    if *count > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
                 }

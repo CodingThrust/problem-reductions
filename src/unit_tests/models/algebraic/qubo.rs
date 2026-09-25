@@ -6,6 +6,73 @@ use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_qubo_entries_roundtrip() {
+    let data = serde_json::json!({"num_vars": 3, "entries": [[1,1,3],[0,1,-2]]});
+    let problem: QUBO<i64> = serde_json::from_value(data).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    assert_eq!(
+        encoded,
+        serde_json::json!({
+            "num_vars": 3, "entries": [[0,1,-2],[1,1,3]]
+        })
+    );
+    let restored: QUBO<i64> = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(restored.matrix(), problem.matrix());
+    assert_eq!(
+        restored.evaluate(&vec![true, true, false]).unwrap(),
+        Min(Some(1))
+    );
+    let float: QUBO<f64> = serde_json::from_value(encoded).unwrap();
+    let restored_float: QUBO<f64> =
+        serde_json::from_value(serde_json::to_value(&float).unwrap()).unwrap();
+    assert_eq!(restored_float.matrix(), float.matrix());
+    for num_vars in [0, 3] {
+        let problem = QUBO::<i64>::from_matrix(vec![vec![0; num_vars]; num_vars]).unwrap();
+        let encoded = serde_json::to_value(&problem).unwrap();
+        assert_eq!(
+            encoded,
+            serde_json::json!({"num_vars": num_vars, "entries": []})
+        );
+        let restored: QUBO<i64> = serde_json::from_value(encoded).unwrap();
+        assert_eq!(restored.num_vars(), num_vars);
+    }
+}
+
+#[test]
+fn test_qubo_entries_reject_invalid_data() {
+    for (data, message) in [
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[0,0,0],[1,1,1],[0,0,2]]}),
+            "duplicate QUBO index",
+        ),
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[2,0,1]]}),
+            "outside 0..2",
+        ),
+        (
+            serde_json::json!({"num_vars": 2, "entries": [[0,2,1]]}),
+            "outside 0..2",
+        ),
+        (
+            serde_json::json!({"num_vars": 2}),
+            "missing field `entries`",
+        ),
+        (
+            serde_json::json!({"num_vars": 0, "entries": [], "matrix": []}),
+            "unknown field `matrix`",
+        ),
+    ] {
+        let error = serde_json::from_value::<QUBO<i64>>(data).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+    assert!(QUBO::try_from(QuboData {
+        num_vars: 1,
+        entries: vec![(0, 0, f64::NAN)]
+    })
+    .is_err());
+}
+
+#[test]
 fn test_qubo_from_matrix() {
     let problem = QUBO::from_matrix(vec![vec![1, 2], vec![0, 3]]).unwrap();
     assert_eq!(problem.num_vars(), 2);
@@ -201,4 +268,88 @@ fn test_integer_qubo_reports_objective_overflow() {
         problem.evaluate(&vec![true, true]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
     ));
+}
+
+#[test]
+fn test_qubo_entries_load_huge_sparse_instance() {
+    // Storage is proportional to the entries, not num_vars^2.
+    let data =
+        serde_json::json!({"num_vars": 10_000_000_000u64, "entries": [[0, 9_999_999_999u64, 5]]});
+    let problem: QUBO<i64> = serde_json::from_value(data.clone()).unwrap();
+    assert_eq!(problem.num_vars(), 10_000_000_000);
+    assert_eq!(problem.get(0, 9_999_999_999), Some(&5));
+    assert_eq!(problem.get(1, 2), Some(&0));
+    assert_eq!(problem.get(10_000_000_000, 0), None);
+    assert_eq!(serde_json::to_value(&problem).unwrap(), data);
+}
+
+#[test]
+fn test_qubo_from_entries() {
+    let problem = QUBO::from_entries(3, vec![(1, 2, 4), (0, 0, -1), (1, 1, 0)]).unwrap();
+    assert_eq!(problem.entries(), &[(0, 0, -1), (1, 2, 4)]);
+    assert_eq!(
+        problem.matrix(),
+        vec![vec![-1, 0, 0], vec![0, 0, 4], vec![0, 0, 0]]
+    );
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        Min(Some(3))
+    );
+    for (entries, message) in [
+        (vec![(0, 3, 1)], "outside 0..3"),
+        (vec![(2, 1, 1)], "below the diagonal"),
+        (vec![(0, 1, 1), (0, 1, 2)], "duplicate QUBO index"),
+    ] {
+        let error = QUBO::from_entries(3, entries).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
+    }
+}
+
+#[test]
+fn test_qubo_legacy_matrix_error_explains_sparse_format() {
+    let error = serde_json::from_value::<QUBO<i64>>(serde_json::json!({"matrix": [[1]]}))
+        .unwrap_err()
+        .to_string();
+    for hint in ["num_vars", "sparse entries [row, col, value]", "row <= col"] {
+        assert!(error.contains(hint), "{error}");
+    }
+}
+
+#[test]
+fn test_qubo_rejects_lower_triangle_entries() {
+    let error = QUBO::try_from(QuboData {
+        num_vars: 2,
+        entries: vec![(1, 0, 4_i64)],
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, ConstructionError::Conversion(ref message) if message.contains("use (0, 1) instead"))
+    );
+    let error = serde_json::from_value::<QUBO<i64>>(
+        serde_json::json!({"num_vars": 2, "entries": [[1, 0, 4]]}),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("below the diagonal"));
+}
+
+#[test]
+fn test_qubo_matrix_serialization_omits_lower_triangle() {
+    let problem = QUBO::from_matrix(vec![vec![1, -2], vec![4, 3]]).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    assert_eq!(
+        encoded,
+        serde_json::json!({"num_vars": 2, "entries": [[0,0,1],[0,1,-2],[1,1,3]]})
+    );
+    let restored: QUBO<i64> = serde_json::from_value(encoded).unwrap();
+    for config in [
+        vec![false, false],
+        vec![false, true],
+        vec![true, false],
+        vec![true, true],
+    ] {
+        assert_eq!(
+            problem.evaluate(&config).unwrap(),
+            restored.evaluate(&config).unwrap()
+        );
+    }
 }

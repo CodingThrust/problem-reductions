@@ -31,7 +31,12 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness is not satisfying",
+        )?;
 
         Ok({
             let n = self.n;
@@ -74,9 +79,15 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
     }
 }
 
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult
+    for ReductionHamiltonianCircuitToStrongConnectivityAugmentation
+{
+}
+
 #[reduction(
-    transform = exact {
-        num_vertices = "num_vertices",
+    transform = upper_bound {
+        num_vertices = "num_vertices + 2",
         num_arcs = "0",
         num_potential_arcs = "num_vertices * (num_vertices - 1)",
     }
@@ -86,6 +97,14 @@ impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<Simple
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
+        if n < 3 {
+            return Ok(
+                ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
+                    target: StrongConnectivityAugmentation::new(DirectedGraph::empty(2), vec![], 0),
+                    n,
+                },
+            );
+        }
         let graph = DirectedGraph::empty(n);
 
         // Generate all ordered pairs (u, v) with u != v as candidate arcs.

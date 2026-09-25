@@ -70,12 +70,12 @@ register_customized_solver!(
 register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| Ok(
     super::grouping_by_swapping::solve(problem)
 ));
-register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| Ok(
-    super::shortest_common_superstring::solve(problem)
-));
-register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| Ok(
-    super::minimum_decision_tree::solve(problem)
-));
+register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| {
+    super::shortest_common_superstring::solve(problem).map(Some)
+});
+register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| {
+    super::minimum_decision_tree::solve(problem).map(Some)
+});
 register_customized_solver!(
     MinimumCostCirculation,
     "negative-cycle-canceling",
@@ -93,15 +93,57 @@ register_customized_solver!(
 );
 
 register_customized_solver!(
-    crate::models::algebraic::ClosestVectorProblem<i64>,
+    crate::models::algebraic::ClosestVectorProblem,
     "cvp-sphere-enumeration",
     |problem| super::closest_vector_problem::solve(problem).map(Some)
 );
+
 register_customized_solver!(
-    crate::models::algebraic::ClosestVectorProblem<f64>,
+    crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem>,
     "cvp-sphere-enumeration",
-    |problem| super::closest_vector_problem::solve(problem).map(Some)
+    |problem: &crate::models::decision::Decision<
+        crate::models::algebraic::ClosestVectorProblem,
+    >| {
+        let solution = super::closest_vector_problem::solve(problem.inner())?;
+        Ok(problem.evaluate(&solution)?.0.then_some(solution))
+    }
 );
+
+register_customized_solver!(
+    crate::models::graph::KColoring<crate::variant::K2, SimpleGraph>,
+    "bipartite-coloring",
+    |problem| Ok(solve_two_coloring(problem))
+);
+
+/// Two-color every connected component in O(vertices + edges) time.
+fn solve_two_coloring(
+    problem: &crate::models::graph::KColoring<crate::variant::K2, SimpleGraph>,
+) -> Option<Vec<usize>> {
+    use crate::topology::Graph;
+
+    let graph = problem.graph();
+    // Colors 0 and 1 are assigned; 2 marks an unvisited vertex.
+    let mut colors = vec![2; graph.num_vertices()];
+    let mut stack = Vec::new();
+    for root in 0..colors.len() {
+        if colors[root] != 2 {
+            continue;
+        }
+        colors[root] = 0;
+        stack.push(root);
+        while let Some(u) = stack.pop() {
+            for v in graph.neighbors(u) {
+                if colors[v] == 2 {
+                    colors[v] = 1 - colors[u];
+                    stack.push(v);
+                } else if colors[v] == colors[u] {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(colors)
+}
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///

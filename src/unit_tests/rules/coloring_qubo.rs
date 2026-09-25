@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::decision::Decision;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
@@ -8,8 +9,9 @@ use crate::variant::{K2, K3};
 fn test_kcoloring_to_qubo_closed_loop() {
     // Triangle K3, 3 colors → exactly 6 valid colorings (3! permutations)
     let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&kc).expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -28,8 +30,9 @@ fn test_kcoloring_to_qubo_closed_loop() {
 fn test_kcoloring_to_qubo_path() {
     // Path graph: 0-1-2, 2 colors
     let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&kc).expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -48,8 +51,9 @@ fn test_kcoloring_to_qubo_reversed_edges() {
     // Edge (2, 0) triggers the idx_v < idx_u swap branch (line 104).
     // Path: 2-0-1 with reversed edge ordering
     let kc = KColoring::<K2, _>::new(SimpleGraph::new(3, vec![(2, 0), (0, 1)]));
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
-    let qubo = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&kc).expect("reduction should succeed");
+    let qubo = reduction.target_problem().inner();
 
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
@@ -66,10 +70,11 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 #[test]
 fn test_kcoloring_to_qubo_sizes() {
     let kc = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&kc).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&kc).expect("reduction should succeed");
 
     // QUBO should have n*K = 3*3 = 9 variables
-    assert_eq!(reduction.target_problem().num_variables(), 9);
+    assert_eq!(reduction.target_problem().inner().num_variables(), 9);
 }
 
 #[test]
@@ -87,8 +92,8 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                 .collect();
             for k in 0..=3 {
                 let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges.clone()), k);
-                let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-                let target = AggregateReductionResult::target_problem(&reduction);
+                let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
+                let target = AggregateReductionResult::target_problem(&reduction).inner();
                 assert_eq!(target.num_vars(), n * k);
                 let mut minimum = i64::MAX;
                 let mut any_coloring = false;
@@ -113,7 +118,13 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                     minimum = minimum.min(value.0.unwrap());
                     let expected = residual == 0;
                     assert_eq!(
-                        AggregateReductionResult::extract_value(&reduction, value).0,
+                        AggregateReductionResult::extract_value(
+                            &reduction,
+                            crate::rules::ReductionResult::target_problem(&reduction)
+                                .evaluate(&config)
+                                .unwrap()
+                        )
+                        .0,
                         expected
                     );
                     match reduction.extract_solution(&config) {
@@ -128,13 +139,16 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
                 assert_eq!(
                     AggregateReductionResult::extract_value(
                         &reduction,
-                        crate::types::Min(Some(minimum))
+                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                            &(crate::types::Min(Some(minimum))),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        ))
                     )
                     .0,
                     any_coloring
                 );
                 assert!(
-                    !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None)).0
+                    !AggregateReductionResult::extract_value(&reduction, crate::types::Or(false)).0
                 );
                 assert!(reduction.extract_solution(&vec![false; n * k + 1]).is_err());
             }

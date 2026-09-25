@@ -1,12 +1,23 @@
 //! Exact minimum decision tree solver using dynamic programming over object subsets.
 
 use crate::models::misc::MinimumDecisionTree;
+use crate::solvers::SolveError;
 
-pub(crate) fn solve(problem: &MinimumDecisionTree) -> Option<Vec<usize>> {
+pub(crate) fn solve(problem: &MinimumDecisionTree) -> Result<Vec<usize>, SolveError> {
     let n = problem.num_objects();
-    let full = (1usize << n) - 1;
-    let mut costs = vec![usize::MAX; 1usize << n];
-    let mut choices = vec![problem.num_tests(); 1usize << n];
+    if n >= usize::BITS as usize {
+        return Err(SolveError::IntegerOverflow(
+            "indexing object subsets with a usize mask".into(),
+        ));
+    }
+    let states = 1usize << n;
+    let full = states - 1;
+    let mut costs = Vec::new();
+    costs.try_reserve_exact(states)?;
+    costs.resize(states, usize::MAX);
+    let mut choices = Vec::new();
+    choices.try_reserve_exact(states)?;
+    choices.resize(states, problem.num_tests());
     for object in 0..n {
         costs[1 << object] = 0;
     }
@@ -37,9 +48,11 @@ pub(crate) fn solve(problem: &MinimumDecisionTree) -> Option<Vec<usize>> {
     }
 
     let slots = (1usize << (n - 1)) - 1;
-    let mut solution = vec![problem.num_tests(); slots];
+    let mut solution = Vec::new();
+    solution.try_reserve_exact(slots)?;
+    solution.resize(slots, problem.num_tests());
     write_tree(problem, full, 0, &choices, &mut solution);
-    Some(solution)
+    Ok(solution)
 }
 
 fn write_tree(

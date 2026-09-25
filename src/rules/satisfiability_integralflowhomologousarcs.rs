@@ -106,7 +106,12 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target flow is not feasible",
+        )?;
 
         Ok({
             self.variable_paths
@@ -117,8 +122,11 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
     }
 }
 
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSATToIntegralFlowHomologousArcs {}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
         num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
     },
@@ -169,7 +177,9 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
         for (clause_idx, clause) in self.clauses().iter().enumerate() {
             let collector = indexer.collector(clause_idx);
             let distributor = indexer.distributor(clause_idx);
-            let bottleneck_capacity = i64::try_from(clause.literals.len().saturating_sub(1))
+            // Repeated literals share one flow channel and count only once.
+            let distinct_literals: std::collections::BTreeSet<_> = clause.literals.iter().collect();
+            let bottleneck_capacity = i64::try_from(distinct_literals.len().saturating_sub(1))
                 .map_err(|_| {
                     crate::rules::ReductionError::integer_overflow::<
                         Satisfiability,

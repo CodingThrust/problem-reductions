@@ -1,3 +1,25 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid = serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"edge_lengths":[1,1],"source_vertex":0,"target_vertex":2});
+    let problem: LongestPath<SimpleGraph, i64> = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: LongestPath<SimpleGraph, i64> = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("edge_lengths", serde_json::json!([])),
+        ("edge_lengths", serde_json::json!([0, 1])),
+        ("source_vertex", serde_json::json!(3)),
+        ("target_vertex", serde_json::json!(3)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<LongestPath<SimpleGraph, i64>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]
@@ -185,7 +207,7 @@ fn test_longest_path_problem_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "weights has length 1, expected 2")]
 fn test_longest_path_rejects_wrong_edge_lengths_len() {
     LongestPath::new(SimpleGraph::path(3), vec![1], 0, 2);
 }

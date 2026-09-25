@@ -37,9 +37,10 @@ inventory::submit! {
 /// - `sum_{e in E'} w(e) <= B`
 /// - `(V, E union E')` is biconnected
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(serialize = "G: serde::Serialize, W: serde::Serialize, W::Sum: serde::Serialize"))]
+#[serde(try_from = "BiconnectivityAugmentationData<G, W>")]
 #[serde(bound(
-    serialize = "G: serde::Serialize, W: serde::Serialize, W::Sum: serde::Serialize",
-    deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>, W::Sum: serde::Deserialize<'de>"
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
 ))]
 pub struct BiconnectivityAugmentation<G, W>
 where
@@ -51,6 +52,28 @@ where
     potential_weights: Vec<(usize, usize, W)>,
     /// Maximum total weight of selected potential edges.
     budget: W::Sum,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
+struct BiconnectivityAugmentationData<G, W: WeightElement> {
+    graph: G,
+    potential_weights: Vec<(usize, usize, W)>,
+    budget: W::Sum,
+}
+
+impl<G, W> TryFrom<BiconnectivityAugmentationData<G, W>> for BiconnectivityAugmentation<G, W>
+where
+    G: Graph,
+    W: WeightElement,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BiconnectivityAugmentationData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.potential_weights, data.budget)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -88,27 +111,7 @@ impl TryFrom<BiconnectivityAugmentationCreateSpec>
             return Err("num_vertices is too small for graph endpoints".into());
         }
         let graph = SimpleGraph::new(count, spec.graph);
-        let mut seen = BTreeSet::new();
-        for &(u, v, _) in &spec.potential_weights {
-            if u >= count || v >= count {
-                return Err("potential edge endpoint is out of bounds".into());
-            }
-            if u == v {
-                return Err("potential edge is a self-loop".into());
-            }
-            let edge = normalize_edge(u, v);
-            if graph.has_edge(edge.0, edge.1) {
-                return Err("potential edge already exists in graph".into());
-            }
-            if !seen.insert(edge) {
-                return Err("duplicate potential edge".into());
-            }
-        }
-        Ok(Self {
-            graph,
-            potential_weights: spec.potential_weights,
-            budget: spec.budget,
-        })
+        Self::try_new(graph, spec.potential_weights, spec.budget)
     }
 }
 
@@ -120,37 +123,47 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
     /// is a self-loop, duplicates another candidate edge, or already exists in
     /// the input graph.
     pub fn new(graph: G, potential_weights: Vec<(usize, usize, W)>, budget: W::Sum) -> Self {
+        Self::try_new(graph, potential_weights, budget).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        potential_weights: Vec<(usize, usize, W)>,
+        budget: W::Sum,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         let mut seen_potential_edges = BTreeSet::new();
         for &(u, v, _) in &potential_weights {
-            assert!(
-                u < num_vertices && v < num_vertices,
-                "potential edge ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
-            assert!(u != v, "potential edge ({}, {}) is a self-loop", u, v);
+            if u >= num_vertices || v >= num_vertices {
+                return Err(format!(
+                    "potential edge ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                )
+                .into());
+            }
+            if u == v {
+                return Err(format!("potential edge ({}, {}) is a self-loop", u, v).into());
+            }
             let edge = normalize_edge(u, v);
-            assert!(
-                !graph.has_edge(edge.0, edge.1),
-                "potential edge ({}, {}) already exists in the graph",
-                edge.0,
-                edge.1
-            );
-            assert!(
-                seen_potential_edges.insert(edge),
-                "potential edge ({}, {}) is duplicated",
-                edge.0,
-                edge.1
-            );
+            if graph.has_edge(edge.0, edge.1) {
+                return Err(format!(
+                    "potential edge ({}, {}) already exists in the graph",
+                    edge.0, edge.1
+                )
+                .into());
+            }
+            if !seen_potential_edges.insert(edge) {
+                return Err(
+                    format!("potential edge ({}, {}) is duplicated", edge.0, edge.1).into(),
+                );
+            }
         }
 
-        Self {
+        Ok(Self {
             graph,
             potential_weights,
             budget,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

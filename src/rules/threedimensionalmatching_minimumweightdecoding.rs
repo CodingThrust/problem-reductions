@@ -11,15 +11,14 @@
 //!
 //! `source.evaluate(S) == Or(true)` ⇔ `target.evaluate(x) == Min(Some(q))`,
 //!
-//! where `S = { t_j ∈ T : x_j = 1 }`. We rely on the witness-extraction
-//! route `source.evaluate(extract_solution(x))` rather than comparing the
-//! optimum value directly, mirroring `partition_sumofsquarespartition.rs`.
+//! where `S = { t_j ∈ T : x_j = 1 }`. The completed optimum maps to YES/NO
+//! by comparison with `q`; only a weight-`q` target witness is decoded.
 //!
 //! **Sentinel branch.** `MinimumWeightDecoding::new` panics on zero-row or
 //! zero-column matrices, so degenerate inputs (`q = 0` or `T = []`) emit a
 //! fixed `1×1` sentinel `H = [[1]]` with syndrome `s = [0]`. The unique
-//! feasible codeword `x = (0)` decodes to the empty subset `S = ∅`, and
-//! `source.evaluate(∅)` correctly returns `Or(true)` iff `q = 0`.
+//! feasible codeword `x = (0)` has weight zero, so the aggregate mapping returns
+//! YES iff `q = 0`. Only that YES case decodes to the empty subset.
 
 use crate::models::algebraic::MinimumWeightDecoding;
 use crate::models::set::ThreeDimensionalMatching;
@@ -34,6 +33,7 @@ pub struct ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
     /// Used to return a correctly-sized witness when the sentinel path is
     /// taken (i.e. `q == 0` or `num_triples == 0`).
     source_num_triples: usize,
+    source_universe_size: usize,
 }
 
 impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
@@ -51,7 +51,12 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).0,
+            "target witness does not certify a YES answer for the source",
+        )?;
         if target_solution.len() != self.target.num_cols() {
             return Err(crate::rules::ExtractionError::invalid(format!(
                 "expected {} target codeword bits, got {}",
@@ -61,6 +66,26 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
         }
 
         Ok(target_solution[..self.source_num_triples].to_vec())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult
+    for ReductionThreeDimensionalMatchingToMinimumWeightDecoding
+{
+    type Source = ThreeDimensionalMatching;
+    type Target = MinimumWeightDecoding;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(
+            value
+                .0
+                .is_some_and(|count| i128::from(count) == self.source_universe_size as i128),
+        )
     }
 }
 
@@ -84,6 +109,7 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
             //   q = 0 → Or(true)  (empty matching of empty universe)
             //   q ≥ 1 → Or(false) (no triples cannot cover non-empty universe).
             return Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+                source_universe_size: q,
                 target: MinimumWeightDecoding::new(vec![vec![true]], vec![false]),
                 source_num_triples: m,
             });
@@ -101,6 +127,7 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
         let syndrome = vec![true; num_rows];
 
         Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+            source_universe_size: q,
             target: MinimumWeightDecoding::new(matrix, syndrome),
             source_num_triples: m,
         })

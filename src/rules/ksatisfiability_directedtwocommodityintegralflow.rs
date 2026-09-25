@@ -65,11 +65,6 @@ fn literal_var_index(literal: i64) -> usize {
     literal.unsigned_abs() as usize - 1
 }
 
-#[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
-fn literal_satisfied(requires_true: bool, assignment: &[bool], variable: usize) -> bool {
-    assignment.get(variable).copied().unwrap_or(false) == requires_true
-}
-
 fn build_branch<FV, FA>(
     add_vertex: &mut FV,
     add_arc: &mut FA,
@@ -150,7 +145,7 @@ impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
         for (clause_idx, routes) in self.clause_routes.iter().enumerate() {
             if let Some(route) = routes
                 .iter()
-                .find(|route| literal_satisfied(route.requires_true, assignment, route.variable))
+                .find(|route| assignment[route.variable] == route.requires_true)
             {
                 flow[num_arcs + route.source_arc] = 1;
                 flow[num_arcs + route.branch_arc] = 1;
@@ -175,7 +170,12 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         Ok({
             self.variable_paths
@@ -185,6 +185,9 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         })
     }
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {}
 
 #[reduction(
     transform = exact {

@@ -7,7 +7,8 @@
 //! QUBO Hamiltonian: H = H_A + H_B
 //!
 //! H_A enforces valid partition (one-hot per vertex) and terminal pinning.
-//! H_B encodes the cut cost objective.
+//! H_B encodes nonnegative cut costs. Negative edges are always deleted:
+//! deleting them reduces the cost and cannot reconnect terminals.
 //!
 //! Reference: Heidari, Dinneen & Delmas (2022).
 
@@ -24,6 +25,8 @@ pub struct ReductionMinimumMultiwayCutToQUBO {
     num_vertices: usize,
     num_terminals: usize,
     edges: Vec<(usize, usize)>,
+    negative_edges: Vec<bool>,
+    terminals: Vec<usize>,
 }
 
 impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
@@ -60,10 +63,22 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
                 })
                 .collect::<crate::rules::ExtractionResult<_>>()?;
 
+            if self
+                .terminals
+                .iter()
+                .enumerate()
+                .any(|(label, &vertex)| assignments[vertex] != label)
+            {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target assignment does not pin each terminal to its own component",
+                ));
+            }
+
             // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
             self.edges
                 .iter()
-                .map(|&(u, v)| assignments[u] != assignments[v])
+                .zip(&self.negative_edges)
+                .map(|(&(u, v), &negative)| negative || assignments[u] != assignments[v])
                 .collect()
         })
     }
@@ -91,15 +106,11 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             .checked_mul(k)
             .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
 
-        // Penalty: sum of all edge weights + 1
+        // All remaining costs are nonnegative; one penalty exceeds their sum.
         let alpha = edge_weights.iter().try_fold(0i64, |total, &weight| {
             total
-                .checked_add(
-                    weight
-                        .checked_abs()
-                        .ok_or_else(|| overflow("taking the absolute value of a cut weight"))?,
-                )
-                .ok_or_else(|| overflow("summing absolute cut weights"))
+                .checked_add(weight.max(0))
+                .ok_or_else(|| overflow("summing nonnegative cut weights"))
         })?;
         let alpha = alpha
             .checked_add(1)
@@ -158,7 +169,7 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         // For each edge (u,v) with weight w, for each pair of distinct
         // terminal positions s != t: add w to Q[u*k+s, v*k+t]
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            let w = edge_weights[edge_idx];
+            let w = edge_weights[edge_idx].max(0);
             for s in 0..k {
                 for t in 0..k {
                     if s != t {
@@ -178,6 +189,8 @@ impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             num_vertices: n,
             num_terminals: k,
             edges,
+            negative_edges: edge_weights.iter().map(|&weight| weight < 0).collect(),
+            terminals: terminals.to_vec(),
         })
     }
 }

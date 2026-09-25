@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn persisted_tables_validate_row_counts() {
+    for (num_inputs, outputs) in [
+        (2, vec![false]),
+        (usize::BITS as usize - 1, vec![]),
+        (usize::BITS as usize, vec![]),
+        (usize::MAX, vec![]),
+    ] {
+        assert!(serde_json::from_value::<TruthTable>(
+            serde_json::json!({"num_inputs": num_inputs, "outputs": outputs})
+        )
+        .is_err());
+    }
+    let table: TruthTable =
+        serde_json::from_value(serde_json::json!({"num_inputs": 0, "outputs": [true]})).unwrap();
+    assert_eq!(table.num_rows(), 1);
+    assert!(table.evaluate(&[]));
+}
+
+#[test]
+#[should_panic(expected = "representing truth-table rows")]
+fn function_tables_reject_unrepresentable_rows() {
+    TruthTable::from_function(usize::BITS as usize, |_| false);
+}
+
+#[test]
+#[should_panic(expected = "representing truth-table rows")]
+fn output_tables_reject_unrepresentable_rows() {
+    TruthTable::from_outputs(usize::BITS as usize, vec![]);
+}
+
+#[test]
 fn test_and_gate() {
     let and = TruthTable::and(2);
     assert!(!and.evaluate(&[false, false]));

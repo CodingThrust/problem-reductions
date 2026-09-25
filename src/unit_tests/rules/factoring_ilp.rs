@@ -215,7 +215,7 @@ fn test_solution_extraction() {
     // z_00 = p_0 * q_0 = 0, z_01 = p_0 * q_1 = 0
     // z_10 = p_1 * q_0 = 1, z_11 = p_1 * q_1 = 1
     // Variables: [p0, p1, q0, q1, z00, z01, z10, z11, c0, c1, c2, c3]
-    let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0];
+    let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, (BigUint::from(2u32), BigUint::from(3u32)));

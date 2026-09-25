@@ -48,7 +48,12 @@ impl ReductionResult for ReductionNMTSToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let mut assignment = vec![0usize; self.m];
@@ -61,6 +66,9 @@ impl ReductionResult for ReductionNMTSToILP {
         })
     }
 }
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionNMTSToILP {}
 
 #[reduction(
     transform = upper_bound {
@@ -85,7 +93,7 @@ impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
         for (i, &sxi) in sx.iter().enumerate() {
             for (j, &syj) in sy.iter().enumerate() {
                 for (k, &tk) in targets.iter().enumerate() {
-                    if sxi + syj == tk {
+                    if i128::from(sxi) + i128::from(syj) == i128::from(tk) {
                         triples.push(CompatibleTriple { i, j, k });
                     }
                 }

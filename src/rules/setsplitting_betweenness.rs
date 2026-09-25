@@ -33,7 +33,12 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         let pole_position = target_solution[self.pole];
         Ok(target_solution[..self.source_universe_size]
@@ -42,6 +47,9 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
             .collect())
     }
 }
+
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSetSplittingToBetweenness {}
 
 #[reduction(
     transform = unavailable {

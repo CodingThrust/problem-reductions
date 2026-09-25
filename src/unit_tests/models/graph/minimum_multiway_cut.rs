@@ -126,6 +126,22 @@ fn test_minimummultiwaycut_serialization() {
 }
 
 #[test]
+fn test_deserialization_rejects_invalid_cut_parameters() {
+    let problem = MinimumMultiwayCut::new(SimpleGraph::path(3), vec![0, 2], vec![-1i64, 2]);
+    let json = serde_json::to_value(problem).unwrap();
+    for (field, value) in [
+        ("terminals", serde_json::json!([0])),
+        ("terminals", serde_json::json!([0, 0])),
+        ("terminals", serde_json::json!([0, 3])),
+        ("edge_weights", serde_json::json!([1])),
+    ] {
+        let mut invalid = json.clone();
+        invalid[field] = value;
+        assert!(serde_json::from_value::<MinimumMultiwayCut<SimpleGraph, i64>>(invalid).is_err());
+    }
+}
+
+#[test]
 fn test_minimummultiwaycut_name() {
     assert_eq!(
         <MinimumMultiwayCut<SimpleGraph, i64> as Problem>::NAME,
@@ -134,7 +150,7 @@ fn test_minimummultiwaycut_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
+#[should_panic(expected = "edge_weights has length 1, expected 2")]
 fn test_minimummultiwaycut_panic_wrong_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64]);

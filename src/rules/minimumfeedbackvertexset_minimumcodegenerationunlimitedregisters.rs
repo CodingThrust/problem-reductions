@@ -34,13 +34,12 @@ impl ReductionResult for ReductionFVSToCodeGen {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target order must be a permutation respecting expression dependencies",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0.is_some(),
+            "target order must be a permutation respecting expression dependencies",
+        )?;
         Ok(self
             .chain_start
             .iter()

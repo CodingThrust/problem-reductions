@@ -41,9 +41,30 @@ inventory::submit! {
 /// A valid configuration must select edges that form exactly one connected
 /// simple circuit using only edges from `graph`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LongestCircuitData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct LongestCircuitData<G, W: WeightElement> {
+    graph: G,
+    edge_lengths: Vec<W>,
+}
+
+impl<G, W> TryFrom<LongestCircuitData<G, W>> for LongestCircuit<G, W>
+where
+    G: Graph,
+    W: WeightElement,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LongestCircuitData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_lengths)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -63,18 +84,7 @@ impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i64> {
         let edge_lengths = spec
             .edge_weights
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
-        if edge_lengths.len() != graph.num_edges() {
-            return Err(format!(
-                "edge_weights has length {}, expected {}",
-                edge_lengths.len(),
-                graph.num_edges()
-            )
-            .into());
-        }
-        if edge_lengths.iter().any(|&length| length <= 0) {
-            return Err("edge_weights must be positive".to_string().into());
-        }
-        Ok(Self::new(graph, edge_lengths))
+        Self::try_new(graph, edge_lengths)
     }
 }
 
@@ -117,22 +127,15 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
     /// Panics if the number of edge lengths does not match the graph's edge
     /// count, or if any edge length is non-positive.
     pub fn new(graph: G, edge_lengths: Vec<W>) -> Self {
-        assert_eq!(
-            edge_lengths.len(),
-            graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        let zero = W::Sum::zero();
-        assert!(
-            edge_lengths
-                .iter()
-                .all(|length| length.to_sum() > zero.clone()),
-            "All edge lengths must be positive (> 0)"
-        );
-        Self {
+        Self::try_new(graph, edge_lengths).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, edge_lengths: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        Self::check_weights(&graph, &edge_lengths)?;
+        Ok(Self {
             graph,
             edge_lengths,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
@@ -147,19 +150,25 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
 
     /// Replace the edge lengths.
     pub fn set_lengths(&mut self, edge_lengths: Vec<W>) {
-        assert_eq!(
-            edge_lengths.len(),
-            self.graph.num_edges(),
-            "edge_lengths length must match num_edges"
-        );
-        let zero = W::Sum::zero();
-        assert!(
-            edge_lengths
-                .iter()
-                .all(|length| length.to_sum() > zero.clone()),
-            "All edge lengths must be positive (> 0)"
-        );
+        Self::check_weights(&self.graph, &edge_lengths).unwrap_or_else(|error| panic!("{error}"));
         self.edge_lengths = edge_lengths;
+    }
+
+    fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
+        if weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        if !weights
+            .iter()
+            .all(|weight| weight.to_sum() > W::Sum::zero())
+        {
+            return Err("All edge lengths must be positive (> 0)".into());
+        }
+        Ok(())
     }
 
     /// Replace the edge lengths via the generic weight-management naming.
@@ -358,3 +367,62 @@ crate::register_brute_force! {
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/longest_circuit.rs"]
 mod tests;
+
+crate::decision_problem_meta!(LongestCircuit<SimpleGraph, i64>, "DecisionLongestCircuit");
+crate::register_decision_variant!(
+    LongestCircuit<SimpleGraph, i64>, "DecisionLongestCircuit", "2^num_vertices * num_vertices^2", &[],
+    "Does a feasible solution have objective value >= the bound?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
+        ],
+    fields: [
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Graph edges as comma-separated vertex pairs." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices, including isolated vertices." },
+        crate::registry::FieldInfo { name: "edge_weights", type_name: "Vec<i64>", description: "Weights for each edge in graph order." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Accept objective values >= this bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_longest_circuit_to_longest_circuit",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                LongestCircuit::new(
+                    SimpleGraph::new(
+                        6,
+                        vec![
+                            (0, 1),
+                            (1, 2),
+                            (2, 3),
+                            (3, 4),
+                            (4, 5),
+                            (5, 0),
+                            (0, 3),
+                            (1, 4),
+                            (2, 5),
+                            (3, 5),
+                        ],
+                    ),
+                    vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
+                ),
+                18,
+            );
+            let witness = serde_json::json!(vec![
+                true, false, true, false, true, false, true, true, true, false
+            ]);
+            crate::example_db::specs::rule_example_with_witness::<_, LongestCircuit<SimpleGraph, i64>>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

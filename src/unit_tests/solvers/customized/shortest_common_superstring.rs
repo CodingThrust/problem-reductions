@@ -3,6 +3,24 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
+fn test_subset_dp_rejects_unrepresentable_state_space() {
+    for count in [
+        usize::BITS as usize,
+        usize::BITS as usize - 1,
+        usize::BITS as usize - 6,
+    ] {
+        let problem =
+            ShortestCommonSuperstring::new(count, (0..count).map(|symbol| vec![symbol]).collect());
+        let error = solve(&problem).unwrap_err();
+        if count >= usize::BITS as usize - 1 {
+            assert!(matches!(error, SolveError::IntegerOverflow(_)));
+        } else {
+            assert!(matches!(error, SolveError::Allocation(_)));
+        }
+    }
+}
+
+#[test]
 fn test_subset_dp_shortest_common_superstring_matches_brute_force() {
     let candidates = [vec![], vec![0], vec![1], vec![0, 0], vec![0, 1], vec![1, 0]];
     for first in &candidates {

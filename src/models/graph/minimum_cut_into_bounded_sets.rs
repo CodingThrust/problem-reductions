@@ -57,6 +57,8 @@ inventory::submit! {
 /// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCutIntoBoundedSetsData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     /// The underlying graph structure.
     graph: G,
@@ -68,6 +70,34 @@ pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     sink: usize,
     /// Maximum size B for each partition set.
     size_bound: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
+struct MinimumCutIntoBoundedSetsData<G, W: WeightElement> {
+    graph: G,
+    edge_weights: Vec<W>,
+    source: usize,
+    sink: usize,
+    size_bound: usize,
+}
+
+impl<G, W> TryFrom<MinimumCutIntoBoundedSetsData<G, W>> for MinimumCutIntoBoundedSets<G, W>
+where
+    G: Graph,
+    W: WeightElement,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumCutIntoBoundedSetsData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(
+            data.graph,
+            data.edge_weights,
+            data.source,
+            data.sink,
+            data.size_bound,
+        )
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -88,26 +118,13 @@ impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<
     fn try_from(spec: MinimumCutIntoBoundedSetsCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_edges();
         let edge_weights = spec.edge_weights.unwrap_or_else(|| vec![1; count]);
-        if edge_weights.len() != count {
-            return Err(format!(
-                "edge_weights has {} entries, expected {count}",
-                edge_weights.len()
-            )
-            .into());
-        }
-        let vertices = spec.graph.num_vertices();
-        if spec.source >= vertices || spec.sink >= vertices || spec.source == spec.sink {
-            return Err("source and sink must be distinct valid graph vertices"
-                .to_string()
-                .into());
-        }
-        Ok(Self::new(
+        Self::try_new(
             spec.graph,
             edge_weights,
             spec.source,
             spec.sink,
             spec.size_bound,
-        ))
+        )
     }
 }
 
@@ -131,21 +148,40 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
         sink: usize,
         size_bound: usize,
     ) -> Self {
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
-        assert!(source < graph.num_vertices(), "source vertex out of bounds");
-        assert!(sink < graph.num_vertices(), "sink vertex out of bounds");
-        assert_ne!(source, sink, "source and sink must be different vertices");
-        Self {
+        Self::try_new(graph, edge_weights, source, sink, size_bound)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(
+        graph: G,
+        edge_weights: Vec<W>,
+        source: usize,
+        sink: usize,
+        size_bound: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if edge_weights.len() != graph.num_edges() {
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
+        }
+        if source >= graph.num_vertices() {
+            return Err("source vertex out of bounds".into());
+        }
+        if sink >= graph.num_vertices() {
+            return Err("sink vertex out of bounds".into());
+        }
+        if source == sink {
+            return Err("source and sink must be different vertices".into());
+        }
+        Ok(Self {
             graph,
             edge_weights,
             source,
             sink,
             size_bound,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.
