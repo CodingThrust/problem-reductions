@@ -65,11 +65,6 @@ fn literal_var_index(literal: i64) -> usize {
     literal.unsigned_abs() as usize - 1
 }
 
-#[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
-fn literal_satisfied(requires_true: bool, assignment: &[bool], variable: usize) -> bool {
-    assignment.get(variable).copied().unwrap_or(false) == requires_true
-}
-
 fn build_branch<FV, FA>(
     add_vertex: &mut FV,
     add_arc: &mut FA,
@@ -150,7 +145,7 @@ impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
         for (clause_idx, routes) in self.clause_routes.iter().enumerate() {
             if let Some(route) = routes
                 .iter()
-                .find(|route| literal_satisfied(route.requires_true, assignment, route.variable))
+                .find(|route| assignment[route.variable] == route.requires_true)
             {
                 flow[num_arcs + route.source_arc] = 1;
                 flow[num_arcs + route.branch_arc] = 1;
@@ -175,7 +170,13 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
 
         Ok({
             self.variable_paths
@@ -183,6 +184,20 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
                 .map(|paths| target_solution[paths.lower_entry_arc] > 0)
                 .collect()
         })
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
+    type Source = KSatisfiability<K3>;
+    type Target = DirectedTwoCommodityIntegralFlow;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 

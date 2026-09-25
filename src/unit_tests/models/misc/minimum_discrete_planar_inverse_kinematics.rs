@@ -7,6 +7,29 @@ use std::f64::consts::FRAC_PI_2;
 
 const EPS: f64 = 1e-9;
 
+#[test]
+fn large_orientation_product_does_not_restrict_evaluation_or_reduction() {
+    use crate::models::algebraic::QUBO;
+    use crate::rules::{ReduceTo, ReductionResult};
+
+    let problem = MinimumDiscretePlanarInverseKinematics::new(
+        vec![1.0; 64],
+        (64.0, 0.0),
+        vec![vec![0.0, 1.0]; 64],
+        vec![vec![(0, 0), (0, 1), (1, 0), (1, 1)]; 63],
+    )
+    .unwrap();
+    let restored: MinimumDiscretePlanarInverseKinematics =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(restored.evaluate(&vec![0; 64]).unwrap(), Min(Some(0.0)));
+    assert_eq!(restored.parameters(), problem.parameters());
+    assert_eq!(restored.dimensions(), vec![2; 64]);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&restored).unwrap();
+    assert_eq!(reduction.target_problem().num_vars(), 128);
+    let target = (0..128).map(|i| i % 2 == 0).collect();
+    assert_eq!(reduction.extract_solution(&target).unwrap(), vec![0; 64]);
+}
+
 fn sample_problem() -> MinimumDiscretePlanarInverseKinematics {
     MinimumDiscretePlanarInverseKinematics::new(
         vec![2.0, 1.0],

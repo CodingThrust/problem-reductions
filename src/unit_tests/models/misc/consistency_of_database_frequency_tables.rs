@@ -1,6 +1,42 @@
 use super::*;
 
 #[test]
+fn input_counts_and_witness_length_must_fit_usize() {
+    for (objects, domains, tables) in [
+        (0, vec![usize::MAX, 1], vec![]),
+        (usize::MAX, vec![1, 1], vec![]),
+    ] {
+        assert!(matches!(
+            ConsistencyOfDatabaseFrequencyTables::try_new(
+                objects,
+                domains.clone(),
+                tables.clone(),
+                vec![]
+            ),
+            Err(crate::registry::ConstructionError::IntegerOverflow(_))
+        ));
+        assert!(serde_json::from_value::<ConsistencyOfDatabaseFrequencyTables>(serde_json::json!({"num_objects": objects, "attribute_domains": domains, "frequency_tables": tables, "known_values": []})).is_err());
+    }
+}
+
+#[test]
+fn large_domain_product_does_not_restrict_model_evaluation() {
+    let problem = ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]);
+    let restored: ConsistencyOfDatabaseFrequencyTables =
+        serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+    assert_eq!(
+        restored.evaluate(&vec![0; 64]).unwrap(),
+        crate::types::Or(true)
+    );
+    assert_eq!(restored.parameters(), problem.parameters());
+    assert_eq!(restored.max_domain_size(), 2);
+    assert_eq!(restored.dimensions(), vec![2; 64]);
+    let empty = ConsistencyOfDatabaseFrequencyTables::new(0, vec![], vec![], vec![]);
+    assert_eq!(empty.max_domain_size(), 1);
+    assert_eq!(empty.evaluate(&vec![]).unwrap(), crate::types::Or(true));
+}
+
+#[test]
 fn test_consistency_of_database_frequency_tables_validates_persisted_input() {
     let valid = serde_json::to_value(issue_yes_instance()).unwrap();
     let restored: ConsistencyOfDatabaseFrequencyTables =
@@ -79,7 +115,7 @@ fn test_cdft_creation_and_getters() {
     let problem = issue_yes_instance();
     assert_eq!(problem.num_objects(), 6);
     assert_eq!(problem.num_attributes(), 3);
-    assert_eq!(problem.domain_size_product(), 12);
+    assert_eq!(problem.max_domain_size(), 3);
     assert_eq!(problem.num_assignment_variables(), 18);
     assert_eq!(problem.attribute_domains(), &[2, 3, 2]);
     assert_eq!(problem.frequency_tables().len(), 2);

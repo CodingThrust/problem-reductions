@@ -27,7 +27,9 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     );
     let rpath = paths
         .iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit Factoring -> CircuitSAT -> SpinGlass route");
     println!("  {}", rpath);
     // ANCHOR_END: step1

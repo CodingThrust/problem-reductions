@@ -5,6 +5,44 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn test_signed_cut_weights_preserve_every_target_optimum() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (1, 1), (0, 1)]);
+    let solver = BruteForce::new();
+    for encoding in 0..81 {
+        let mut digits = encoding;
+        let weights = (0..4)
+            .map(|_| {
+                let weight = [-2, 0, 3][digits % 3];
+                digits /= 3;
+                weight
+            })
+            .collect();
+        let source = MinimumMultiwayCut::new(graph.clone(), vec![0, 2], weights);
+        let best = solver.solve(&source).unwrap().unwrap();
+        let optimum = source.evaluate(&best).unwrap();
+        let result = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        for target in solver.find_all_witnesses(result.target_problem()).unwrap() {
+            let recovered = result.extract_solution(&target).unwrap();
+            assert_eq!(source.evaluate(&recovered).unwrap(), optimum);
+        }
+    }
+}
+
+#[test]
+fn test_cut_extraction_rejects_invalid_partitions() {
+    let source = MinimumMultiwayCut::new(SimpleGraph::path(3), vec![0, 2], vec![-1, 2]);
+    let result = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    for assignment in [
+        vec![],
+        vec![false; 6],
+        vec![true; 6],
+        vec![true, false, true, false, true, false],
+    ] {
+        assert!(result.extract_solution(&assignment).is_err());
+    }
+}
+
+#[test]
 fn test_minimummultiwaycut_to_qubo_closed_loop() {
     // 5 vertices, terminals {0,2,4}, 6 edges with weights [2,3,1,2,4,5]
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);

@@ -38,7 +38,13 @@ impl ReductionResult for ReductionKCliqueToBCBS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness is not satisfying",
+            ));
+        }
 
         Ok({
             (0..self.num_original_vertices)
@@ -48,8 +54,20 @@ impl ReductionResult for ReductionKCliqueToBCBS {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {
+    type Source = KClique<SimpleGraph>;
+    type Target = BalancedCompleteBipartiteSubgraph;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         left_size = "num_vertices + k * (k - 1) / 2",
         right_size = "num_edges + num_vertices - k",
         k = "num_vertices + k * (k - 1) / 2 - k",
@@ -64,7 +82,16 @@ impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
-        let edges: Vec<(usize, usize)> = self.graph().edges();
+        // Clique membership depends on distinct non-loop edges, not multiplicity.
+        let edges: Vec<(usize, usize)> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .filter(|&(u, v)| u != v)
+            .map(|(u, v)| (u.min(v), u.max(v)))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
         let m = edges.len();
 
         // C(k, 2) = k*(k-1)/2 — number of edges in a k-clique

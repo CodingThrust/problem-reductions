@@ -292,3 +292,17 @@ fn create_spec_uses_edge_weights_and_defaults_to_one() {
     assert_eq!(problem.weights(), vec![1, 1, 1]);
     assert_eq!(TravelingSalesmanCreateSpec::FIELDS[2].name, "edge_weights");
 }
+
+#[test]
+fn test_deserialization_rejects_mismatched_edge_weights() {
+    let problem = TravelingSalesman::new(SimpleGraph::complete(3), vec![-3i64, 0, 2]);
+    let json = serde_json::to_value(&problem).unwrap();
+    let restored: TravelingSalesman<SimpleGraph, i64> =
+        serde_json::from_value(json.clone()).unwrap();
+    assert_eq!(restored.evaluate(&vec![true; 3]).unwrap(), Min(Some(-1)));
+    for weights in [serde_json::json!([]), serde_json::json!([1, 2, 3, 4])] {
+        let mut invalid = json.clone();
+        invalid["edge_weights"] = weights;
+        assert!(serde_json::from_value::<TravelingSalesman<SimpleGraph, i64>>(invalid).is_err());
+    }
+}

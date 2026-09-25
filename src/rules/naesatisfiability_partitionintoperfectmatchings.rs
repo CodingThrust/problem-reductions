@@ -2,7 +2,8 @@
 //!
 //! This implements the Schaefer-style reduction for the `K = 2` case.
 //! Clauses with two literals are normalized to three literals by duplicating
-//! the first literal, and clauses with more than three literals are rejected.
+//! the first literal. Longer clauses are split using auxiliary variables:
+//! NAE(a,b,R) iff there exists z: NAE(a,b,z) and NAE(-z,R).
 
 use crate::models::formula::NAESatisfiability;
 use crate::models::graph::PartitionIntoPerfectMatchings;
@@ -39,6 +40,9 @@ struct ChainPairVertices {
 
 #[derive(Debug, Clone)]
 struct ReductionLayout {
+    source_num_vars: usize,
+    #[cfg(any(test, feature = "example-db"))]
+    auxiliary_inputs: Vec<[i64; 3]>,
     variables: Vec<VariableVertices>,
     #[cfg(any(test, feature = "example-db"))]
     clauses: Vec<ClauseLayout>,
@@ -69,12 +73,19 @@ impl ReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target partition is not a partition into perfect matchings",
+            ));
+        }
 
         Ok({
             self.layout
                 .variables
                 .iter()
+                .take(self.layout.source_num_vars)
                 .map(|variable| target_solution[variable.t] == 0)
                 .collect()
         })
@@ -86,11 +97,24 @@ impl ReductionNAESATToPartitionIntoPerfectMatchings {
     fn construct_target_solution(&self, source_solution: &[bool]) -> Vec<usize> {
         assert_eq!(
             source_solution.len(),
-            self.layout.variables.len(),
+            self.layout.source_num_vars,
             "source solution has {} variables but reduction expects {}",
             source_solution.len(),
-            self.layout.variables.len()
+            self.layout.source_num_vars
         );
+
+        let mut source_solution = source_solution.to_vec();
+        for &[a, b, last] in &self.layout.auxiliary_inputs {
+            let value = |literal: i64| {
+                source_solution[literal.unsigned_abs() as usize - 1] == (literal > 0)
+            };
+            let z = if value(a) == value(b) {
+                !value(a)
+            } else {
+                value(last)
+            };
+            source_solution.push(z);
+        }
 
         let mut target_solution = vec![usize::MAX; self.layout.num_vertices];
         let mut true_groups = Vec::with_capacity(self.layout.variables.len());
@@ -164,30 +188,38 @@ impl ReductionNAESATToPartitionIntoPerfectMatchings {
     }
 }
 
-fn normalize_clauses(
-    problem: &NAESatisfiability,
-) -> Result<Vec<[i64; 3]>, crate::registry::ConstructionError> {
-    problem
-        .clauses()
-        .iter()
-        .map(|clause| match clause.literals.as_slice() {
-            [a, b] => Ok([*a, *a, *b]),
-            [a, b, c] => Ok([*a, *b, *c]),
-            literals => Err(format!(
-                "the construction expects clauses of size 2 or 3, got {}",
-                literals.len()
-            )
-            .into()),
-        })
-        .collect()
-}
-
 fn build_layout(
     problem: &NAESatisfiability,
 ) -> Result<ReductionLayout, crate::registry::ConstructionError> {
-    let num_vars = problem.num_vars();
-    let clauses = normalize_clauses(problem)?;
+    let mut allocator = crate::rules::sat_helpers::SatVariableAllocator::new(
+        "NAESatisfiability -> PartitionIntoPerfectMatchings",
+        problem.num_vars(),
+    )?;
+    let mut clauses = Vec::new();
+    #[cfg(any(test, feature = "example-db"))]
+    let mut auxiliary_inputs = Vec::new();
+    for clause in problem.clauses() {
+        let literals = &clause.literals;
+        if literals.len() == 2 {
+            clauses.push([literals[0], literals[0], literals[1]]);
+            continue;
+        }
+        let mut first = literals[0];
+        for &middle in &literals[1..literals.len() - 2] {
+            let auxiliary = allocator.allocate()?;
+            #[cfg(any(test, feature = "example-db"))]
+            auxiliary_inputs.push([first, middle, literals[literals.len() - 1]]);
+            clauses.push([first, middle, auxiliary]);
+            first = -auxiliary;
+        }
+        clauses.push([
+            first,
+            literals[literals.len() - 2],
+            literals[literals.len() - 1],
+        ]);
+    }
     let num_clauses = clauses.len();
+    let num_vars = allocator.num_vars();
 
     let mut next_vertex = 0usize;
     let mut edges = Vec::with_capacity(3 * num_vars + 21 * num_clauses);
@@ -299,6 +331,9 @@ fn build_layout(
     }
 
     Ok(ReductionLayout {
+        source_num_vars: problem.num_vars(),
+        #[cfg(any(test, feature = "example-db"))]
+        auxiliary_inputs,
         variables,
         #[cfg(any(test, feature = "example-db"))]
         clauses: clause_layouts,
@@ -311,10 +346,24 @@ fn build_layout(
     })
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
+    type Source = NAESatisfiability;
+    type Target = PartitionIntoPerfectMatchings<SimpleGraph>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
-    transform = exact {
-        num_vertices = "4 * num_vars + 16 * num_clauses",
-        num_edges = "3 * num_vars + 21 * num_clauses",
+    transform = upper_bound {
+        num_vertices = "4 * num_vars + 20 * num_literals - 24 * num_clauses",
+        num_edges = "3 * num_vars + 24 * num_literals - 27 * num_clauses",
         num_matchings = "2",
     }
 )]
@@ -322,12 +371,9 @@ impl ReduceTo<PartitionIntoPerfectMatchings<SimpleGraph>> for NAESatisfiability 
     type Result = ReductionNAESATToPartitionIntoPerfectMatchings;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let layout = build_layout(self).map_err(|message| {
-            crate::rules::ReductionError::invalid_target::<
-                NAESatisfiability,
-                PartitionIntoPerfectMatchings<SimpleGraph>,
-            >(message.to_string())
-        })?;
+        let layout = build_layout(self).map_err(
+            <Self as ReduceTo<PartitionIntoPerfectMatchings<SimpleGraph>>>::target_construction,
+        )?;
         let target = PartitionIntoPerfectMatchings::new(
             SimpleGraph::new(layout.num_vertices, layout.edges.clone()),
             2,

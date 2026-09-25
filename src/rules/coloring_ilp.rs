@@ -13,7 +13,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::variant::{KValue, K1, K2, K3, K4, KN};
+use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to ILP.
 ///
@@ -48,7 +48,13 @@ where
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
     }
@@ -99,6 +105,21 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     })
 }
 
+crate::register_aggregate_reduction!(ReductionKColoringToILP<KN, SimpleGraph>);
+
+impl<K: KValue, G: Graph + crate::variant::VariantParam> crate::rules::AggregateReductionResult
+    for ReductionKColoringToILP<K, G>
+{
+    type Source = KColoring<K, G>;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 // Register only the KN variant in the reduction graph
 #[reduction(
     transform = exact {
@@ -128,7 +149,7 @@ macro_rules! impl_kcoloring_to_ilp {
     )+};
 }
 
-impl_kcoloring_to_ilp!(K1, K2, K3, K4);
+impl_kcoloring_to_ilp!(K2, K3);
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {

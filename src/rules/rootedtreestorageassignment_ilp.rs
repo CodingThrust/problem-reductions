@@ -76,9 +76,27 @@ impl ReductionResult for ReductionRTSAToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         one_hot_decode_rows(target_solution, self.n, self.n, 0)
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionRTSAToILP {
+    type Source = RootedTreeStorageAssignment;
+    type Target = ILP<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
     }
 }
 
@@ -107,8 +125,13 @@ impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
 
         if n == 0 {
             return Ok(ReductionRTSAToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
-                    .map_err(Self::target_construction)?,
+                target: ILP::new(
+                    0,
+                    vec![LinearConstraint::le(vec![], bound)],
+                    vec![],
+                    ObjectiveSense::Minimize,
+                )
+                .map_err(Self::target_construction)?,
                 n,
             });
         }
@@ -162,12 +185,7 @@ impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
         for v in 0..n {
             for u in 0..n {
                 if u != v {
-                    // d_v - d_u + n*p_{v,u} >= 1 - n + n = 1
-                    // => d_v - d_u + n*p_{v,u} >= 1 - n*(1 - p_{v,u})
-                    // Rewrite: d_v - d_u + n*p_{v,u} >= 1 - n + n*p_{v,u} ... no.
-                    // Original: d_v - d_u >= 1 - n(1 - p_{v,u})
-                    // => d_v - d_u + n - n*p_{v,u} >= 1
-                    // => d_v - d_u - n*p_{v,u} >= 1 - n
+                    // d_v - d_u - n*p_{v,u} >= 1 - n
                     constraints.push(LinearConstraint::ge(
                         vec![
                             (idx_d(n, v), 1),
@@ -380,10 +398,8 @@ impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
         }
 
         // Total cost bound: Σ c_s <= K
-        if r > 0 {
-            let cost_terms: Vec<(usize, i64)> = (0..r).map(|s| (idx_c(n, r, s), 1)).collect();
-            constraints.push(LinearConstraint::le(cost_terms, bound));
-        }
+        let cost_terms: Vec<(usize, i64)> = (0..r).map(|s| (idx_c(n, r, s), 1)).collect();
+        constraints.push(LinearConstraint::le(cost_terms, bound));
 
         let target = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

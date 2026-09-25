@@ -1,15 +1,14 @@
-//! Exact-rational CVP sphere enumeration in nearest-first (Schnorr--Euchner) order.
+//! Exact CVP sphere enumeration in nearest-first (Schnorr--Euchner) order.
 
-use crate::models::algebraic::{ClosestVectorProblem, ClosestVectorTarget};
+use crate::models::algebraic::ClosestVectorProblem;
 use crate::solvers::SolveError;
+use num_bigint::BigInt;
 use num_rational::BigRational;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::{Signed, ToPrimitive, Zero};
 
 type GramSchmidtData = (Vec<Vec<BigRational>>, Vec<BigRational>, Vec<BigRational>);
 
-pub(crate) fn solve<T: ClosestVectorTarget>(
-    problem: &ClosestVectorProblem<T>,
-) -> Result<Vec<i64>, SolveError> {
+pub(crate) fn solve(problem: &ClosestVectorProblem) -> Result<Vec<i64>, SolveError> {
     let n = problem.num_basis_vectors();
     if n == 0 {
         return Ok(Vec::new());
@@ -21,28 +20,20 @@ pub(crate) fn solve<T: ClosestVectorTarget>(
         .map(|column| {
             column
                 .iter()
-                .map(|&entry| {
-                    crate::types::i64_to_exact_f64(entry)?;
-                    Ok(BigRational::from_integer(entry.into()))
-                })
-                .collect::<Result<Vec<_>, SolveError>>()
+                .map(|&entry| BigRational::from_integer(entry.into()))
+                .collect()
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<Vec<_>>>();
     let target = problem
         .target()
         .iter()
-        .map(|coordinate| {
-            let value = coordinate.to_f64().map_err(SolveError::Evaluation)?;
-            BigRational::from_float(value).ok_or_else(|| {
-                SolveError::NonFiniteResult("converting a CVP target to an exact rational".into())
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|&v| BigRational::from_integer(v.into()))
+        .collect::<Vec<_>>();
 
     let (mu, norms, alpha) = gram_schmidt(&basis, &target);
     let mut best_squared = (0..n).map(|i| &norms[i] * &alpha[i] * &alpha[i]).sum();
 
-    let mut coefficients = vec![0_i64; n];
+    let mut coefficients = vec![BigInt::zero(); n];
     let mut best = coefficients.clone();
     enumerate(
         n - 1,
@@ -53,8 +44,13 @@ pub(crate) fn solve<T: ClosestVectorTarget>(
         &mut coefficients,
         &mut best,
         &mut best_squared,
-    )?;
-    Ok(best)
+    );
+    best.into_iter()
+        .map(|v| {
+            v.to_i64()
+                .ok_or_else(|| SolveError::IntegerOverflow("returning a CVP coefficient".into()))
+        })
+        .collect()
 }
 
 fn gram_schmidt(basis: &[Vec<BigRational>], target: &[BigRational]) -> GramSchmidtData {
@@ -102,33 +98,28 @@ fn enumerate(
     mu: &[Vec<BigRational>],
     norms: &[BigRational],
     alpha: &[BigRational],
-    coefficients: &mut [i64],
-    best: &mut Vec<i64>,
+    coefficients: &mut [BigInt],
+    best: &mut [BigInt],
     best_squared: &mut BigRational,
-) -> Result<(), SolveError> {
+) {
     if partial_squared >= *best_squared {
-        return Ok(());
+        return;
     }
 
     let mut center = alpha[level].clone();
     for later in (level + 1)..coefficients.len() {
-        center -= &mu[later][level] * BigRational::from_integer(coefficients[later].into());
+        center -= &mu[later][level] * BigRational::from_integer(coefficients[later].clone());
     }
-    let mut candidate =
-        center.round().to_integer().to_i64().ok_or_else(|| {
-            SolveError::IntegerOverflow("rounding a CVP enumeration center".into())
-        })?;
-    crate::types::i64_to_exact_f64(candidate)?;
-    let nearest = BigRational::from_integer(candidate.into());
-    let mut step = if center > nearest { 1_i64 } else { -1 };
+    let mut candidate = center.round().to_integer();
+    let nearest = BigRational::from_integer(candidate.clone());
+    let mut step = BigInt::from(if center > nearest { 1 } else { -1 });
 
     // Visit the nearest integer, then alternate sides in increasing distance.
     // The first descent tries the nearest-plane candidate; every subsequent
     // branch uses the improved incumbent rather than a fixed initial interval.
     loop {
-        coefficients[level] = candidate;
-        crate::types::i64_to_exact_f64(candidate)?;
-        let delta = BigRational::from_integer(candidate.into()) - &center;
+        coefficients[level] = candidate.clone();
+        let delta = BigRational::from_integer(candidate.clone()) - &center;
         let next_squared = &partial_squared + &norms[level] * &delta * &delta;
         if next_squared >= *best_squared {
             break;
@@ -147,16 +138,14 @@ fn enumerate(
             coefficients,
             best,
             best_squared,
-        )?;
+        );
         if partial_squared >= *best_squared {
             break;
         }
         // Differences +1,-2,+3,... (or -1,+2,-3,...) alternate around the center.
-        // Exact f64 coefficient transport keeps these i64 updates below 2^55.
-        candidate += step;
-        step = -step - step.signum();
+        candidate += &step;
+        step = -&step - step.signum();
     }
-    Ok(())
 }
 
 #[cfg(test)]

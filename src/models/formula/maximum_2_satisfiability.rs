@@ -192,3 +192,50 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/formula/maximum_2_satisfiability.rs"]
 mod tests;
+
+crate::decision_problem_meta!(Maximum2Satisfiability, "DecisionMaximum2Satisfiability");
+crate::register_decision_variant!(
+    Maximum2Satisfiability, "DecisionMaximum2Satisfiability", "2^(0.7905 * num_vars)", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Formula,
+    dims: [],
+    fields: [
+        crate::registry::FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
+        crate::registry::FieldInfo { name: "clauses", type_name: "Vec<CNFClause>", description: "Collection of 2-literal clauses" },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_maximum_2_satisfiability_to_maximum_2_satisfiability",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                Maximum2Satisfiability::new(
+                    4,
+                    vec![
+                        CNFClause::new(vec![1, 2]),
+                        CNFClause::new(vec![1, -2]),
+                        CNFClause::new(vec![-1, 3]),
+                        CNFClause::new(vec![-1, -3]),
+                        CNFClause::new(vec![2, 4]),
+                        CNFClause::new(vec![-3, -4]),
+                        CNFClause::new(vec![3, 4]),
+                    ],
+                ),
+                6,
+            );
+            let witness = serde_json::json!(vec![true, true, false, true]);
+            crate::example_db::specs::rule_example_with_witness::<_, Maximum2Satisfiability>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

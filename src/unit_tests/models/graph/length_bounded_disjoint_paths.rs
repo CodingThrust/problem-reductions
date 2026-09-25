@@ -187,6 +187,26 @@ fn test_length_bounded_disjoint_paths_serialization() {
 }
 
 #[test]
+fn test_deserialization_rejects_invalid_path_parameters() {
+    let json = serde_json::to_value(sample_problem()).unwrap();
+    for (field, value) in [
+        ("source", 5),
+        ("sink", 5),
+        ("sink", 0),
+        ("max_length", 0),
+        ("max_paths", 0),
+        ("max_paths", 4),
+    ] {
+        let mut invalid = json.clone();
+        invalid[field] = serde_json::json!(value);
+        assert!(
+            serde_json::from_value::<LengthBoundedDisjointPaths<SimpleGraph>>(invalid).is_err(),
+            "{field}={value}"
+        );
+    }
+}
+
+#[test]
 fn test_length_bounded_disjoint_paths_graph_getter() {
     let problem = sample_problem();
     assert_eq!(problem.graph().num_vertices(), 5);

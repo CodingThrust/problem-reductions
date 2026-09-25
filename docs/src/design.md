@@ -233,7 +233,24 @@ relations within that variant family.
 
 ## Reduction Rules
 
-A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
+### Mathematical contract
+
+A single-instance reduction from A to B constructs a legal target instance F(x)
+and recovers a correct source answer G(x, y) from **any** correct target answer y.
+F and G run in polynomial time in their encoded inputs.
+
+“Correct answer” means YES/NO, a valid witness, an optimal solution, or a total
+count, according to the problem; infeasibility must be represented explicitly
+or excluded from the legal domain. All optimal target solutions, including ties,
+must recover optimal source solutions. Equal objective values and one-to-one
+witness mappings are not required. See [result mappings](#result-mappings).
+
+Turing reductions allow multiple adaptive queries: `P → Decision<P>` uses binary
+search over the decision bound.
+
+### Witness-mapping implementation
+
+A witness-mapping reduction uses two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
 
 The result struct holds the target problem and the logic to map solutions back:
 
@@ -266,8 +283,9 @@ fallible boundary, not a recovery mechanism:
 
 1. In every direct extractor, call `validate_target_solution()` once before
    indexing or decoding. Composed extractors delegate this check.
-2. Validate any structure required by the inverse mapping, such as exactly-one
-   blocks, permutations, paths, flows, or schedules.
+2. For decision sources, reject an infeasible target value or a failed
+   rule-owned feasibility threshold. Validate structure required by the inverse mapping, such as
+   exactly-one blocks, permutations, paths, flows, or schedules.
 3. Apply the reduction's mathematical inverse once and return a source
    configuration with the required length and domains.
 4. Return `ExtractionError` when a precondition is not satisfied.
@@ -303,9 +321,60 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>>
 }
 ```
 
+### Model size and algorithm limits
+
+Model parameters describe representable input sizes, not a requirement that the
+number of candidate solutions fit a machine integer. ClosestSubstring and
+MinimumDiscretePlanarInverseKinematics bound their products of choice counts by
+the arithmetic mean raised to the number of choices. Database frequency-table
+consistency uses the largest attribute domain to bound assignment counts. These
+are complexity upper bounds, not exact per-instance candidate counts.
+
+Database ILP indicator counts and allocation limits are checked when constructing
+that reduction, not when loading the source model. Source input invariants and
+its witness representation remain model constraints.
+
 ## Reduction Graph
 
-`ReductionGraph::new()` iterates all registered `ReductionEntry` items (via `inventory`) and builds a variant-level directed graph:
+### Result mappings
+
+Rules follow mathematical contracts, without mandatory category tags.
+When a target asks whether an objective meets a bound, construct `Decision<P>`:
+the target owns the bound and evaluates the predicate; the rule only decodes
+YES witnesses and maps completed `Or` answers identically.
+
+| Reduction | Completed-result workflow | Example |
+| --- | --- | --- |
+| Decision → decision | Map `Or` identically; decode a witness only for YES. | SAT → 3-SAT |
+| Optimization → optimization | Decode an optimal target witness and evaluate it on the source. Register `extract_value` only when the rule supplies an objective map. | MinimumVertexCover → MaximumIndependentSet |
+| Decision → optimization | Apply the rule's threshold or feasibility map to the exact target optimum. Decode only when it yields YES; return NO without a witness otherwise. | HamiltonianCircuit → TravelingSalesman: optimum cost equals the number of vertices |
+| Counting | Fold all target evaluations, then map the total with `extract_value`; no representative witness. Witness equivalence alone does not preserve counts. | Parsimonious circuit → formula encoding with uniquely determined auxiliary values |
+| Universal | Fold with `And`, then apply the rule's aggregate map; no representative witness. | Renaming the variables of a universally quantified formula |
+
+Use `ReduceTo<T>` and `ReductionResult::extract_solution` for witnesses.
+When the same construction also maps completed values, implement
+`AggregateReductionResult` on its result with `#[aggregate_reduction]`.
+The attribute registers the implementation, not a rule category; the implementation
+owns the mathematical map. Use `register_aggregate_reduction!(ResultType)` to
+register concrete instances of generic implementations, including
+`VariantReductionResult<S, T>`. Both mappings
+belong to the same graph edge and share its constructed result. Aggregate-only
+rules use `ReduceToAggregate<T>`.
+
+Every witness reduction must construct a feasible target whenever the source
+is feasible. Established target infeasibility therefore implies source
+infeasibility, without a witness or a value map. This also applies when an
+intermediate problem is proved infeasible by its completed-value map.
+For feasible targets, reverse the chain one edge at a time using the required
+witness and value mappings. Missing required maps, failed extraction, and
+solver errors are errors, never proof of infeasibility. Completed-result
+recovery follows the selected solver's contract, including its numerical
+tolerances. A witness-only solver API cannot return a witness for a negative
+decision result and reports that limitation explicitly. These rules do not
+change `Problem`, `SolutionAggregate`, or solver return types.
+
+`ReductionGraph::new()` reads `reduction_entries()`, which joins each construction
+with its registered result mappings, and builds a variant-level directed graph:
 
 - **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i64"})`.
 - **Edges** come from explicit `#[reduction]` registrations, including
@@ -409,7 +478,7 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Executes a problem's registered ILP pipeline. Each pipeline terminates at `ILP<bool, f64>` or `ILP<i64, f64>`, which is solved by HiGHS via `good_lp`. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline, terminating at the native `ILP<V, C>` with `bool`/`i64` variables and `i64`/`f64` coefficients. `HighsAdapter` owns numerical conversion, backend settings, termination status, and returned-assignment validation. Integer terminals go directly to the adapter; the explicit integer-to-float reduction remains available but is not part of solver pipelines. Optimality and infeasibility follow HiGHS numerical tolerances; the adapter does not provide exact proofs. |
 
 ILP results are optimal or infeasible according to HiGHS numerical tolerances;
 zero MIP gaps do not imply mathematical exactness. Integer extraction rounds
@@ -434,6 +503,12 @@ use problemreductions::io::{to_json, from_json};
 let json: String = to_json(&problem)?;
 let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 ```
+
+QUBO data uses `{"num_vars": 3, "entries": [[0,0,-2], [0,1,4]]}`.
+Each entry is `[row, column, coefficient]` with zero-based indices; output lists
+nonzero entries in row-major order. Duplicate and out-of-range coordinates are
+errors. As with `from_matrix`, evaluation uses only the upper triangle, including
+the diagonal. CLI creation still accepts `--matrix`.
 
 ## Contributing
 

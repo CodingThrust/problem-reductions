@@ -40,7 +40,13 @@ impl ReductionResult for ReductionSWDSTToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         Ok({
             let n = self.num_tasks;
@@ -50,7 +56,20 @@ impl ReductionResult for ReductionSWDSTToILP {
     }
 }
 
-#[reduction(transform = upper_bound {
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionSWDSTToILP {
+    type Source = SequencingWithDeadlinesAndSetUpTimes;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
+#[reduction(
+    transform = upper_bound {
     num_vars = "2 * num_tasks^2 + num_tasks",
     num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
 },

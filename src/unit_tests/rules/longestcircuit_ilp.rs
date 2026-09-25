@@ -5,6 +5,51 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
 #[test]
+fn test_decision_longestcircuit_to_ilp_bound_is_a_constraint() {
+    let inner = LongestCircuit::new(SimpleGraph::cycle(3), vec![1, 2, 3]);
+    let optimization = ReduceTo::<ILP<bool>>::reduce_to(&inner).unwrap();
+    let solver = ILPSolver::new();
+    let optimal = solver.solve(optimization.target_problem()).unwrap();
+    for bound in [-1, 5, 6, 7] {
+        let source = Decision::new(inner.clone(), bound);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let target = reduction.target_problem();
+        assert!(target.objective().is_empty());
+        assert_eq!(target.num_vars(), optimization.target_problem().num_vars());
+        assert_eq!(
+            target.num_constraints(),
+            optimization.target_problem().num_constraints() + 1
+        );
+        let expected = BruteForce::new().solve(&source).unwrap();
+        let actual = solver.solve(&source);
+        if expected.is_none() {
+            assert!(matches!(
+                actual,
+                Err(crate::solvers::ILPSolveError::Infeasible)
+            ));
+            assert!(reduction.extract_solution(&optimal).is_err());
+        } else {
+            assert_eq!(
+                source.evaluate(&actual.unwrap()).unwrap(),
+                crate::types::Or(true)
+            );
+            assert!(reduction
+                .extract_solution(&vec![0; target.num_vars()])
+                .is_err());
+        }
+    }
+    let acyclic = Decision::new(LongestCircuit::new(SimpleGraph::path(3), vec![1, 2]), -1);
+    assert!(matches!(
+        solver.solve(&acyclic),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    ));
+    assert_eq!(
+        inner.evaluate(&solver.solve(&inner).unwrap()).unwrap(),
+        crate::types::Max(Some(6))
+    );
+}
+
+#[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle with unit lengths
     let problem = LongestCircuit::new(

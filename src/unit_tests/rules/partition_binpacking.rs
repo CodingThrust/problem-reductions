@@ -49,6 +49,12 @@ fn test_partition_to_binpacking_odd_total_is_not_satisfying() {
     let value = target.evaluate(&best).unwrap();
     assert_eq!(value, Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted).unwrap());
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&best).unwrap(),
+        ),
+        crate::types::Or(false),
+    );
+    assert!(reduction.extract_solution(&best).is_err());
 }

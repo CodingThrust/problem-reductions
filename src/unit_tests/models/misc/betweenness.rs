@@ -17,7 +17,7 @@ fn test_betweenness_basic() {
         problem.triples(),
         &[(0, 1, 2), (2, 3, 4), (0, 2, 4), (1, 3, 4)]
     );
-    assert_eq!(problem.dimensions(), vec![5; 5]);
+    assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
     assert_eq!(problem.num_variables(), 5);
     assert_eq!(<Betweenness as Problem>::NAME, "Betweenness");
     assert_eq!(<Betweenness as Problem>::variant(), vec![]);

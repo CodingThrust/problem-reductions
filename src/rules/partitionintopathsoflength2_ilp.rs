@@ -48,7 +48,13 @@ impl ReductionResult for ReductionPIPL2ToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
@@ -56,6 +62,18 @@ impl ReductionResult for ReductionPIPL2ToILP {
             self.num_groups,
             0,
         )
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {
+    type Source = PartitionIntoPathsOfLength2<SimpleGraph>;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
     }
 }
 
@@ -74,7 +92,15 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let q = self.num_groups();
-        let edges: Vec<(usize, usize)> = self.graph().edges();
+        let edges: Vec<_> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .filter(|&(u, v)| u != v)
+            .map(|(u, v)| (u.min(v), u.max(v)))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
         let num_edges = edges.len();
         let num_vars = num_vertices * q + num_edges * q;
 

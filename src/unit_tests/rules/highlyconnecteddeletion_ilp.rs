@@ -1,4 +1,12 @@
 use super::*;
+
+#[test]
+fn two_vertices_reduce_to_singleton_clusters() {
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_vars(), 2);
+    assert_bf_vs_ilp(&source, &reduction);
+}
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::HighlyConnectedDeletion;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
@@ -124,4 +132,11 @@ fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
     assert_eq!(large_cluster_count, 2);
 
     assert_bf_vs_ilp(&source, &reduction);
+}
+#[test]
+fn test_highly_connected_deletion_rejects_mask_overflow() {
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]));
+    assert!(
+        <HighlyConnectedDeletion<SimpleGraph> as ReduceTo<ILP<bool>>>::reduce_to(&source).is_err()
+    );
 }

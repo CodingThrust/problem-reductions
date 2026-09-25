@@ -569,7 +569,7 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
         debug_assert!(colors.iter().all(|&color| color != usize::MAX));
 
         let edge = match colors.len() {
-            1 => add_direct_clause_edge(&mut graph, &all_colors, center, clause_vertex, colors),
+            0 | 1 => add_direct_clause_edge(&mut graph, &all_colors, center, clause_vertex, colors),
             2 => add_two_list_edge(
                 &mut graph,
                 &all_colors,
@@ -579,7 +579,7 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
                 colors[1],
             ),
             3 => add_direct_clause_edge(&mut graph, &all_colors, center, clause_vertex, colors),
-            len => panic!("expected clause size 1, 2, or 3 after normalization, got {len}"),
+            len => panic!("expected at most three literals after normalization, got {len}"),
         };
 
         clause_encodings.push(ClauseEncoding { edge });
@@ -748,7 +748,13 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target timetable is not feasible",
+            ));
+        }
 
         Ok({
             let num_periods = self.target.num_periods();
@@ -786,11 +792,23 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToTimetableDesign {
+    type Source = KSatisfiability<K3>;
+    type Target = TimetableDesign;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
-        num_periods = "4 * num_literals",
-        num_craftsmen = "24 * num_literals + 1",
-        num_tasks = "24 * num_literals + 1",
+        num_periods = "4 * num_literals + 4",
+        num_craftsmen = "24 * num_literals + num_clauses + 1",
+        num_tasks = "24 * num_literals + num_clauses + 1",
     }
 )]
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {

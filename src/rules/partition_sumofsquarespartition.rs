@@ -8,10 +8,8 @@
 //! which case `Partition::evaluate(extracted_witness) = Or(true)`.
 //!
 //! The target `SumOfSquaresPartition` model has no `J` bound field — it is a
-//! pure minimisation (`Value = Min<i64>`). We therefore implement the rule in
-//! the witness-style form used by `partition_multiprocessorscheduling.rs`:
-//! the optimal target witness directly recovers the source YES/NO answer via
-//! `source.evaluate(extract_solution(target_witness))`.
+//! pure minimisation (`Value = Min<i64>`). The completed optimum maps to YES/NO
+//! by testing `2 * optimum == S^2`; only a balanced target witness is decoded.
 //!
 //! Solution extraction is the identity (group assignment in the target is the
 //! subset assignment in the source). Small inputs with `|A| < 2` use a
@@ -29,9 +27,9 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 pub struct ReductionPartitionToSumOfSquaresPartition {
     target: SumOfSquaresPartition,
     /// Number of elements in the original Partition instance.
-    /// Used to return a correctly-sized NO witness when the sentinel path is
-    /// taken (i.e. `source_n < 2`).
+    /// Distinguishes the singleton NO case from the two-group construction.
     source_n: usize,
+    source_sum: i64,
 }
 
 impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
@@ -49,7 +47,13 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not certify a YES answer for the source",
+            ));
+        }
         if target_solution.len() != self.target.num_elements() {
             return Err(crate::rules::ExtractionError::invalid(format!(
                 "expected {} target group assignments, got {}",
@@ -62,6 +66,25 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
             .iter()
             .map(|&group| group == 1)
             .collect())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToSumOfSquaresPartition {
+    type Source = Partition;
+    type Target = SumOfSquaresPartition;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(
+            self.source_n >= 2
+                && value
+                    .0
+                    .is_some_and(|cost| 2 * i128::from(cost) == i128::from(self.source_sum).pow(2)),
+        )
     }
 }
 
@@ -82,12 +105,14 @@ impl ReduceTo<SumOfSquaresPartition> for Partition {
             // Partition is always NO (a single positive element cannot be
             // partitioned into two equal-sum subsets).
             return Ok(ReductionPartitionToSumOfSquaresPartition {
+                source_sum: self.total_sum(),
                 target: SumOfSquaresPartition::new(vec![1, 1], 2),
                 source_n,
             });
         }
 
         Ok(ReductionPartitionToSumOfSquaresPartition {
+            source_sum: self.total_sum(),
             target: SumOfSquaresPartition::new(self.sizes().to_vec(), 2),
             source_n,
         })

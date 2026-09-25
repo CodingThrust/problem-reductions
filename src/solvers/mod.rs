@@ -23,6 +23,12 @@ pub use ilp::{ILPSolveError, ILPSolver};
 /// Failure while solving a valid problem instance.
 #[derive(Debug, thiserror::Error)]
 pub enum SolveError {
+    #[error("cannot allocate solver storage: {0}")]
+    Allocation(#[from] std::collections::TryReserveError),
+    #[error("invalid decision-search interval [{lower}, {upper}]")]
+    InvalidSearchInterval { lower: i64, upper: i64 },
+    #[error("optimum lies outside decision-search interval [{lower}, {upper}]")]
+    OptimumOutsideSearchInterval { lower: i64, upper: i64 },
     #[error("configuration evaluation failed: {0}")]
     Evaluation(#[from] crate::traits::EvaluationError),
     #[error("aggregate combination failed: {0}")]

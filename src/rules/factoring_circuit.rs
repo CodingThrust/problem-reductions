@@ -212,6 +212,18 @@ fn build_multiplier_cell(
     (assignments, ancillas)
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionFactoringToCircuit {
+    type Source = Factoring;
+    type Target = CircuitSAT;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_variables = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 1",

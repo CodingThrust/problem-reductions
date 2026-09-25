@@ -140,6 +140,10 @@ pub type ReduceFn =
 pub type AggregateReduceFn =
     fn(&dyn Any) -> Result<Box<dyn DynAggregateReductionResult>, crate::rules::ReductionError>;
 
+/// Value mapping borrowed from an already constructed witness reduction.
+pub type AggregateViewFn =
+    fn(&dyn DynReductionResult) -> crate::rules::ExtractionResult<&dyn DynAggregateReductionResult>;
+
 /// Execution capabilities carried by a reduction edge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EdgeCapabilities {
@@ -167,6 +171,7 @@ impl EdgeCapabilities {
 
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointers to lazily derive variant fields from `Problem::variant()`.
+#[derive(Clone, Copy)]
 pub struct ReductionEntry {
     /// Base name of source problem (e.g., "MaximumIndependentSet").
     pub source_name: &'static str,
@@ -186,9 +191,11 @@ pub struct ReductionEntry {
     pub reduce_fn: Option<ReduceFn>,
     /// Type-erased aggregate reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls
-    /// `ReduceToAggregate::reduce_to_aggregate()`, and returns either a boxed
+    /// the registered construction, and returns either a boxed
     /// `DynAggregateReductionResult` or the edge's `ReductionError`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
+    /// Shares the witness construction when both mappings are available.
+    pub aggregate_view_fn: Option<AggregateViewFn>,
     /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,
 }
@@ -248,16 +255,70 @@ impl std::fmt::Debug for ReductionEntry {
 
 inventory::collect!(ReductionEntry);
 
+/// A value mapping implemented by the same result as a witness reduction.
+pub struct AggregateMappingEntry {
+    pub source_name: &'static str,
+    pub target_name: &'static str,
+    pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
+    pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
+    pub reduce_fn: AggregateReduceFn,
+    pub view_fn: AggregateViewFn,
+}
+
+inventory::collect!(AggregateMappingEntry);
+
+fn attach_aggregate_mapping(entries: &mut [ReductionEntry], mapping: &AggregateMappingEntry) {
+    let source_variant = crate::export::variant_to_map((mapping.source_variant_fn)());
+    let target_variant = crate::export::variant_to_map((mapping.target_variant_fn)());
+    let edge = format!(
+        "{} {source_variant:?} -> {} {target_variant:?}",
+        mapping.source_name, mapping.target_name
+    );
+    let mut matches = entries.iter_mut().filter(|entry| {
+        entry.source_name == mapping.source_name
+            && entry.target_name == mapping.target_name
+            && crate::export::variant_to_map(entry.source_variant()) == source_variant
+            && crate::export::variant_to_map(entry.target_variant()) == target_variant
+    });
+    let entry = matches.next().unwrap_or_else(|| {
+        panic!("{edge}: aggregate mapping requires a registered witness reduction")
+    });
+    assert!(
+        matches.next().is_none(),
+        "{edge}: duplicate witness reduction for aggregate mapping"
+    );
+    assert!(
+        entry.reduce_fn.is_some() && !entry.turing,
+        "{edge}: aggregate mapping requires a witness executor"
+    );
+    assert!(
+        entry.reduce_aggregate_fn.is_none() && entry.aggregate_view_fn.is_none(),
+        "{edge}: duplicate aggregate mapping"
+    );
+    entry.reduce_aggregate_fn = Some(mapping.reduce_fn);
+    entry.aggregate_view_fn = Some(mapping.view_fn);
+}
+
 /// Return all registered reduction entries.
 pub fn reduction_entries() -> Vec<&'static ReductionEntry> {
-    inventory::iter::<ReductionEntry>().collect()
+    static ENTRIES: std::sync::OnceLock<Vec<ReductionEntry>> = std::sync::OnceLock::new();
+    ENTRIES
+        .get_or_init(|| {
+            let mut entries: Vec<_> = inventory::iter::<ReductionEntry>().copied().collect();
+            for mapping in inventory::iter::<AggregateMappingEntry> {
+                attach_aggregate_mapping(&mut entries, mapping);
+            }
+            entries
+        })
+        .iter()
+        .collect()
 }
 
 /// Validate reduction parameter expressions against problem-owned endpoint schemas.
 pub fn validate_reduction_parameter_schemas() -> Result<(), Vec<String>> {
     let mut errors = Vec::new();
 
-    for entry in inventory::iter::<ReductionEntry> {
+    for entry in reduction_entries() {
         let source_variant = crate::export::variant_to_map(entry.source_variant());
         let target_variant = crate::export::variant_to_map(entry.target_variant());
         let Some(source) = crate::registry::find_variant_entry(entry.source_name, &source_variant)

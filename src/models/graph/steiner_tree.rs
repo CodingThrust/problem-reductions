@@ -47,6 +47,8 @@ inventory::submit! {
 /// - Selected edges form a tree (connected + acyclic)
 /// - All terminal vertices are included
 ///
+/// With one terminal, selecting no edges represents that vertex alone.
+///
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
@@ -105,8 +107,8 @@ impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
         if edge_weights.len() != graph.num_edges() {
             return Err("edge_weights length must match num_edges".into());
         }
-        if terminals.len() < 2 {
-            return Err("at least 2 terminals required".into());
+        if terminals.is_empty() {
+            return Err("at least one terminal required".into());
         }
         let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
         if distinct_terminals.len() != terminals.len() {
@@ -222,7 +224,7 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[boo
     }
 
     if selected_count == 0 {
-        return false;
+        return terminals.len() == 1;
     }
 
     // BFS from first terminal to check connectivity
@@ -346,7 +348,7 @@ impl TryFrom<SteinerTreeOneCreateSpec> for SteinerTree<SimpleGraph, One> {
 }
 
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
+    default SteinerTree<SimpleGraph, i64> => "2^num_vertices * 0.5^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeOneCreateSpec,
 }
 

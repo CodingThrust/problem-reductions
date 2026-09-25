@@ -1,3 +1,25 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid =
+        serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"source":0,"target":2});
+    let problem: GeneralizedHex<SimpleGraph> = serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: GeneralizedHex<SimpleGraph> = serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    for (field, value) in [
+        ("source", serde_json::json!(3)),
+        ("target", serde_json::json!(3)),
+        ("target", serde_json::json!(0)),
+    ] {
+        let mut data = valid.clone();
+        data[field] = value;
+        assert!(
+            serde_json::from_value::<GeneralizedHex<SimpleGraph>>(data.clone()).is_err(),
+            "accepted {data}"
+        );
+    }
+}
+
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;

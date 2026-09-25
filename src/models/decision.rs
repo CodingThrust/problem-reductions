@@ -109,6 +109,9 @@ macro_rules! register_decision_variant {
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source)?;
                     Ok(Box::new(result))
                 }),
+                aggregate_view_fn: Some($crate::rules::aggregate_view::<
+                    $crate::models::decision::DecisionToOptimizationResult<$inner>
+                >),
                 turing: false,
             }
         }
@@ -131,6 +134,7 @@ macro_rules! register_decision_variant {
                 module_path: module_path!(),
                 reduce_fn: None,
                 reduce_aggregate_fn: None,
+                aggregate_view_fn: None,
                 turing: true,
             }
         }
@@ -322,7 +326,33 @@ where
     }
 }
 
-/// Aggregate reduction result for `Decision<P> -> P`.
+/// Witness and aggregate reduction result for `Decision<P> -> P`.
+///
+/// An optimum value decides the bound; a witness is recovered only when its
+/// value meets the bound. Both mappings use the same constructed target.
+///
+/// ```
+/// use problemreductions::models::{Decision, MinimumVertexCover};
+/// use problemreductions::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
+/// use problemreductions::solvers::BruteForce;
+/// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::types::Or;
+///
+/// let cover = MinimumVertexCover::new(
+///     SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+///     vec![1_i64; 3],
+/// );
+/// let source = Decision::new(cover, 1);
+/// let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source)?;
+/// let (optimum, witnesses) = BruteForce::new()
+///     .solve_with_witnesses(ReductionResult::target_problem(&reduction))?;
+/// let answer = reduction.extract_value(optimum);
+/// assert_eq!(answer, Or(false)); // Minimum cover size is 2, above the bound.
+/// if answer.0 {
+///     let source_witness = reduction.extract_solution(&witnesses[0])?;
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone)]
 pub struct DecisionToOptimizationResult<P>
 where
@@ -368,21 +398,7 @@ where
     }
 }
 
-/// Witness reduction result for `Decision<P> -> P`.
-///
-/// The configuration spaces are identical — a config that is optimal for
-/// `P` and meets the bound is a valid `Decision<P>` witness. The
-/// `extract_solution` is the identity function.
-#[derive(Debug, Clone)]
-pub struct DecisionToOptimizationWitnessResult<P>
-where
-    P: Problem,
-    P::Value: OptimizationValue,
-{
-    target: P,
-}
-
-impl<P> ReductionResult for DecisionToOptimizationWitnessResult<P>
+impl<P> ReductionResult for DecisionToOptimizationResult<P>
 where
     P: DecisionProblemMeta + 'static,
     P::Solution: Clone,
@@ -399,7 +415,12 @@ where
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::validate_target_solution(self.target_problem(), target_solution)?;
+        let value = crate::rules::validate_target_solution(&self.target, target_solution)?;
+        if !self.extract_value(value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not meet the decision bound",
+            ));
+        }
 
         Ok(target_solution.clone())
     }
@@ -411,12 +432,10 @@ where
     P::Solution: Clone,
     P::Value: OptimizationValue + Serialize + DeserializeOwned,
 {
-    type Result = DecisionToOptimizationWitnessResult<P>;
+    type Result = DecisionToOptimizationResult<P>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(DecisionToOptimizationWitnessResult {
-            target: self.inner.clone(),
-        })
+        self.reduce_to_aggregate()
     }
 }
 

@@ -10,6 +10,7 @@
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::LongestCircuit;
+use crate::models::Decision;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
@@ -27,6 +28,15 @@ pub struct ReductionLongestCircuitToILP {
     num_edges: usize,
 }
 
+impl ReductionLongestCircuitToILP {
+    fn decode_edges(&self, solution: &[i64]) -> Vec<bool> {
+        solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect()
+    }
+}
+
 impl ReductionResult for ReductionLongestCircuitToILP {
     type Source = LongestCircuit<SimpleGraph, i64>;
     type Target = ILP<bool>;
@@ -42,10 +52,7 @@ impl ReductionResult for ReductionLongestCircuitToILP {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_edges]
-            .iter()
-            .map(|&value| value == 1)
-            .collect())
+        Ok(self.decode_edges(target_solution))
     }
 }
 
@@ -174,19 +181,99 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
     }
 }
 
+/// Feasibility encoding of the circuit-length bound, with the existing edge decoder.
+#[derive(Debug, Clone)]
+pub struct ReductionDecisionLongestCircuitToILP {
+    inner: ReductionLongestCircuitToILP,
+}
+
+impl ReductionResult for ReductionDecisionLongestCircuitToILP {
+    type Source = Decision<LongestCircuit<SimpleGraph, i64>>;
+    type Target = ILP<bool>;
+
+    fn target_problem(&self) -> &Self::Target {
+        self.inner.target_problem()
+    }
+
+    fn extract_solution(&self, solution: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<bool>> {
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "ILP assignment does not satisfy the bounded circuit constraints",
+            ));
+        }
+        Ok(self.inner.decode_edges(solution))
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitToILP {
+    type Source = Decision<LongestCircuit<SimpleGraph, i64>>;
+    type Target = ILP<bool>;
+
+    fn target_problem(&self) -> &Self::Target {
+        self.inner.target_problem()
+    }
+
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
+#[reduction(
+    transform = exact {
+        num_vars = "num_edges + 2 * num_vertices + 2 * num_edges * num_vertices",
+        num_constraints = "3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
+    },
+    unavailable = {
+        num_nonzeros = "depends on the graph and nonzero edge lengths",
+    }
+)]
+impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
+    type Result = ReductionDecisionLongestCircuitToILP;
+
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let mut inner = ReduceTo::<ILP<bool>>::reduce_to(self.inner())?;
+        let mut constraints = inner.target.constraints().to_vec();
+        constraints.push(LinearConstraint::ge(
+            inner.target.objective().to_vec(),
+            *self.bound(),
+        ));
+        inner.target = ILP::with_variables(
+            inner.target.variables().to_vec(),
+            constraints,
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
+        Ok(ReductionDecisionLongestCircuitToILP { inner })
+    }
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "longestcircuit_to_ilp",
-        build: || {
-            // Triangle with unit lengths
-            let source = LongestCircuit::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-                vec![1, 1, 1],
-            );
-            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "decisionlongestcircuit_to_ilp",
+            build: || {
+                let source =
+                    Decision::new(LongestCircuit::new(SimpleGraph::cycle(3), vec![1i64; 3]), 3);
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "longestcircuit_to_ilp",
+            build: || {
+                // Triangle with unit lengths
+                let source = LongestCircuit::new(
+                    SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                    vec![1, 1, 1],
+                );
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
+        },
+    ]
 }
 
 #[cfg(test)]

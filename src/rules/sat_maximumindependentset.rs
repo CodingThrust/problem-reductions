@@ -8,12 +8,13 @@
 //! A satisfying assignment corresponds to an independent set of size = num_clauses,
 //! where we pick exactly one literal from each clause.
 
+use crate::models::decision::Decision;
 use crate::models::formula::Satisfiability;
 use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::types::{Max, One, Or};
+use crate::types::One;
 
 /// A literal in the SAT problem, representing a variable or its negation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,20 +55,18 @@ impl BoolVar {
 #[derive(Debug, Clone)]
 pub struct ReductionSATToIS {
     /// The target MaximumIndependentSet problem.
-    target: MaximumIndependentSet<SimpleGraph, One>,
+    target: Decision<MaximumIndependentSet<SimpleGraph, One>>,
     /// Mapping from vertex index to the literal it represents.
     literals: Vec<BoolVar>,
     /// The number of variables in the source SAT problem.
     num_source_variables: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Exact independent-set cardinality certifying satisfiability.
-    target_size: i64,
 }
 
 impl ReductionResult for ReductionSATToIS {
     type Source = Satisfiability;
-    type Target = MaximumIndependentSet<SimpleGraph, One>;
+    type Target = Decision<MaximumIndependentSet<SimpleGraph, One>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -84,8 +83,7 @@ impl ReductionResult for ReductionSATToIS {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         let value =
             crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
-        if !certificate.0 {
+        if !value.0 {
             return Err(crate::rules::ExtractionError::invalid(
                 "target independent set does not certify satisfiability",
             ));
@@ -101,16 +99,17 @@ impl ReductionResult for ReductionSATToIS {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSATToIS {
     type Source = Satisfiability;
-    type Target = MaximumIndependentSet<SimpleGraph, One>;
+    type Target = Decision<MaximumIndependentSet<SimpleGraph, One>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_value(&self, target_value: Max<i64>) -> Or {
-        Or(target_value == Max(Some(self.target_size)))
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
@@ -127,20 +126,20 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",
     }
 )]
-impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
+impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiability {
     type Result = ReductionSATToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let target_size = <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
-            self.num_clauses(),
-            "representing the satisfying independent-set cardinality",
-        )?;
+        let target_size =
+            <Self as ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>>>::exact_i64(
+                self.num_clauses(),
+                "representing the satisfying independent-set cardinality",
+            )?;
         let mut literals: Vec<BoolVar> = Vec::new();
         let mut edges: Vec<(usize, usize)> = Vec::new();
 
@@ -180,11 +179,10 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
         );
 
         Ok(ReductionSATToIS {
-            target,
+            target: Decision::new(target, target_size),
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            target_size,
         })
     }
 }
@@ -214,7 +212,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MaximumIndependentSet<SimpleGraph, One>,
+                Decision<MaximumIndependentSet<SimpleGraph, One>>,
             >(
                 sat_seven_clause_example(),
                 SolutionPair {

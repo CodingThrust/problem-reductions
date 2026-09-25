@@ -291,6 +291,10 @@ impl UndirectedTwoCommodityIntegralFlow {
     ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let mut balance = 0_i64;
         for (edge_index, (u, v)) in self.graph.edges().into_iter().enumerate() {
+            // A self-loop has equal incoming and outgoing flow at its vertex.
+            if u == v {
+                continue;
+            }
             let Some(flows) = self.edge_flows(config, edge_index) else {
                 return Ok(None);
             };

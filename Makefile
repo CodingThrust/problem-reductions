@@ -1,10 +1,7 @@
 # Makefile for problemreductions
 
-.PHONY: help build test bench mcp-test fmt clippy doc mdbook website paper paper-data clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
+.PHONY: help build test bench mcp-test fmt clippy doc mdbook website paper paper-data clean coverage rust-export compare qubo-testdata export-schemas release diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
-RUNNER ?= codex
-CLAUDE_MODEL ?= opus
-CODEX_MODEL ?= gpt-5.4
 TEST_FEATURES := example-db
 
 # Cross-platform sed in-place: macOS needs -i '', Linux needs -i
@@ -36,22 +33,6 @@ help:
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
 	@echo "  cli          - Build the pred CLI tool"
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
-	@echo "  run-plan   - Execute a plan with Codex or Claude (latest plan in docs/plans/)"
-	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
-	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
-	@echo "  run-pipeline-forever - Loop: drain eligible Ready issues forever; poll only when the queue is empty"
-	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
-	@echo "  run-review-forever - Loop: drain eligible Review pool PRs forever; poll only when the queue is empty"
-	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
-	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
-	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
-	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
-	@echo "  issue-context ISSUE=<number> [REPO=<owner/repo>] - Fetch structured issue preflight JSON"
-	@echo "  issue-guards ISSUE=<number> [REPO=<owner/repo>] - Backward-compatible alias for issue-context"
-	@echo "  pr-context PR=<number> [REPO=<owner/repo>] - Fetch structured PR snapshot JSON"
-	@echo "  pr-wait-ci PR=<number> [REPO=<owner/repo>] - Poll CI until terminal state and print JSON"
-	@echo "  worktree-issue ISSUE=<number> SLUG=<slug> - Create an issue worktree from origin/main"
-	@echo "  worktree-pr PR=<number> [REPO=<owner/repo>] - Checkout a PR into an isolated worktree"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 	@echo ""
 	@echo "  papers         - Full paper fetch: lookup + download + scihub"
@@ -59,9 +40,6 @@ help:
 	@echo "  papers-download - Download available free PDFs"
 	@echo "  papers-scihub  - Fetch remaining papers via Sci-Hub"
 	@echo "  papers-status  - Show paper collection stats"
-	@echo ""
-	@echo "  Set RUNNER=claude to use Claude instead of Codex (default: codex)"
-	@echo "  Override CODEX_MODEL or CLAUDE_MODEL to pick a different model"
 
 # Build the project
 build:
@@ -192,6 +170,10 @@ release:
 ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
+	@test "$$(git branch --show-current)" = main || { echo "release: must be on main"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "release: working tree not clean"; exit 1; }
+	@git fetch -q origin main && test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || { echo "release: main is not up to date with origin/main"; exit 1; }
+	$(MAKE) check
 	@echo "Releasing v$(V)..."
 	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
 	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
@@ -245,44 +227,6 @@ compare: rust-export
 		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_triangular.json); \
 		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 	done
-
-# Run a plan with Codex or Claude
-# Usage: make run-plan [INSTRUCTIONS="..."] [OUTPUT=output.log] [AGENT_TYPE=<codex|claude>]
-# PLAN_FILE defaults to the most recently modified file in docs/plans/
-INSTRUCTIONS ?=
-OUTPUT ?= run-plan-output.log
-AGENT_TYPE ?= $(RUNNER)
-PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
-
-run-plan:
-	@. scripts/make_helpers.sh; \
-	NL=$$'\n'; \
-	BRANCH=$$(git branch --show-current); \
-	PLAN_FILE="$(PLAN_FILE)"; \
-	if [ "$(AGENT_TYPE)" = "claude" ]; then \
-		PROCESS="1. Read the plan file$${NL}2. Execute the plan — it specifies which skill(s) to use$${NL}3. Push: git push origin $$BRANCH$${NL}4. If a PR already exists for this branch, skip. Otherwise create one."; \
-	else \
-		PROCESS="1. Read the plan file$${NL}2. If the plan references repo-local workflow docs under .claude/skills/*/SKILL.md, open and follow them directly. Treat slash-command names as aliases for those files.$${NL}3. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}4. Push: git push origin $$BRANCH$${NL}5. If a PR already exists for this branch, skip. Otherwise create one."; \
-	fi; \
-	PROMPT="Execute the plan in '$$PLAN_FILE'."; \
-	if [ "$(AGENT_TYPE)" != "claude" ]; then \
-		PROMPT="$${PROMPT}$${NL}$${NL}Repo-local skills live in .claude/skills/*/SKILL.md. Treat any slash-command references in the plan as aliases for those skill files."; \
-	fi; \
-	if [ -n "$(INSTRUCTIONS)" ]; then \
-		PROMPT="$${PROMPT}$${NL}$${NL}## Additional Instructions$${NL}$(INSTRUCTIONS)"; \
-	fi; \
-	PROMPT="$${PROMPT}$${NL}$${NL}## Process$${NL}$${PROCESS}$${NL}$${NL}## Rules$${NL}- Tests should be strong enough to catch regressions.$${NL}- Do not modify tests to make them pass.$${NL}- Test failure must be reported."; \
-	echo "=== Prompt ===" && echo "$$PROMPT" && echo "===" ; \
-	RUNNER="$(AGENT_TYPE)" run_agent "$(OUTPUT)" "$$PROMPT"
-
-# Run issue-to-pr --execute for a GitHub issue
-# Usage: make run-issue N=42
-N ?=
-run-issue:
-	@. scripts/make_helpers.sh; \
-	if [ -z "$(N)" ]; then echo "Usage: make run-issue N=<issue-number>"; exit 1; fi; \
-	PROMPT=$$(skill_prompt issue-to-pr "/issue-to-pr $(N) --execute" "process GitHub issue $(N) with --execute behavior"); \
-	run_agent "issue-$(N)-output.log" "$$PROMPT"
 
 # Closed-loop CLI demo: exercises all commands end-to-end
 PRED := cargo run -p problemreductions-cli --release --
@@ -418,231 +362,6 @@ cli-demo: cli
 	echo ""; \
 	echo "=== Demo complete: $$(ls $(CLI_DEMO_DIR)/*.json | wc -l | tr -d ' ') JSON files in $(CLI_DEMO_DIR) ==="
 	@echo "=== All 20 steps passed ✅ ==="
-
-# Run project-pipeline: pick a Ready issue, implement, move to Review pool
-# Usage: make run-pipeline          (picks next Ready issue automatically)
-#        make run-pipeline N=97     (processes specific issue)
-run-pipeline:
-	@. scripts/make_helpers.sh; \
-	selection=""; \
-	if [ -n "$(N)" ]; then \
-		issue="$(N)"; \
-		if [ -n "$$WATCH_MODE" ]; then \
-			status=0; \
-			tmp_state=$$(mktemp); \
-			selection=$$(board_next_json ready "" "$(N)" "$$tmp_state") || status=$$?; \
-			rm -f "$$tmp_state"; \
-			if [ "$$status" -eq 1 ]; then \
-				echo "Ready issue #$(N) is no longer eligible."; \
-				watch_emit_outcome gone; \
-				exit 0; \
-			elif [ "$$status" -ne 0 ]; then \
-				exit "$$status"; \
-			fi; \
-			issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
-		fi; \
-	else \
-		status=0; \
-		tmp_state=$$(mktemp); \
-		selection=$$(board_next_json ready "" "" "$$tmp_state") || status=$$?; \
-		rm -f "$$tmp_state"; \
-		if [ "$$status" -eq 1 ]; then \
-			echo "No Ready issues are currently eligible."; \
-			exit 1; \
-		elif [ "$$status" -ne 0 ]; then \
-			exit "$$status"; \
-		fi; \
-		issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
-	fi; \
-	PROMPT=$$(skill_prompt_with_context project-pipeline "/project-pipeline $$issue" "process GitHub issue $$issue" "Selected queue item" "$$selection"); \
-	run_agent_with_watch_outcome "pipeline-output.log" "$$PROMPT"
-
-# Drain Ready issues forever, polling only when the eligible queue is empty
-# Checks every 30 minutes while idle; successful dispatches immediately re-check the queue
-run-pipeline-forever:
-	@. scripts/make_helpers.sh; \
-	MAKE=$(MAKE) watch_and_dispatch ready run-pipeline "Ready issues"
-
-# Get the next eligible board item from the scripted queue logic
-# Usage: make board-next MODE=ready
-#        make board-next MODE=review REPO=CodingThrust/problem-reductions
-#        make board-next MODE=final-review REPO=CodingThrust/problem-reductions
-#        make board-next MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
-#        STATE_FILE=/tmp/custom.json make board-next MODE=ready
-board-next:
-	@if [ -z "$(MODE)" ]; then \
-		echo "MODE=ready|review|final-review is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
-	case "$(MODE)" in \
-		review|final-review) \
-		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-		poll_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
-		;; \
-	*) \
-		poll_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
-		;; \
-	esac
-
-# Claim and move the next eligible board item through the scripted queue logic
-# Usage: make board-claim MODE=ready
-#        make board-claim MODE=review REPO=CodingThrust/problem-reductions
-#        make board-claim MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
-#        STATE_FILE=/tmp/custom.json make board-claim MODE=ready
-board-claim:
-	@if [ -z "$(MODE)" ]; then \
-		echo "MODE=ready|review is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
-	case "$(MODE)" in \
-		review) \
-		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-		claim_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
-		;; \
-		ready) \
-		claim_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
-		;; \
-		*) \
-		echo "MODE=ready|review is required"; \
-		exit 2; \
-		;; \
-	esac
-
-# Advance a scripted board queue after an item is processed
-# Usage: make board-ack MODE=ready ITEM=PVTI_xxx
-#        STATE_FILE=/tmp/custom.json make board-ack MODE=review ITEM=PVTI_xxx
-#        STATE_FILE=/tmp/custom.json make board-ack MODE=final-review ITEM=PVTI_xxx
-board-ack:
-	@if [ -z "$(MODE)" ] || [ -z "$(ITEM)" ]; then \
-		echo "MODE=ready|review|final-review and ITEM=<project-item-id> are required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
-	ack_polled_item "$$state_file" "$(ITEM)"
-
-# Move a project board item to a named status through the shared board script
-# Usage: make board-move ITEM=PVTI_xxx STATUS=under-review
-board-move:
-	@if [ -z "$(ITEM)" ] || [ -z "$(STATUS)" ]; then \
-		echo "ITEM=<project-item-id> and STATUS=<backlog|ready|in-progress|review-pool|under-review|final-review|on-hold|done> are required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	move_board_item "$(ITEM)" "$(STATUS)"
-
-# Fetch deterministic issue preflight JSON for issue-to-pr
-# Usage: make issue-context ISSUE=117
-#        make issue-context ISSUE=117 REPO=CodingThrust/problem-reductions
-issue-context:
-	@if [ -z "$(ISSUE)" ]; then \
-		echo "ISSUE=<number> is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-CodingThrust/problem-reductions}; \
-	issue_context "$$repo" "$(ISSUE)"
-
-# Fetch deterministic issue preflight JSON for issue-to-pr
-# Usage: make issue-guards ISSUE=117
-#        make issue-guards ISSUE=117 REPO=CodingThrust/problem-reductions
-issue-guards:
-	@if [ -z "$(ISSUE)" ]; then \
-		echo "ISSUE=<number> is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-CodingThrust/problem-reductions}; \
-	issue_guards "$$repo" "$(ISSUE)"
-
-# Fetch structured PR snapshot JSON from the shared helper
-# Usage: make pr-context PR=570
-#        make pr-context PR=570 REPO=CodingThrust/problem-reductions
-pr-context:
-	@if [ -z "$(PR)" ]; then \
-		echo "PR=<number> is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	pr_snapshot "$$repo" "$(PR)"
-
-# Poll CI for a PR until it reaches a terminal state
-# Usage: make pr-wait-ci PR=570
-#        make pr-wait-ci PR=570 TIMEOUT=1200 INTERVAL=15
-pr-wait-ci:
-	@if [ -z "$(PR)" ]; then \
-		echo "PR=<number> is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	timeout=$${TIMEOUT:-900}; \
-	interval=$${INTERVAL:-30}; \
-	pr_wait_ci "$$repo" "$(PR)" "$$timeout" "$$interval"
-
-# Create an issue worktree from origin/main
-# Usage: make worktree-issue ISSUE=117 SLUG=graph-partitioning
-worktree-issue:
-	@if [ -z "$(ISSUE)" ] || [ -z "$(SLUG)" ]; then \
-		echo "ISSUE=<number> and SLUG=<slug> are required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	base=$${BASE:-origin/main}; \
-	create_issue_worktree "$(ISSUE)" "$(SLUG)" "$$base"
-
-# Checkout a PR into an isolated worktree
-# Usage: make worktree-pr PR=570
-#        make worktree-pr PR=570 REPO=CodingThrust/problem-reductions
-worktree-pr:
-	@if [ -z "$(PR)" ]; then \
-		echo "PR=<number> is required"; \
-		exit 2; \
-	fi
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	checkout_pr_worktree "$$repo" "$(PR)"
-
-# Usage: make run-review              (picks next Review pool PR automatically)
-#        make run-review N=570        (processes specific PR)
-#        RUNNER=claude make run-review (use Claude instead of Codex)
-run-review:
-	@. scripts/make_helpers.sh; \
-	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	pr="$(N)"; \
-	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
-	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
-	if [ "$$status_name" = "empty" ]; then \
-		if [ -n "$$WATCH_MODE" ]; then \
-			echo "Review item for PR #$$pr is no longer eligible."; \
-			watch_emit_outcome gone; \
-			exit 0; \
-		fi; \
-		echo "No Review pool PRs are currently eligible."; \
-		exit 1; \
-	fi; \
-	if [ "$$status_name" = "ready" ]; then \
-		pr=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['pr_number'])"); \
-		slash_cmd="/review-pipeline $$pr"; \
-		codex_desc="process PR #$$pr"; \
-	else \
-		slash_cmd="/review-pipeline"; \
-		codex_desc="inspect the review pipeline bundle and resolve the next action"; \
-	fi; \
-	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
-	run_agent_with_watch_outcome "review-output.log" "$$PROMPT"
-
-# Drain Review pool PRs forever, polling only when the eligible queue is empty
-run-review-forever:
-	@. scripts/make_helpers.sh; \
-	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner) || { echo "Failed to detect repo (gh repo view failed)"; exit 1; }; \
-	if [ -z "$$REPO" ]; then echo "Failed to detect repo (empty result)"; exit 1; fi; \
-	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review

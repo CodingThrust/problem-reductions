@@ -4,7 +4,7 @@
 //! - Binary x_{v,p}: vertex v at position p
 //! - Binary z_{(u,v),p,dir}: linearized product for edge (u,v) at consecutive positions
 //! - Assignment: each vertex in exactly one position, each position exactly one vertex
-//! - Adjacency: exactly one graph edge between consecutive positions
+//! - Adjacency: at least one graph edge between consecutive positions
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::HamiltonianPath;
@@ -39,9 +39,27 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         one_hot_decode(target_solution, self.num_vertices, self.num_vertices, 0)
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionHamiltonianPathToILP {
+    type Source = HamiltonianPath<SimpleGraph>;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
     }
 }
 
@@ -95,14 +113,14 @@ impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
             }
         }
 
-        // Adjacency: for each consecutive position pair p, exactly one edge
+        // At least one connecting edge; parallel edges may contribute more than one.
         for p in 0..n_pos {
             let mut terms = Vec::new();
             for e in 0..m {
                 terms.push((z_fwd_idx(e, p), 1));
                 terms.push((z_rev_idx(e, p), 1));
             }
-            constraints.push(LinearConstraint::eq(terms, 1));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Feasibility: no objective

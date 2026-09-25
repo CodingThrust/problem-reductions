@@ -26,10 +26,27 @@ inventory::submit! {
 /// Given a graph `G = (V, E)` and a positive integer `k`, determine whether
 /// there exists a subset `K ⊆ V` of size at least `k` such that every pair of
 /// distinct vertices in `K` is adjacent.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct KClique<G> {
     graph: G,
     k: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct KCliqueData<G> {
+    graph: G,
+    k: usize,
+}
+
+impl<'de, G> Deserialize<'de> for KClique<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = KCliqueData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.k).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -63,25 +80,24 @@ impl TryFrom<KCliqueCreateSpec> for KClique<SimpleGraph> {
         if count < inferred {
             return Err("num_vertices is too small for graph endpoints".into());
         }
-        if spec.k == 0 {
-            return Err("k must be positive".into());
-        }
-        if spec.k > count {
-            return Err("k must be <= graph num_vertices".into());
-        }
-        Ok(Self {
-            graph: SimpleGraph::new(count, spec.graph),
-            k: spec.k,
-        })
+        Self::try_new(SimpleGraph::new(count, spec.graph), spec.k)
     }
 }
 
 impl<G: Graph> KClique<G> {
     /// Create a new k-Clique problem instance.
     pub fn new(graph: G, k: usize) -> Self {
-        assert!(k > 0, "k must be positive");
-        assert!(k <= graph.num_vertices(), "k must be <= graph num_vertices");
-        Self { graph, k }
+        Self::try_new(graph, k).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, k: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if k == 0 {
+            return Err("k must be positive".into());
+        }
+        if k > graph.num_vertices() {
+            return Err("k must be <= graph num_vertices".into());
+        }
+        Ok(Self { graph, k })
     }
 
     /// Get a reference to the underlying graph.

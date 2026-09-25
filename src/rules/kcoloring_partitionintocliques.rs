@@ -14,6 +14,7 @@ use crate::variant::KN;
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToPartitionIntoCliques {
     target: PartitionIntoCliques<SimpleGraph>,
+    source_num_vertices: usize,
 }
 
 impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
@@ -29,27 +30,57 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness is not satisfying",
+            ));
+        }
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution[..self.source_num_vertices].to_vec())
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToPartitionIntoCliques {
+    type Source = KColoring<KN, SimpleGraph>;
+    type Target = PartitionIntoCliques<SimpleGraph>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
 #[reduction(
-    transform = exact {
-        num_vertices = "num_vertices",
-        num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
+    transform = upper_bound {
+        num_vertices = "num_vertices + 2",
+        num_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
 impl ReduceTo<PartitionIntoCliques<SimpleGraph>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToPartitionIntoCliques;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let target = PartitionIntoCliques::new(
-            SimpleGraph::new(self.graph().num_vertices(), complement_edges(self.graph())),
-            self.num_colors(),
-        );
-        Ok(ReductionKColoringToPartitionIntoCliques { target })
+        let n = self.graph().num_vertices();
+        let target = if n == 0 {
+            // The empty source is colorable; the target requires a nonempty graph.
+            PartitionIntoCliques::new(SimpleGraph::empty(1), 1)
+        } else if self.num_colors() == 0 || self.graph().edges().iter().any(|&(u, v)| u == v) {
+            // Zero colors or a loop is uncolorable; two isolated vertices do not form one clique.
+            PartitionIntoCliques::new(SimpleGraph::empty(2), 1)
+        } else {
+            PartitionIntoCliques::new(
+                SimpleGraph::new(n, complement_edges(self.graph())),
+                self.num_colors().min(n),
+            )
+        };
+        Ok(ReductionKColoringToPartitionIntoCliques {
+            target,
+            source_num_vertices: n,
+        })
     }
 }
 

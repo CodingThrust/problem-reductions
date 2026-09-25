@@ -76,6 +76,18 @@ fn flow_requirement(n: usize, bound: i64) -> Result<i64, crate::rules::Reduction
     Ok(bound.clamp(0, maximum_requirement - 1) + 1)
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionDecisionMISToIFB {
+    type Source = Decision<MaximumIndependentSet<SimpleGraph, One>>;
+    type Target = IntegralFlowBundles;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = exact {
         num_vertices = "num_vertices + 3",

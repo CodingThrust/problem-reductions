@@ -1,49 +1,53 @@
 use super::*;
 use crate::models::algebraic::ClosestVectorProblem;
+use crate::models::decision::Decision;
 use crate::traits::Problem;
+use crate::types::{Min, Or};
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_closed_loop() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let target_solution =
-        crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
-            .unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let target_solution = crate::solvers::customized::closest_vector_problem::solve(
+        reduction.target_problem().inner(),
+    )
+    .unwrap();
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&source_solution).unwrap().0);
     assert_eq!(
         reduction
             .target_problem()
+            .inner()
             .evaluate(&target_solution)
             .unwrap()
             .0,
-        Some(2.0)
+        Some(4)
     );
 }
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_structure() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem().inner();
 
     let expected: serde_json::Value = serde_json::json!({"basis": [[1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1], [0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1], [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1], [0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -2]], "target": [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1]});
     assert_eq!(serde_json::to_value(target).unwrap(), expected);
     assert_eq!(
-        ClosestVectorProblem::<i64>::variant(),
-        vec![("target", "i64")]
+        ClosestVectorProblem::variant(),
+        vec![("coefficient", "i64")]
     );
 }
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let target = reduction.target_problem();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let target = reduction.target_problem().inner();
 
     for solution in [vec![1, 0, 0, 1, 0, 0, 0], vec![1, 1, 1, 0, 1, 1, 1]] {
-        assert_eq!(target.evaluate(&solution).unwrap().0, Some(2.0));
+        assert_eq!(target.evaluate(&solution).unwrap().0, Some(4));
         assert!(
             source
                 .evaluate(&reduction.extract_solution(&solution).unwrap())
@@ -56,17 +60,19 @@ fn test_subsetsum_to_closestvectorproblem_binary_minimizers() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
     let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let solution =
-        crate::solvers::customized::closest_vector_problem::solve(reduction.target_problem())
-            .unwrap();
+    let reduction = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let solution = crate::solvers::customized::closest_vector_problem::solve(
+        reduction.target_problem().inner(),
+    )
+    .unwrap();
     assert!(
         reduction
             .target_problem()
+            .inner()
             .evaluate(&solution)
             .unwrap()
             .unwrap()
-            > (source.num_elements() as f64).sqrt()
+            > i64::try_from(source.num_elements()).unwrap()
     );
 }
 
@@ -75,24 +81,25 @@ fn test_subsetsum_to_closestvectorproblem_large_integers_and_unit_pivots() {
     use num_bigint::BigUint;
     let size = BigUint::from(1u32) << 70usize;
     let source = SubsetSum::new(vec![size.clone()], size);
-    let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let mut witness = vec![0; result.target_problem().num_basis_vectors()];
+    let result = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let mut witness = vec![0; result.target_problem().inner().num_basis_vectors()];
     witness[0] = 1;
     assert_eq!(
-        result.target_problem().evaluate(&witness).unwrap(),
-        Min(Some(1.0))
+        result.target_problem().inner().evaluate(&witness).unwrap(),
+        Min(Some(1))
     );
     assert_eq!(result.extract_solution(&witness).unwrap(), vec![true]);
     assert!(result
         .target_problem()
+        .inner()
         .basis()
         .iter()
         .flatten()
         .all(|&x| (-2..=1).contains(&x)));
 
     let source = SubsetSum::new(vec![1u32; 40], 20u32);
-    let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-    let mut witness = vec![0; result.target_problem().num_basis_vectors()];
+    let result = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+    let mut witness = vec![0; result.target_problem().inner().num_basis_vectors()];
     witness[..20].fill(1);
     witness[40..].copy_from_slice(&[1, 2, 5, 10]);
     assert!(
@@ -114,11 +121,11 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
         (vec![2, 4], 5),
     ] {
         let source = SubsetSum::new(sizes, target_sum);
-        let result = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap();
-        let target = result.target_problem();
+        let result = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();
+        let target = result.target_problem().inner();
         assert!(std::ptr::eq(
             target,
-            crate::rules::AggregateReductionResult::target_problem(&result)
+            crate::rules::AggregateReductionResult::target_problem(&result).inner()
         ));
         let dimensions = target.num_basis_vectors();
         let mut accepted = false;
@@ -132,9 +139,14 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
                 })
                 .collect();
             let value = target.evaluate(&config).unwrap();
-            let certificate = value == Min(Some(result.target_distance));
+            let certificate = value == Min(Some(*result.target.bound()));
             assert_eq!(
-                crate::rules::AggregateReductionResult::extract_value(&result, value),
+                crate::rules::AggregateReductionResult::extract_value(
+                    &result,
+                    crate::rules::ReductionResult::target_problem(&result)
+                        .evaluate(&config)
+                        .unwrap()
+                ),
                 Or(certificate)
             );
             match result.extract_solution(&config) {
@@ -155,7 +167,7 @@ fn test_subsetsum_to_closestvectorproblem_all_small_coefficients() {
         );
         assert!(result.extract_solution(&vec![0; dimensions + 1]).is_err());
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&result, Min(None)),
+            crate::rules::AggregateReductionResult::extract_value(&result, crate::types::Or(false)),
             Or(false)
         );
     }

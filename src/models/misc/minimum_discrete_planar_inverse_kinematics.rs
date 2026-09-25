@@ -113,16 +113,12 @@ impl MinimumDiscretePlanarInverseKinematics {
         if orientation_samples.len() != n {
             return Err("orientation_samples must have one entry per link".into());
         }
-        let mut total_configurations = 1_usize;
         for (link, samples) in orientation_samples.iter().enumerate() {
             if samples.is_empty() {
                 return Err(
                     format!("link {link} must have at least one candidate orientation").into(),
                 );
             }
-            total_configurations = total_configurations
-                .checked_mul(samples.len())
-                .ok_or("orientation configuration count exceeds usize")?;
             for (sample, &angle) in samples.iter().enumerate() {
                 if !angle.is_finite() {
                     return Err(format!(
@@ -178,16 +174,6 @@ impl MinimumDiscretePlanarInverseKinematics {
     /// Number of links `n`.
     pub fn num_links(&self) -> usize {
         self.link_lengths.len()
-    }
-
-    /// Total number of configurations (product of per-link sample counts):
-    /// `prod_{j=1}^n m_j`. This is the size of the brute-force search space.
-    pub fn total_configurations(&self) -> usize {
-        self.orientation_samples
-            .iter()
-            .map(|samples| samples.len())
-            .try_fold(1_usize, usize::checked_mul)
-            .expect("validated orientation configuration count must fit usize")
     }
 
     /// Total number of sampled orientations across all links:
@@ -276,7 +262,6 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
     type Value = Min<f64>;
 
     crate::problem_parameters![
-        ("total_configurations", total_configurations),
         ("num_links", num_links),
         ("num_orientation_samples", num_orientation_samples),
     ];
@@ -322,7 +307,8 @@ impl crate::solvers::BruteForceProblem for MinimumDiscretePlanarInverseKinematic
 }
 
 crate::declare_variants! {
-    default MinimumDiscretePlanarInverseKinematics => "total_configurations",
+    // AM-GM bounds the sample-count product; this is an upper bound, not the exact count.
+    default MinimumDiscretePlanarInverseKinematics => "(num_orientation_samples / num_links)^num_links",
 }
 
 crate::register_brute_force! {

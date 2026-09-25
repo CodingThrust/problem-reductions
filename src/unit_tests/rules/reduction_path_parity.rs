@@ -118,7 +118,9 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let rpath = graph
         .find_all_paths("Factoring", &src_var, "SpinGlass", &dst_var)
         .into_iter()
-        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .find(|path| {
+            path.type_names() == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]
+        })
         .expect("explicit CircuitSAT route");
 
     // Canonical factor order uses the smaller width first.

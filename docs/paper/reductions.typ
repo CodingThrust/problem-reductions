@@ -381,6 +381,21 @@
   "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "MinimumMetricDimension": [Minimum Metric Dimension],
   "DecisionMinimumDominatingSet": [Decision Minimum Dominating Set],
+  "DecisionClosestVectorProblem": [Decision Closest Vector Problem],
+  "DecisionQuadraticAssignment": [Decision Quadratic Assignment],
+  "DecisionQUBO": [Decision QUBO],
+  "DecisionMaximum2Satisfiability": [Decision Maximum 2-Satisfiability],
+  "DecisionLongestCircuit": [Decision Longest Circuit],
+  "DecisionLongestPath": [Decision Longest Path],
+  "DecisionMaxCut": [Decision Max-Cut],
+  "DecisionMinMaxMulticenter": [Decision Min-Max Multicenter],
+  "DecisionMinimumCoveringByCliques": [Decision Minimum Covering by Cliques],
+  "DecisionMinimumSumMulticenter": [Decision Minimum Sum Multicenter],
+  "DecisionRuralPostman": [Decision Rural Postman],
+  "DecisionSpinGlass": [Decision Spin Glass],
+  "DecisionOpenShopScheduling": [Decision Open Shop Scheduling],
+  "DecisionSequencingToMinimizeTardyTaskWeight": [Decision Sequencing to Minimize Tardy Task Weight],
+  "DecisionStackerCrane": [Decision Stacker Crane],
   "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
   "DecisionOptimalLinearArrangement": [Decision Optimal Linear Arrangement],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
@@ -548,6 +563,14 @@
   if data.variant.len() == 0 { data.problem }
   else { data.problem + "/" + data.variant.values().join("/") }
 }
+
+// Keyed spec (Problem/key=value/...): positional values can be ambiguous (e.g. ILP/i64/bool)
+#let keyed-spec(data) = {
+  data.problem + data.variant.pairs().map(((k, v)) => "/" + k + "=" + v).join()
+}
+
+// `pred create --example` arguments reproducing a rule example's source instance
+#let rule-spec(example) = keyed-spec(example.source) + " --to " + keyed-spec(example.target)
 
 #let theorem = thmplain("theorem", [#h(-1.2em)Rule], base_level: 1)
 #let proof = thmproof("proof", "Proof")
@@ -788,7 +811,11 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types; most are solver-executable witness, aggregate, or Turing reductions, while a few are proof-only NP-hardness embeddings that are excluded from runtime path search.
+A _single-instance reduction_ $A arrow.long B$ constructs a legal target instance $F(x)$ and recovers a correct source answer $G(x, y)$ from any correct target answer $y$. Both algorithms run in polynomial time in their encoded inputs.
+
+A correct answer is YES/NO, a valid witness, an optimal solution, or a total count, according to the problem. Infeasibility must be represented explicitly or excluded from the legal domain. Recovery must handle every optimal target solution, including ties; equal objective values and one-to-one witness mappings are not required.
+
+Turing reductions allow multiple adaptive queries, such as binary search over a decision bound. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types.
 
 == Notation
 
@@ -852,7 +879,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     *Example.* Consider the Petersen graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = sum_(v in S) w(v) = #alpha = #sym.alpha (G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
 
     #pred-commands(
-      "pred create --example MIS -o mis.json",
+      "pred create --example " + problem-spec(x) + " -o mis.json",
       "pred solve mis.json",
       "pred evaluate mis.json --config " + cli-config(x.optimal_config),
     )
@@ -1386,7 +1413,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     }).join("; "). The complement ${#complement.map(i => $v_#i$).join(", ")}$ is a maximum independent set ($#sym.alpha (G) = #alpha$, confirming $|"VC"| = n - alpha = #wS$).
 
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + problem-spec(x) + " -o mvc.json",
       "pred solve mvc.json",
       "pred evaluate mvc.json --config " + cli-config(x.optimal_config),
     )
@@ -3279,11 +3306,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let steiner-verts = tree-verts.filter(v => not terminals.contains(v))
   [
     #problem-def("SteinerTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $T subset.eq V$ with $|T| >= 2$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_.
+      Given an undirected graph $G = (V, E)$ with integer edge weights $w: E -> ZZ$ and a nonempty set of terminal vertices $T subset.eq V$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_. For a single terminal, the tree consisting of that vertex and no edges is feasible, but negative-weight branches can improve its cost.
     ][
     One of Karp's 21 NP-complete problems @karp1972, foundational in network design with applications in telecommunications backbone routing, VLSI chip interconnect, pipeline planning, and phylogenetic tree construction. When $T = V$, the problem reduces to the minimum spanning tree (polynomial). The NP-hardness arises from choosing which Steiner vertices to include.
 
-    The best known exact algorithm runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time via Dreyfus--Wagner dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
+    For signed weights, enumerate the $2^(n - |T|)$ subsets of nonterminal vertices and compute a minimum spanning tree on each connected induced subgraph. Every feasible tree occurs within one such vertex set, and replacing it by a minimum spanning tree cannot increase its cost. This gives an exact $O(2^(n - |T|) n^2)$ bound.#footnote[This bound follows from the enumeration argument; no claim of best-known complexity for signed weights is made.]
+
+    For nonnegative weights, Dreyfus--Wagner dynamic programming over terminal subsets runs in $O(3^(|T|) dot n + 2^(|T|) dot n^2)$ time @dreyfuswagner1971. The following approximation guarantees also require nonnegative weights: Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
 
     // Find the unique direct terminal-terminal edge (both endpoints in T, not in the optimal tree)
     #let terminal-set = terminals
@@ -3642,7 +3671,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The triangle $K = {#K.map(i => $v_#i$).join(", ")}$ is a maximum clique of size $omega(G) = #omega$: all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges. No #(omega + 1)-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${#K.map(i => $v_#i$).join(", ")}$.
 
     #pred-commands(
-      "pred create --example MaximumClique -o maximum-clique.json",
+      "pred create --example " + problem-spec(x) + " -o maximum-clique.json",
       "pred solve maximum-clique.json",
       "pred evaluate maximum-clique.json --config " + cli-config(x.optimal_config),
     )
@@ -4939,7 +4968,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #{
   let x = load-model-example("QUBO")
   let n = x.instance.num_vars
-  let Q = x.instance.matrix
+  let Q = range(n).map(_ => (0,) * n)
+  for (i, j, value) in x.instance.entries {
+    Q.at(i).at(j) = value
+  }
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
   let fstar = metric-value(sol.metric)
@@ -5437,14 +5469,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let dist-rounded = calc.round(dist, digits: 3)
   [
     #problem-def("ClosestVectorProblem")[
-      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+      Given a full-column-rank integer lattice basis $bold(B) in ZZ^(m times n)$, whose columns span $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$, and target $bold(t) in ZZ^m$, find $bold(x) in ZZ^n$ minimizing the squared distance $norm(bold(B) bold(x) - bold(t))_2^2$.
     ][
-      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation provides an integer-target variant for exact reduction data and a finite-`f64` target variant for real input; both keep the lattice basis integral and place no bounds on $bold(x)$. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. Finite `f64` targets are interpreted as their exact binary rational values. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+      The Closest Vector Problem is a fundamental lattice problem @micciancio2002 and is NP-hard @vanemde1981. The implementation uses integer basis and target coordinates and reports squared distance with checked integer arithmetic. Squaring preserves the Euclidean minimizers without introducing rounding. Its reference solver uses exact rational Gram--Schmidt projections and sphere-enumeration bounds following the recursive enumeration structure of Fincke and Pohst @fincke1985. The solver is intended for small instances. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
-      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with distance #dist-rounded.
+      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ equals the target, so it is a closest lattice point with squared distance #dist-rounded.
 
       #pred-commands(
-        "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
+        "pred create --example " + problem-spec(x) + " -o closest-vector-problem.json",
         "pred solve closest-vector-problem.json",
         "pred evaluate closest-vector-problem.json --config " + cli-config(x.optimal_config),
       )
@@ -11291,7 +11323,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [$n = #max2sat_mc.source.instance.num_vars$ variables, $m = #max2sat_mc.source.instance.clauses.len()$ clauses, target has #max2sat_mc.target.instance.graph.num_vertices vertices and #max2sat_mc.target.instance.graph.edges.len() edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
+      "pred create --example " + rule-spec(max2sat_mc) + " -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + cli-config(max2sat_mc_sol.source_config),
@@ -11342,7 +11374,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [$n = #max2sat_ilp.source.instance.num_vars$ variables, $m = #max2sat_ilp.source.instance.clauses.len()$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred create --example " + rule-spec(max2sat_ilp) + " -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + cli-config(max2sat_ilp_sol.source_config),
@@ -11504,7 +11536,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Petersen graph ($n = 10$): VC $arrow.l.r$ IS],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_mis) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_mis_sol.source_config),
@@ -11525,26 +11557,26 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
 #let dmds_mmmc = load-example(
   "DecisionMinimumDominatingSet",
-  "MinMaxMulticenter",
+  "DecisionMinMaxMulticenter",
   source-variant: (graph: "SimpleGraph", weight: "One"),
   target-variant: (graph: "SimpleGraph", weight: "One"),
 )
 #let dmds_mmmc_sol = dmds_mmmc.solutions.at(0)
-#reduction-rule("DecisionMinimumDominatingSet", "MinMaxMulticenter",
+#reduction-rule("DecisionMinimumDominatingSet", "DecisionMinMaxMulticenter",
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
   example-target-variant: (graph: "SimpleGraph", weight: "One"),
   example-caption: [6-vertex source: two auxiliary centers encode the domination threshold],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
+      "pred create --example " + rule-spec(dmds_mmmc) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + cli-config(dmds_mmmc_sol.source_config),
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Append two isolated vertices, assign weight $1$ to every vertex and length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
+    *Step 2 -- Build the target instance.* Append two isolated vertices, assign weight $1$ to every vertex and length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.inner.k$. The target therefore has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
 
     *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0, 0)$ to the nearest center, so the maximum weighted distance is $1$. Discarding the two auxiliary center bits recovers a dominating set of size $2$ #sym.checkmark
   ],
@@ -11555,31 +11587,31 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
   _Correctness._ Every finite target placement must select both isolated vertices. If a source dominating set $D$ has $|D|<=K$, then $q>=0$ and $|D|<=q<=n$. Extend $D$ to $q$ original vertices and add $a,b$. This placement has $k$ centers and radius at most $1$, proving the forward direction. Conversely, a target placement of radius at most $1$ selects both isolates and exactly $q$ original vertices. Each original vertex is within one original edge of a selected vertex, so those $q<=K$ vertices dominate $G$. For $K<0$, $k=1$ cannot cover both isolates and the target has no finite placement. For $n=0,K>=0$, the two isolates form a radius-zero placement. Loops and repeated edges preserve this reasoning.
 
-  _Solution extraction and NO instances._ Evaluate the full target indicator first. A finite radius at most $1$ permits extraction of its first $n$ bits. Any larger radius or infeasible placement is rejected. The formal aggregate map sends an optimum $r<=1$ to true, and an optimum $r>1$ or infeasibility to false. In particular, a four-vertex path with $K=1$ produces optimum radius $2$, not an infeasible target. Checked parameter arithmetic precedes allocation; unrepresentable counts return the formal numeric error. Target sizes are exactly $n+2$ vertices and $m$ edge records.
+  _Solution extraction and NO instances._ The target is Decision Min-Max Multicenter with bound $1$. Its predicate checks the full placement. Decode a YES witness by taking its first $n$ bits; completed YES and NO answers pass through unchanged. In particular, a four-vertex path with $K=1$ produces an inner optimum radius of $2$, so the decision target answers NO. Checked parameter arithmetic precedes allocation; unrepresentable counts return the formal numeric error. Target sizes are exactly $n+2$ vertices and $m$ edge records.
 ]
 
 #let dmds_msmc = load-example(
   "DecisionMinimumDominatingSet",
-  "MinimumSumMulticenter",
+  "DecisionMinimumSumMulticenter",
   source-variant: (graph: "SimpleGraph", weight: "One"),
   target-variant: (graph: "SimpleGraph", weight: "i64"),
 )
 #let dmds_msmc_sol = dmds_msmc.solutions.at(0)
-#reduction-rule("DecisionMinimumDominatingSet", "MinimumSumMulticenter",
+#reduction-rule("DecisionMinimumDominatingSet", "DecisionMinimumSumMulticenter",
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
   example-target-variant: (graph: "SimpleGraph", weight: "i64"),
   example-caption: [6-vertex unit graph: dominating set of size 2 gives total distance 4],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
+      "pred create --example " + rule-spec(dmds_msmc) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + cli-config(dmds_msmc_sol.source_config),
     )
     *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
-    *Step 2 -- Build the target instance.* Add one isolated vertex $z$, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
+    *Step 2 -- Build the target instance.* Add one isolated vertex $z$, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.inner.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
 
     *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1, 0)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness removes the coordinate of $z$, hence a valid YES witness for the original decision instance #sym.checkmark
   ],
@@ -11596,7 +11628,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
   _Boundary cases._ If $K = 0 < n$, one center cannot serve both the isolate and the original graph, so the target is infeasible. If $n = 0$ and $K >= 0$, the sole vertex $z$ is selected and the cost is zero, correctly certifying the empty dominating set. If $K >= n$, selecting all target vertices gives cost zero and extracts all original vertices. Negative bounds give infeasibility as shown above.
 
-  _Value and solution extraction._ Map a finite target optimum equal to $B$ to YES; map any other optimum or infeasibility to NO. For negative bounds use comparison value $-1$, which no finite nonnegative target cost can equal. Extract a source witness only from a placement whose cost equals the comparison value, by removing the auxiliary coordinates. Reject every other placement; an optimal target solution with cost greater than $B$ is not a source YES witness.
+  _Value and solution extraction._ The target is Decision Minimum Sum Multicenter with bound $B$ (or $-1$ for a negative source bound). Its predicate enforces the cost bound. Decode a YES witness by removing the auxiliary coordinates; completed YES and NO answers pass through unchanged.
 ]
 
 #let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
@@ -11657,7 +11689,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       let fmt-seq(xs) = "(" + fmt-values(xs) + ")"
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
+          "pred create --example " + rule-spec(mvc_lcs) + " -o mvc.json",
           "pred reduce mvc.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mvc.json --config " + cli-config(mvc_lcs_sol.source_config),
@@ -11698,7 +11730,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_fvs) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_fvs_sol.source_config),
@@ -11742,7 +11774,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
   extra: [
     #pred-commands(
-      "pred create --example MIS -o mis.json",
+      "pred create --example " + rule-spec(mis_clique) + " -o mis.json",
       "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mis.json --config " + cli-config(mis_clique_sol.source_config),
@@ -11798,7 +11830,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path $P_4$: $n = 4$ vertices, $K = 2$ bound],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmvc_cc.source) + " -o source.json",
+      "pred create --example " + rule-spec(dmvc_cc) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(dmvc_cc_sol.source_config),
@@ -11824,7 +11856,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Three-slot disjoint-union circuit on four atoms],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ec_ilp.source) + " -o ensemble.json",
+      "pred create --example " + rule-spec(ec_ilp) + " -o ensemble.json",
       "pred reduce ensemble.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ensemble.json --config " + cli-config(ec_ilp_sol.source_config),
@@ -11879,7 +11911,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path $P_3$: vertex cover ${1}$ maps to an AND/OR graph of weight 5],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_aog) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_aog_sol.source_config),
@@ -11940,7 +11972,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [10-spin Ising model on Petersen graph],
   extra: [
     #pred-commands(
-      "pred create --example SpinGlass -o spinglass.json",
+      "pred create --example " + rule-spec(sg_qubo) + " -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + cli-config(sg_qubo_sol.source_config),
@@ -11969,7 +12001,10 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   let basis = cvp_qubo.source.instance.basis
   let target = cvp_qubo.source.instance.target
   let coords = cvp_qubo_sol.source_config
-  let matrix = cvp_qubo.target.instance.matrix
+  let matrix = range(cvp_qubo.target.instance.num_vars).map(_ => (0,) * cvp_qubo.target.instance.num_vars)
+  for (i, j, value) in cvp_qubo.target.instance.entries {
+    matrix.at(i).at(j) = value
+  }
   let bits = cvp_qubo_sol.target_config
   let lower = (-23, -14)
   let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
@@ -11987,7 +12022,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       example-caption: [2D standard CVP with a coefficient box derived by the reduction],
       extra: [
         #pred-commands(
-          "pred create --example CVP -o cvp.json",
+          "pred create --example " + rule-spec(cvp_qubo) + " -o cvp.json",
           "pred reduce cvp.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate cvp.json --config " + cli-config(cvp_qubo_sol.source_config),
@@ -12026,14 +12061,14 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#let kc_qubo = load-example("KColoring", "QUBO")
+#let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
-#reduction-rule("KColoring", "QUBO",
+#reduction-rule("KColoring", "DecisionQUBO",
   example: true,
   example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_qubo.source) + " -o kcoloring.json",
+      "pred create --example " + rule-spec(kc_qubo) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + cli-config(kc_qubo_sol.source_config),
@@ -12097,7 +12132,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return $bold(x)$ directly. There are exactly $m$ target variables.
 ]
 
-#reduction-rule("KSatisfiability", "QUBO")[
+#reduction-rule("KSatisfiability", "DecisionQUBO")[
   Clause falsification penalties become a quadratic objective using Rosenberg quadratization. Retain its omitted constant to decode the SAT decision, rather than interpreting an arbitrary QUBO configuration as a satisfying assignment.
 ][
   _Construction._ Let $n$ be the number of source variables and $m$ the clause count. For each literal let $y$ be its falsity indicator: $y=1-x$ for a positive literal and $y=x$ for a negative one. For widths zero, one and two, the clause penalty is respectively $1$, $y_1$, and $y_1 y_2$. For width three use
@@ -12118,7 +12153,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with $n = #ksat_qc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_qc.source.instance)$ clause mapped to a quadratic congruence with a $#ksat_qc.target.instance.b.len()$-digit modulus],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_qc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_qc_sol.source_config),
     )
@@ -12190,7 +12225,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with 3 variables and 2 clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ss.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ss) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ss_sol.source_config),
@@ -12216,22 +12251,22 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #{
-  let ss-cvp = load-example("SubsetSum", "ClosestVectorProblem")
+  let ss-cvp = load-example("SubsetSum", "DecisionClosestVectorProblem")
   let ss-cvp-sol = ss-cvp.solutions.at(0)
   let ss-cvp-sizes = ss-cvp.source.instance.sizes
   let ss-cvp-target = ss-cvp.source.instance.target
-  let ss-cvp-basis = ss-cvp.target.instance.basis
-  let ss-cvp-target-vec = ss-cvp.target.instance.target
+  let ss-cvp-basis = ss-cvp.target.instance.inner.basis
+  let ss-cvp-target-vec = ss-cvp.target.instance.inner.target
   let ss-cvp-n = ss-cvp-sizes.len()
   let ss-cvp-x = ss-cvp-sol.target_config
   let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   [
-    #reduction-rule("SubsetSum", "ClosestVectorProblem",
+    #reduction-rule("SubsetSum", "DecisionClosestVectorProblem",
       example: true,
       example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
       extra: [
         #pred-commands(
-          "pred create --example SubsetSum -o subsetsum.json",
+          "pred create --example " + rule-spec(ss-cvp) + " -o subsetsum.json",
           "pred reduce subsetsum.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate subsetsum.json --config " + cli-config(ss-cvp-sol.source_config),
@@ -12243,7 +12278,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
         together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
         in the standard CVP model, with no coefficient bounds.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the Euclidean distance is $sqrt(4) = 2$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores coefficients $(#fmt-values(ss-cvp-x))$. Its first four entries select sizes $3$ and $8$, and the final three are carry coefficients. The first coordinate block has residual $(1,0,0,1)$, the second has $(0,-1,-1,0)$, and all bit-equation residuals are zero. Thus the squared distance is $4$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
@@ -12256,11 +12291,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
       _Correctness._ Every integer vector satisfies
       $ norm(bold(B) bold(z)-bold(t))_2^2 = sum_i (x_i^2 + (x_i-1)^2) + sum_j r_j^2 >= n. $
-      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum is $sqrt(n)$ exactly for YES instances. Empty item lists and target zero use the same construction.
+      ($arrow.r.double$) For a binary subset summing to $T$, ordinary integer addition gives carries $0 <= c_j <= n$ satisfying all bit equations and both boundaries. Its squared distance equals $n$. ($arrow.l.double$) Squared distance at most $n$ forces each $x_i in {0,1}$ and each $r_j=0$. Multiplying the bit equations by $2^j$ and summing cancels the internal carries, yielding $sum_i s_i x_i=T$. Thus the optimum squared distance is $n$ exactly for YES instances. Empty item lists and target zero use the same construction.
 
-      _Solution extraction._ Validate the target configuration once and require a finite distance exactly $sqrt(n)$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal distance proves NO and provides no source witness.
+      _Solution extraction._ Validate the target configuration once and require squared distance exactly $n$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal squared distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. On a 64-bit platform this bounds $n < 2^30$; the threshold and the unit squared-distance gap remain distinguishable in the target's floating-point evaluation. The paired coordinates and boundary carry equations also ensure every threshold witness has exactly evaluated small integer residuals. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -12315,7 +12350,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ks) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ks_sol.source_config),
@@ -12357,7 +12392,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ss_n elements, total sum $S = #part_ss_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ss) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ss_sol.source_config),
@@ -12399,7 +12434,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ifwm_n elements, total sum $S = #part_ifwm_total$, bottleneck $R = #part_ifwm_half$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ifwm.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ifwm) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ifwm_sol.source_config),
@@ -12442,7 +12477,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [$n = #ks_qubo_num_items$ items, capacity $C = #ks_qubo.source.instance.capacity$],
   extra: [
     #pred-commands(
-      "pred create --example Knapsack -o knapsack.json",
+      "pred create --example " + rule-spec(ks_qubo) + " -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + cli-config(ks_qubo_sol.source_config),
@@ -12483,7 +12518,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [2-link worked example with 4 QUBO variables],
   extra: [
     #pred-commands(
-      "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
+      "pred create --example " + rule-spec(mdpik_qubo) + " -o ik.json",
       "pred reduce ik.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ik.json --config " + cli-config(mdpik_qubo_sol.source_config),
@@ -12506,18 +12541,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Construction._ For each link $j in {1, dots, n}$ and sample index $a in {0, dots, m_j - 1}$, introduce a binary variable $y_(j,a) in {0,1}$ with the intended meaning "$y_(j,a) = 1$ iff link $j$ chooses orientation $phi_(j,a)$." Define
   $ c_(j,a) = l_j cos phi_(j,a), quad s_(j,a) = l_j sin phi_(j,a). $
   Let
-  $ P = 1 + (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2. $
+  $ B = (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2, quad P = 2(1 + B). $
   The QUBO objective is the sum of three terms:
   $
     H = underbrace((sum_(j,a) c_(j,a) y_(j,a) - g_x)^2 + (sum_(j,a) s_(j,a) y_(j,a) - g_y)^2)_"position error"
       + underbrace(P sum_(j=1)^n (sum_(a=0)^(m_j - 1) y_(j,a) - 1)^2)_"one-hot"
       + underbrace(P sum_(j=2)^n sum_((a,b) in.not A_j) y_(j-1,a) y_(j,b))_"forbidden pairs".
   $
-  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. As usual, the additive constant $g_x^2 + g_y^2$ is dropped.
+  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. The stored energy is $E = H - C$, where $C = g_x^2 + g_y^2 + n P$ includes the constants from the position error and all one-hot penalties.
 
-  _Correctness._ ($arrow.r.double$) Any feasible inverse-kinematics configuration $a_1, dots, a_n$ maps to the one-hot assignment with $y_(j,a_j) = 1$ and all other selectors $0$. Every one-hot penalty vanishes, every consecutive pair lies in the relevant admissible set, and the remaining QUBO objective equals the squared end-effector distance up to the dropped additive constant. ($arrow.l.double$) If some link is not one-hot, then $(sum_a y_(j,a) - 1)^2 >= 1$, so the assignment pays at least $P$. If every link is one-hot but some consecutive pair is forbidden, then exactly one forbidden-pair monomial is active at that junction, again contributing at least $P$. By definition of $P$, every decoded source configuration has squared distance at most $P - 1$, while the dropped-constant geometric term is bounded below by $-(g_x^2 + g_y^2)$. Therefore every violating assignment has strictly larger energy than every feasible source assignment. Among the penalty-zero assignments, minimizing $H$ is exactly minimizing the source squared distance.
+  _Correctness._ In exact arithmetic, ($arrow.r.double$) any feasible source configuration maps to a one-hot assignment whose penalties vanish, so $H$ equals its squared distance and is at most $B$. ($arrow.l.double$) A non-one-hot block contributes at least $P$; a one-hot assignment containing a forbidden pair also contributes at least $P$. Since the position error and every penalty are nonnegative, such assignments have $H >= P > B$. Thus, whenever the source is feasible, every target minimizer is feasible, and minimizing $E = H - C$ among these assignments minimizes the source squared distance. An infeasible source has no penalty-zero assignment, although its unconstrained QUBO still has a minimizer.
 
-  _Solution extraction._ For each link block $j$, read the unique active selector $y_(j,a) = 1$ and output its sample index $a$. If the decoded index vector violates an admissible-pair constraint, the source evaluator rejects it with `Min(None)`.
+  _Solution extraction._ Validate the target configuration, require exactly one active selector per link, and reject any decoded consecutive pair outside its admissible set. Otherwise return the selected sample indices. Extraction failure is an error, not a certificate that the source is infeasible.
+
+  _Numerical scope._ The implementation uses finite `f64` arithmetic and rejects a non-finite penalty or matrix coefficient. The proportional penalty gap avoids relying on a unit increment at large magnitudes, but rounding of the expanded objective can still merge close objective values. The exact-arithmetic correspondence above is not a guarantee of identical optimizer sets under floating-point evaluation.
 ]
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
@@ -12536,7 +12573,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#fmt-values(mwc_qubo_terminals)}$, $|E| = #mwc_qubo_edges.len()$ edges],
   extra: [
     #pred-commands(
-      "pred create --example MinimumMultiwayCut -o minimummultiwaycut.json",
+      "pred create --example " + rule-spec(mwc_qubo) + " -o minimummultiwaycut.json",
       "pred reduce minimummultiwaycut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate minimummultiwaycut.json --config " + cli-config(mwc_qubo_sol.source_config),
@@ -12555,9 +12592,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#fmt-values(mwc_qubo_sol.target_config))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
   ],
 )[
-  The multiway cut problem requires a partition of vertices into $k$ components — one per terminal — minimizing the total weight of edges crossing components. The penalty method (@sec:penalty-method) encodes two constraints as QUBO penalties: (1) each vertex belongs to exactly one component (one-hot), and (2) each terminal is pinned to its own component. The cut-cost Hamiltonian counts edge weight across distinct components. Reference: @Heidari2022.
+  The multiway cut problem minimizes the weight of deleted edges separating all terminals. Every negative-weight edge is deleted first; the remaining nonnegative-cost problem admits a partition into $k$ groups, one per terminal. One-hot and terminal-pinning penalties encode that partition @Heidari2022.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$, edge weights $w: E -> RR_(>0)$, and $k$ terminals $T = {t_0, ..., t_(k-1)}$. Introduce $n k$ binary variables $x_(u,t) in {0,1}$ (indexed by $u dot k + t$), where $x_(u,t) = 1$ means vertex $u$ is in terminal $t$'s component. Let $alpha = 1 + sum_(e in E) w(e)$.
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, edge weights $w: E -> ZZ$, and $k$ terminals $T = {t_0, ..., t_(k-1)}$. Introduce $n k$ binary variables $x_(u,t) in {0,1}$ (indexed by $u dot k + t$), where $x_(u,t) = 1$ means vertex $u$ is in terminal $t$'s component. Set $w^+(e) = max(w(e), 0)$ and $alpha = 1 + sum_(e in E) w^+(e)$.
 
   The QUBO Hamiltonian is $H = H_A + H_B$ where:
   $ H_A = alpha (sum_(u in V) (1 - sum_(t=0)^(k-1) x_(u,t))^2 + sum_(i=0)^(k-1) sum_(s != i) x_(t_i, s)) $
@@ -12566,12 +12603,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   Terminal pinning adds $alpha$ to the diagonal $Q_(t_i k+s, t_i k+s)$ for $s != i$, canceling the one-hot incentive.
 
   The cut-cost Hamiltonian:
-  $ H_B = sum_((u,v) in E) sum_(s != t) w(u,v) dot x_(u,s) dot x_(v,t) $
-  counts the total weight of edges whose endpoints lie in different components.
+  $ H_B = sum_((u,v) in E) sum_(s != t) w^+(u,v) dot x_(u,s) dot x_(v,t) $
+  counts nonnegative weights across different groups. The negative-edge contribution is a constant restored during extraction; the stored QUBO also omits the constant $alpha n$ from $H_A$.
 
-  _Correctness._ ($arrow.r.double$) A valid multiway cut with cost $C$ maps to a QUBO solution with $H_A = 0$ (valid partition with correct terminal pinning) and $H_B = C$. ($arrow.l.double$) If $H_A > 0$, the penalty $alpha > sum_e w(e)$ exceeds the entire cut-cost range, so any QUBO minimizer has $H_A = 0$, encoding a valid partition. Among valid partitions, $H_B$ equals the cut cost, and the minimizer achieves the minimum multiway cut.
+  _Correctness._ Deleting any negative edge strictly improves the objective and cannot reconnect terminals, so every optimum deletes all such edges. In the residual nonnegative-cost problem, any feasible cut yields disconnected terminal components that can be assigned distinct labels; components without terminals can be assigned arbitrarily. Keeping additional edges within each label cannot increase cut cost. Conversely, every terminal-pinned partition gives a feasible cut. Since $H_B >= 0$ for every binary assignment, violating a constraint costs at least $alpha$, while some valid pinned partition costs at most $sum_e w^+(e) < alpha$. Thus every QUBO optimum satisfies the constraints and minimizes the residual cut cost. Restoring every negative edge to the deletion set gives a source optimum.
 
-  _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
+  _Solution extraction._ Require exactly one label per vertex and the prescribed label at each terminal. Delete an edge iff its weight is negative or its endpoint labels differ.
 ]
 
 #reduction-rule("GraphPartitioning", "QUBO")[
@@ -12602,7 +12639,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
-      "pred create --example QUBO/f64 -o qubo.json",
+      "pred create --example " + rule-spec(qubo_ilp) + " -o qubo.json",
       "pred reduce qubo.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
@@ -12644,7 +12681,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [1-bit full adder to ILP],
   extra: [
     #pred-commands(
-      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_ilp) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_ilp_sol.source_config),
@@ -12693,20 +12730,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 == Non-Trivial Reductions
 
-#let sat_mis = load-example("Satisfiability", "MaximumIndependentSet")
+#let sat_mis = load-example("Satisfiability", "DecisionMaximumIndependentSet")
 #let sat_mis_sol = sat_mis.solutions.at(0)
-#reduction-rule("Satisfiability", "MaximumIndependentSet",
+#reduction-rule("Satisfiability", "DecisionMaximumIndependentSet",
   example: true,
   example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_mis) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_mis_sol.source_config),
     )
     SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_mis_sol.source_config))$ \
-    IS graph: #graph-num-vertices(sat_mis.target.instance) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance) edges \
+    IS graph: #graph-num-vertices(sat_mis.target.instance.inner) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance.inner) edges \
     IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
 )[
@@ -12732,7 +12769,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [5-variable SAT with 3 unit clauses to 3-coloring],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_kc) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_kc_sol.source_config),
@@ -12753,20 +12790,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-#let sat_ds = load-example("Satisfiability", "MinimumDominatingSet")
+#let sat_ds = load-example("Satisfiability", "DecisionMinimumDominatingSet")
 #let sat_ds_sol = sat_ds.solutions.at(0)
-#reduction-rule("Satisfiability", "MinimumDominatingSet",
+#reduction-rule("Satisfiability", "DecisionMinimumDominatingSet",
   example: true,
   example-caption: [5-variable 7-clause 3-SAT to dominating set],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_ds) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ds_sol.source_config),
     )
     SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_ds_sol.source_config))$ \
-    Vertex structure: $#graph-num-vertices(sat_ds.target.instance) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
+    Vertex structure: $#graph-num-vertices(sat_ds.target.instance.inner) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
   ],
 )[
@@ -12788,7 +12825,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-variable 4-clause SAT to equality-constrained integral flow],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_ifha) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ifha_sol.source_config),
@@ -12844,7 +12881,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Mixed-size clauses (sizes 1 to 5) to 3-SAT],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_ksat) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ksat_sol.source_config),
@@ -12868,14 +12905,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables; return original variable assignments.
 ]
 
-#let sat_max2sat = load-example("Satisfiability", "Maximum2Satisfiability")
+#let sat_max2sat = load-example("Satisfiability", "DecisionMaximum2Satisfiability")
 #let sat_max2sat_sol = sat_max2sat.solutions.at(0)
-#reduction-rule("Satisfiability", "Maximum2Satisfiability",
+#reduction-rule("Satisfiability", "DecisionMaximum2Satisfiability",
   example: true,
   example-caption: [3-variable 2-clause SAT to MAX-2-SAT],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_max2sat) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_max2sat_sol.source_config),
@@ -12894,7 +12931,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     $
     The normalized formula therefore has $4$ variables and $3$ clauses.
 
-    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#fmt-values(sat_max2sat_sol.target_config))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
+    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.inner.num_vars$ variables and #sat_max2sat.target.instance.inner.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#fmt-values(sat_max2sat_sol.target_config))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical optimum. Auxiliary variables such as $y_1$ can vary across optimal witnesses, but truncating any optimal target assignment to the first $3$ coordinates still yields a satisfying assignment of the original SAT formula.
   ],
@@ -12942,7 +12979,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-variable SAT formula to boolean circuit],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_cs) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_cs_sol.source_config),
@@ -12975,7 +13012,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Tseitin encoding of a circuit equation],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_sat) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_sat_sol.source_config),
@@ -13008,20 +13045,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the values of the named circuit variables and discard the auxiliary Tseitin variables.
 ]
 
-#let cs_sg = load-example("CircuitSAT", "SpinGlass")
+#let cs_sg = load-example("CircuitSAT", "DecisionSpinGlass")
 #let cs_sg_sol = cs_sg.solutions.at(0)
-#reduction-rule("CircuitSAT", "SpinGlass",
+#reduction-rule("CircuitSAT", "DecisionSpinGlass",
   example: true,
   example-caption: [1-bit full adder to Ising model],
   extra: [
     #pred-commands(
-      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_sg) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_sg_sol.source_config),
     )
     Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
-    Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
+    Target: #spin-num-spins(cs_sg.target.instance.inner) spins (each gate allocates I/O + auxiliary spins) \
     Canonical ground-state witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
@@ -13068,7 +13105,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Factor $N = #fact_cs.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example Factoring -o factoring.json",
+      "pred create --example " + rule-spec(fact_cs) + " -o factoring.json",
       "pred reduce factoring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate factoring.json --config " + cli-config(fact_cs_sol.source_config),
@@ -13107,7 +13144,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],
   extra: [
     #pred-commands(
-      "pred create --example MaxCut -o maxcut.json",
+      "pred create --example " + rule-spec(mc_sg) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_sg_sol.source_config),
@@ -13133,7 +13170,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [10-spin Ising with alternating $J_(i j) in {plus.minus 1}$],
   extra: [
     #pred-commands(
-      "pred create --example SpinGlass -o spinglass.json",
+      "pred create --example " + rule-spec(sg_mc) + " -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + cli-config(sg_mc_sol.source_config),
@@ -13313,7 +13350,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [DAG with #mfdts_ilp.source.instance.num_vertices vertices, #mfdts_ilp.source.instance.inputs.len() inputs, #mfdts_ilp.source.instance.outputs.len() outputs, and #(mfdts_ilp.source.instance.num_vertices - mfdts_ilp.source.instance.inputs.len() - mfdts_ilp.source.instance.outputs.len()) internal vertices],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
+      "pred create --example " + rule-spec(mfdts_ilp) + " -o mfdts.json",
       "pred reduce mfdts.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mfdts.json --config " + cli-config(mfdts_ilp_sol.source_config),
@@ -13389,7 +13426,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
   extra: [
     #pred-commands(
-      "pred create --example MinimumFeedbackVertexSet/One -o fvs.json",
+      "pred create --example " + rule-spec(fvs_cg) + " -o fvs.json",
       "pred reduce fvs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate fvs.json --config " + cli-config(fvs_cg_sol.source_config),
@@ -13437,7 +13474,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mckp_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mckp_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mckp_ilp_sol.source_config),
@@ -13471,7 +13508,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mces_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mces_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mces_ilp_sol.source_config),
@@ -13509,7 +13546,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cmo_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(cmo_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(cmo_ilp_sol.source_config),
@@ -13549,7 +13586,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mewkc_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mewkc_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mewkc_ilp_sol.source_config),
@@ -13585,7 +13622,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
   extra: [
     #pred-commands(
-      "pred create --example Knapsack -o knapsack.json",
+      "pred create --example " + rule-spec(ks_ilp) + " -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + cli-config(ks_ilp_sol.source_config),
@@ -13635,7 +13672,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       let total_value = chosen.map(((i, c)) => c * values.at(i)).sum()
       [
         #pred-commands(
-          "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
+          "pred create --example " + rule-spec(ik_ilp) + " -o integer-knapsack.json",
           "pred reduce integer-knapsack.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate integer-knapsack.json --config " + cli-config(ik_ilp_sol.source_config),
@@ -13690,7 +13727,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
   extra: [
     #pred-commands(
-      "pred create --example MaximumClique -o maximumclique.json",
+      "pred create --example " + rule-spec(clique_mis) + " -o maximumclique.json",
       "pred reduce maximumclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maximumclique.json --config " + cli-config(clique_mis_sol.source_config),
@@ -13767,7 +13804,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path $P_4$: $n = 4$ vertices, $m = 3$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ola_seqmwct.source) + " -o source.json",
+      "pred create --example " + rule-spec(ola_seqmwct) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(ola_seqmwct_sol.source_config),
@@ -13803,7 +13840,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [6-vertex, 7-edge graph: arrangement of length $11$ gives $4$ augmentations],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dola_c1ma.source) + " -o source.json",
+      "pred create --example " + rule-spec(dola_c1ma) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(dola_c1ma_sol.source_config),
@@ -13869,7 +13906,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_tsp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_tsp_sol.source_config),
@@ -13900,7 +13937,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Weighted $K_4$: the optimal tour $0 arrow 1 arrow 3 arrow 2 arrow 0$ with cost 80 is found by position-based ILP.],
   extra: [
     #pred-commands(
-      "pred create --example TSP -o tsp.json",
+      "pred create --example " + rule-spec(tsp_ilp) + " -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_ilp_sol.source_config),
@@ -13946,7 +13983,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [The 3-vertex path $0 arrow 1 arrow 2$ encoded as a 7-variable ILP with optimum 5.],
   extra: [
     #pred-commands(
-      "pred create --example LongestPath -o longest-path.json",
+      "pred create --example " + rule-spec(lp_ilp) + " -o longest-path.json",
       "pred reduce longest-path.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate longest-path.json --config " + cli-config(lp_ilp_sol.source_config),
@@ -13991,7 +14028,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [TSP on $K_3$ with weights $w_(01) = 1$, $w_(02) = 2$, $w_(12) = 3$: the QUBO ground state encodes the optimal tour with cost $1 + 2 + 3 = 6$.],
   extra: [
     #pred-commands(
-      "pred create --example TSP -o tsp.json",
+      "pred create --example " + rule-spec(tsp_qubo) + " -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_qubo_sol.source_config),
@@ -14010,15 +14047,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
 ][
-  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and edge weights $w_(u v)$. Let $A = 1 + sum_((u,v) in E) |w_(u v)|$ be the penalty coefficient.
+  _Construction._ For $n = |V| >= 3$, discard loops and retain the cheapest edge of each parallel class, recording its original index. Write $E'$ for these retained edges and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
 
   _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
 
-  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E) w_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $w_(u v)$.
+  _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E') c_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $c_(u v)$. The stored energy is $E = H_A + H_B + H_C - 2n A$.
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix satisfying $H_A = H_B = 0$; the $H_C$ terms sum to the tour cost. ($arrow.l.double$) The minimum-energy state has $H_A = H_B = 0$ (penalty $A$ exceeds any tour cost), so it encodes a valid permutation; $H_C$ equals the tour cost, selecting the shortest tour.
+  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering. Choosing the cheapest parallel edge preserves the source optimum.
 
-  _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
+  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded cheapest edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires the nonnegative offset $2n A + n s$ to fit `i64`.
+
+  _Small instances._ The source model uses a connected degree-two edge set: for one vertex, the optimum is its cheapest loop; for two vertices, it is the two cheapest parallel edges joining them. If those edges do not exist, or if there are no vertices, the source is infeasible. These cases map to a zero QUBO with $n^2$ variables and a constant solution/value mapping recording that exact answer.
 ]
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
@@ -14028,7 +14067,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [LCS of two strings over a 3-symbol alphabet],
   extra: [
     #pred-commands(
-      "pred create --example LCS -o lcs.json",
+      "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
       "pred reduce lcs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
@@ -14063,7 +14102,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cs_ilp_str.source) + " -o source.json",
+      "pred create --example " + rule-spec(cs_ilp_str) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(cs_ilp_str_sol.source_config),
@@ -14106,7 +14145,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(css_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(css_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(css_ilp_sol.source_config),
@@ -14199,7 +14238,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Signed-weight exact tree formulation],
   extra: [
     #pred-commands(
-      "pred create --example SteinerTree -o steinertree.json",
+      "pred create --example " + rule-spec(st_ilp) + " -o steinertree.json",
       "pred reduce steinertree.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate steinertree.json --config " + cli-config(st_ilp_sol.source_config),
@@ -14226,7 +14265,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Unit-weight VC to Hitting Set ($n = #graph-num-vertices(mvc_hs.source.instance)$, $|E| = #graph-num-edges(mvc_hs.source.instance)$)],
   extra: [
     #pred-commands(
-      "pred create --example 'MVC {weight: One}' -o mvc.json",
+      "pred create --example " + rule-spec(mvc_hs) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_hs_sol.source_config),
@@ -14321,7 +14360,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$K_4$ with $n = #graph-num-vertices(mono_ilp.source.instance)$ vertices, $m = #graph-num-edges(mono_ilp.source.instance)$ edges, and $#mono_ilp.source.instance.triangles.len()$ triangles],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
+      "pred create --example " + rule-spec(mono_ilp) + " -o monochromatic-triangle.json",
       "pred reduce monochromatic-triangle.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate monochromatic-triangle.json --config " + cli-config(mono_ilp_sol.source_config),
@@ -14360,7 +14399,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$|U| = #ss_bt.source.instance.universe_size$, $#ss_bt.source.instance.subsets.len()$ subsets, no normalization auxiliaries needed],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
+      "pred create --example " + rule-spec(ss_bt) + " -o set-splitting.json",
       "pred reduce set-splitting.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate set-splitting.json --config " + cli-config(ss_bt_sol.source_config),
@@ -14435,7 +14474,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [#n\-vertex graph with $k = #k$: non-incidence gadget construction],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_bcbs) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_bcbs_sol.source_config),
@@ -14500,7 +14539,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         .map(((i, _)) => i)
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mmm_ach.source) + " -o mmm.json",
+          "pred create --example " + rule-spec(mmm_ach) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + cli-config(mmm_ach_sol.source_config),
@@ -14561,7 +14600,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         .map(((i, _)) => i)
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mmm_mmd.source) + " -o mmm.json",
+          "pred create --example " + rule-spec(mmm_mmd) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + cli-config(s-cfg),
@@ -14844,7 +14883,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [6-vertex graph ($n = 6$, $q = 2$): two $P_3$ paths],
   extra: [
     #pred-commands(
-      "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
+      "pred create --example " + rule-spec(ppl2_bcsf) + " -o ppl2.json",
       "pred reduce ppl2.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ppl2.json --config " + cli-config(ppl2_bcsf_sol.source_config),
@@ -15265,6 +15304,29 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Return the $n m$ start-time variables $s_{j,i}$ directly in job-major order.
 ]
 
+#let doss_ilp = load-example("DecisionOpenShopScheduling", "ILP")
+#reduction-rule("DecisionOpenShopScheduling", "ILP",
+  example: true,
+  example-caption: [A bounded open-shop schedule],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(doss_ilp) + " -o schedule.json",
+      "pred reduce schedule.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate schedule.json --config " + cli-config(doss_ilp.solutions.at(0).source_config),
+    )
+    The canonical instance has processing times #repr(doss_ilp.source.instance.inner.processing_times) and bound #doss_ilp.source.instance.bound. Add the makespan constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which satisfy the bound. The fixture stores one witness.
+  ],
+)[
+  Impose the decision bound on the open-shop makespan variable. The optimization formulation gains one constraint and no variables.
+][
+  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= B$, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A schedule of makespan at most $B$ gives feasible ordering variables and start times, with $C$ equal to its makespan. The existing horizon bounds can be met by removing unnecessary idle time. ($arrow.l.double$) Every feasible target assignment decodes to a schedule whose makespan is at most $C <= B$. Thus target feasibility is equivalent to the source YES answer; no optimum needs to be computed.
+
+  _Solution extraction._ Check target feasibility, then use the existing job-major start-time decoder. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
+]
+
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
   A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
 ][
@@ -15463,7 +15525,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hcd_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(hcd_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(hcd_ilp_sol.source_config),
@@ -15497,7 +15559,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ep_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(ep_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(ep_ilp_sol.source_config),
@@ -15550,19 +15612,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one. Parallel edges keep their individual identities.
 ]
 
-#let hc_lc = load-example("HamiltonianCircuit", "LongestCircuit")
+#let hc_lc = load-example("HamiltonianCircuit", "DecisionLongestCircuit")
 #let hc_lc_sol = hc_lc.solutions.at(0)
 #let hc_lc_n = graph-num-vertices(hc_lc.source.instance)
 #let hc_lc_source_edges = hc_lc.source.instance.graph.edges
-#let hc_lc_target_edges = hc_lc.target.instance.graph.edges
-#let hc_lc_target_weights = hc_lc.target.instance.edge_lengths
+#let hc_lc_target_edges = hc_lc.target.instance.inner.graph.edges
+#let hc_lc_target_weights = hc_lc.target.instance.inner.edge_lengths
 #let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i)).map(((i, e)) => (e.at(0), e.at(1)))
-#reduction-rule("HamiltonianCircuit", "LongestCircuit",
+#reduction-rule("HamiltonianCircuit", "DecisionLongestCircuit",
   example: true,
   example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_lc) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_lc_sol.source_config),
@@ -15604,6 +15666,29 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Given any simple circuit, select its edges and vertices and choose any of its vertices as root. For each selected non-root destination, send one unit along a simple path on the circuit from the root to that destination; set all other commodity flows to zero. Every constraint holds, and the objective equals the circuit length. ($arrow.l.double$) Degree constraints make the nonempty selected subgraph a disjoint union of simple circuits. If a selected destination $t$ were outside the root's component, summing its commodity's divergence over its component would give $-1$: the destination consumes one unit and every other vertex there has zero divergence. But no flow can cross that component's boundary, a contradiction. Thus all selected vertices lie in the root's component, giving exactly one simple circuit. The objective is preserved in both directions.
 
   _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+#let dlc_ilp = load-example("DecisionLongestCircuit", "ILP")
+#reduction-rule("DecisionLongestCircuit", "ILP",
+  example: true,
+  example-caption: [A circuit meeting a length bound],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(dlc_ilp) + " -o circuit.json",
+      "pred reduce circuit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuit.json --config " + cli-config(dlc_ilp.solutions.at(0).source_config),
+    )
+    The canonical instance has edge lengths #repr(dlc_ilp.source.instance.inner.edge_lengths) and bound #dlc_ilp.source.instance.bound. Add the selected-length constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to edge selections #fmt-values(dlc_ilp.solutions.at(0).source_config), whose total length meets the bound. The fixture stores one witness.
+  ],
+)[
+  Impose the decision bound on the selected circuit length. The optimization formulation gains one constraint and no variables.
+][
+  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, add $sum_(e in E) l_e y_e >= B$, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. A graph with no circuit remains infeasible regardless of the bound.
+
+  _Solution extraction._ Check target feasibility, then return the existing edge-selection vector. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
 ]
 
 #reduction-rule("QuadraticAssignment", "ILP")[
@@ -16129,7 +16214,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [4 cars, sequence length 8],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
+      "pred create --example " + rule-spec(ps_qubo) + " -o paintshop.json",
       "pred reduce paintshop.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate paintshop.json --config " + cli-config(ps_qubo_sol.source_config),
@@ -16209,7 +16294,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path graph $P_4$ ($n = 4$, $|E| = 3$, $K = 5$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
+      "pred create --example " + rule-spec(rta_rtsa) + " -o rta.json",
       "pred reduce rta.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate rta.json --config " + cli-config(rta_rtsa_sol.source_config),
@@ -16332,7 +16417,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Diamond network: $n = 4$ vertices, $m = 5$ arcs, max flow $= 3$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mcmf_mcc.source) + " -o source.json",
+      "pred create --example " + rule-spec(mcmf_mcc) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mcmf_mcc_sol.source_config),
@@ -16390,7 +16475,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       example-caption: [$n = #mlr_n$ items, $#mlr_nv$ pairwise variables, $#mlr_nc$ transitivity constraints],
       extra: [
         #pred-commands(
-          "pred create --example MaximumLikelihoodRanking -o mlr.json",
+          "pred create --example " + rule-spec(mlr_ilp) + " -o mlr.json",
           "pred reduce mlr.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mlr.json --config " + cli-config(mlr_ilp_sol.source_config),
@@ -16434,7 +16519,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       example-caption: [$K_#ocst_n$, #ocst_nv variables, #ocst_nc constraints],
       extra: [
         #pred-commands(
-          "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
+          "pred create --example " + rule-spec(ocst_ilp) + " -o ocst.json",
           "pred reduce ocst.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate ocst.json --config " + cli-config(ocst_ilp_sol.source_config),
@@ -16604,15 +16689,6 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
-#reduction-rule("ClosestVectorProblem", "ClosestVectorProblem")[
-  An integer-target CVP instance converts to the floating-target variant by embedding every target coordinate with `i64_to_exact_f64`. The integer lattice basis is copied unchanged.
-][
-  _Construction._ Given $(B, bold(t))$ with $B in ZZ^(m times n)$ and $bold(t) in ZZ^m$, construct $(B, bold(t)')$ with $t'_i = "f64"(t_i)$ for every exactly representable coordinate $|t_i| lt.eq 2^53 - 1$.
-
-  _Correctness._ Exact coordinate conversion gives $bold(t)' = bold(t)$ in $RR^m$. Therefore $norm(B bold(x) - bold(t)')_2 = norm(B bold(x) - bold(t))_2$ for every $bold(x) in ZZ^n$, so the minimizers coincide.
-
-  _Solution extraction._ Return the integer coefficient vector unchanged.
-]
 
 #reduction-rule("QUBO", "QUBO")[
   An integer QUBO converts to the floating-coefficient variant by embedding every matrix coefficient with `i64_to_exact_f64`.
@@ -16680,22 +16756,22 @@ The following table shows concrete target-variable counts for example instances,
   ),
   (source: "QUBO", target: "SpinGlass"),
   (source: "ClosestVectorProblem", target: "QUBO"),
-  (source: "KColoring", target: "QUBO"),
+  (source: "KColoring", target: "DecisionQUBO"),
   (source: "MaximumSetPacking", target: "QUBO"),
   (
     source: "KSatisfiability",
-    target: "QUBO",
+    target: "DecisionQUBO",
     source-variant: (k: "K3"),
     target-variant: (weight: "i64"),
   ),
   (source: "ILP", target: "QUBO"),
-  (source: "Satisfiability", target: "MaximumIndependentSet"),
-  (source: "Satisfiability", target: "Maximum2Satisfiability"),
+  (source: "Satisfiability", target: "DecisionMaximumIndependentSet"),
+  (source: "Satisfiability", target: "DecisionMaximum2Satisfiability"),
   (source: "Satisfiability", target: "KColoring"),
-  (source: "Satisfiability", target: "MinimumDominatingSet"),
+  (source: "Satisfiability", target: "DecisionMinimumDominatingSet"),
   (source: "Satisfiability", target: "KSatisfiability"),
   (source: "CircuitSAT", target: "Satisfiability"),
-  (source: "CircuitSAT", target: "SpinGlass"),
+  (source: "CircuitSAT", target: "DecisionSpinGlass"),
   (source: "Factoring", target: "CircuitSAT"),
   (source: "MaximumSetPacking", target: "ILP"),
   (source: "MaximumMatching", target: "ILP"),
@@ -16898,7 +16974,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#hc_hp_n$ ($n = #hc_hp_n$): split $v_0$ into two copies with pendants],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_hp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_hp_sol.source_config),
@@ -16929,7 +17005,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [5-vertex graph with $k = #kc_si.source.instance.k$: clique detection via subgraph isomorphism],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_si) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_si_sol.source_config),
@@ -16993,7 +17069,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_mps_n elements, total sum $S = #part_mps_total$, deadline $D = #part_mps_deadline$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_mps) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_mps_sol.source_config),
@@ -17033,7 +17109,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_sosp_n elements, total sum $S = #part_sosp_total$, optimum $S^2 / 2 = #part_sosp_opt$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_sosp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_sosp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_sosp_sol.source_config),
@@ -17066,7 +17142,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hc_btsp.source.instance)$ vertices, $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges: HC $arrow.r$ BTSP],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_btsp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_btsp_sol.source_config),
@@ -17097,7 +17173,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [5-vertex graph ($n = #kc_cbq.source.instance.graph.num_vertices$, $|E| = #kc_cbq.source.instance.graph.edges.len()$, $k = #kc_cbq.source.instance.k$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_cbq) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_cbq_sol.source_config),
@@ -17146,7 +17222,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|X| = #x3c_ss.source.instance.universe_size$, $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_ss) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_ss_sol.source_config),
@@ -17185,7 +17261,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $n = #ksat_dmvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses reduced to Decision Minimum Vertex Cover with bound $k = #ksat_dmvc.target.instance.bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_dmvc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_dmvc_sol.source_config),
@@ -17221,7 +17297,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-vertex path with bound $k = #dmvc_hc.source.instance.bound$: one selector threads two cover-testing gadgets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
+      "pred create --example " + rule-spec(dmvc_hc) + " -o dmvc.json",
       "pred reduce dmvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmvc.json --config " + cli-config(dmvc_hc_sol.source_config),
@@ -17238,53 +17314,13 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Garey and Johnson's Theorem 3.4 replaces each source edge by a 12-vertex cover-testing gadget and uses $k$ selector vertices to choose $k$ source vertices whose incident gadget-paths together cover every gadget @garey1979. In the unit-weight decision setting, the constructed graph is Hamiltonian iff the source graph has a vertex cover of size at most $k$.
 ][
-  _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ simple. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
+  _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ loopless. For inputs with loops, first select every looped vertex, remove its incident edges, and subtract the number selected from $k$; apply the construction to that residual graph. A negative residual budget gives a fixed NO instance; a budget covering all residual non-isolated vertices gives a fixed YES instance. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
 
   _Correctness._ ($arrow.r.double$) Suppose $C subset.eq V$ is a vertex cover with $|C| <= k$. Because all weights are 1, we may pad $C$ with arbitrary additional non-isolated vertices until it has exactly $k$ elements, say $v_1, dots, v_k$. For every edge gadget $e = {u, v}$, traverse it in one of the three gadget modes from @garey1979: if only $u in C$, follow the unique Hamiltonian path from $(u, e, 1)$ to $(u, e, 6)$ through all 12 gadget vertices; if only $v in C$, use the symmetric path from $(v, e, 1)$ to $(v, e, 6)$ through all 12 vertices; if both endpoints lie in $C$, use the two disjoint side paths from $(u, e, 1)$ to $(u, e, 6)$ and from $(v, e, 1)$ to $(v, e, 6)$. Chaining these gadget traversals along the paths for $v_1, dots, v_k$ and connecting consecutive paths through the selectors yields a Hamiltonian circuit of the target graph. ($arrow.l.double$) Suppose the target graph has a Hamiltonian circuit. Each selector has degree two inside the circuit and therefore cuts the circuit into $k$ selector-to-selector segments. Inside any edge gadget, the circuit can appear only in the three modes above, so each segment must stay on the path corresponding to one source vertex. Mark a source vertex $v$ selected exactly when both endpoints of its path are adjacent to selectors in the Hamiltonian circuit. This selects exactly $k$ source vertices. Every edge gadget must be completely visited, and that is possible only if at least one of its endpoint paths is selected, so every source edge has a selected endpoint. Hence the extracted set is a vertex cover of size at most $k$.
 
-  _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. The resulting indicator vector is a valid source-side vertex cover.
+  _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. Restore every vertex forced by a source loop. The resulting indicator vector is a valid source-side vertex cover.
 ]
 
-#let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
-#let ksat_mvc_sol = ksat_mvc.solutions.at(0)
-#reduction-rule("KSatisfiability", "MinimumVertexCover",
-  example: true,
-  example-caption: [3-SAT with $n = #ksat_mvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
-      "pred reduce ksat.json --via route.json -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + cli-config(ksat_mvc_sol.source_config),
-    )
-
-    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_mvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses: #{ksat_mvc.source.instance.clauses.enumerate().map(((j, c)) => {
-      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
-      [$c_#j = (#lits.join($or$))$]
-    }).join(", ")}. A satisfying assignment is $(#fmt-values(ksat_mvc_sol.source_config))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
-      let v = ksat_mvc_sol.source_config.at(i)
-      if v { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
-    }).join(", ")}.
-
-    *Step 2 -- Truth-setting edges.* For each variable $x_i$, create vertices $u_i$ (index $2(i-1)$) and $overline(u)_i$ (index $2(i-1)+1$) connected by a truth-setting edge. This gives $2n = #(2 * ksat_mvc.source.instance.num_vars)$ literal vertices and $n = #ksat_mvc.source.instance.num_vars$ edges.
-
-    *Step 3 -- Clause triangles and communication edges.* For each clause $c_j$, create a triangle of 3 vertices at indices $2n + 3j, 2n + 3j + 1, 2n + 3j + 2$, connected by 3 internal edges. Each triangle vertex $t^j_k$ is also connected to its literal vertex by a communication edge (3 per clause). Total: $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ clause vertices, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ triangle edges, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ communication edges.
-
-    *Step 4 -- Target graph dimensions.* The resulting graph has $|V| = 2n + 3m = #ksat_mvc.target.instance.graph.num_vertices$ vertices and $|E| = n + 6m = #ksat_mvc.target.instance.graph.edges.len()$ edges, with unit weights.
-
-    *Step 5 -- Verify a solution.* The satisfying assignment $(#fmt-values(ksat_mvc_sol.source_config))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#fmt-values(ksat_mvc_sol.target_config))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
-
-    *Multiplicity:* The fixture stores one canonical witness. Other valid covers correspond to different satisfying assignments of the formula.
-  ],
-)[
-  Each variable contributes a truth-setting edge; each clause contributes a satisfaction-testing triangle. The formula is satisfiable iff the graph has a vertex cover of size $n + 2m$.
-][
-  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, construct $G = (V, E)$ with $|V| = 2n + 3m$. For each variable $x_i$: vertices $u_i$ (index $2i$) and $overline(u)_i$ (index $2i+1$) with edge $(u_i, overline(u)_i)$. For each clause $c_j$: triangle vertices $t^j_0, t^j_1, t^j_2$ at indices $2n + 3j, 2n+3j+1, 2n+3j+2$. Communication edges connect each $t^j_k$ to the literal vertex of its $k$-th literal.
-
-  _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
-
-  _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
-]
 
 #let ksat_mono = load-example("KSatisfiability", "MonochromaticTriangle")
 #let ksat_mono_sol = ksat_mono.solutions.at(0)
@@ -17334,7 +17370,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Single clause ($n = #ksat_1in3.source.instance.num_vars$, $m = #sat-num-clauses(ksat_1in3.source.instance)$): 3-SAT $arrow.r$ 1-in-3 SAT],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_1in3) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_1in3_sol.source_config),
@@ -17386,7 +17422,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause 3-SAT instance ($n = #ksat_d2cif.source.instance.num_vars$, $m = #sat-num-clauses(ksat_d2cif.source.instance)$) reduced to Directed Two-Commodity Integral Flow],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_d2cif) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_d2cif_sol.source_config),
@@ -17437,7 +17473,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause 3-SAT instance ($n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$) reduced to Register Sufficiency],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_rs) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_rs_sol.source_config),
@@ -17507,7 +17543,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle graph ($n = #graph-num-vertices(mvc_mfas.source.instance)$, $|E| = #graph-num-edges(mvc_mfas.source.instance)$): VC $arrow.r$ FAS via vertex splitting],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
+      "pred create --example " + rule-spec(mvc_mfas) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_mfas_sol.source_config),
@@ -17535,13 +17571,13 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. By symmetry of the triangle, any two-vertex cover is optimal.
   ],
 )[
-  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v w(v)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
+  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v max(w(v), 0)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
 ][
-  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) w(v)$.
+  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) max(w(v), 0)$.
 
-  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) Since $M$ exceeds total internal weight, no crossing arc is in the optimal FAS. For each edge ${u,v}$, the 4-cycle through both internal and crossing arcs forces at least one internal arc into $F$.
+  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) If an FAS selects any crossing arc, replace all selected crossing arcs by all internal arcs. This still breaks every cycle, adds weight at most $sum_v max(w(v), 0)$, and removes weight at least $M$, strictly reducing cost. Thus an optimal FAS contains only internal arcs. Each source edge then forces at least one endpoint's internal arc into the FAS (also for a self-loop), yielding a cover of equal weight.
 
-  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$.
+  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$. Reject a target candidate if these vertices leave any source edge uncovered; target feasibility alone does not guarantee that this mapping produces a cover.
 ]
 
 #let ksat_kc = load-example("KSatisfiability", "KClique")
@@ -17551,7 +17587,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $m = #ksat_kc.source.instance.clauses.len()$ clauses, $n = #ksat_kc.source.instance.num_vars$ variables $arrow.r$ $k$-clique on $#ksat_kc.target.instance.graph.num_vertices$ vertices],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_kc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_kc_sol.source_config),
@@ -17588,7 +17624,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Single-clause 3-SAT reduced to #ksat_co.target.instance.num_elements cyclic-order elements],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_co) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_co_sol.source_config),
@@ -17632,7 +17668,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $n = #ksat_ps.source.instance.num_vars$ variables and $m = #ksat_ps.source.instance.clauses.len()$ clause $arrow.r$ unit-task preemptive schedule on #ksat_ps.target.instance.lengths.len() jobs and $#ksat_ps.target.instance.num_processors$ processors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ps) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ps_sol.source_config),
@@ -17656,7 +17692,7 @@ The following table shows concrete target-variable counts for example instances,
       [
         *Step 1 -- Source instance.* The formula is $phi = (x_1 or x_2 or x_3)$ with satisfying assignment $(x_1, x_2, x_3) = (#fmt-values(ksat_ps_sol.source_config))$.
 
-        *Step 2 -- Build Ullman's unit-task gadgets.* For $n = #n$, the reduction creates $2 n (n + 1) = #(2 * n * (n + 1))$ chain jobs $x_(i,j), overline(x)_(i,j)$, $2n = #(2 * n)$ forcing jobs $y_i, overline(y)_i$, and $7m = #(7 * m)$ clause jobs $D_(r,s)$. The slot capacities are $(#(n), #(2 * n + 1), #(2 * n + 2), #(2 * n + 2), #(m + n + 1), #(6 * m)) = (3, 7, 8, 8, 5, 6)$. We realize these capacities with $p = max(2n + 2, 6m) = #p$ processors and $F = #filler-jobs$ filler jobs, giving $#num-jobs$ total unit jobs. In this example the filler counts are $(5, 1, 0, 0, 3, 2)$.
+        *Step 2 -- Build Ullman's unit-task gadgets.* For $n = #n$, the reduction creates $2 n (n + 1) = #(2 * n * (n + 1))$ chain jobs $x_(i,j), overline(x)_(i,j)$, $2n = #(2 * n)$ forcing jobs $y_i, overline(y)_i$, and $7m = #(7 * m)$ clause jobs $D_(r,s)$. The slot capacities are $(#(n), #(2 * n + 1), #(2 * n + 2), #(2 * n + 2), #(m + n + 1), #(6 * m)) = (3, 7, 8, 8, 5, 6)$. We realize these capacities with $p = 1 + max_t c_t = #p$ processors and $F = #filler-jobs$ filler jobs, giving $#num-jobs$ total unit jobs. In this example the filler counts are $(#fmt-values((3, 7, 8, 8, 5, 6).map(c => p - c)))$.
 
         *Step 3 -- Verify a schedule.* The witness schedule has exactly $p = #p$ jobs in each of the $T = #t$ slots: $(#fmt-values(slot-counts))$. The positive chain starters $x_(1,0), x_(2,0), x_(3,0)$ are jobs $0, 8, 16$, placed at slots $(#sigma.at(0), #sigma.at(8), #sigma.at(16)) = (1, 1, 0)$, so extraction reads $(0, 0, 1)$ back from slot 0. The clause-pattern jobs are indices $30, dots, 36$; their slots are $(#fmt-values(clause-slots))$, so exactly one clause job is promoted to slot $n + 1 = 4$ and the remaining six sit at slot $n + 2 = 5$.
 
@@ -17667,14 +17703,16 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Ullman's reduction first builds a variable-capacity unit-task scheduling instance for 3-SAT, then pads each time slot with chained filler jobs so a fixed number of processors simulates the desired capacity profile. Because every task has length $1$, preemption is irrelevant: the resulting instance is already a valid preemptive scheduling instance whose optimal makespan is at most $T = n + 3$ iff the formula is satisfiable @ullman1975 @garey1979.
 ][
+  Short nonempty clauses are padded by repeating literals. An empty conjunction maps to one unit task with threshold 1; a formula containing an empty clause maps to the same task with threshold 0. The following construction handles the remaining instances.
+
   _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. Create unit jobs $x_(i,j)$ and $overline(x)_(i,j)$ for $1 <= i <= n$ and $0 <= j <= n$, plus forcing jobs $y_i, overline(y)_i$, and clause jobs $D_(r,s)$ for $1 <= r <= m$, $1 <= s <= 7$. Add chain precedences $x_(i,j) prec x_(i,j+1)$ and $overline(x)_(i,j) prec overline(x)_(i,j+1)$, and branching precedences $x_(i,i-1) prec y_i$, $overline(x)_(i,i-1) prec overline(y)_i$. Set $T = n + 3$ and slot capacities $c_0 = n$, $c_1 = 2n + 1$, $c_t = 2n + 2$ for $2 <= t <= n$, $c_(n+1) = m + n + 1$, and $c_(n+2) = 6m$.
   For each clause $C_r = (ell_1 or ell_2 or ell_3)$ and each nonzero bit pattern $b in {1, dots, 7}$, create clause job $D_(r,b)$. Its predecessors are the three chain endpoints chosen according to the bits of $b$: for literal position $k$, use the endpoint of $ell_k$ when bit $k$ is 1 and of $not ell_k$ when bit $k$ is 0. This makes exactly one clause job per clause ready one slot earlier when the clause is satisfied.
 
-  To convert the variable-capacity instance to fixed processors, let $p = max(2n + 2, 6m)$. For every slot $t$, add $p - c_t$ filler jobs and impose complete-bipartite precedences from every filler at slot $t$ to every filler at slot $t+1$. Keep every task length equal to $1$ and use $p$ processors. The total work is exactly $p T$, so any schedule of makespan at most $T$ must saturate every slot and therefore realizes the intended capacities.
+  To convert the variable-capacity instance to fixed processors, let $p = 1 + max_t c_t$. For every slot $t$, add $p - c_t$ filler jobs and impose complete-bipartite precedences from every filler at slot $t$ to every filler at slot $t+1$. Keep every task length equal to $1$ and use $p$ processors. Every filler layer is nonempty, so a chain through all $T$ layers pins layer $t$ to slot $t$. The total work is exactly $p T$, so any schedule of makespan at most $T$ must saturate every slot and therefore realizes the intended capacities.
 
   _Correctness._ ($arrow.r.double$) Given a satisfying assignment, place exactly one of $x_(i,0), overline(x)_(i,0)$ at slot $0$ for each variable, propagate the two chains forward one step at a time, schedule the forcing jobs immediately after their branch points, and place the unique matching clause job for each clause at slot $n + 1$ (all other clause jobs at slot $n + 2$). The filler jobs occupy the remaining $p - c_t$ processor positions in slot $t$, so the schedule finishes by time $T = n + 3$. ($arrow.l.double$) Conversely, if the constructed instance has makespan at most $T$, then every slot is full and the filler chains force exactly $p - c_t$ filler jobs into slot $t$, leaving precisely $c_t$ non-filler positions. Ullman's capacity argument then applies: at slot $0$ exactly one of $x_(i,0), overline(x)_(i,0)$ is chosen per variable, this choice propagates consistently through the chains, and the availability of one clause job per clause at slot $n + 1$ implies each clause has a satisfied literal. Hence the extracted assignment satisfies $phi$.
 
-  _Solution extraction._ In the binary schedule encoding, inspect the row for each starter job $x_(i,0)$. Set $x_i = 1$ iff that row has its single $1$ in column $0$; otherwise set $x_i = 0$.
+  _Solution extraction._ In the binary schedule encoding, inspect the row for each starter job $x_(i,0)$. Set $x_i = 1$ iff that row has its single $1$ in column $0$; otherwise set $x_i = 0$. Only schedules meeting the threshold yield a source witness. For aggregate recovery, compare the target optimum to the threshold: at most the threshold means YES, and a larger optimum or infeasibility means NO.
 ]
 
 #let ksat_td = load-example("KSatisfiability", "TimetableDesign")
@@ -17685,7 +17723,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause satisfiable formula reduced to a timetable gadget instance],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_td) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_td_sol.source_config),
@@ -17756,7 +17794,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4-cycle graph ($n = #graph-num-vertices(hc_bicon.source.instance)$, $|E| = #graph-num-edges(hc_bicon.source.instance)$): HC $arrow.r$ biconnectivity augmentation],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_bicon) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_bicon_sol.source_config),
@@ -17798,7 +17836,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4-cycle ($n = #hc_sca_n$): HC to budget-#hc_sca_n SCA],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_sca) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_sca_sol.source_config),
@@ -17822,18 +17860,18 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
 ]
 
-#let hc_sc = load-example("HamiltonianCircuit", "StackerCrane")
+#let hc_sc = load-example("HamiltonianCircuit", "DecisionStackerCrane")
 #let hc_sc_sol = hc_sc.solutions.at(0)
 #let hc_sc_n = graph-num-vertices(hc_sc.source.instance)
 #let hc_sc_source_edges = hc_sc.source.instance.graph.edges
-#let hc_sc_target_arcs = hc_sc.target.instance.arcs
-#let hc_sc_target_edges = hc_sc.target.instance.edges
-#reduction-rule("HamiltonianCircuit", "StackerCrane",
+#let hc_sc_target_arcs = hc_sc.target.instance.inner.arcs
+#let hc_sc_target_edges = hc_sc.target.instance.inner.edges
+#reduction-rule("HamiltonianCircuit", "DecisionStackerCrane",
   example: true,
   example-caption: [Cycle $C_#hc_sc_n$ ($n = #hc_sc_n$): vertex splitting to Stacker Crane],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_sc) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_sc_sol.source_config),
@@ -17841,7 +17879,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_sc_sol.source_config)]$.\
 
-    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
+    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.inner.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
 
     *Step 3 -- Verify a solution.* The stored target configuration $[#fmt-values(hc_sc_sol.target_config)]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#fmt-values(hc_sc_sol.source_config)]$ is the Hamiltonian circuit #sym.checkmark\
 
@@ -17861,15 +17899,15 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Evaluate once, apply the same aggregate certificate predicate, and reject non-certifying tours with an extraction error. Otherwise the service permutation is the source vertex order. The target evaluator permits service arcs on connector paths; the proof remains valid because equality forces each connector to be a single undirected edge. No target-definition change is required.
 ]
 
-#let hc_rp = load-example("HamiltonianCircuit", "RuralPostman")
+#let hc_rp = load-example("HamiltonianCircuit", "DecisionRuralPostman")
 #let hc_rp_sol = hc_rp.solutions.at(0)
 #let hc_rp_n = graph-num-vertices(hc_rp.source.instance)
-#reduction-rule("HamiltonianCircuit", "RuralPostman",
+#reduction-rule("HamiltonianCircuit", "DecisionRuralPostman",
   example: true,
   example-caption: [Cycle $C_#hc_rp_n$ ($n = #hc_rp_n$): vertex splitting to Rural Postman],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_rp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_rp_sol.source_config),
@@ -17877,9 +17915,9 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#fmt-values(hc_rp_sol.source_config))$.
 
-    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance) edges: #hc_rp.target.instance.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance) - hc_rp.target.instance.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
+    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance.inner)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance.inner) edges: #hc_rp.target.instance.inner.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance.inner) - hc_rp.target.instance.inner.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
 
-    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#fmt-values(hc_rp_sol.target_config))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#fmt-values(hc_rp_sol.target_config))$. The tour traverses all #hc_rp.target.instance.inner.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The $#hc_rp_n$-cycle has $#hc_rp_n$ rotations $times$ 2 reflections $= #(2 * hc_rp_n)$ directed Hamiltonian circuits.
   ],
@@ -17901,7 +17939,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [The three-vertex path has an independent set of size at least two],
   extra: [
     #pred-commands(
-      "pred create --example DecisionMaximumIndependentSet/One -o independent-set.json",
+      "pred create --example " + rule-spec(mis_ifb) + " -o independent-set.json",
       "pred reduce independent-set.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred extract bundle.json --config " + cli-config(mis_ifb_sol.target_config),
@@ -17922,14 +17960,14 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ After validating target feasibility, select original vertex $i$ exactly when its outgoing arc has flow 1. The auxiliary path is omitted. Repeated source edges add repeated constraints and do not change the proof. Allocation counts and the shifted threshold are checked before construction; no source solver is invoked during construction or extraction.
 ]
 
-#let hc_qa = load-example("HamiltonianCircuit", "QuadraticAssignment")
+#let hc_qa = load-example("HamiltonianCircuit", "DecisionQuadraticAssignment")
 #let hc_qa_sol = hc_qa.solutions.at(0)
-#reduction-rule("HamiltonianCircuit", "QuadraticAssignment",
+#reduction-rule("HamiltonianCircuit", "DecisionQuadraticAssignment",
   example: true,
   example-caption: [Cycle graph $C_#hc_qa.source.instance.graph.num_vertices$ ($n = #hc_qa.source.instance.graph.num_vertices$, $|E| = #hc_qa.source.instance.graph.edges.len()$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_qa) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_qa_sol.source_config),
@@ -17937,7 +17975,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$.
 
-    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 0$ if ${k,l} in E$, $d[k][l] = 1$ for distinct non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
+    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 0$ if ${k,l} in E$, $d[k][l] = 1$ for distinct non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.inner.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.inner.distance_matrix.len()$ locations.
 
     *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#fmt-values(hc_qa_sol.source_config))$. The QAP permutation is the same: $(#fmt-values(hc_qa_sol.target_config))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 0 = 0$. Total cost $= 0$ #sym.checkmark
 
@@ -17978,7 +18016,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_bp_n elements, total sum $S = #part_bp_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_bp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_bp_sol.source_config),
@@ -18009,7 +18047,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_msp.source.instance.subsets.len() subsets over $3q = #x3c_msp.source.instance.universe_size$ elements],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_msp) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_msp_sol.source_config),
@@ -18049,7 +18087,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_mfdts.source.instance.subsets.len() triples over $3q = #x3c_mfdts.source.instance.universe_size$ elements, with one shared output],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_mfdts) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_mfdts_sol.source_config),
@@ -18084,7 +18122,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_mas.source.instance.subsets.len() triples over $3q = #x3c_mas.source.instance.universe_size$ elements, with decision bound $q = #(x3c_mas.source.instance.universe_size / 3)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_mas) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_mas_sol.source_config),
@@ -18133,7 +18171,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#subsetsum-num-elements(ss_part.source.instance) elements, target $T = #ss_part.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_part.source) + " -o subsetsum.json",
+      "pred create --example " + rule-spec(ss_part) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + cli-config(ss_part_sol.source_config),
@@ -18186,7 +18224,7 @@ The following table shows concrete target-variable counts for example instances,
       let chosen_sum = chosen.map(i => sizes.at(i)).sum()
       [
         #pred-commands(
-          "pred create --example " + problem-spec(ss_ik.source) + " -o subsetsum.json",
+          "pred create --example " + rule-spec(ss_ik) + " -o subsetsum.json",
           "pred solve subsetsum.json",
           "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
           "pred solve integer-knapsack.json",
@@ -18234,7 +18272,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #sat_nt.source.instance.num_vars$ variables, $m = #sat-num-clauses(sat_nt.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_nt.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_nt) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_nt_sol.source_config),
@@ -18266,7 +18304,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(kc_pic.source.instance)$ vertices, $k = #kc_pic.source.instance.num_colors$ colors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_pic.source) + " -o kcoloring.json",
+      "pred create --example " + rule-spec(kc_pic) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + cli-config(kc_pic_sol.source_config),
@@ -18362,7 +18400,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.variables.len() variables and #clustering_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
+      "pred create --example " + rule-spec(clustering_ilp) + " -o clustering.json",
       "pred reduce clustering.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate clustering.json --config " + cli-config(clustering_ilp_sol.source_config),
@@ -18400,14 +18438,14 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 5. PartitionIntoCliques → MinimumCoveringByCliques (#889)
-#let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
+#let pic_mcbc = load-example("PartitionIntoCliques", "DecisionMinimumCoveringByCliques")
 #let pic_mcbc_sol = pic_mcbc.solutions.at(0)
-#reduction-rule("PartitionIntoCliques", "MinimumCoveringByCliques",
+#reduction-rule("PartitionIntoCliques", "DecisionMinimumCoveringByCliques",
   example: true,
   example-caption: [$n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edges, $K = #pic_mcbc.source.instance.num_cliques$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
+      "pred create --example " + rule-spec(pic_mcbc) + " -o partition-into-cliques.json",
       "pred reduce partition-into-cliques.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition-into-cliques.json --config " + cli-config(pic_mcbc_sol.source_config),
@@ -18415,7 +18453,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#fmt-values(pic_mcbc_sol.source_config))$, namely the cliques ${0,1}$ and ${2}$.
 
-    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
+    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance.inner)$ vertices and $#graph-num-edges(pic_mcbc.target.instance.inner)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
 
     *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#fmt-values(pic_mcbc_sol.source_config))$ #sym.checkmark.
 
@@ -18442,7 +18480,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mcbc_migb.source) + " -o source.json",
+      "pred create --example " + rule-spec(mcbc_migb) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mcbc_migb_sol.source_config),
@@ -18469,7 +18507,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #ksat_ker.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_ker.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ker.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ker) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ker_sol.source_config),
@@ -18517,7 +18555,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hp_dcst.source.instance)$ vertices, $K = 2$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hp_dcst.source) + " -o hampath.json",
+      "pred create --example " + rule-spec(hp_dcst) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + cli-config(hp_dcst_sol.source_config),
@@ -18549,7 +18587,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #nae_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ss.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_ss.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_ss) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_ss_sol.source_config),
@@ -18588,7 +18626,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #nae_ppm.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ppm.source.instance)$ clauses, target $K = #nae_ppm.target.instance.num_matchings$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_ppm) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_ppm_sol.source_config),
@@ -18611,17 +18649,19 @@ The following table shows concrete target-variable counts for example instances,
     }
   ],
 )[
-  This $O(n + m)$ reduction @schaefer1978 @garey1979[GT16] normalizes each 2-literal clause $(ell_1, ell_2)$ to $(ell_1, ell_1, ell_2)$, then builds 4-vertex variable gadgets, 2-vertex signal pairs, 4-vertex $K_4$ clause gadgets, and 2-vertex equality-chain links. For $m$ normalized clauses it produces $4n + 16m$ vertices, $3n + 21m$ edges, and fixes $K = 2$.
+  This reduction @schaefer1978 @garey1979[GT16] first normalizes NAE clauses to length 3 with auxiliary variables, then constructs variable, signal, clause, and equality-chain gadgets. With $n'$ variables and $m'$ clauses after normalization, it produces $4n' + 16m'$ vertices, $3n' + 21m'$ edges, and fixes $K = 2$. The construction takes $O(n + L)$ time, where $L$ is the original number of literal occurrences.
 ][
-  _Construction._ Let $phi$ be a NAE-SAT instance on variables $x_1, dots, x_n$ whose clauses have size 2 or 3, matching the implemented rule. Replace every 2-literal clause $(ell_1, ell_2)$ by $(ell_1, ell_1, ell_2)$, yielding normalized 3-literal clauses $C_j = (ell_(j,0), ell_(j,1), ell_(j,2))$ for $j = 0, dots, m - 1$. For each variable $x_i$, create vertices $t_i, t'_i, f_i, f'_i$ with edges $(t_i, t'_i)$, $(f_i, f'_i)$, and $(t_i, f_i)$. For each clause position $(j, k)$, create a signal pair $s_(j,k), s'_(j,k)$ with edge $(s_(j,k), s'_(j,k))$. For each clause $C_j$, create vertices $w_(j,0), w_(j,1), w_(j,2), w_(j,3)$ forming a $K_4$, and add connection edges $(s_(j,k), w_(j,k))$ for $k in {0,1,2}$.
+  _Construction._ Let $phi$ be a NAE-SAT instance on variables $x_1, dots, x_n$ whose clauses have at least two literals. Split each clause of length greater than 3 by replacing $"NAE"(a,b,R)$ with $"NAE"(a,b,z) and "NAE"(not z,R)$ for a fresh variable $z$, repeating as necessary. Here $R$ denotes the remaining literals. Replace every 2-literal clause $(ell_1, ell_2)$ by $(ell_1, ell_1, ell_2)$, yielding normalized 3-literal clauses $C_j = (ell_(j,0), ell_(j,1), ell_(j,2))$ for $j = 0, dots, m - 1$. Include auxiliary variables in this normalized instance. For each variable $x_i$, create vertices $t_i, t'_i, f_i, f'_i$ with edges $(t_i, t'_i)$, $(f_i, f'_i)$, and $(t_i, f_i)$. For each clause position $(j, k)$, create a signal pair $s_(j,k), s'_(j,k)$ with edge $(s_(j,k), s'_(j,k))$. For each clause $C_j$, create vertices $w_(j,0), w_(j,1), w_(j,2), w_(j,3)$ forming a $K_4$, and add connection edges $(s_(j,k), w_(j,k))$ for $k in {0,1,2}$.
 
   For each variable, chain its positive occurrences starting from $t_i$ and its negative occurrences starting from $f_i$. If $(j, k)$ is the next occurrence in the chosen sign-order and $"src"$ is the current chain source, create fresh vertices $mu, mu'$ with edges $(mu, mu')$, $("src", mu)$, and $(s_(j,k), mu)$, then update $"src" := s_(j,k)$. Output the Partition Into Perfect Matchings instance $(G, 2)$.
+
+  Normalization preserves satisfiability: if $a=b$, the first clause forces $z=not a$ and the second requires some literal of $R$ to differ from $a$, exactly the original condition. If $a != b$, the first clause is already satisfied and choosing $z$ equal to any literal of $R$ satisfies the second. Conversely, both clauses cannot be satisfied when all original literals agree.
 
   _Correctness._ ($arrow.r.double$) Let $alpha$ be a NAE-satisfying assignment. Put $t_i, t'_i$ in group 0 and $f_i, f'_i$ in group 1 when $alpha(x_i) = 1$; swap the two groups when $alpha(x_i) = 0$. Every equality-chain pair forces its signal vertex to share the group of the current chain source, so positive occurrences inherit the group of $t_i$ and negative occurrences inherit the group of $f_i$. In each normalized clause, the three signals are not all equal because $alpha$ satisfies the NAE condition. Assign $w_(j,k)$ to the opposite group from $s_(j,k)$ for $k = 0, 1, 2$, and assign $w_(j,3)$ to the minority group among $w_(j,0), w_(j,1), w_(j,2)$. Then every variable gadget, signal pair, and equality-chain pair contributes exactly one same-group edge, and each $K_4$ splits $2 + 2$, so every vertex has exactly one same-group neighbor.
 
   ($arrow.l.double$) Suppose $(G, 2)$ admits a partition into two perfect matchings. In each variable gadget, the edges $(t_i, t'_i)$ and $(f_i, f'_i)$ force those pairs to share a group, while the edge $(t_i, f_i)$ forces $t_i$ and $f_i$ to lie in opposite groups. Each equality-chain pair forces its signal vertex to share the group of the chain source, so positive signals copy $t_i$ and negative signals copy $f_i$. In a clause gadget, each signal vertex is opposite its corresponding $w_(j,k)$, and the $K_4$ must split $2 + 2$; therefore $w_(j,0), w_(j,1), w_(j,2)$ cannot all share one group, so neither can the three signal vertices. Defining $alpha(x_i) = 1$ iff $t_i$ lies in group 0 makes every normalized clause NAE-satisfied, hence every original clause is NAE-satisfied as well.
 
-  _Solution extraction._ Read the variable gadgets: set $alpha(x_i) = 1$ iff $t_i$ lies in group 0.
+  _Solution extraction._ Read the variable gadgets: set $alpha(x_i) = 1$ iff $t_i$ lies in group 0. Return only the original variables, discarding auxiliary variables.
 ]
 
 // 7. ExactCoverBy3Sets → SubsetProduct (#388)
@@ -18632,7 +18672,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_sp.source.instance.universe_size$, $|cal(C)| = #x3c_sp.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_sp.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_sp) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_sp_sol.source_config),
@@ -18673,7 +18713,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_bdst.source.instance.universe_size$, $|cal(C)| = #x3c_bdst.source.instance.subsets.len()$ subsets; target $D = #x3c_bdst.target.instance.diameter_bound$, $B = #x3c_bdst.target.instance.weight_bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_bdst.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_bdst) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_bdst_sol.source_config),
@@ -18722,7 +18762,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#subsetsum-num-elements(ss_iem.source.instance) elements, target $B = #ss_iem.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_iem.source) + " -o subsetsum.json",
+      "pred create --example " + rule-spec(ss_iem) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + cli-config(ss_iem_sol.source_config),
@@ -18763,7 +18803,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #ksat_si.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_si.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_si.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_si) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_si_sol.source_config),
@@ -18802,7 +18842,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$m = 2$ triples, target sum $B = 15$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(n3dm_nmts.source) + " -o source.json",
+      "pred create --example " + rule-spec(n3dm_nmts) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(n3dm_nmts_sol.source_config),
@@ -18820,23 +18860,23 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 12. Partition → SequencingToMinimizeTardyTaskWeight (#471)
-#let part_stw = load-example("Partition", "SequencingToMinimizeTardyTaskWeight")
+#let part_stw = load-example("Partition", "DecisionSequencingToMinimizeTardyTaskWeight")
 #let part_stw_sol = part_stw.solutions.at(0)
-#reduction-rule("Partition", "SequencingToMinimizeTardyTaskWeight",
+#reduction-rule("Partition", "DecisionSequencingToMinimizeTardyTaskWeight",
   example: true,
   example-caption: [#part_stw.source.instance.sizes.len() elements, total $= #part_stw.source.instance.sizes.sum()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_stw.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_stw) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_stw_sol.source_config),
     )
 
     #{
-      let lengths = part_stw.target.instance.lengths
-      let weights = part_stw.target.instance.weights
-      let deadline = part_stw.target.instance.deadlines.at(0)
+      let lengths = part_stw.target.instance.inner.lengths
+      let weights = part_stw.target.instance.inner.weights
+      let deadline = part_stw.target.instance.inner.deadlines.at(0)
       let on-time-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
       let tardy-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
       [
@@ -18877,14 +18917,14 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 12. Partition → OpenShopScheduling (#481)
-#let part_oss = load-example("Partition", "OpenShopScheduling")
+#let part_oss = load-example("Partition", "DecisionOpenShopScheduling")
 #let part_oss_sol = part_oss.solutions.at(0)
-#reduction-rule("Partition", "OpenShopScheduling",
+#reduction-rule("Partition", "DecisionOpenShopScheduling",
   example: true,
-  example-caption: [#part_oss.source.instance.sizes.len() elements, $m = #part_oss.target.instance.num_machines$ machines],
+  example-caption: [#part_oss.source.instance.sizes.len() elements, $m = #part_oss.target.instance.inner.num_machines$ machines],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_oss.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_oss) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_oss_sol.source_config),
@@ -18892,7 +18932,7 @@ The following table shows concrete target-variable counts for example instances,
 
     #{
       let q = part_oss.source.instance.sizes.sum() / 2
-      let p = part_oss.target.instance.processing_times
+      let p = part_oss.target.instance.inner.processing_times
       let left-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
       let right-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
       [
@@ -18931,14 +18971,14 @@ The following table shows concrete target-variable counts for example instances,
   _Aggregation and extraction._ Map a finite optimum equal to $D$ to true and all other values to false. Validate a target configuration once, apply this same certificate, then identify the middle machine and select its element jobs completing by $Q$. Reject invalid schedules and feasible schedules that do not attain the certificate. The existing checked target constructor validates its total horizon $3(S+Q)$ before computing $D$, so the smaller nonnegative certificate is representable. Target construction failures retain their formal error type.
 ]
 // 13. NAESatisfiability → MaxCut (#166)
-#let nae_mc = load-example("NAESatisfiability", "MaxCut")
+#let nae_mc = load-example("NAESatisfiability", "DecisionMaxCut")
 #let nae_mc_sol = nae_mc.solutions.at(0)
-#reduction-rule("NAESatisfiability", "MaxCut",
+#reduction-rule("NAESatisfiability", "DecisionMaxCut",
   example: true,
   example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_mc.source.instance)$ clauses, $M = #(sat-num-clauses(nae_mc.source.instance) + 1)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_mc) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_mc_sol.source_config),
@@ -18948,12 +18988,12 @@ The following table shows concrete target-variable counts for example instances,
       let n = nae_mc.source.instance.num_vars
       let m = sat-num-clauses(nae_mc.source.instance)
       let big-m = m + 1
-      let clause-edge-count = graph-num-edges(nae_mc.target.instance) - n
+      let clause-edge-count = graph-num-edges(nae_mc.target.instance.inner) - n
       let cut-value = n * big-m + 2 * m
       [
         *Step 1 -- Source instance.* NAE-SAT with $n = #n$ variables and $m = #m$ clauses. The implementation uses forcing weight $M = m + 1 = #big-m$.
 
-        *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance)$ edges total on $#graph-num-vertices(nae_mc.target.instance)$ vertices.
+        *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance.inner)$ edges total on $#graph-num-vertices(nae_mc.target.instance.inner)$ vertices.
 
         *Step 3 -- Verify the canonical witness.* Source assignment $(#fmt-values(nae_mc_sol.source_config))$ induces target cut $(#fmt-values(nae_mc_sol.target_config))$. All #n heavy edges are cut, and each of the #m clause triangles has a 1-2 split contributing 2, so the total cut weight is $#cut-value$ #sym.checkmark.
       ]
@@ -18990,7 +19030,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_tp.source.instance.universe_size$, $t = #tdm_tp.source.instance.triples.len()$, target has #tdm_tp.target.instance.sizes.len() numbers],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_tp) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_tp_sol.source_config),
@@ -19060,7 +19100,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.variables.len() variables and #tdm_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_ilp) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_ilp_sol.source_config),
@@ -19105,7 +19145,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_mwd.source.instance.universe_size$, $m = #tdm_mwd.source.instance.triples.len()$ triples $arrow.r$ #tdm_mwd.target.instance.matrix.len() $times$ #tdm_mwd.target.instance.matrix.at(0).len() parity-check matrix],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_mwd.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_mwd) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_mwd_sol.source_config),
@@ -19152,7 +19192,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#tp_rcs.source.instance.sizes.len() elements, $B = #tp_rcs.source.instance.bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
+      "pred create --example " + rule-spec(tp_rcs) + " -o threepartition.json",
       "pred reduce threepartition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate threepartition.json --config " + cli-config(tp_rcs_sol.source_config),
@@ -19187,7 +19227,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-Partition with $3m = #tp_srd.source.instance.sizes.len()$ elements and $B = #tp_srd.source.instance.bound$ mapped to #tp_srd.target.instance.lengths.len() sequencing tasks],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
+      "pred create --example " + rule-spec(tp_srd) + " -o tp.json",
       "pred reduce tp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tp.json --config " + cli-config(tp_srd_sol.source_config),
@@ -19226,7 +19266,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle graph ($n = #mc_mcbs.source.instance.graph.num_vertices$, $|E| = #mc_mcbs.source.instance.graph.edges.len()$, unit weights) mapped to $K_#mc_mcbs.target.instance.graph.num_vertices$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
+      "pred create --example " + rule-spec(mc_mcbs) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_mcbs_sol.source_config),
@@ -19265,7 +19305,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#mc_mmc_n$ (unit weights, $W = #mc_mmc_W$): adjacency matrix as quadratic form],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mc_mmc.source) + " -o maxcut.json",
+      "pred create --example " + rule-spec(mc_mmc) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_mmc_sol.source_config),
@@ -19303,7 +19343,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hp_ist.source.instance)$ vertices, target tree $P_n$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hp_ist.source) + " -o hampath.json",
+      "pred create --example " + rule-spec(hp_ist) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + cli-config(hp_ist_sol.source_config),
@@ -19335,7 +19375,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_gf2.source.instance.universe_size$, $|cal(C)| = #x3c_gf2.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_gf2.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_gf2) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_gf2_sol.source_config),
@@ -19378,7 +19418,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_pp.source.instance.sizes.len() elements, total $= #part_pp.source.instance.sizes.sum()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_pp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_pp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_pp_sol.source_config),
@@ -19423,14 +19463,14 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 // 17. HamiltonianPathBetweenTwoVertices → LongestPath (#359)
-#let hpbtv_lp = load-example("HamiltonianPathBetweenTwoVertices", "LongestPath")
+#let hpbtv_lp = load-example("HamiltonianPathBetweenTwoVertices", "DecisionLongestPath")
 #let hpbtv_lp_sol = hpbtv_lp.solutions.at(0)
-#reduction-rule("HamiltonianPathBetweenTwoVertices", "LongestPath",
+#reduction-rule("HamiltonianPathBetweenTwoVertices", "DecisionLongestPath",
   example: true,
   example-caption: [$n = #graph-num-vertices(hpbtv_lp.source.instance)$ vertices, $s = #hpbtv_lp.source.instance.source_vertex$, $t = #hpbtv_lp.source.instance.target_vertex$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hpbtv_lp.source) + " -o hampath2v.json",
+      "pred create --example " + rule-spec(hpbtv_lp) + " -o hampath2v.json",
       "pred reduce hampath2v.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath2v.json --config " + cli-config(hpbtv_lp_sol.source_config),
@@ -19462,7 +19502,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(gp_mc.source.instance)$ vertices, $|E| = #graph-num-edges(gp_mc.source.instance)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(gp_mc.source) + " -o graphpart.json",
+      "pred create --example " + rule-spec(gp_mc) + " -o graphpart.json",
       "pred reduce graphpart.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate graphpart.json --config " + cli-config(gp_mc_sol.source_config),
@@ -19520,7 +19560,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Canonical PCSF $arrow$ Steiner Tree instance (path $0 - 1 - 2$, $n = #pcsf_st_n$, $m = #pcsf_st_m$, $k = #pcsf_st_k$ prized vertices)],
   extra: [
     #pred-commands(
-      "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
+      "pred create --example " + rule-spec(pcsf_st) + " -o pcsf.json",
       "pred reduce pcsf.json --via route.json -o bundle.json",
       "pred solve bundle.json",
     )
@@ -19529,36 +19569,28 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.
 ][
-  _Construction._ Given a PCSF instance with graph $G = (V, E)$, edge costs $c$, vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$ and $k = |V_p|$. Build the target graph $H = (V_H, E_H)$ with weights $c_H$ and terminal set $T_H$ as follows.
+  _Construction._ Given a PCSF instance with graph $G = (V, E)$, nonnegative edge costs $c$, nonnegative vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$, $k = |V_p|$, and $M = omega + 1$.
 
-  1. Add a fresh artificial root $r$: $V_H = V union {r} union {t_v : v in V_p}$.
-  2. Keep every original edge $e in E$ with $c_H(e) = c(e)$.
-  3. For every $v in V$, add a root-attachment edge $(r, v)$ with $c_H((r, v)) = omega$.
-  4. For every prized vertex $v in V_p$, add an include-edge $(v, t_v)$ with cost $0$ and an omit-edge $(r, t_v)$ with cost $beta dot p(v)$.
-  5. Set $T_H = {r} union {t_v : v in V_p}$. Original vertices $V$ and the new gadget terminals coexist; only $r$ and the $t_v$ are terminals.
+  1. Add an artificial root $r$ and gadget terminals $t_v$: $V_H = V union {r} union {t_v : v in V_p}$.
+  2. Keep every original edge $e in E$ with cost $c(e)$.
+  3. For every $v in V$, add $(r, v)$ with cost $omega$.
+  4. For every $v in V_p$, add an include-edge $(v, t_v)$ of cost $M$ and an omit-edge $(r, t_v)$ of cost $M + beta dot p(v)$.
+  5. Set $T_H = {r} union {t_v : v in V_p}$.
 
-  Solve $"SteinerTree"(H, c_H, T_H)$ to obtain a minimum-weight tree $T^*$ spanning $T_H$.
+  _Witness extraction._ From an optimal target tree $T^*$ recover
+  $ E_F = T^* inter E(G), quad V_F = {v in V : (v, t_v) in T^*} union {"endpoints of edges in" E_F}. $
+  The restriction is acyclic and contains every endpoint of a selected source edge.
 
-  _Witness extraction._ From $T^*$ recover the PCSF witness $(V_F, E_F)$ by
+  _Correctness._ ($arrow.r.double$) Attach each component of a feasible forest $F$ to $r$ once. Select the include-edge for each included prized vertex and the omit-edge otherwise. The result is a tree spanning all terminals, of cost
+  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + k M = f'(F) + k M. $
 
-  $ E_F = T^* inter E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
-
-  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* inter E(G)$. Both directions are consistent because:
-
-  - any prized vertex $v$ in $V_F$ pays the cost-$0$ include-edge $(v, t_v)$ to reach $t_v$ inside $T^*$;
-  - any prized vertex $v$ omitted from $V_F$ has $t_v$ joined to the tree exclusively through $(r, t_v)$, paying $beta dot p(v)$.
-
-  _Correctness._ ($arrow.r.double$) Given any feasible source forest $F$, attach each connected component of $F$ to $r$ via exactly one root-attachment edge (cost $omega$ per component) and resolve each gadget locally: take $(v, t_v)$ if $v in V_F$, else $(r, t_v)$. The resulting subgraph of $H$ is connected, spans $T_H$, and is a tree because every gadget is paid by exactly one of its two edges and the only chord that could close a cycle is removed by the choice of a single root-attachment edge per component. Its cost equals
-
-  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + 0 = f'(F). $
-
-  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* inter E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
+  ($arrow.l.double$) A gadget terminal cannot have both incident edges in an optimum: replacing its omit-edge by $(r,v)$ preserves the tree and lowers cost by $M + beta p(v) - omega > 0$. Thus each gadget terminal is a leaf, contributing a common offset $M$. Each remaining component of original vertices has exactly one root attachment, since two would form a cycle. Extraction may discard isolated zero-prize vertices, which cannot increase cost. Any omitted prized vertex has its omit-edge selected. Therefore the extracted forest has cost at most $"cost"(T^*) - k M$. Combined with the forward construction, this proves equality of the optimal costs up to the offset and optimality of every extracted target optimum.
 
   _Overhead._ With $n = |V|$, $m = |E|$, and $k = |V_p|$:
   $ |V_H| = n + k + 1, quad |E_H| = m + n + 2 k, quad |T_H| = k + 1. $
-  Every quantity is linear in the source instance size, so the reduction is a polynomial-time transformation.
+  Every quantity is linear in the source instance size.
 
-  _Remark._ The artificial-root edges all share cost $omega$. Tuncbag et al. originally used this construction with $omega = c$ for any positive scalar $c$ acting as a per-component penalty; we follow that convention. When $omega = 0$, root-attachment edges become free and the construction degenerates: any rooted spanning tree of the prized-vertex closure achieves the same cost, but the witness-extraction recipe still recovers a feasible (cost-equivalent) PCSF forest, possibly with a different component count.
+  _Boundary cases._ When $k=0$, the target has only terminal $r$; the edge-free tree maps to the empty source forest of cost zero. The same construction works when $beta=0$ or $omega=0$. Gadget costs use checked integer arithmetic.
 ]
 
 #pagebreak()

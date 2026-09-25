@@ -121,6 +121,20 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKColoringToBicliqueCover {
+    type Source = KColoring<KN, SimpleGraph>;
+    type Target = BicliqueCover;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0.is_some())
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         left_size = "2 * num_vertices + 1",

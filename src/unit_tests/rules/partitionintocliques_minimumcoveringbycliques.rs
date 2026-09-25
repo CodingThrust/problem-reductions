@@ -1,5 +1,6 @@
 use super::*;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::models::decision::Decision;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -18,7 +19,8 @@ fn test_partitionintocliques_target_bound_rejects_overflow() {
 #[test]
 fn test_partitionintocliques_aggregate_applies_gadget_offset() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source).unwrap();
+    let reduction =
+        ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source).unwrap();
     // K + 2m + 2 = 6, including both directed-edge gadgets and the side cliques.
     for (value, expected) in [
         (Min(None), false),
@@ -27,7 +29,13 @@ fn test_partitionintocliques_aggregate_applies_gadget_offset() {
         (Min(Some(7)), false),
     ] {
         assert_eq!(
-            crate::rules::AggregateReductionResult::extract_value(&reduction, value),
+            crate::rules::AggregateReductionResult::extract_value(
+                &reduction,
+                crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                    &(value),
+                    crate::rules::ReductionResult::target_problem(&reduction).bound()
+                ))
+            ),
             crate::types::Or(expected),
         );
     }
@@ -35,14 +43,11 @@ fn test_partitionintocliques_aggregate_applies_gadget_offset() {
 
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
-    let source: PartitionIntoCliques<SimpleGraph> = serde_json::from_value(serde_json::json!({
-        "graph": {"num_vertices": 0, "edges": []}, "num_cliques": 0
-    }))
-    .unwrap();
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+    let source = PartitionIntoCliques::new(SimpleGraph::empty(1), 1);
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
+    assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
         "PartitionIntoCliques -> MinimumCoveringByCliques closed loop",
@@ -52,9 +57,9 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
     let layout = OrlinLayout::new(source.graph());
 
     assert_eq!(target.graph().num_vertices(), 14);
@@ -111,9 +116,9 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_source() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(2, vec![]), 1);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+    let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
         .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let target = reduction.target_problem().inner();
     let layout = OrlinLayout::new(source.graph());
 
     let target_solution = edge_labels_from_clique_cover(
@@ -154,14 +159,19 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
         (3, vec![(0, 1), (1, 0), (0, 0)]),
     ] {
         for bound in [0, 1, n, n + 1, usize::MAX] {
-            let source: PartitionIntoCliques<SimpleGraph> =
-                serde_json::from_value(serde_json::json!({
+            let source =
+                serde_json::from_value::<PartitionIntoCliques<SimpleGraph>>(serde_json::json!({
                     "graph": {"num_vertices": n, "edges": edges}, "num_cliques": bound
-                }))
-                .unwrap();
+                }));
+            if bound == 0 || bound > n {
+                assert!(source.is_err());
+                continue;
+            }
+            let source = source.unwrap();
             let reduction =
-                ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source).unwrap();
-            let target = ReductionResult::target_problem(&reduction);
+                ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
+                    .unwrap();
+            let target = ReductionResult::target_problem(&reduction).inner();
             let layout = OrlinLayout::new(source.graph());
             let mut cliques: Vec<Vec<usize>> =
                 (0..n).map(|i| vec![layout.x(i), layout.y(i)]).collect();
@@ -181,7 +191,13 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
                 Min(Some((n + layout.num_directed_pairs() + 2) as i64))
             );
             assert_eq!(
-                AggregateReductionResult::extract_value(&reduction, value).0,
+                AggregateReductionResult::extract_value(
+                    &reduction,
+                    crate::rules::ReductionResult::target_problem(&reduction)
+                        .evaluate(&witness)
+                        .unwrap()
+                )
+                .0,
                 n <= bound
             );
             if n <= bound {

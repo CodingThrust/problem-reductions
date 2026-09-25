@@ -55,8 +55,7 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize)]
 pub struct DegreeConstrainedSpanningTree<G> {
     /// The underlying graph.
     graph: G,
@@ -66,19 +65,42 @@ pub struct DegreeConstrainedSpanningTree<G> {
     edge_list: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
+struct DegreeConstrainedSpanningTreeData<G> {
+    graph: G,
+    max_degree: usize,
+}
+
+impl<'de, G> Deserialize<'de> for DegreeConstrainedSpanningTree<G>
+where
+    G: Graph + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = DegreeConstrainedSpanningTreeData::<G>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.max_degree).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<G: Graph> DegreeConstrainedSpanningTree<G> {
     /// Create a new Degree-Constrained Spanning Tree instance.
     ///
     /// # Panics
     /// Panics if `max_degree` is zero.
     pub fn new(graph: G, max_degree: usize) -> Self {
-        assert!(max_degree >= 1, "max_degree must be at least 1");
+        Self::try_new(graph, max_degree).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, max_degree: usize) -> Result<Self, crate::registry::ConstructionError> {
+        if max_degree == 0 {
+            return Err("max_degree must be at least 1".into());
+        }
         let edge_list = graph.edges();
-        Self {
+        Ok(Self {
             graph,
             max_degree,
             edge_list,
-        }
+        })
     }
 
     /// Get a reference to the underlying graph.

@@ -47,11 +47,7 @@ fn test_partition_to_subsetsum_odd_total() {
     let witness = BruteForce::new().solve(target).unwrap();
     assert!(witness.is_none());
 
-    let error = reduction.extract_solution(&vec![]).unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        "expected 3 subset-selection values, got 0"
-    );
+    assert!(reduction.extract_solution(&vec![]).is_err());
 }
 
 #[test]

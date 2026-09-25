@@ -318,9 +318,13 @@ fn is_valid_acyclic_partition<W: WeightElement>(
             vertex_weights[vertex].to_sum(),
             "summing acyclic partition vertex weights",
         )?;
-        if partition_weights[label] > *weight_bound {
-            return Ok(false);
-        }
+    }
+    if partition_weights
+        .iter()
+        .zip(&used_labels)
+        .any(|(weight, used)| *used && weight > weight_bound)
+    {
+        return Ok(false);
     }
 
     let mut dense_label = vec![usize::MAX; num_vertices];
@@ -345,13 +349,11 @@ fn is_valid_acyclic_partition<W: WeightElement>(
             cost.to_sum(),
             "summing acyclic partition arc costs",
         )?;
-        if total_cost > *cost_bound {
-            return Ok(false);
-        }
         quotient_arcs.insert((dense_label[source_label], dense_label[target_label]));
     }
 
-    Ok(DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
+    Ok(total_cost <= *cost_bound
+        && DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
 }
 
 crate::declare_variants! {

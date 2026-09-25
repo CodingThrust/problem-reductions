@@ -40,7 +40,7 @@ impl ReductionResult for ReductionSPToILP {
 }
 
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vars = "num_sets",
         num_constraints = "universe_size",
     },

@@ -27,9 +27,31 @@ impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesma
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not certify a YES answer for the source",
+            ));
+        }
 
         crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult
+    for ReductionHamiltonianCircuitToBottleneckTravelingSalesman
+{
+    type Source = HamiltonianCircuit<SimpleGraph>;
+    type Target = BottleneckTravelingSalesman;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
+        crate::types::Or(value.0 == Some(1))
     }
 }
 

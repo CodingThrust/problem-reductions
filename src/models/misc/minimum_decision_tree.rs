@@ -83,6 +83,7 @@ impl MinimumDecisionTree {
     ///
     /// # Panics
     /// - If num_objects < 2 or num_tests < 1
+    /// - If the flattened tree slot count cannot fit in usize
     /// - If test_matrix dimensions don't match
     /// - If tests don't distinguish all object pairs
     pub fn new(test_matrix: Vec<Vec<bool>>, num_objects: usize, num_tests: usize) -> Self {
@@ -96,6 +97,11 @@ impl MinimumDecisionTree {
     ) -> Result<Self, crate::registry::ConstructionError> {
         if num_objects < 2 {
             return Err("Need at least 2 objects".into());
+        }
+        if num_objects > usize::BITS as usize {
+            return Err(crate::registry::ConstructionError::IntegerOverflow(
+                "representing the decision-tree witness slots".into(),
+            ));
         }
         if num_tests == 0 {
             return Err("Need at least 1 test".into());
@@ -214,6 +220,11 @@ impl Problem for MinimumDecisionTree {
             if config.len() != self.num_tree_slots() {
                 return Err(crate::traits::EvaluationError::InvalidConfiguration(
                     "decision-tree encoding length does not match the instance".into(),
+                ));
+            }
+            if config.iter().any(|&test| test > self.num_tests) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "decision-tree encoding contains an out-of-range test".into(),
                 ));
             }
             Min(self.simulate(config)?)

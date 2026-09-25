@@ -33,7 +33,7 @@ impl ReductionCDFTToILP {
     }
 
     fn auxiliary_block_start(&self, table_index: usize) -> usize {
-        self.source.num_assignment_indicators()
+        self.source.num_objects() * self.assignment_block_size()
             + self.source.frequency_tables()[..table_index]
                 .iter()
                 .map(|table| self.source.num_objects() * table.num_cells())
@@ -95,7 +95,13 @@ impl ReductionResult for ReductionCDFTToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         Ok({
             let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
@@ -127,6 +133,18 @@ impl ReductionResult for ReductionCDFTToILP {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionCDFTToILP {
+    type Source = ConsistencyOfDatabaseFrequencyTables;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
+    }
+}
+
 #[reduction(
     transform = exact {
         num_vars = "num_objects * total_domain_size + num_objects * num_frequency_cells",
@@ -140,24 +158,52 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
     type Result = ReductionCDFTToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
+                "representing the database ILP encoding",
+            )
+        };
+        let assignments = self
+            .num_objects()
+            .checked_mul(self.total_domain_size())
+            .ok_or_else(overflow)?;
+        let auxiliaries = self
+            .num_objects()
+            .checked_mul(self.num_frequency_cells())
+            .ok_or_else(overflow)?;
+        let num_vars = assignments.checked_add(auxiliaries).ok_or_else(overflow)?;
+        let num_constraints = auxiliaries
+            .checked_mul(3)
+            .and_then(|count| count.checked_add(self.num_assignment_variables()))
+            .and_then(|count| count.checked_add(self.num_known_values()))
+            .and_then(|count| count.checked_add(self.num_frequency_cells()))
+            .ok_or_else(overflow)?;
         let source = self.clone();
         let helper = ReductionCDFTToILP {
             target: ILP::empty(),
             source: source.clone(),
         };
 
-        let mut constraints = Vec::with_capacity(
-            source.num_assignment_variables()
-                + source.num_known_values()
-                + source.num_frequency_cells()
-                + 3 * source.num_auxiliary_frequency_indicators(),
-        );
+        let allocation_error = |error| {
+            crate::rules::ReductionError::invalid_target::<Self, ILP<bool>>(format!(
+                "cannot allocate database ILP encoding: {error}"
+            ))
+        };
+        let mut constraints = Vec::new();
+        constraints
+            .try_reserve_exact(num_constraints)
+            .map_err(allocation_error)?;
 
         for object in 0..source.num_objects() {
             for (attribute, &domain_size) in source.attribute_domains().iter().enumerate() {
-                let terms = (0..domain_size)
-                    .map(|value| (helper.assignment_var_index(object, attribute, value), 1))
-                    .collect();
+                let mut terms = Vec::new();
+                terms
+                    .try_reserve_exact(domain_size)
+                    .map_err(allocation_error)?;
+                terms.extend(
+                    (0..domain_size)
+                        .map(|value| (helper.assignment_var_index(object, attribute, value), 1)),
+                );
                 constraints.push(LinearConstraint::eq(terms, 1));
             }
         }
@@ -204,13 +250,8 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
             }
         }
 
-        let target = ILP::new(
-            source.num_assignment_indicators() + source.num_auxiliary_frequency_indicators(),
-            constraints,
-            vec![],
-            ObjectiveSense::Minimize,
-        )
-        .map_err(Self::target_construction)?;
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionCDFTToILP { target, source })
     }

@@ -12,6 +12,7 @@
 //! paths cost strictly more than single-hop ones. Only permutations attaining
 //! this lower bound certify a Hamiltonian circuit.
 
+use crate::models::decision::Decision;
 use crate::models::graph::HamiltonianCircuit;
 use crate::models::misc::StackerCrane;
 use crate::reduction;
@@ -21,12 +22,12 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to StackerCrane.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToStackerCrane {
-    target: StackerCrane,
+    target: Decision<StackerCrane>,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = StackerCrane;
+    type Target = Decision<StackerCrane>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -38,7 +39,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         let value =
             crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+        if !value.0 {
             return Err(crate::rules::ExtractionError::invalid(
                 "target tour does not certify a Hamiltonian circuit",
             ));
@@ -48,33 +49,28 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToStackerCrane {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = StackerCrane;
+    type Target = Decision<StackerCrane>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Or {
-        crate::types::Or(
-            self.target.num_arcs() >= 3
-                && value
-                    .0
-                    .is_some_and(|cost| usize::try_from(cost) == Ok(self.target.num_vertices())),
-        )
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
 #[reduction(
-    aggregate = custom,
     transform = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices",
         num_edges = "2 * num_edges",
     }
 )]
-impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<Decision<StackerCrane>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToStackerCrane;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -103,9 +99,21 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
 
         let target =
             StackerCrane::try_new(target_num_vertices, arcs, edges, arc_lengths, edge_lengths)
-                .map_err(<Self as ReduceTo<StackerCrane>>::target_construction)?;
+                .map_err(<Self as ReduceTo<Decision<StackerCrane>>>::target_construction)?;
 
-        Ok(ReductionHamiltonianCircuitToStackerCrane { target })
+        Ok(ReductionHamiltonianCircuitToStackerCrane {
+            target: Decision::new(
+                target,
+                if n < 3 {
+                    -1
+                } else {
+                    <Self as ReduceTo<Decision<StackerCrane>>>::exact_i64(
+                        target_num_vertices,
+                        "encoding the route bound",
+                    )?
+                },
+            ),
+        })
     }
 }
 
@@ -116,7 +124,7 @@ fn split_graph_dimensions(
 ) -> Result<(usize, usize), crate::rules::ReductionError> {
     type Source = HamiltonianCircuit<SimpleGraph>;
     let overflow = || {
-        crate::rules::ReductionError::integer_overflow::<Source, StackerCrane>(
+        crate::rules::ReductionError::integer_overflow::<Source, Decision<StackerCrane>>(
             "encoding split graph dimensions and route costs",
         )
     };
@@ -125,7 +133,10 @@ fn split_graph_dimensions(
     // A shortest connector is simple and has at most 2n-1 unit steps.
     // The n services therefore cost at most n * (1 + (2n-1)).
     let cost_bound = n.checked_mul(vertices).ok_or_else(overflow)?;
-    <Source as ReduceTo<StackerCrane>>::exact_i64(cost_bound, "bounding split graph route costs")?;
+    <Source as ReduceTo<Decision<StackerCrane>>>::exact_i64(
+        cost_bound,
+        "bounding split graph route costs",
+    )?;
     Ok((vertices, edges))
 }
 
@@ -137,7 +148,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "hamiltoniancircuit_to_stackercrane",
         build: || {
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            crate::example_db::specs::rule_example_with_witness::<_, StackerCrane>(
+            crate::example_db::specs::rule_example_with_witness::<_, Decision<StackerCrane>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1, 2, 3]),

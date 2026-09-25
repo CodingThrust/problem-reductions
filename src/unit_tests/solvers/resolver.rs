@@ -5,6 +5,119 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn tree_and_weighted_sequencing_default_to_ilp() {
+    let tree_variant = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    let cases = [
+        (
+            "SteinerTree",
+            tree_variant.clone(),
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,2]]},
+                "edge_weights": [1,-3], "terminals": [0,1]}),
+        ),
+        (
+            "SteinerTree",
+            tree_variant,
+            serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1]]},
+                "edge_weights": [1], "terminals": [0,2]}),
+        ),
+        (
+            "SequencingToMinimizeWeightedCompletionTime",
+            BTreeMap::new(),
+            serde_json::json!({"lengths": [2,1,0], "weights": [3,5,2],
+                "precedences": [[0,2],[1,2]]}),
+        ),
+    ];
+    for (name, variant, data) in cases {
+        let problem = load_dyn(name, &variant, data).unwrap();
+        let expected = solve(&problem, SolverRequest::BruteForce).unwrap();
+        let actual = solve(&problem, SolverRequest::Default).unwrap();
+        assert!(
+            matches!(actual.solver, SolverExecution::Ilp { .. }),
+            "{name}"
+        );
+        match (expected.outcome, actual.outcome) {
+            (SolveOutcome::Infeasible, SolveOutcome::Infeasible) => {}
+            (
+                SolveOutcome::Optimal {
+                    evaluation: expected,
+                    ..
+                },
+                SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
+                },
+            ) => {
+                assert_eq!(evaluation, expected, "{name}");
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), expected, "{name}");
+            }
+            outcomes => panic!("{name}: mismatched outcomes: {outcomes:?}"),
+        }
+    }
+}
+
+#[test]
+fn decision_ilp_paths_respect_bounds_and_return_valid_witnesses() {
+    let graph = serde_json::json!({"num_vertices": 3, "edges": [[0,1],[1,2]]});
+    let cases = [
+        (
+            "DecisionMinimumVertexCover",
+            BTreeMap::from([
+                ("graph".into(), "SimpleGraph".into()),
+                ("weight".into(), "One".into()),
+            ]),
+            serde_json::json!({"graph": graph, "weights": [1,1,1]}),
+            1,
+        ),
+        (
+            "DecisionMinimumCoveringByCliques",
+            BTreeMap::from([("graph".into(), "SimpleGraph".into())]),
+            serde_json::json!({"graph": graph}),
+            2,
+        ),
+        (
+            "DecisionOpenShopScheduling",
+            BTreeMap::new(),
+            serde_json::json!({"num_machines": 2, "processing_times": [[2,1],[1,2]]}),
+            3,
+        ),
+        (
+            "DecisionRuralPostman",
+            BTreeMap::from([
+                ("graph".into(), "SimpleGraph".into()),
+                ("weight".into(), "i64".into()),
+            ]),
+            serde_json::json!({"graph": graph, "edge_lengths": [1,1], "required_edges": [0,1]}),
+            4,
+        ),
+    ];
+    for (name, variant, inner, optimum) in cases {
+        for bound in [optimum - 1, optimum, optimum + 1] {
+            let problem = load_dyn(
+                name,
+                &variant,
+                serde_json::json!({"inner": inner, "bound": bound}),
+            )
+            .unwrap();
+            let result = solve(&problem, SolverRequest::Default).unwrap();
+            assert!(
+                matches!(result.solver, SolverExecution::Ilp { .. }),
+                "{name}"
+            );
+            match result.outcome {
+                SolveOutcome::Optimal { solution, .. } => {
+                    assert!(bound >= optimum, "{name}, bound {bound}");
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+                SolveOutcome::Infeasible => assert!(bound < optimum, "{name}, bound {bound}"),
+            }
+        }
+    }
+}
+
+#[test]
 fn decision_reductions_check_target_optimum_before_extracting_witness() {
     let variant = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
     let cases = [
@@ -41,18 +154,7 @@ fn decision_reductions_check_target_optimum_before_extracting_witness() {
             SolverRequest::Ilp,
             SolverRequest::Default,
         ] {
-            let result = solve(&problem, backend);
-            if matches!(
-                &result,
-                Err(crate::solvers::SolveError::IlpSolve {
-                    source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                    ..
-                })
-            ) {
-                assert!(!expected, "{name}, {backend:?}");
-                continue;
-            }
-            match result.unwrap().outcome {
+            match solve(&problem, backend).unwrap().outcome {
                 SolveOutcome::Optimal {
                     solution,
                     evaluation,
@@ -84,18 +186,7 @@ fn hamiltonian_ilp_matches_exhaustive_search_on_small_graphs() {
         )
         .unwrap();
         let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
-        let actual = solve(&problem, SolverRequest::Ilp);
-        if matches!(
-            &actual,
-            Err(crate::solvers::SolveError::IlpSolve {
-                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                ..
-            })
-        ) {
-            assert!(matches!(reference.outcome, SolveOutcome::Infeasible));
-            continue;
-        }
-        let actual = actual.unwrap();
+        let actual = solve(&problem, SolverRequest::Ilp).unwrap();
         assert_eq!(
             matches!(actual.outcome, SolveOutcome::Infeasible),
             matches!(reference.outcome, SolveOutcome::Infeasible),
@@ -152,21 +243,7 @@ fn generic_decision_ilp_compares_inner_optimum_with_bound() {
                 SolverRequest::Ilp,
                 SolverRequest::Default,
             ] {
-                let result = solve(&loaded, backend);
-                if bound < optimum && backend != SolverRequest::BruteForce {
-                    assert!(
-                        matches!(
-                            result,
-                            Err(crate::solvers::SolveError::IlpSolve {
-                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                                ..
-                            })
-                        ),
-                        "{name}, {bound}, {backend:?}"
-                    );
-                    continue;
-                }
-                let result = result.unwrap();
+                let result = solve(&loaded, backend).unwrap();
                 if bound < optimum {
                     assert_eq!(
                         result.outcome,
@@ -238,21 +315,7 @@ fn generic_decision_ilp_matches_exhaustive_search_on_small_graphs() {
                 )
                 .unwrap();
                 let reference = solve(&loaded, SolverRequest::BruteForce).unwrap();
-                let actual = solve(&loaded, SolverRequest::Ilp);
-                if matches!(reference.outcome, SolveOutcome::Infeasible) {
-                    assert!(
-                        matches!(
-                            actual,
-                            Err(crate::solvers::SolveError::IlpSolve {
-                                source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                                ..
-                            })
-                        ),
-                        "{name}, graph {mask}, bound {bound}"
-                    );
-                    continue;
-                }
-                let actual = actual.unwrap();
+                let actual = solve(&loaded, SolverRequest::Ilp).unwrap();
                 assert_eq!(
                     matches!(actual.outcome, SolveOutcome::Infeasible),
                     matches!(reference.outcome, SolveOutcome::Infeasible),
@@ -365,7 +428,7 @@ fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
 }
 
 #[test]
-fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
+fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
     let problem = ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize).unwrap();
     let loaded = load_dyn(
         ILP::<bool>::NAME,
@@ -381,7 +444,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_registered_cast_pipeline() {
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<i64, bool>".to_string(), "ILP<f64, bool>".to_string()]
+            reduction_path: vec!["ILP<i64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -498,7 +561,6 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
             "ILP<i64, bool>",
-            "ILP<f64, bool>",
         ]
     );
 }
@@ -588,24 +650,7 @@ fn check_unit_dominating_decision(num_vertices: usize, edges: &[(usize, usize)],
     .unwrap();
     let reference = solve(&problem, SolverRequest::BruteForce).unwrap();
     for backend in [SolverRequest::Ilp, SolverRequest::Default] {
-        let actual = solve(&problem, backend);
-        if matches!(reference.outcome, SolveOutcome::Infeasible) {
-            assert!(
-                matches!(
-                    actual,
-                    Err(crate::solvers::SolveError::IlpSolve {
-                        source: crate::solvers::ILPSolveError::UnresolvedDecision(_),
-                        ..
-                    }) | Ok(crate::solvers::SolveResult {
-                        outcome: SolveOutcome::Infeasible,
-                        ..
-                    })
-                ),
-                "n={num_vertices}, edges={edges:?}, bound={bound}"
-            );
-            continue;
-        }
-        let actual = actual.unwrap();
+        let actual = solve(&problem, backend).unwrap();
         let SolverExecution::Ilp { reduction_path } = &actual.solver else {
             panic!("expected the registered ILP pipeline");
         };

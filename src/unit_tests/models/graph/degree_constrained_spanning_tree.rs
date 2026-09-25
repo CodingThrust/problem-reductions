@@ -1,4 +1,33 @@
+#[test]
+fn test_json_enforces_construction_constraints() {
+    let valid =
+        serde_json::json!({"graph":{"num_vertices":3,"edges":[[0,1],[1,2]]},"max_degree":2});
+    let problem: DegreeConstrainedSpanningTree<SimpleGraph> =
+        serde_json::from_value(valid.clone()).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    let restored: DegreeConstrainedSpanningTree<SimpleGraph> =
+        serde_json::from_value(encoded.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&restored).unwrap(), encoded);
+    let mut data = valid.clone();
+    data["max_degree"] = serde_json::json!(0);
+    assert!(
+        serde_json::from_value::<DegreeConstrainedSpanningTree<SimpleGraph>>(data.clone()).is_err(),
+        "accepted {data}"
+    );
+}
+
 use super::*;
+
+#[test]
+fn test_json_rebuilds_edge_list() {
+    let problem = DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let mut data = serde_json::to_value(&problem).unwrap();
+    data["edge_list"] = serde_json::json!([[0, 99]]);
+    let restored: DegreeConstrainedSpanningTree<SimpleGraph> =
+        serde_json::from_value(data).unwrap();
+    assert_eq!(restored.edge_list(), &[(0, 1), (1, 2)]);
+    assert!(restored.evaluate(&vec![true, true]).unwrap());
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;

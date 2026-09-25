@@ -10,19 +10,18 @@ use crate::models::graph::{MinimumDominatingSet, MinimumSumMulticenter};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{Min, One, Or};
+use crate::types::One;
 
 /// Result of reducing DecisionMinimumDominatingSet to MinimumSumMulticenter.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
-    target: MinimumSumMulticenter<SimpleGraph, i64>,
+    target: Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
     source_num_vertices: usize,
-    threshold: i64,
 }
 
 impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
+    type Target = Decision<MinimumSumMulticenter<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -34,7 +33,7 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         let value =
             crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
+        if !value.0 {
             return Err(crate::rules::ExtractionError::invalid(
                 "target placement does not certify a dominating set within the source bound",
             ));
@@ -44,26 +43,26 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter
 {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
+    type Target = Decision<MinimumSumMulticenter<SimpleGraph, i64>>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_value(&self, target_value: Min<i64>) -> Or {
-        Or(target_value.0 == Some(self.threshold))
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound { num_vertices = "num_vertices + 2", num_edges = "num_edges" }
 )]
-impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>
+impl ReduceTo<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {
     type Result = ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter;
@@ -80,9 +79,8 @@ impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>
         );
         Ok(
             ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
-                target,
+                target: Decision::new(target, threshold),
                 source_num_vertices: n,
-                threshold,
             },
         )
     }
@@ -95,7 +93,7 @@ fn multicenter_parameters(
     bound: i64,
 ) -> Result<(usize, usize, i64), crate::rules::ReductionError> {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
+    type Target = Decision<MinimumSumMulticenter<SimpleGraph, i64>>;
     let overflow = || {
         crate::rules::ReductionError::integer_overflow::<Source, Target>(
             "encoding multicenter construction parameters",
@@ -124,7 +122,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumSumMulticenter<SimpleGraph, i64>,
+                Decision<MinimumSumMulticenter<SimpleGraph, i64>>,
             >(
                 Decision::new(
                     MinimumDominatingSet::new(

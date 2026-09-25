@@ -1,7 +1,44 @@
 use std::process::Command;
 
+#[test]
+fn test_evaluate_rejects_invalid_model_json_without_panicking() {
+    use std::io::Write;
+    let mut child = pred()
+        .args(["evaluate", "-", "--config", "[true]"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(br#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":1,"edges":[]},"weights":[]}}"#).unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("weights length must match graph num_vertices"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("panicked"), "{stderr}");
+}
+
 fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
+}
+
+fn extract_target_config(
+    bundle: &std::path::Path,
+    config: serde_json::Value,
+) -> std::process::Output {
+    pred()
+        .args([
+            "extract",
+            bundle.to_str().unwrap(),
+            "--config",
+            &config.to_string(),
+            "--json",
+        ])
+        .output()
+        .unwrap()
 }
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
@@ -116,7 +153,7 @@ fn test_list_json_respects_category_filter() {
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let variants = json["variants"].as_array().unwrap();
-    assert_eq!(json["num_types"], 9);
+    assert_eq!(json["num_types"], 10);
     assert!(variants
         .iter()
         .all(|variant| variant["name"] != "MaximumIndependentSet"));
@@ -3125,6 +3162,12 @@ fn test_create_qubo() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "QUBO");
+    assert_eq!(
+        json["data"],
+        serde_json::json!({
+            "num_vars": 2, "entries": [[0,0,1],[0,1,-1],[1,1,2]]
+        })
+    );
 
     std::fs::remove_file(&output_file).ok();
 }
@@ -3585,7 +3628,7 @@ fn test_solve_direct_ilp_i64_problem() {
 }
 
 #[test]
-fn test_solve_partial_ilp_route_defaults_to_brute_force() {
+fn test_solve_weighted_completion_time_defaults_to_ilp() {
     let problem_file = std::env::temp_dir()
         .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
 
@@ -3624,8 +3667,10 @@ fn test_solve_partial_ilp_route_defaults_to_brute_force() {
         stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
         "{stdout}"
     );
-    assert!(stdout.contains("\"kind\": \"brute-force\""), "{stdout}");
-    assert!(stdout.contains("\"solution\": ["), "{stdout}");
+    let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(result["solver"]["kind"], "ilp");
+    assert_eq!(result["status"], "optimal");
+    assert_eq!(result["evaluation"], "Min(46)");
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -3810,7 +3855,10 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("k must be at least 1"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("max_components must be at least 1"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -8632,7 +8680,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths has 7 entries, expected 8"),
+        stderr.contains("edge lengths length must match num_edges"),
         "stderr: {stderr}"
     );
 }
@@ -8678,7 +8726,7 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("source_vertex 9 is outside graph with 6 vertices"),
+        stderr.contains("source_vertex 9 out of bounds"),
         "stderr: {stderr}"
     );
     assert!(
@@ -8766,7 +8814,7 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_lengths must be positive"),
+        stderr.contains("edge lengths must be positive"),
         "stderr: {stderr}"
     );
 }
@@ -9558,6 +9606,143 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
 }
 
 #[test]
+fn test_decision_extract_checks_bound_while_solve_recovers_no() {
+    use problemreductions::models::{graph::MinimumVertexCover, Decision};
+    use problemreductions::rules::{ReduceTo, ReductionResult};
+    use problemreductions::topology::SimpleGraph;
+    use serde_json::json;
+    let bundle =
+        std::env::temp_dir().join(format!("pred-decision-extract-{}.json", std::process::id()));
+    let variant = json!({"graph":"SimpleGraph","weight":"i64"});
+    for bound in [1, 2] {
+        let source = Decision::new(
+            MinimumVertexCover::new(SimpleGraph::cycle(3), vec![1i64; 3]),
+            bound,
+        );
+        let reduction =
+            ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source).unwrap();
+        std::fs::write(&bundle, json!({
+            "source":{"type":"DecisionMinimumVertexCover","variant":variant,"data":source},
+            "target":{"type":"MinimumVertexCover","variant":variant,"data":reduction.target_problem()},
+            "path":[{"name":"DecisionMinimumVertexCover","variant":variant},
+                    {"name":"MinimumVertexCover","variant":variant}]
+        }).to_string()).unwrap();
+        let mapped = pred()
+            .args([
+                "extract",
+                bundle.to_str().unwrap(),
+                "--value",
+                "2",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            mapped.status.success(),
+            "{}",
+            String::from_utf8_lossy(&mapped.stderr)
+        );
+        let mapped: serde_json::Value = serde_json::from_slice(&mapped.stdout).unwrap();
+        assert_eq!(mapped["value"], json!(bound == 2));
+        assert!(mapped.get("status").is_none());
+        assert!(mapped.get("solution").is_none());
+        let invalid = pred()
+            .args([
+                "extract",
+                bundle.to_str().unwrap(),
+                "--value",
+                "true",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(!invalid.status.success());
+        assert!(String::from_utf8_lossy(&invalid.stderr).contains("deserialization failed"));
+        let extracted = extract_target_config(&bundle, json!([true, true, false]));
+        if bound == 1 {
+            assert!(!extracted.status.success());
+            assert!(String::from_utf8_lossy(&extracted.stderr).contains("decision bound"));
+        } else {
+            assert!(
+                extracted.status.success(),
+                "{}",
+                String::from_utf8_lossy(&extracted.stderr)
+            );
+            let output: serde_json::Value = serde_json::from_slice(&extracted.stdout).unwrap();
+            assert_eq!(output["evaluation"], "Or(true)");
+            assert!(output.get("status").is_none());
+        }
+        for solver in ["brute-force", "ilp"] {
+            let solved = pred()
+                .args([
+                    "solve",
+                    bundle.to_str().unwrap(),
+                    "--solver",
+                    solver,
+                    "--json",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                solved.status.success(),
+                "{}",
+                String::from_utf8_lossy(&solved.stderr)
+            );
+            let output: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+            assert_eq!(
+                output["status"],
+                if bound == 1 { "infeasible" } else { "optimal" }
+            );
+        }
+    }
+    std::fs::remove_file(bundle).unwrap();
+}
+
+#[test]
+fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible() {
+    use problemreductions::models::{OpenShopScheduling, ILP};
+    use problemreductions::rules::{ReduceTo, ReductionResult};
+    use serde_json::json;
+
+    let source = OpenShopScheduling::new(1, vec![vec![1]]);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let bundle = std::env::temp_dir().join(format!(
+        "pred-extract-target-feasibility-{}.json",
+        std::process::id()
+    ));
+    let source_key = json!({"name":"OpenShopScheduling","variant":{}});
+    let target_variant = json!({"variable":"i64","coefficient":"i64"});
+    std::fs::write(
+        &bundle,
+        json!({
+            "source":{"type":"OpenShopScheduling","variant":{},"data":source},
+            "target":{"type":"ILP","variant":target_variant,"data":reduction.target_problem()},
+            "path":[source_key,{"name":"ILP","variant":target_variant}]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    // Both assignments decode to start time 0; only C=1 satisfies C-start >= 1.
+    let output = extract_target_config(&bundle, json!([0, 0]));
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("target witness is infeasible"), "{stderr}");
+    let output = extract_target_config(&bundle, json!([0, 1]));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["solution"], json!([0]));
+    assert_eq!(result["evaluation"], "Min(1)");
+    assert!(result.get("status").is_none());
+    assert!(result["intermediate"].get("status").is_none());
+    std::fs::remove_file(bundle).unwrap();
+}
+
+#[test]
 fn test_extract_roundtrip_mis_to_qubo() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_extract_bundle.json");
@@ -9598,16 +9783,8 @@ fn test_extract_roundtrip_mis_to_qubo() {
     // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
-    let extract_out = pred()
-        .args([
-            "--json",
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out =
+        extract_target_config(&bundle_file, serde_json::from_str(&target_cfg).unwrap());
     assert!(
         extract_out.status.success(),
         "extract stderr: {}",
@@ -9684,19 +9861,14 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            "[false,false,false,false,false,false,false,false,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_config(
+        &bundle_file,
+        serde_json::json!([false, false, false, false, false, false, false, false, false]),
+    );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("tour position 0 does not select exactly one vertex"),
+        stderr.contains("target energy does not encode a feasible tour"),
         "unexpected stderr: {stderr}"
     );
 
@@ -9721,15 +9893,7 @@ fn test_extract_rejects_plain_problem_file() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            problem_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_config(&problem_file, serde_json::json!([false, true, false]));
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -9770,15 +9934,7 @@ fn test_extract_rejects_wrong_config_length() {
         &bundle_file,
     );
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            "[false,true]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_config(&bundle_file, serde_json::json!([false, true]));
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -9825,17 +9981,7 @@ fn test_extract_rejects_non_boolean_solution_value() {
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let mut bad_cfg: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
     bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
-    let bad_cfg = bad_cfg.to_string();
-
-    let extract_out = pred()
-        .args([
-            "extract",
-            bundle_file.to_str().unwrap(),
-            "--config",
-            &bad_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out = extract_target_config(&bundle_file, bad_cfg);
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
@@ -9887,15 +10033,8 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
-    let extract_out = pred()
-        .args([
-            "extract",
-            tampered_file.to_str().unwrap(),
-            "--config",
-            "[false,true,false]",
-        ])
-        .output()
-        .unwrap();
+    let extract_out =
+        extract_target_config(&tampered_file, serde_json::json!([false, true, false]));
     assert!(
         !extract_out.status.success(),
         "expected failure on malformed bundle; stdout: {}",
@@ -9950,22 +10089,15 @@ fn test_extract_rejects_tampered_target_data() {
     // what the reduction chain actually produces.
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
-    bundle["target"]["data"]["matrix"][0][0] = serde_json::json!(999.0);
+    bundle["target"]["data"]["entries"][0][2] = serde_json::json!(999.0);
     let mut f = std::fs::File::create(&tampered_file).unwrap();
     f.write_all(bundle.to_string().as_bytes()).unwrap();
 
     // Any config long enough to reach the coherence check; it must fail before
     // config validation kicks in because prepare() runs first.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
-    let extract_out = pred()
-        .args([
-            "extract",
-            tampered_file.to_str().unwrap(),
-            "--config",
-            &target_cfg,
-        ])
-        .output()
-        .unwrap();
+    let extract_out =
+        extract_target_config(&tampered_file, serde_json::from_str(&target_cfg).unwrap());
     assert!(
         !extract_out.status.success(),
         "expected failure on tampered target.data; stdout: {}",

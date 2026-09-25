@@ -28,6 +28,20 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<bool>> {
 }
 
 #[test]
+fn repeated_literals_do_not_relax_the_flow_bottleneck() {
+    let source = Satisfiability::new(
+        1,
+        vec![CNFClause::new(vec![1, 1]), CNFClause::new(vec![-1, -1])],
+    );
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source).unwrap();
+    for assignment in all_assignments(1) {
+        let flow = reduction.encode_assignment(&assignment);
+        assert!(!reduction.target_problem().evaluate(&flow).unwrap().0);
+        assert!(reduction.extract_solution(&flow).is_err());
+    }
+}
+
+#[test]
 fn test_satisfiability_to_integralflowhomologousarcs_closed_loop() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)

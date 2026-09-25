@@ -260,3 +260,41 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/sequencing_to_minimize_tardy_task_weight.rs"]
 mod tests;
+
+crate::decision_problem_meta!(
+    SequencingToMinimizeTardyTaskWeight,
+    "DecisionSequencingToMinimizeTardyTaskWeight"
+);
+crate::register_decision_variant!(
+    SequencingToMinimizeTardyTaskWeight, "DecisionSequencingToMinimizeTardyTaskWeight", "factorial(num_tasks)", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Misc,
+    dims: [],
+    fields: [
+crate::registry::FieldInfo { name: "lengths", type_name: "Vec<i64>", description: "Lengths" },
+crate::registry::FieldInfo { name: "weights", type_name: "Option<Vec<i64>>", description: "Weights" },
+crate::registry::FieldInfo { name: "deadlines", type_name: "Vec<i64>", description: "Deadlines" },
+crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_sequencing_to_minimize_tardy_task_weight_to_sequencing_to_minimize_tardy_task_weight",
+        build: || {
+            let source = crate::models::decision::Decision::new(SequencingToMinimizeTardyTaskWeight::new(
+            vec![3, 2, 4, 1, 2],
+            vec![5, 3, 7, 2, 4],
+            vec![6, 4, 10, 2, 8],
+        ), 3);
+            let witness = serde_json::json!(vec![3, 0, 4, 2, 1]);
+            crate::example_db::specs::rule_example_with_witness::<_, SequencingToMinimizeTardyTaskWeight>(
+                source,
+                crate::export::SolutionPair { source_config: witness.clone(), target_config: witness },
+            )
+        },
+    }]
+}

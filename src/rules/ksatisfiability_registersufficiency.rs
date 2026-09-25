@@ -323,6 +323,18 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToRegisterSufficiency {
+    type Source = KSatisfiability<K3>;
+    type Target = RegisterSufficiency;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_vertices = "3 * num_vars^2 + 11 * num_vars + 4 * num_clauses + 4",

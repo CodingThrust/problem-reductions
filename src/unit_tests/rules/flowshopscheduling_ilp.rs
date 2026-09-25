@@ -5,6 +5,27 @@ use crate::traits::Problem;
 use crate::types::Or;
 
 #[test]
+fn zero_duration_jobs_preserve_the_common_machine_order() {
+    let source = FlowShopScheduling::new(2, vec![vec![3, 0], vec![1, 10]], 11);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    // Job 1 precedes job 0, but both finish on machine 1 at time 11.
+    let assignment = vec![0, 4, 11, 1, 11];
+    assert!(reduction
+        .target_problem()
+        .evaluate(&assignment)
+        .unwrap()
+        .value
+        .is_some());
+    let decoded = reduction.extract_solution(&assignment).unwrap();
+    assert_eq!(decoded, vec![1, 0]);
+    assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));
+
+    let no_machines = FlowShopScheduling::new(0, vec![vec![], vec![]], 0);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&no_machines).unwrap();
+    crate::rules::test_helpers::assert_bf_vs_ilp(&no_machines, &reduction);
+}
+
+#[test]
 fn test_flowshopscheduling_to_ilp_closed_loop() {
     // 2 machines, 3 jobs, deadline 10
     let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);

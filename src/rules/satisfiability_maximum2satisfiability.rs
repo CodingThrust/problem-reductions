@@ -1,22 +1,21 @@
 //! Reduction from Satisfiability to Maximum 2-Satisfiability.
 
+use crate::models::decision::Decision;
 use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::{Max, Or};
 
 /// Result of reducing SAT to MAX-2-SAT.
 #[derive(Debug, Clone)]
 pub struct ReductionSatisfiabilityToMaximum2Satisfiability {
-    target: Maximum2Satisfiability,
+    target: Decision<Maximum2Satisfiability>,
     source_num_vars: usize,
-    target_score: i64,
 }
 
 impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     type Source = Satisfiability;
-    type Target = Maximum2Satisfiability;
+    type Target = Decision<Maximum2Satisfiability>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -28,8 +27,7 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         let value =
             crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        let certificate = crate::rules::AggregateReductionResult::extract_value(self, value);
-        if !certificate.0 {
+        if !value.0 {
             return Err(crate::rules::ExtractionError::invalid(
                 "target assignment does not certify satisfiability",
             ));
@@ -39,16 +37,17 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     }
 }
 
+#[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     type Source = Satisfiability;
-    type Target = Maximum2Satisfiability;
+    type Target = Decision<Maximum2Satisfiability>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
     }
 
-    fn extract_value(&self, value: Max<i64>) -> Or {
-        Or(value == Max(Some(self.target_score)))
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
@@ -121,13 +120,12 @@ fn add_gjs_gadget(clause: &CNFClause, w: i64, target_clauses: &mut Vec<CNFClause
 }
 
 #[reduction(
-    aggregate = custom,
     transform = upper_bound {
         num_vars = "num_vars + 2 * num_literals + 4 * num_clauses",
         num_clauses = "10 * (num_literals + 3 * num_clauses)",
     }
 )]
-impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
+impl ReduceTo<Decision<Maximum2Satisfiability>> for Satisfiability {
     type Result = ReductionSatisfiabilityToMaximum2Satisfiability;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -137,7 +135,7 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
                 .map_err(
                     crate::rules::ReductionError::construction::<
                         Satisfiability,
-                        Maximum2Satisfiability,
+                        Decision<Maximum2Satisfiability>,
                     >,
                 )?;
 
@@ -145,19 +143,18 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
             add_normalized_clause(clause, &mut variables, &mut normalized).map_err(
                 crate::rules::ReductionError::construction::<
                     Satisfiability,
-                    Maximum2Satisfiability,
+                    Decision<Maximum2Satisfiability>,
                 >,
             )?;
         }
 
-        let capacity =
-            normalized.len().checked_mul(10).ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    Satisfiability,
-                    Maximum2Satisfiability,
-                >("computing the target clause count")
-            })?;
-        let clause_count = <Self as ReduceTo<Maximum2Satisfiability>>::exact_i64(
+        let capacity = normalized.len().checked_mul(10).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                Satisfiability,
+                Decision<Maximum2Satisfiability>,
+            >("computing the target clause count")
+        })?;
+        let clause_count = <Self as ReduceTo<Decision<Maximum2Satisfiability>>>::exact_i64(
             capacity,
             "representing every satisfied-clause count",
         )?;
@@ -167,23 +164,21 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
         let target_score = (clause_count / 10) * 7;
         let mut target_clauses = Vec::with_capacity(capacity);
         for clause in &normalized {
-            let w =
-                variables.allocate().map_err(
-                    crate::rules::ReductionError::construction::<
-                        Satisfiability,
-                        Maximum2Satisfiability,
-                    >,
-                )?;
+            let w = variables.allocate().map_err(
+                crate::rules::ReductionError::construction::<
+                    Satisfiability,
+                    Decision<Maximum2Satisfiability>,
+                >,
+            )?;
             add_gjs_gadget(clause, w, &mut target_clauses);
         }
 
         let target = Maximum2Satisfiability::try_new(variables.num_vars(), target_clauses)
-            .map_err(<Self as ReduceTo<Maximum2Satisfiability>>::target_construction)?;
+            .map_err(<Self as ReduceTo<Decision<Maximum2Satisfiability>>>::target_construction)?;
 
         Ok(ReductionSatisfiabilityToMaximum2Satisfiability {
-            target,
+            target: Decision::new(target, target_score),
             source_num_vars: self.num_vars(),
-            target_score,
         })
     }
 }
@@ -199,7 +194,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
                 vec![CNFClause::new(vec![1, -2, 3]), CNFClause::new(vec![-1, 2])],
             );
-            crate::example_db::specs::rule_example_with_witness::<_, Maximum2Satisfiability>(
+            crate::example_db::specs::rule_example_with_witness::<_, Decision<Maximum2Satisfiability>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![true, true, true]),

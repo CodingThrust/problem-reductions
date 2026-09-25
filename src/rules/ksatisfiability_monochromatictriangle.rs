@@ -55,13 +55,33 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness does not satisfy the target problem",
+            ));
+        }
         let nae_solution = (0..self.nae_reduction.target_problem().num_vars())
             .map(|index| target_solution[2 * index])
             .collect();
         // Reuse the formal SAT -> NAE extraction (including sentinel
         // normalization); no assignment search or speculative complement.
         self.nae_reduction.extract_solution(&nae_solution)
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for Reduction3SATToMonochromaticTriangle {
+    type Source = KSatisfiability<K3>;
+    type Target = MonochromaticTriangle<SimpleGraph>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 

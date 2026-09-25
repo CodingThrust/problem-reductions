@@ -93,10 +93,32 @@ For a problem file, JSON inspection includes `parameter_values`, the model's act
 pred path MIS QUBO --json -o paths.json
 python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
 pred reduce problem.json --via path.json -o reduced.json
-pred extract reduced.json --config '[1,0,1,0]'
+pred extract reduced.json --config '[true,false]' -o source-solution.json
+pred extract reduced.json --value 2
 ```
 
-The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input. `extract` maps a target-space configuration back to the source.
+The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input.
+
+`extract` calls the reduction rules' existing mappings. Supply exactly one input:
+
+- `--config`: a target configuration, passed through `extract_solution` in reverse
+  path order. Returns the source configuration and its evaluation.
+- `--value`: a completed target aggregate, passed through `extract_value` in reverse
+  path order. Returns the mapped source value, without a witness.
+
+For example, the rule from DecisionMinimumVertexCover with bound 1 to
+MinimumVertexCover maps target optimum `2` to source value `false`.
+Its witness mapping cannot produce a cover of size at most 1 from a two-vertex
+cover; that mapping returns an error. These are the rule's two distinct contracts.
+
+The example inputs above are illustrative; use the actual target's configuration
+or value encoding. Extraction requires no `status`, runs no solver, and does not
+prove that a supplied aggregate is complete or optimal. Unsupported mappings and
+malformed inputs are errors. `pred solve reduced.json` still handles completed
+solver results internally.
+
+Aggregate-only paths can be constructed with `pred reduce --aggregate` and
+recovered with `pred extract --value` through `AggregateReductionChain::extract_value`.
 
 ## Solve
 

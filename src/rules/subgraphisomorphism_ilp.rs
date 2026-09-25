@@ -38,7 +38,13 @@ impl ReductionResult for ReductionSubIsoToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         one_hot_decode_rows(
             target_solution,
@@ -46,6 +52,18 @@ impl ReductionResult for ReductionSubIsoToILP {
             self.num_host_vertices,
             0,
         )
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionSubIsoToILP {
+    type Source = SubgraphIsomorphism;
+    type Target = ILP<bool>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
     }
 }
 
@@ -79,9 +97,6 @@ impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
         for &(v, w) in &pat_edges {
             for u in 0..n_host {
                 for u_prime in 0..n_host {
-                    if u == u_prime {
-                        continue;
-                    }
                     if host.has_edge(u, u_prime) {
                         continue;
                     }

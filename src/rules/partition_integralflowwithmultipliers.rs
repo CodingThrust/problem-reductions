@@ -36,7 +36,15 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
                     "the fixed infeasible target instance has no extractable witness",
                 )
             })?;
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+            let value = crate::rules::traits::validate_target_solution(
+                self.target_problem(),
+                target_solution,
+            )?;
+            if !value.0 {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target witness does not satisfy the target problem",
+                ));
+            }
 
             target_solution[..item_arc_count]
                 .iter()
@@ -46,8 +54,20 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
+    type Source = Partition;
+    type Target = IntegralFlowWithMultipliers;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "num_elements + 3",
         num_arcs = "2 * num_elements + 1",
     },

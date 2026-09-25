@@ -38,12 +38,30 @@ impl ReductionResult for ReductionKCliqueToCBQ {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .0
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target witness is not satisfying",
+            ));
+        }
 
         Ok(KClique::<SimpleGraph>::config_from_vertices(
             self.num_vertices,
             target_solution,
         ))
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionKCliqueToCBQ {
+    type Source = KClique<SimpleGraph>;
+    type Target = ConjunctiveBooleanQuery;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
@@ -65,6 +83,10 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
         // Build the single binary relation: for each edge {u,v}, include (u,v) and (v,u).
         let mut tuples = Vec::with_capacity(self.num_edges() * 2);
         for (u, v) in self.graph().edges() {
+            // A loop must not let distinct clique variables use the same vertex.
+            if u == v {
+                continue;
+            }
             tuples.push(vec![u, v]);
             tuples.push(vec![v, u]);
         }

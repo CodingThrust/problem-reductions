@@ -36,12 +36,31 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target assignment is not satisfying",
+            ));
+        }
 
         Ok({
             // Only return the original variables, discarding ancillas
             target_solution[..self.source_num_vars].to_vec()
         })
+    }
+}
+
+crate::register_aggregate_reduction!(ReductionSATToKSAT<K3>);
+
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionSATToKSAT<K> {
+    type Source = Satisfiability;
+    type Target = KSatisfiability<K>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 
@@ -121,8 +140,8 @@ macro_rules! impl_sat_to_ksat {
         #[rustfmt::skip]
         #[reduction(
     transform = upper_bound {
-        num_clauses = "4 * num_clauses + num_literals",
-        num_vars = "num_vars + 3 * num_clauses + num_literals",
+        num_clauses = "8 * num_clauses + num_literals",
+        num_vars = "num_vars + 7 * num_clauses + num_literals",
     },
     unavailable = {
         num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
@@ -186,12 +205,31 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !value.0 {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target assignment is not satisfying",
+            ));
+        }
 
         Ok({
             // Direct mapping - no transformation needed
             target_solution.to_vec()
         })
+    }
+}
+
+crate::register_aggregate_reduction!(ReductionKSATToSAT<KN>);
+
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKSATToSAT<K> {
+    type Source = KSatisfiability<K>;
+    type Target = Satisfiability;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
     }
 }
 

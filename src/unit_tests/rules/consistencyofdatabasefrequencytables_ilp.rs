@@ -6,6 +6,76 @@ use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
+#[test]
+fn binary_attributes_reduce_without_materializing_the_domain_product() {
+    let source = ConsistencyOfDatabaseFrequencyTables::new(1, vec![2; 64], vec![], vec![]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_vars(), 128);
+    assert_eq!(reduction.target_problem().num_constraints(), 64);
+    let witness = vec![0; 64];
+    let encoded = reduction.encode_source_solution(&witness);
+    assert!(reduction
+        .target_problem()
+        .evaluate(&encoded)
+        .unwrap()
+        .value
+        .is_some());
+    assert_eq!(reduction.extract_solution(&encoded).unwrap(), witness);
+}
+
+#[test]
+fn ilp_encoding_overflow_is_a_reduction_error() {
+    let auxiliary_objects = usize::MAX / 6 + 1;
+    for (objects, domains, tables) in [
+        (usize::MAX / 2 + 1, vec![2], vec![]),
+        (
+            auxiliary_objects,
+            vec![3, 1, 1],
+            vec![
+                FrequencyTable::new(0, 1, vec![vec![auxiliary_objects as i64], vec![0], vec![0]]),
+                FrequencyTable::new(0, 2, vec![vec![auxiliary_objects as i64], vec![0], vec![0]]),
+            ],
+        ),
+        (
+            usize::MAX / 3 + 1,
+            vec![1, 1],
+            vec![FrequencyTable::new(
+                0,
+                1,
+                vec![vec![(usize::MAX / 3 + 1) as i64]],
+            )],
+        ),
+        (
+            usize::MAX / 4,
+            vec![1, 1],
+            vec![FrequencyTable::new(
+                0,
+                1,
+                vec![vec![(usize::MAX / 4) as i64]],
+            )],
+        ),
+    ] {
+        let source = ConsistencyOfDatabaseFrequencyTables::new(objects, domains, tables, vec![]);
+        let restored: ConsistencyOfDatabaseFrequencyTables =
+            serde_json::from_value(serde_json::to_value(&source).unwrap()).unwrap();
+        assert_eq!(restored.parameters(), source.parameters());
+        assert!(matches!(
+            ReduceTo::<ILP<bool>>::reduce_to(&restored),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn unrepresentable_ilp_row_storage_does_not_restrict_source_evaluation() {
+    let source = ConsistencyOfDatabaseFrequencyTables::new(1, vec![usize::MAX], vec![], vec![]);
+    assert_eq!(source.evaluate(&vec![0]).unwrap(), crate::types::Or(true));
+    assert!(matches!(
+        ReduceTo::<ILP<bool>>::reduce_to(&source),
+        Err(crate::rules::ReductionError::InvalidTarget { .. })
+    ));
+}
+
 fn small_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
     ConsistencyOfDatabaseFrequencyTables::new(
         2,

@@ -27,11 +27,14 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_structure() {
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
     assert_eq!(
-        crate::rules::AggregateReductionResult::target_problem(&reduction).k(),
+        crate::rules::AggregateReductionResult::target_problem(&reduction)
+            .inner()
+            .k(),
         target.k()
     );
 
@@ -52,9 +55,10 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         2,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
     assert!(
@@ -77,9 +81,10 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         &[(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (4, 5)],
         1,
     );
-    let reduction = ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-        .expect("reduction should succeed");
-    let target = reduction.target_problem();
+    let reduction =
+        ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(&source)
+            .expect("reduction should succeed");
+    let target = reduction.target_problem().inner();
 
     let target_solutions = BruteForce::new().find_all_witnesses(target).unwrap();
     assert!(
@@ -97,7 +102,9 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         assert_eq!(
             crate::rules::AggregateReductionResult::extract_value(
                 &reduction,
-                Min(Some(target_value))
+                crate::rules::ReductionResult::target_problem(&reduction)
+                    .evaluate(&target_solution)
+                    .unwrap()
             ),
             Or(false)
         );
@@ -127,9 +134,11 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
             for bound in bounds {
                 let source = decision_mds(n, &edges, bound);
                 let reduction =
-                    ReduceTo::<MinimumSumMulticenter<SimpleGraph, i64>>::reduce_to(&source)
-                        .unwrap();
-                let target = reduction.target_problem();
+                    ReduceTo::<Decision<MinimumSumMulticenter<SimpleGraph, i64>>>::reduce_to(
+                        &source,
+                    )
+                    .unwrap();
+                let target = reduction.target_problem().inner();
                 assert!(target.num_vertices() <= n + 2);
                 assert_eq!(target.num_edges(), edges.len());
                 let source_yes = BruteForce::new().solve(&source).unwrap().is_some();
@@ -142,8 +151,13 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     if let Some(cost) = value.0 {
                         optimum = Some(optimum.map_or(cost, |previous: i64| previous.min(cost)));
                     }
-                    let accepted =
-                        crate::rules::AggregateReductionResult::extract_value(&reduction, value).0;
+                    let accepted = crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::rules::ReductionResult::target_problem(&reduction)
+                            .evaluate(&placement)
+                            .unwrap(),
+                    )
+                    .0;
                     match reduction.extract_solution(&placement) {
                         Ok(witness) => {
                             assert!(accepted);
@@ -153,7 +167,13 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     }
                 }
                 assert_eq!(
-                    crate::rules::AggregateReductionResult::extract_value(&reduction, Min(optimum)),
+                    crate::rules::AggregateReductionResult::extract_value(
+                        &reduction,
+                        crate::types::Or(crate::types::OptimizationValue::meets_bound(
+                            &(Min(optimum)),
+                            crate::rules::ReductionResult::target_problem(&reduction).bound()
+                        ))
+                    ),
                     Or(source_yes),
                     "n={n}, edges={edges:?}, K={bound}"
                 );

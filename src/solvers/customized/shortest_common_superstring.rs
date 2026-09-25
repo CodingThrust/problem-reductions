@@ -1,8 +1,9 @@
 //! Exact shortest common superstring solver using subset dynamic programming.
 
 use crate::models::misc::ShortestCommonSuperstring;
+use crate::solvers::SolveError;
 
-pub(crate) fn solve(problem: &ShortestCommonSuperstring) -> Option<Vec<Option<usize>>> {
+pub(crate) fn solve(problem: &ShortestCommonSuperstring) -> Result<Vec<Option<usize>>, SolveError> {
     let mut strings = problem.strings().to_vec();
     strings.sort();
     strings.dedup();
@@ -18,17 +19,31 @@ pub(crate) fn solve(problem: &ShortestCommonSuperstring) -> Option<Vec<Option<us
         .map(|(_, string)| string.clone())
         .collect();
 
+    let mut solution = Vec::new();
+    solution.try_reserve_exact(problem.max_length())?;
     if strings.is_empty() {
-        return Some(vec![None; problem.max_length()]);
+        solution.resize(problem.max_length(), None);
+        return Ok(solution);
     }
 
     let n = strings.len();
-    let mut dp = vec![None::<Vec<usize>>; (1usize << n) * n];
+    if n >= usize::BITS as usize {
+        return Err(SolveError::IntegerOverflow(
+            "indexing string subsets with a usize mask".into(),
+        ));
+    }
+    let states = 1usize << n;
+    let cells = states.checked_mul(n).ok_or_else(|| {
+        SolveError::IntegerOverflow("sizing the superstring dynamic-programming table".into())
+    })?;
+    let mut dp = Vec::<Option<Vec<usize>>>::new();
+    dp.try_reserve_exact(cells)?;
+    dp.resize(cells, None);
     for (i, string) in strings.iter().enumerate() {
         dp[(1 << i) * n + i] = Some(string.clone());
     }
 
-    for mask in 1usize..(1usize << n) {
+    for mask in 1usize..states {
         for last in 0..n {
             let Some(prefix) = dp[mask * n + last].clone() else {
                 continue;
@@ -51,14 +66,14 @@ pub(crate) fn solve(problem: &ShortestCommonSuperstring) -> Option<Vec<Option<us
         }
     }
 
-    let full = (1usize << n) - 1;
+    let full = states - 1;
     let shortest = (0..n)
         .filter_map(|last| dp[full * n + last].take())
         .min_by_key(Vec::len)
         .unwrap();
-    let mut solution = shortest.into_iter().map(Some).collect::<Vec<_>>();
+    solution.extend(shortest.into_iter().map(Some));
     solution.resize(problem.max_length(), None);
-    Some(solution)
+    Ok(solution)
 }
 
 fn contains(haystack: &[usize], needle: &[usize]) -> bool {

@@ -16,11 +16,13 @@
 //! - every `v in V` is attached to `r` by an edge of cost `omega` (so each
 //!   tree component of `F` is paid by exactly one root-attachment edge in
 //!   `T*`),
-//! - for every `v in V_p` we add `(v, t_v)` of cost `0` and `(r, t_v)` of
-//!   cost `beta * p(v)`,
+//! - with `M = omega + 1`, every `v in V_p` gets `(v, t_v)` of cost `M`
+//!   and `(r, t_v)` of cost `M + beta * p(v)`,
 //! - the terminal set is `{r} cup {t_v : v in V_p}`.
 //!
-//! The Steiner-tree optimum then equals the PCSF optimum.
+//! The Steiner-tree optimum equals the PCSF optimum plus `M * |V_p|`.
+//! Every gadget terminal is a leaf in an optimum: replacing its omit edge
+//! with a root attachment when both gadget edges are selected lowers cost.
 //!
 //! References:
 //! - Bienstock, Goemans, Simchi-Levi, Williamson, "A note on the prize
@@ -38,7 +40,7 @@ use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing PCSF to SteinerTree.
 ///
-/// Stores the original PCSF source parameterss plus the mapping from the target
+/// Stores the original PCSF source parameters plus the mapping from the target
 /// graph's edge list back to the source variables (the original edge index
 /// for each "original" edge, and the source vertex index for each gadget
 /// include-edge). Other target edges (root-attachment and gadget omit-edges)
@@ -73,7 +75,13 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
+            .is_valid()
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target edges do not form a Steiner tree",
+            ));
+        }
 
         Ok({
             let n = self.num_source_vertices;
@@ -156,18 +164,34 @@ impl ReduceTo<SteinerTree<SimpleGraph, i64>> for PrizeCollectingSteinerForest<Si
             target_to_include_vertex.push(None);
         }
 
-        // 3. Per-prized-vertex gadget: (v, t_v) of cost 0 and (r, t_v) of
-        // cost beta * p(v).
+        // 3. A shared offset prevents gadget terminals from becoming cheap
+        // root attachments: every optimal gadget terminal must be a leaf.
         for (gadget_pos, &v) in prized.iter().enumerate() {
             let t_v = gadget_terminal(gadget_pos);
-            // include-edge: marks "v is in V_F" with cost 0.
+            let include_cost =
+                omega.checked_add(1).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        Self,
+                        SteinerTree<SimpleGraph, i64>,
+                    >("forming the Steiner gadget inclusion cost")
+                })?;
+            let omit_cost = beta
+                .checked_mul(source_prizes[v])
+                .and_then(|penalty| penalty.checked_add(include_cost))
+                .ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        Self,
+                        SteinerTree<SimpleGraph, i64>,
+                    >("forming the Steiner gadget omission cost")
+                })?;
+            // The include edge marks a selected prized vertex.
             target_edges.push((v, t_v));
-            target_edge_weights.push(0);
+            target_edge_weights.push(include_cost);
             target_to_source_edge.push(None);
             target_to_include_vertex.push(Some(v));
-            // omit-edge: pays beta * p(v) when v is excluded from V_F.
+            // The omit edge pays the additional omitted prize.
             target_edges.push((root, t_v));
-            target_edge_weights.push(beta * source_prizes[v]);
+            target_edge_weights.push(omit_cost);
             target_to_source_edge.push(None);
             target_to_include_vertex.push(None);
         }
@@ -202,7 +226,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![RuleExampleSpec {
         id: "prize_collecting_steiner_forest_to_steiner_tree",
         build: || {
-            // Issue #1027 canonical instance with the omit-edge actually
+            // Canonical instance with the omit-edge actually
             // selected at the optimum: path 0 - 1 - 2 with c(0,1)=10,
             // c(1,2)=10, prizes p = (5, 1, 5), beta = 1, omega = 1. The
             // optimum drops vertex 1 (paying p(1) = 1) rather than paying a

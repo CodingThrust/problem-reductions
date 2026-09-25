@@ -65,8 +65,14 @@ fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
     assert_eq!(target.evaluate(&best).unwrap(), Max(Some(1)));
 
     // q = 2, but packing value is 1 < 2, so no exact cover exists
-    let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted).unwrap());
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&best).unwrap(),
+        ),
+        crate::types::Or(false),
+    );
+    assert!(reduction.extract_solution(&best).is_err());
 }
 
 #[test]

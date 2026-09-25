@@ -21,6 +21,11 @@ where
 ///
 /// Implemented for serializable problems whose values support solution witnesses.
 pub trait DynProblem: Any {
+    /// Whether a completed aggregate admits a representative witness.
+    fn aggregate_witness_evaluation(
+        &self,
+        value: &Value,
+    ) -> Result<Option<String>, EvaluationError>;
     /// Evaluate a configuration and return the CLI-facing metric string.
     fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError>;
     /// Evaluate a candidate witness, returning `None` when it is infeasible.
@@ -48,6 +53,15 @@ where
     T::Solution: serde::de::DeserializeOwned,
     T::Value: SolutionAggregate + fmt::Display + Serialize,
 {
+    fn aggregate_witness_evaluation(
+        &self,
+        value: &Value,
+    ) -> Result<Option<String>, EvaluationError> {
+        let value: T::Value = serde::Deserialize::deserialize(value).map_err(|error| {
+            EvaluationError::InvalidConfiguration(format!("invalid aggregate JSON: {error}"))
+        })?;
+        Ok(T::Value::contributes_to_solution(&value, &value).then(|| format_metric(&value)))
+    }
     fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError> {
         let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
             EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
@@ -59,7 +73,9 @@ where
         let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
             EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
         })?;
-        Ok(serde_json::to_value(self.evaluate(&solution)?).expect("serialize metric failed"))
+        serde_json::to_value(self.evaluate(&solution)?).map_err(|error| {
+            EvaluationError::InvalidConfiguration(format!("cannot serialize evaluation: {error}"))
+        })
     }
 
     fn evaluate_witness_dyn(&self, solution: &Value) -> Result<Option<String>, EvaluationError> {

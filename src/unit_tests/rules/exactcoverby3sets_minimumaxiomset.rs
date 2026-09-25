@@ -70,8 +70,14 @@ fn test_exactcoverby3sets_to_minimumaxiomset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&optimal).unwrap();
-    assert!(!source.evaluate(&extracted).unwrap());
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(
+            &reduction,
+            target.evaluate(&optimal).unwrap(),
+        ),
+        crate::types::Or(false),
+    );
+    assert!(reduction.extract_solution(&optimal).is_err());
 }
 
 #[test]
@@ -82,7 +88,7 @@ fn test_extract_solution_reads_only_set_sentence_axioms() {
 
     let extracted = reduction
         .extract_solution(&vec![
-            true, false, true, false, false, true, false, false, false, true, true,
+            false, false, false, false, false, false, false, false, false, true, true,
         ])
         .unwrap();
     assert_eq!(extracted, vec![false, false, false, true, true]);

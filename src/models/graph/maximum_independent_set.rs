@@ -58,12 +58,29 @@ inventory::submit! {
 /// // Maximum independent set in a triangle has size 1
 /// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 1));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MaximumIndependentSet<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumIndependentSetData<G, W> {
+    graph: G,
+    weights: Vec<W>,
+}
+
+impl<'de, G, W> Deserialize<'de> for MaximumIndependentSet<G, W>
+where
+    G: Graph + Deserialize<'de>,
+    W: Clone + Default + Deserialize<'de>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = MaximumIndependentSetData::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 macro_rules! simple_mis_spec {
@@ -102,13 +119,7 @@ macro_rules! simple_mis_spec {
                     return Err("num_vertices is too small".into());
                 }
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; count] } };
-                if weights.len() != count {
-                    return Err("weights length must match num_vertices".into());
-                }
-                Ok(Self {
-                    graph: SimpleGraph::new(count, spec.graph),
-                    weights,
-                })
+                Self::try_new(SimpleGraph::new(count, spec.graph), weights)
             }
         }
     };
@@ -141,13 +152,7 @@ macro_rules! grid_mis_spec {
             type Error = crate::registry::ConstructionError;
             fn try_from(spec: $name) -> Result<Self, crate::registry::ConstructionError> {
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
-                if weights.len() != spec.positions.len() {
-                    return Err("weights length must match positions length".into());
-                }
-                Ok(Self {
-                    graph: <$graph>::new(spec.positions),
-                    weights,
-                })
+                Self::try_new(<$graph>::new(spec.positions), weights)
             }
         }
     };
@@ -189,15 +194,7 @@ macro_rules! unit_disk_mis_spec {
             fn try_from(spec: $name) -> Result<Self, ConstructionError> {
                 let radius = spec.radius.unwrap_or(1.0);
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; spec.positions.len()] } };
-                if weights.len() != spec.positions.len() {
-                    return Err(ConstructionError::Conversion(
-                        "weights length must match positions length".into(),
-                    ));
-                }
-                Ok(Self {
-                    graph: UnitDiskGraph::new(spec.positions, radius)?,
-                    weights,
-                })
+                Self::try_new(UnitDiskGraph::new(spec.positions, radius)?, weights)
             }
         }
     };
@@ -213,12 +210,14 @@ unit_disk_mis_spec!(
 impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     /// Create an Independent Set problem from a graph with given weights.
     pub fn new(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            graph.num_vertices(),
-            "weights length must match graph num_vertices"
-        );
-        Self { graph, weights }
+        Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
+        if weights.len() != graph.num_vertices() {
+            return Err("weights length must match graph num_vertices".into());
+        }
+        Ok(Self { graph, weights })
     }
 
     /// Get a reference to the underlying graph.

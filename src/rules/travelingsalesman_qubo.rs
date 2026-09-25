@@ -10,7 +10,7 @@ use crate::models::algebraic::QUBO;
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 use std::collections::HashMap;
 
 /// Result of reducing TravelingSalesman to QUBO.
@@ -20,6 +20,9 @@ pub struct ReductionTravelingSalesmanToQUBO {
     num_vertices: usize,
     num_edges: usize,
     edge_index: HashMap<(usize, usize), usize>,
+    objective_offset: i64,
+    feasible_energy_upper: i128,
+    small_optimum: Option<(Vec<bool>, i64)>,
 }
 
 impl ReductionResult for ReductionTravelingSalesmanToQUBO {
@@ -38,7 +41,24 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if crate::rules::AggregateReductionResult::extract_value(self, value)
+            .0
+            .is_none()
+        {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target energy does not encode a feasible tour",
+            ));
+        }
+        if self.num_vertices < 3 {
+            return Ok(self
+                .small_optimum
+                .as_ref()
+                .expect("value mapping established a small tour")
+                .0
+                .clone());
+        }
 
         Ok({
             let n = self.num_vertices;
@@ -75,6 +95,34 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO {
+    type Source = TravelingSalesman<SimpleGraph, i64>;
+    type Target = QUBO<i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Min<i64> {
+        if self.num_vertices < 3 {
+            return crate::types::Min(
+                value
+                    .0
+                    .and(self.small_optimum.as_ref().map(|(_, cost)| *cost)),
+            );
+        }
+        // The offset is nonnegative; below the feasibility bound, the sum is
+        // less than A + n * shift <= A, so addition cannot overflow in either direction.
+        crate::types::Min(
+            value
+                .0
+                .filter(|&energy| i128::from(energy) < self.feasible_energy_upper)
+                .map(|energy| energy + self.objective_offset),
+        )
+    }
+}
+
 #[reduction(
     transform = exact {
         num_vars = "num_vertices^2",
@@ -87,43 +135,102 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
         let n = self.num_vertices();
         let edges = self.edges();
 
-        // Build edge weight map (both directions for undirected lookup)
         let overflow = |operation| {
-            crate::rules::ReductionError::integer_overflow::<
-                TravelingSalesman<SimpleGraph, i64>,
-                QUBO<i64>,
-            >(operation)
+            crate::rules::ReductionError::integer_overflow::<Self, QUBO<i64>>(operation)
         };
-        let mut edge_weight_map: HashMap<(usize, usize), i64> = HashMap::new();
-        let mut weight_sum = 0i64;
-        for &(u, v, w) in &edges {
-            edge_weight_map.insert((u, v), w);
-            edge_weight_map.insert((v, u), w);
-            let magnitude = w
-                .checked_abs()
-                .ok_or_else(|| overflow("taking the absolute value of a tour weight"))?;
-            weight_sum = weight_sum
-                .checked_add(magnitude)
-                .ok_or_else(|| overflow("summing absolute tour weights"))?;
-        }
-
-        // Build edge index map: canonical (min, max) → edge index
-        let graph_edges = self.graph().edges();
-        let num_edges = graph_edges.len();
-        let mut edge_index: HashMap<(usize, usize), usize> = HashMap::new();
-        for (idx, &(u, v)) in graph_edges.iter().enumerate() {
-            edge_index.insert((u.min(v), u.max(v)), idx);
-        }
-
-        // Penalty weight: must exceed any possible tour cost
-        let a = weight_sum
-            .checked_add(1)
-            .ok_or_else(|| overflow("computing the tour penalty"))?;
-
-        // Build n^2 x n^2 upper-triangular QUBO matrix
+        let num_edges = edges.len();
         let dim = n
             .checked_mul(n)
             .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
+
+        // The source represents a connected degree-two edge set. With fewer
+        // than three vertices this means one loop or two parallel edges.
+        if n < 3 {
+            let mut candidates: Vec<usize> = edges
+                .iter()
+                .enumerate()
+                .filter(|&(_, &(u, v, _))| (n == 1 && u == v) || (n == 2 && u != v))
+                .map(|(index, _)| index)
+                .collect();
+
+            let small_optimum = if n > 0 && candidates.len() >= n {
+                candidates.select_nth_unstable_by_key(n - 1, |&index| (edges[index].2, index));
+                let mut solution = vec![false; num_edges];
+                let mut cost = 0i64;
+                for &index in &candidates[..n] {
+                    solution[index] = true;
+                    cost = cost
+                        .checked_add(edges[index].2)
+                        .ok_or_else(|| overflow("summing a small tour cost"))?;
+                }
+                Some((solution, cost))
+            } else {
+                None
+            };
+            return Ok(ReductionTravelingSalesmanToQUBO {
+                target: QUBO::from_matrix(vec![vec![0; dim]; dim])
+                    .map_err(<Self as ReduceTo<QUBO<i64>>>::target_construction)?,
+                num_vertices: n,
+                num_edges,
+                edge_index: HashMap::new(),
+                objective_offset: 0,
+                feasible_energy_upper: 0,
+                small_optimum,
+            });
+        }
+
+        // A tour on at least three vertices uses no loops and at most one
+        // edge per endpoint pair. Retain the cheapest parallel edge.
+        let mut edge_index: HashMap<(usize, usize), usize> = HashMap::new();
+        for (index, &(u, v, weight)) in edges.iter().enumerate() {
+            if u == v {
+                continue;
+            }
+            let key = (u.min(v), u.max(v));
+            edge_index
+                .entry(key)
+                .and_modify(|previous| {
+                    if weight < edges[*previous].2 {
+                        *previous = index;
+                    }
+                })
+                .or_insert(index);
+        }
+        let shift = edge_index
+            .values()
+            .map(|&index| edges[index].2)
+            .fold(0, i64::min);
+        let mut shifted_sum = 0i64;
+        let mut absolute_sum = 0i64;
+        for &index in edge_index.values() {
+            let weight = edges[index].2;
+            absolute_sum = absolute_sum
+                .checked_add(
+                    weight
+                        .checked_abs()
+                        .ok_or_else(|| overflow("taking the absolute value of a tour weight"))?,
+                )
+                .ok_or_else(|| overflow("summing absolute tour weights"))?;
+            let shifted = weight
+                .checked_sub(shift)
+                .ok_or_else(|| overflow("shifting a tour weight"))?;
+            shifted_sum = shifted_sum
+                .checked_add(shifted)
+                .ok_or_else(|| overflow("summing shifted tour weights"))?;
+        }
+        // Every permutation tour uses n edges. Shifting each cost therefore
+        // adds a constant. All costs are now nonnegative even off-premise.
+        let a = shifted_sum
+            .max(absolute_sum)
+            .checked_add(1)
+            .ok_or_else(|| overflow("computing the tour penalty"))?;
+        let omitted_constant = 2 * n as i128 * i128::from(a);
+        // A >= |shift| makes this offset positive. Check its transport once.
+        let objective_offset = i64::try_from(omitted_constant + n as i128 * i128::from(shift))
+            .map_err(|_| overflow("computing the tour objective offset"))?;
+        let feasible_energy_upper = i128::from(a) - omitted_constant;
+
+        // Build n^2 x n^2 upper-triangular QUBO matrix
         let mut matrix = vec![vec![0i64; dim]; dim];
 
         // Helper: add value to upper-triangular position
@@ -189,7 +296,10 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
         // For each pair (u, v), add cost for x_{u,p} * x_{v,p_next} and x_{v,p} * x_{u,p_next}
         for u in 0..n {
             for v in (u + 1)..n {
-                let cost = edge_weight_map.get(&(u, v)).copied().unwrap_or(a);
+                let cost = edge_index.get(&(u, v)).map_or(a, |&index| {
+                    // The bound calculation already checked this subtraction.
+                    edges[index].2 - shift
+                });
                 for p in 0..n {
                     let p_next = (p + 1) % n;
                     // x_{u,p} * x_{v,p_next}
@@ -200,18 +310,17 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             }
         }
 
-        let target = QUBO::from_matrix(matrix).map_err(|message| {
-            crate::rules::ReductionError::construction::<
-                TravelingSalesman<SimpleGraph, i64>,
-                QUBO<i64>,
-            >(message)
-        })?;
+        let target = QUBO::from_matrix(matrix)
+            .map_err(<Self as ReduceTo<QUBO<i64>>>::target_construction)?;
 
         Ok(ReductionTravelingSalesmanToQUBO {
             target,
             num_vertices: n,
             num_edges,
             edge_index,
+            objective_offset,
+            feasible_energy_upper,
+            small_optimum: None,
         })
     }
 }

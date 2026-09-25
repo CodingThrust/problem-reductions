@@ -131,3 +131,9 @@ fn test_simultaneous_incongruences_paper_example() {
     let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
+#[test]
+fn test_simultaneous_incongruences_rejects_negative_witness() {
+    let problem = SimultaneousIncongruences::new(vec![(1, 2)]).unwrap();
+    assert_eq!(problem.evaluate(&-1).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&0).unwrap(), Or(true));
+}

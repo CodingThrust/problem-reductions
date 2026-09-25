@@ -41,9 +41,27 @@ impl ReductionResult for ReductionD2CIFToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let value =
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if value.value.is_none() {
+            return Err(crate::rules::ExtractionError::invalid(
+                "target ILP assignment is infeasible",
+            ));
+        }
 
         crate::rules::ilp_helpers::decode_usize_values(&target_solution[..2 * self.num_arcs])
+    }
+}
+
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult for ReductionD2CIFToILP {
+    type Source = DirectedTwoCommodityIntegralFlow;
+    type Target = ILP<i64>;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
+        crate::types::Or(value.value.is_some())
     }
 }
 
@@ -101,7 +119,8 @@ impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
                     if let Some(terms) = &mut terms_c2 {
                         terms.push((f2(a), -1));
                     }
-                } else if vertex == v {
+                }
+                if vertex == v {
                     // Arc enters vertex: incoming
                     if let Some(terms) = &mut terms_c1 {
                         terms.push((f1(a), 1));
@@ -126,7 +145,8 @@ impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink_1 {
                 sink1_terms.push((f1(a), 1));
-            } else if u == sink_1 {
+            }
+            if u == sink_1 {
                 sink1_terms.push((f1(a), -1));
             }
         }
@@ -138,7 +158,8 @@ impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink_2 {
                 sink2_terms.push((f2(a), 1));
-            } else if u == sink_2 {
+            }
+            if u == sink_2 {
                 sink2_terms.push((f2(a), -1));
             }
         }

@@ -48,6 +48,20 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
     }
 }
 
+#[crate::aggregate_reduction]
+impl crate::rules::AggregateReductionResult
+    for ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation
+{
+    type Source = Decision<OptimalLinearArrangement<SimpleGraph>>;
+    type Target = ConsecutiveOnesMatrixAugmentation;
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
+        value
+    }
+}
+
 #[reduction(
     transform = upper_bound {
         num_rows = "num_edges + 3",

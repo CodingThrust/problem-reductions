@@ -423,3 +423,48 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/stacker_crane.rs"]
 mod tests;
+
+crate::decision_problem_meta!(StackerCrane, "DecisionStackerCrane");
+crate::register_decision_variant!(
+    StackerCrane, "DecisionStackerCrane", "num_vertices^2 * 2^num_arcs", &[],
+    "Does a feasible solution meet the objective bound?",
+    category: crate::registry::ProblemCategory::Misc,
+    dims: [],
+    fields: [
+        crate::registry::FieldInfo { name: "arcs", type_name: "Vec<(usize,usize)>", description: "Required directed arcs." },
+        crate::registry::FieldInfo { name: "graph", type_name: "Vec<(usize,usize)>", description: "Undirected connector edges." },
+        crate::registry::FieldInfo { name: "num_vertices", type_name: "usize", description: "Vertex count, needed to preserve isolated vertices." },
+        crate::registry::FieldInfo { name: "arc_lengths", type_name: "Vec<i64>", description: "Required-arc lengths; defaults to one per arc." },
+        crate::registry::FieldInfo { name: "edge_lengths", type_name: "Vec<i64>", description: "Connector-edge lengths; defaults to one per edge." },
+        crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Decision objective bound" },
+    ],
+    decode: |_, indices: Vec<usize>| indices
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_stacker_crane_to_stacker_crane",
+        build: || {
+            let source = crate::models::decision::Decision::new(
+                StackerCrane::new(
+                    6,
+                    vec![(0, 4), (2, 5), (5, 1), (3, 0), (4, 3)],
+                    vec![(0, 1), (1, 2), (2, 3), (3, 5), (4, 5), (0, 3), (1, 5)],
+                    vec![3, 4, 2, 5, 3],
+                    vec![2, 1, 3, 2, 1, 4, 3],
+                ),
+                20,
+            );
+            let witness = serde_json::json!(vec![0, 2, 1, 4, 3]);
+            crate::example_db::specs::rule_example_with_witness::<_, StackerCrane>(
+                source,
+                crate::export::SolutionPair {
+                    source_config: witness.clone(),
+                    target_config: witness,
+                },
+            )
+        },
+    }]
+}

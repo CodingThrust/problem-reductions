@@ -141,7 +141,7 @@ impl Problem for SimultaneousIncongruences {
     fn evaluate(&self, solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
-            Or(self.pairs.iter().all(|&(a, b)| solution % b != a % b))
+            Or(*solution >= 0 && self.pairs.iter().all(|&(a, b)| solution % b != a % b))
         })
     }
 }

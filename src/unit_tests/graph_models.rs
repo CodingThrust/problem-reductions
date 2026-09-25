@@ -12,7 +12,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, Min};
-use crate::variant::{K1, K2, K3, K4};
+use crate::variant::{K2, K3, KN};
 
 // =============================================================================
 // Independent Set Tests
@@ -600,7 +600,7 @@ mod kcoloring {
 
     #[test]
     fn test_empty_graph() {
-        let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
+        let problem = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![]), 1);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -611,10 +611,10 @@ mod kcoloring {
     #[test]
     fn test_complete_graph_k4() {
         // K4 needs 4 colors
-        let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+        let problem = KColoring::<KN, _>::with_k(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
             4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        ));
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_witnesses(&problem).unwrap();

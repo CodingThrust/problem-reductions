@@ -6,7 +6,7 @@
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::variant::{KValue, VariantParam, K1, K2, K3, K4, K5, KN};
+use crate::variant::{KValue, VariantParam, K2, K3, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -16,7 +16,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("k", "KN", &["KN", "K1", "K2", "K3", "K4", "K5"]),
+            VariantDimension::new("k", "KN", &["KN", "K2", "K3"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -333,32 +333,17 @@ crate::impl_random_generate!(KColoring<K3, SimpleGraph>, crate::random::Coloring
     if spec.k.is_some_and(|k| k != 3) { return Err("k must match the selected K3 variant".to_string().into()); }
     Ok(KColoring::new(spec.graph()?))
 });
-crate::impl_random_generate!(KColoring<K4, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 4) { return Err("k must match the selected K4 variant".to_string().into()); }
-    Ok(KColoring::new(spec.graph()?))
-});
-crate::impl_random_generate!(KColoring<K5, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 5) { return Err("k must match the selected K5 variant".to_string().into()); }
-    Ok(KColoring::new(spec.graph()?))
-});
 
 crate::declare_variants! {
     default KColoring<KN, SimpleGraph> => "2^num_vertices" create RuntimeKColoringCreateSpec random,
-    KColoring<K1, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec,
     KColoring<K2, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec random,
     KColoring<K3, SimpleGraph> => "1.3289^num_vertices" create FixedKColoringCreateSpec random,
-    KColoring<K4, SimpleGraph> => "1.7159^num_vertices" create FixedKColoringCreateSpec random,
-    // Best known: O*((2-ε)^n) for some ε > 0 (Zamir 2021), concrete ε unknown
-    KColoring<K5, SimpleGraph> => "2^num_vertices" create FixedKColoringCreateSpec random,
 }
 
 crate::register_brute_force! {
     KColoring<KN, SimpleGraph>,
-    KColoring<K1, SimpleGraph>,
     KColoring<K2, SimpleGraph>,
     KColoring<K3, SimpleGraph>,
-    KColoring<K4, SimpleGraph>,
-    KColoring<K5, SimpleGraph>,
 }
 
 #[cfg(test)]
