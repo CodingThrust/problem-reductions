@@ -312,3 +312,42 @@ fn runtime_color_counts_keep_their_native_domain_on_deserialization() {
     let restored: KColoring<KN, SimpleGraph> = serde_json::from_value(data).unwrap();
     assert_eq!(restored.num_colors(), 0);
 }
+
+#[test]
+fn test_kcoloring_zero_colors_create_evaluate_and_solve() {
+    for n in [0, 1, 3] {
+        let problem = KColoring::<KN, SimpleGraph>::try_from(RuntimeKColoringCreateSpec {
+            graph: vec![],
+            num_vertices: Some(n),
+            k: 0,
+        })
+        .unwrap();
+        assert_eq!(problem.num_colors(), 0);
+        let restored: KColoring<KN, SimpleGraph> =
+            serde_json::from_value(serde_json::to_value(&problem).unwrap()).unwrap();
+        assert_eq!(restored.num_colors(), 0);
+        assert_eq!(
+            BruteForce::new().solve(&problem).unwrap(),
+            if n == 0 { Some(vec![]) } else { None }
+        );
+        if n == 0 {
+            assert!(problem.evaluate(&vec![]).unwrap().0);
+        } else {
+            assert!(problem.evaluate(&vec![0; n]).is_err());
+        }
+    }
+}
+
+#[test]
+fn test_kcoloring_random_zero_colors() {
+    use crate::registry::RandomGenerate;
+    for n in [0, 3] {
+        let problem = KColoring::<KN, SimpleGraph>::generate(serde_json::json!({
+            "num_vertices": n, "edge_prob": 0.5, "seed": 42, "k": 0,
+        }))
+        .unwrap();
+        assert_eq!(problem.num_colors(), 0);
+        assert_eq!(problem.num_vertices(), n);
+        assert_eq!(BruteForce::new().solve(&problem).unwrap().is_some(), n == 0);
+    }
+}

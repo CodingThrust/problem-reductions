@@ -138,9 +138,6 @@ impl TryFrom<RuntimeKColoringCreateSpec> for KColoring<KN, SimpleGraph> {
     type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: RuntimeKColoringCreateSpec) -> Result<Self, Self::Error> {
-        if spec.k == 0 {
-            return Err("k must be positive".to_string().into());
-        }
         Ok(Self::with_k(
             simple_graph_from_create(spec.graph, spec.num_vertices)?,
             spec.k,
@@ -320,9 +317,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 
 crate::impl_random_generate!(KColoring<KN, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
     let k = spec.k.unwrap_or(3);
-    if k == 0 {
-        return Err("k must be positive".to_string().into());
-    }
     Ok(KColoring::with_k(spec.graph()?, k))
 });
 crate::impl_random_generate!(KColoring<K2, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
