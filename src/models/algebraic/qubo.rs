@@ -92,6 +92,7 @@ impl<W: WeightElement + Serialize> Serialize for QUBO<W> {
                 values
                     .iter()
                     .enumerate()
+                    .skip(row)
                     .filter_map(move |(column, value)| {
                         (!value.to_sum().is_zero()).then_some((row, column, value))
                     })
@@ -117,6 +118,13 @@ impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
                 return Err(ConstructionError::Conversion(format!(
                     "QUBO index ({row}, {column}) is outside 0..{}",
                     data.num_vars
+                )));
+            }
+        }
+        for &(row, column, _) in &data.entries {
+            if row > column {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO index ({row}, {column}) is below the diagonal; use ({column}, {row}) instead"
                 )));
             }
         }

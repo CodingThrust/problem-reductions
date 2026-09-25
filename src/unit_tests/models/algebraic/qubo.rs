@@ -7,13 +7,13 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_qubo_entries_roundtrip() {
-    let data = serde_json::json!({"num_vars": 3, "entries": [[1,1,3],[0,1,-2],[1,0,4]]});
+    let data = serde_json::json!({"num_vars": 3, "entries": [[1,1,3],[0,1,-2]]});
     let problem: QUBO<i64> = serde_json::from_value(data).unwrap();
     let encoded = serde_json::to_value(&problem).unwrap();
     assert_eq!(
         encoded,
         serde_json::json!({
-            "num_vars": 3, "entries": [[0,1,-2],[1,0,4],[1,1,3]]
+            "num_vars": 3, "entries": [[0,1,-2],[1,1,3]]
         })
     );
     let restored: QUBO<i64> = serde_json::from_value(encoded.clone()).unwrap();
@@ -289,5 +289,44 @@ fn test_qubo_legacy_matrix_error_explains_sparse_format() {
         .to_string();
     for hint in ["num_vars", "sparse entries [row, col, value]", "row <= col"] {
         assert!(error.contains(hint), "{error}");
+    }
+}
+
+#[test]
+fn test_qubo_rejects_lower_triangle_entries() {
+    let error = QUBO::try_from(QuboData {
+        num_vars: 2,
+        entries: vec![(1, 0, 4_i64)],
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, ConstructionError::Conversion(ref message) if message.contains("use (0, 1) instead"))
+    );
+    let error = serde_json::from_value::<QUBO<i64>>(
+        serde_json::json!({"num_vars": 2, "entries": [[1, 0, 4]]}),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("below the diagonal"));
+}
+
+#[test]
+fn test_qubo_matrix_serialization_omits_lower_triangle() {
+    let problem = QUBO::from_matrix(vec![vec![1, -2], vec![4, 3]]).unwrap();
+    let encoded = serde_json::to_value(&problem).unwrap();
+    assert_eq!(
+        encoded,
+        serde_json::json!({"num_vars": 2, "entries": [[0,0,1],[0,1,-2],[1,1,3]]})
+    );
+    let restored: QUBO<i64> = serde_json::from_value(encoded).unwrap();
+    for config in [
+        vec![false, false],
+        vec![false, true],
+        vec![true, false],
+        vec![true, true],
+    ] {
+        assert_eq!(
+            problem.evaluate(&config).unwrap(),
+            restored.evaluate(&config).unwrap()
+        );
     }
 }

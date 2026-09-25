@@ -505,10 +505,11 @@ let restored: MaximumIndependentSet<SimpleGraph, i64> = from_json(&json)?;
 ```
 
 QUBO data uses `{"num_vars": 3, "entries": [[0,0,-2], [0,1,4]]}`.
-Each entry is `[row, column, coefficient]` with zero-based indices; output lists
-nonzero entries in row-major order. Duplicate and out-of-range coordinates are
-errors. As with `from_matrix`, evaluation uses only the upper triangle, including
-the diagonal. CLI creation still accepts `--matrix`.
+Each entry is `[row, column, coefficient]` with zero-based indices and `row <= column`.
+Output lists only nonzero upper-triangle entries in row-major order. Duplicate,
+out-of-range, and lower-triangle coordinates are errors. For a lower-triangle
+coordinate, use `(column, row)` instead. `from_matrix` and CLI `--matrix` still
+accept full matrices; evaluation and serialization ignore their lower triangle.
 
 ## Contributing
 
