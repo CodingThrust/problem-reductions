@@ -269,3 +269,13 @@ fn test_integer_qubo_reports_objective_overflow() {
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
     ));
 }
+
+#[test]
+fn test_qubo_entries_reject_oversized_num_vars() {
+    let error = QUBO::<i64>::try_from(QuboData {
+        num_vars: usize::MAX,
+        entries: vec![],
+    })
+    .unwrap_err();
+    assert!(error.to_string().contains("too large"), "{error}");
+}

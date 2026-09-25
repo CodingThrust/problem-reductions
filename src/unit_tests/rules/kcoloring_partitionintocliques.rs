@@ -55,3 +55,19 @@ fn test_kcoloring_to_partitionintocliques_unsat_preserved() {
     assert!(solver.solve(&source).unwrap().is_none());
     assert!(solver.solve(reduction.target_problem()).unwrap().is_none());
 }
+
+#[test]
+fn test_kcoloring_to_partitionintocliques_zero_colors() {
+    let solver = BruteForce::new();
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::empty(2), 0);
+    let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    assert!(solver.solve(&source).unwrap().is_none());
+    assert!(solver.solve(reduction.target_problem()).unwrap().is_none());
+
+    // With no vertices, zero colors suffice.
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::empty(0), 0);
+    let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    assert!(solver.solve(reduction.target_problem()).unwrap().is_some());
+}

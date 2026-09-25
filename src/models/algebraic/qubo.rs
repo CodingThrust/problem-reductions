@@ -119,7 +119,19 @@ impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
                 )));
             }
         }
-        let mut matrix = vec![vec![W::default(); data.num_vars]; data.num_vars];
+        let n = data.num_vars;
+        let allocation_error =
+            || ConstructionError::Conversion(format!("QUBO with {n} variables is too large"));
+        let mut matrix = Vec::new();
+        matrix
+            .try_reserve_exact(n)
+            .map_err(|_| allocation_error())?;
+        for _ in 0..n {
+            let mut row = Vec::new();
+            row.try_reserve_exact(n).map_err(|_| allocation_error())?;
+            row.resize(n, W::default());
+            matrix.push(row);
+        }
         for (row, column, value) in data.entries {
             matrix[row][column] = value;
         }

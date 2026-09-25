@@ -65,12 +65,12 @@ impl ReduceTo<PartitionIntoCliques<SimpleGraph>> for KColoring<KN, SimpleGraph> 
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
-        let target = if self.graph().edges().iter().any(|&(u, v)| u == v) {
-            // A loop is uncolorable; two isolated vertices do not form one clique.
-            PartitionIntoCliques::new(SimpleGraph::empty(2), 1)
-        } else if n == 0 {
+        let target = if n == 0 {
             // The empty source is colorable; the target requires a nonempty graph.
             PartitionIntoCliques::new(SimpleGraph::empty(1), 1)
+        } else if self.num_colors() == 0 || self.graph().edges().iter().any(|&(u, v)| u == v) {
+            // Zero colors or a loop is uncolorable; two isolated vertices do not form one clique.
+            PartitionIntoCliques::new(SimpleGraph::empty(2), 1)
         } else {
             PartitionIntoCliques::new(
                 SimpleGraph::new(n, complement_edges(self.graph())),
