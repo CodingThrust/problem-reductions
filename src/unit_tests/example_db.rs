@@ -960,7 +960,7 @@ fn test_find_rule_example_satisfiability_to_naesatisfiability() {
 // PR #779 rules
 
 #[test]
-fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
+fn test_find_rule_example_ksatisfiability_to_decisionminimumvertexcover() {
     let source = ProblemRef {
         name: "KSatisfiability".to_string(),
         variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),

@@ -539,3 +539,25 @@ fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrang
         }
     }
 }
+
+#[test]
+fn test_solve_two_coloring_direct_graph_cases() {
+    use crate::models::graph::KColoring;
+    use crate::variant::K2;
+    for (name, n, edges, feasible) in [
+        ("bipartite", 4, vec![(0, 1), (1, 2), (2, 3), (3, 0)], true),
+        ("odd cycle", 3, vec![(0, 1), (1, 2), (2, 0)], false),
+        ("self-loop", 1, vec![(0, 0)], false),
+        ("isolated vertices", 3, vec![], true),
+        ("disconnected", 5, vec![(0, 1), (2, 3)], true),
+        ("empty", 0, vec![], true),
+    ] {
+        let problem = KColoring::<K2, _>::new(SimpleGraph::new(n, edges));
+        let solution = super::solve_two_coloring(&problem);
+        assert_eq!(solution.is_some(), feasible, "{name}");
+        if let Some(solution) = solution {
+            assert_eq!(solution.len(), n, "{name}");
+            assert!(problem.evaluate(&solution).unwrap().0, "{name}");
+        }
+    }
+}
