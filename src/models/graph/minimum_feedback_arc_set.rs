@@ -55,7 +55,9 @@ inventory::submit! {
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
 /// assert_eq!(solution.iter().filter(|&&selected| selected).count(), 1);
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumFeedbackArcSetData<W>")]
+#[serde(bound(deserialize = "W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumFeedbackArcSet<W> {
     /// The directed graph.
     graph: DirectedGraph,
@@ -69,13 +71,14 @@ struct MinimumFeedbackArcSetData<W> {
     weights: Vec<W>,
 }
 
-impl<'de, W> Deserialize<'de> for MinimumFeedbackArcSet<W>
+impl<W> TryFrom<MinimumFeedbackArcSetData<W>> for MinimumFeedbackArcSet<W>
 where
-    W: Clone + Default + Deserialize<'de>,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumFeedbackArcSetData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumFeedbackArcSetData<W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

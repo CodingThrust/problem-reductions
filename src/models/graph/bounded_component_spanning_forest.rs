@@ -34,7 +34,11 @@ inventory::submit! {
 /// integer `K`, and a bound `B`, determine whether the vertices can be
 /// partitioned into at most `K` non-empty sets such that every set induces a
 /// connected subgraph and the total weight of each set is at most `B`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BoundedComponentSpanningForestData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
 pub struct BoundedComponentSpanningForest<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -57,21 +61,21 @@ struct BoundedComponentSpanningForestData<G, W: WeightElement> {
     max_weight: W::Sum,
 }
 
-impl<'de, G, W> Deserialize<'de> for BoundedComponentSpanningForest<G, W>
+impl<G, W> TryFrom<BoundedComponentSpanningForestData<G, W>>
+    for BoundedComponentSpanningForest<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
-    W::Sum: Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = BoundedComponentSpanningForestData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BoundedComponentSpanningForestData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.weights,
             data.max_components,
             data.max_weight,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

@@ -58,7 +58,9 @@ inventory::submit! {
 /// // Maximum independent set in a triangle has size 1
 /// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 1));
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumIndependentSetData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximumIndependentSet<G, W> {
     /// The underlying graph.
     graph: G,
@@ -72,14 +74,15 @@ struct MaximumIndependentSetData<G, W> {
     weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MaximumIndependentSet<G, W>
+impl<G, W> TryFrom<MaximumIndependentSetData<G, W>> for MaximumIndependentSet<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaximumIndependentSetData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumIndependentSetData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

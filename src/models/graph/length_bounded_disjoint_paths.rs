@@ -33,8 +33,9 @@ inventory::submit! {
 /// vertices of different slots must be disjoint. Empty slots (all zeros) are
 /// unused and do not count toward the objective. The objective is to maximize
 /// the number of non-empty valid path slots.
-#[derive(Debug, Clone, Serialize)]
-#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LengthBoundedDisjointPathsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct LengthBoundedDisjointPaths<G> {
     graph: G,
     source: usize,
@@ -53,20 +54,21 @@ struct LengthBoundedDisjointPathsData<G> {
     max_length: usize,
 }
 
-impl<'de, G> Deserialize<'de> for LengthBoundedDisjointPaths<G>
+impl<G> TryFrom<LengthBoundedDisjointPathsData<G>> for LengthBoundedDisjointPaths<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = LengthBoundedDisjointPathsData::<G>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LengthBoundedDisjointPathsData<G>) -> Result<Self, Self::Error> {
         let max_paths = data.max_paths;
-        let instance = Self::try_new(data.graph, data.source, data.sink, data.max_length)
-            .map_err(serde::de::Error::custom)?;
+        let instance = Self::try_new(data.graph, data.source, data.sink, data.max_length)?;
         if max_paths != instance.max_paths {
-            return Err(serde::de::Error::custom(format!(
+            return Err(format!(
                 "max_paths must equal min(deg(source), deg(sink)): expected {}, got {max_paths}",
                 instance.max_paths
-            )));
+            )
+            .into());
         }
         Ok(instance)
     }

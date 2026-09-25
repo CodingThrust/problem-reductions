@@ -53,7 +53,9 @@ inventory::submit! {
 ///     assert!(problem.evaluate(sol).unwrap().is_valid());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximalISData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximalIS<G, W> {
     /// The underlying graph.
     graph: G,
@@ -67,14 +69,15 @@ struct MaximalISData<G, W> {
     weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MaximalIS<G, W>
+impl<G, W> TryFrom<MaximalISData<G, W>> for MaximalIS<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaximalISData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximalISData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

@@ -30,7 +30,9 @@ inventory::submit! {
 /// A configuration uses one binary variable per edge in the graph's canonical
 /// sorted edge list. A valid solution selects exactly the edges of one simple
 /// path for each terminal pair, with all such paths pairwise vertex-disjoint.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "DisjointConnectingPathsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct DisjointConnectingPaths<G> {
     graph: G,
     terminal_pairs: Vec<(usize, usize)>,
@@ -43,13 +45,14 @@ struct DisjointConnectingPathsData<G> {
     terminal_pairs: Vec<(usize, usize)>,
 }
 
-impl<'de, G> Deserialize<'de> for DisjointConnectingPaths<G>
+impl<G> TryFrom<DisjointConnectingPathsData<G>> for DisjointConnectingPaths<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = DisjointConnectingPathsData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.terminal_pairs).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: DisjointConnectingPathsData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.terminal_pairs)
     }
 }
 

@@ -52,7 +52,9 @@ inventory::submit! {
 /// // Minimum dominating set is just the center vertex
 /// assert!(solutions.contains(&vec![true, false, false, false]));
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumDominatingSetData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumDominatingSet<G, W> {
     /// The underlying graph.
     graph: G,
@@ -66,14 +68,15 @@ struct MinimumDominatingSetData<G, W> {
     weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumDominatingSet<G, W>
+impl<G, W> TryFrom<MinimumDominatingSetData<G, W>> for MinimumDominatingSet<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumDominatingSetData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumDominatingSetData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

@@ -26,7 +26,9 @@ inventory::submit! {
 /// Given a graph `G = (V, E)` and a positive integer `k`, determine whether
 /// there exists a subset `K ⊆ V` of size at least `k` such that every pair of
 /// distinct vertices in `K` is adjacent.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "KCliqueData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct KClique<G> {
     graph: G,
     k: usize,
@@ -39,13 +41,14 @@ struct KCliqueData<G> {
     k: usize,
 }
 
-impl<'de, G> Deserialize<'de> for KClique<G>
+impl<G> TryFrom<KCliqueData<G>> for KClique<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = KCliqueData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.k).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: KCliqueData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.k)
     }
 }
 

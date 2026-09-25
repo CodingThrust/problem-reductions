@@ -50,7 +50,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PartitionIntoTrianglesData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoTriangles<G> {
     /// The underlying graph.
     graph: G,
@@ -62,13 +64,14 @@ struct PartitionIntoTrianglesData<G> {
     graph: G,
 }
 
-impl<'de, G> Deserialize<'de> for PartitionIntoTriangles<G>
+impl<G> TryFrom<PartitionIntoTrianglesData<G>> for PartitionIntoTriangles<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = PartitionIntoTrianglesData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoTrianglesData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph)
     }
 }
 

@@ -53,7 +53,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinMaxMulticenterData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct MinMaxMulticenter<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -74,15 +76,15 @@ struct MinMaxMulticenterData<G, W: WeightElement> {
     k: usize,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinMaxMulticenter<G, W>
+impl<G, W> TryFrom<MinMaxMulticenterData<G, W>> for MinMaxMulticenter<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinMaxMulticenterData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinMaxMulticenterData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.vertex_weights, data.edge_lengths, data.k)
-            .map_err(serde::de::Error::custom)
     }
 }
 

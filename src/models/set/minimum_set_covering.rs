@@ -55,7 +55,9 @@ inventory::submit! {
 ///     assert!(problem.evaluate(&sol).unwrap().is_valid());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumSetCoveringData<W>")]
+#[serde(bound(deserialize = "W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumSetCovering<W = i64> {
     /// Size of the universe (elements are 0..universe_size).
     universe_size: usize,
@@ -72,11 +74,14 @@ struct MinimumSetCoveringData<W> {
     weights: Vec<W>,
 }
 
-impl<'de, W: Clone + Default + Deserialize<'de>> Deserialize<'de> for MinimumSetCovering<W> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumSetCoveringData::deserialize(deserializer)?;
+impl<W> TryFrom<MinimumSetCoveringData<W>> for MinimumSetCovering<W>
+where
+    W: Clone + Default,
+{
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumSetCoveringData<W>) -> Result<Self, Self::Error> {
         Self::try_with_weights(data.universe_size, data.sets, data.weights)
-            .map_err(serde::de::Error::custom)
     }
 }
 

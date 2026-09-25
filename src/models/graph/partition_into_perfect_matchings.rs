@@ -55,7 +55,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PartitionIntoPerfectMatchingsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoPerfectMatchings<G> {
     /// The underlying graph.
     graph: G,
@@ -70,13 +72,14 @@ struct PartitionIntoPerfectMatchingsData<G> {
     num_matchings: usize,
 }
 
-impl<'de, G> Deserialize<'de> for PartitionIntoPerfectMatchings<G>
+impl<G> TryFrom<PartitionIntoPerfectMatchingsData<G>> for PartitionIntoPerfectMatchings<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = PartitionIntoPerfectMatchingsData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.num_matchings).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoPerfectMatchingsData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.num_matchings)
     }
 }
 

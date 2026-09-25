@@ -55,7 +55,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "DegreeConstrainedSpanningTreeData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct DegreeConstrainedSpanningTree<G> {
     /// The underlying graph.
     graph: G,
@@ -72,13 +74,14 @@ struct DegreeConstrainedSpanningTreeData<G> {
     max_degree: usize,
 }
 
-impl<'de, G> Deserialize<'de> for DegreeConstrainedSpanningTree<G>
+impl<G> TryFrom<DegreeConstrainedSpanningTreeData<G>> for DegreeConstrainedSpanningTree<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = DegreeConstrainedSpanningTreeData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.max_degree).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: DegreeConstrainedSpanningTreeData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.max_degree)
     }
 }
 

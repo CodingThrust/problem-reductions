@@ -40,7 +40,9 @@ inventory::submit! {
 ///
 /// A valid configuration must select exactly the edges of one simple
 /// undirected path from `source_vertex` to `target_vertex`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LongestPathData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct LongestPath<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
@@ -57,20 +59,20 @@ struct LongestPathData<G, W: WeightElement> {
     target_vertex: usize,
 }
 
-impl<'de, G, W> Deserialize<'de> for LongestPath<G, W>
+impl<G, W> TryFrom<LongestPathData<G, W>> for LongestPath<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = LongestPathData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LongestPathData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.edge_lengths,
             data.source_vertex,
             data.target_vertex,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

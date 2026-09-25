@@ -54,7 +54,11 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumTardinessSequencingData<W>")]
+#[serde(bound(
+    deserialize = "W: Deserialize<'de>, Self: TryFrom<MinimumTardinessSequencingData<W>>, <Self as TryFrom<MinimumTardinessSequencingData<W>>>::Error: std::fmt::Display"
+))]
 pub struct MinimumTardinessSequencing<W> {
     lengths: Vec<W>,
     deadlines: Vec<i64>,
@@ -68,19 +72,19 @@ struct MinimumTardinessSequencingData<W> {
     precedences: Vec<(usize, usize)>,
 }
 
-impl<'de> Deserialize<'de> for MinimumTardinessSequencing<One> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumTardinessSequencingData::<One>::deserialize(deserializer)?;
+impl TryFrom<MinimumTardinessSequencingData<One>> for MinimumTardinessSequencing<One> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumTardinessSequencingData<One>) -> Result<Self, Self::Error> {
         Self::try_new(data.lengths.len(), data.deadlines, data.precedences)
-            .map_err(serde::de::Error::custom)
     }
 }
 
-impl<'de> Deserialize<'de> for MinimumTardinessSequencing<i64> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumTardinessSequencingData::<i64>::deserialize(deserializer)?;
+impl TryFrom<MinimumTardinessSequencingData<i64>> for MinimumTardinessSequencing<i64> {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumTardinessSequencingData<i64>) -> Result<Self, Self::Error> {
         Self::try_with_lengths(data.lengths, data.deadlines, data.precedences)
-            .map_err(serde::de::Error::custom)
     }
 }
 

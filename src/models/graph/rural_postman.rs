@@ -52,7 +52,9 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edge lengths (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "RuralPostmanData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct RuralPostman<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -70,15 +72,15 @@ struct RuralPostmanData<G, W: WeightElement> {
     required_edges: Vec<usize>,
 }
 
-impl<'de, G, W> Deserialize<'de> for RuralPostman<G, W>
+impl<G, W> TryFrom<RuralPostmanData<G, W>> for RuralPostman<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = RuralPostmanData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: RuralPostmanData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.edge_lengths, data.required_edges)
-            .map_err(serde::de::Error::custom)
     }
 }
 

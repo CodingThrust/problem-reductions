@@ -53,7 +53,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PartitionIntoCliquesData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoCliques<G> {
     /// The underlying graph.
     graph: G,
@@ -68,13 +70,14 @@ struct PartitionIntoCliquesData<G> {
     num_cliques: usize,
 }
 
-impl<'de, G> Deserialize<'de> for PartitionIntoCliques<G>
+impl<G> TryFrom<PartitionIntoCliquesData<G>> for PartitionIntoCliques<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = PartitionIntoCliquesData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.num_cliques).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoCliquesData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.num_cliques)
     }
 }
 

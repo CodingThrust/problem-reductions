@@ -67,7 +67,9 @@ inventory::submit! {
 ///     assert_eq!(size, Max(Some(2)));
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaxCutData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaxCut<G, W> {
     /// The underlying graph structure.
     graph: G,
@@ -81,14 +83,15 @@ struct MaxCutData<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MaxCut<G, W>
+impl<G, W> TryFrom<MaxCutData<G, W>> for MaxCut<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaxCutData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaxCutData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
     }
 }
 

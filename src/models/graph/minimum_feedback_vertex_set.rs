@@ -49,7 +49,9 @@ inventory::submit! {
 /// // Any single vertex breaks the cycle
 /// assert_eq!(solutions.len(), 3);
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumFeedbackVertexSetData<W>")]
+#[serde(bound(deserialize = "W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumFeedbackVertexSet<W> {
     /// The underlying directed graph.
     graph: DirectedGraph,
@@ -63,13 +65,14 @@ struct MinimumFeedbackVertexSetData<W> {
     weights: Vec<W>,
 }
 
-impl<'de, W> Deserialize<'de> for MinimumFeedbackVertexSet<W>
+impl<W> TryFrom<MinimumFeedbackVertexSetData<W>> for MinimumFeedbackVertexSet<W>
 where
-    W: Clone + Default + Deserialize<'de>,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumFeedbackVertexSetData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumFeedbackVertexSetData<W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

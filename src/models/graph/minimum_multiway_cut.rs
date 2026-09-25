@@ -42,7 +42,9 @@ inventory::submit! {
 ///
 /// A configuration is feasible if removing the cut edges disconnects all
 /// terminal pairs.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumMultiwayCutData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumMultiwayCut<G, W> {
     graph: G,
     terminals: Vec<usize>,
@@ -56,15 +58,15 @@ struct MinimumMultiwayCutData<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumMultiwayCut<G, W>
+impl<G, W> TryFrom<MinimumMultiwayCutData<G, W>> for MinimumMultiwayCut<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumMultiwayCutData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumMultiwayCutData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.terminals, data.edge_weights)
-            .map_err(serde::de::Error::custom)
     }
 }
 

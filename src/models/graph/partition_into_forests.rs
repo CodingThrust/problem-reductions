@@ -54,7 +54,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "PartitionIntoForestsData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct PartitionIntoForests<G> {
     /// The underlying graph.
     graph: G,
@@ -69,13 +71,14 @@ struct PartitionIntoForestsData<G> {
     num_forests: usize,
 }
 
-impl<'de, G> Deserialize<'de> for PartitionIntoForests<G>
+impl<G> TryFrom<PartitionIntoForestsData<G>> for PartitionIntoForests<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = PartitionIntoForestsData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.num_forests).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: PartitionIntoForestsData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.num_forests)
     }
 }
 

@@ -50,20 +50,23 @@ inventory::submit! {
 /// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "Data")]
 pub struct MinimumMatrixCover {
     /// The n×n nonnegative integer matrix.
     matrix: Vec<Vec<i64>>,
 }
 
-impl<'de> Deserialize<'de> for MinimumMatrixCover {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        struct Data {
-            matrix: Vec<Vec<i64>>,
-        }
-        let data = Data::deserialize(deserializer)?;
-        Self::try_new(data.matrix).map_err(serde::de::Error::custom)
+#[derive(Deserialize)]
+struct Data {
+    matrix: Vec<Vec<i64>>,
+}
+
+impl TryFrom<Data> for MinimumMatrixCover {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: Data) -> Result<Self, Self::Error> {
+        Self::try_new(data.matrix)
     }
 }
 

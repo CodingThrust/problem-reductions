@@ -51,7 +51,11 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `N` - The edge length / weight type (e.g., `i64`, `f64`)
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ShortestWeightConstrainedPathData<G, N>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, N: WeightElement + Deserialize<'de>, N::Sum: Deserialize<'de>"
+))]
 pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -80,14 +84,14 @@ struct ShortestWeightConstrainedPathData<G, N: WeightElement> {
     weight_bound: N::Sum,
 }
 
-impl<'de, G, N> Deserialize<'de> for ShortestWeightConstrainedPath<G, N>
+impl<G, N> TryFrom<ShortestWeightConstrainedPathData<G, N>> for ShortestWeightConstrainedPath<G, N>
 where
-    G: Graph + Deserialize<'de>,
-    N: WeightElement + Deserialize<'de>,
-    N::Sum: Deserialize<'de>,
+    G: Graph,
+    N: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = ShortestWeightConstrainedPathData::<G, N>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: ShortestWeightConstrainedPathData<G, N>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.edge_lengths,
@@ -96,7 +100,6 @@ where
             data.target_vertex,
             data.weight_bound,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

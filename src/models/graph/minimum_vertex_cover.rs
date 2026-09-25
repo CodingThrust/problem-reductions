@@ -52,7 +52,9 @@ inventory::submit! {
 /// // Minimum vertex cover is just vertex 1
 /// assert!(solutions.contains(&vec![false, true, false]));
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumVertexCoverData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumVertexCover<G, W> {
     /// The underlying graph.
     graph: G,
@@ -66,14 +68,15 @@ struct MinimumVertexCoverData<G, W> {
     weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumVertexCover<G, W>
+impl<G, W> TryFrom<MinimumVertexCoverData<G, W>> for MinimumVertexCover<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumVertexCoverData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumVertexCoverData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

@@ -63,7 +63,11 @@ inventory::submit! {
 ///     MaximumCoKPlex::<_, One, KN>::with_k(graph, vec![One; 5], 2);
 /// assert_eq!(problem.bound_k(), 2);
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumCoKPlexData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>, K: KValue"
+))]
 pub struct MaximumCoKPlex<G, W, K: KValue> {
     /// The underlying graph.
     graph: G,
@@ -87,15 +91,16 @@ struct MaximumCoKPlexData<G, W> {
     bound_k: usize,
 }
 
-impl<'de, G, W, K> Deserialize<'de> for MaximumCoKPlex<G, W, K>
+impl<G, W, K> TryFrom<MaximumCoKPlexData<G, W>> for MaximumCoKPlex<G, W, K>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
     K: KValue,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaximumCoKPlexData::deserialize(deserializer)?;
-        Self::try_with_k(data.graph, data.weights, data.bound_k).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumCoKPlexData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_with_k(data.graph, data.weights, data.bound_k)
     }
 }
 

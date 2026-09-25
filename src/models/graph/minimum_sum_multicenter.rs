@@ -54,7 +54,9 @@ inventory::submit! {
 /// // Center at vertex 1 gives total distance 0+1+1 = 2 (optimal)
 /// assert_eq!(solution, vec![false, true, false]);
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumSumMulticenterData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumSumMulticenter<G, W> {
     /// The underlying graph.
     graph: G,
@@ -75,15 +77,15 @@ struct MinimumSumMulticenterData<G, W> {
     k: usize,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumSumMulticenter<G, W>
+impl<G, W> TryFrom<MinimumSumMulticenterData<G, W>> for MinimumSumMulticenter<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumSumMulticenterData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumSumMulticenterData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.vertex_weights, data.edge_lengths, data.k)
-            .map_err(serde::de::Error::custom)
     }
 }
 

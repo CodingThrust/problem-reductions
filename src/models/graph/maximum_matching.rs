@@ -56,7 +56,9 @@ inventory::submit! {
 ///     assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumMatchingData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximumMatching<G, W> {
     /// The underlying graph.
     graph: G,
@@ -70,14 +72,15 @@ struct MaximumMatchingData<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MaximumMatching<G, W>
+impl<G, W> TryFrom<MaximumMatchingData<G, W>> for MaximumMatching<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaximumMatchingData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.edge_weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumMatchingData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_weights)
     }
 }
 

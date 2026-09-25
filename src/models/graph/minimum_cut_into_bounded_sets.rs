@@ -56,7 +56,9 @@ inventory::submit! {
 /// let val = problem.evaluate(&vec![false, false, true, true]).unwrap();
 /// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCutIntoBoundedSetsData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     /// The underlying graph structure.
     graph: G,
@@ -80,13 +82,14 @@ struct MinimumCutIntoBoundedSetsData<G, W: WeightElement> {
     size_bound: usize,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumCutIntoBoundedSets<G, W>
+impl<G, W> TryFrom<MinimumCutIntoBoundedSetsData<G, W>> for MinimumCutIntoBoundedSets<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumCutIntoBoundedSetsData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumCutIntoBoundedSetsData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.edge_weights,
@@ -94,7 +97,6 @@ where
             data.sink,
             data.size_bound,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

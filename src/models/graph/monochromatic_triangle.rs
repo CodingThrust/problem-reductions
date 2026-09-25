@@ -57,7 +57,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MonochromaticTriangleData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct MonochromaticTriangle<G> {
     /// The underlying graph.
     graph: G,
@@ -74,12 +76,13 @@ struct MonochromaticTriangleData<G> {
     graph: G,
 }
 
-impl<'de, G> Deserialize<'de> for MonochromaticTriangle<G>
+impl<G> TryFrom<MonochromaticTriangleData<G>> for MonochromaticTriangle<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MonochromaticTriangleData::<G>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MonochromaticTriangleData<G>) -> Result<Self, Self::Error> {
         Ok(Self::new(data.graph))
     }
 }

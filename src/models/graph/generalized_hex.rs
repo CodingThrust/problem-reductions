@@ -32,7 +32,9 @@ inventory::submit! {
 /// The problem is represented as a zero-variable decision problem: the graph
 /// instance fully determines the question, so `evaluate([])` runs a memoized
 /// game-tree search from the initial empty board.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "GeneralizedHexData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct GeneralizedHex<G> {
     graph: G,
     source: usize,
@@ -47,13 +49,14 @@ struct GeneralizedHexData<G> {
     target: usize,
 }
 
-impl<'de, G> Deserialize<'de> for GeneralizedHex<G>
+impl<G> TryFrom<GeneralizedHexData<G>> for GeneralizedHex<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = GeneralizedHexData::<G>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.source, data.target).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: GeneralizedHexData<G>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.source, data.target)
     }
 }
 

@@ -59,7 +59,11 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "BoundedDiameterSpanningTreeData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
 pub struct BoundedDiameterSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -84,21 +88,20 @@ struct BoundedDiameterSpanningTreeData<G, W: WeightElement> {
     diameter_bound: usize,
 }
 
-impl<'de, G, W> Deserialize<'de> for BoundedDiameterSpanningTree<G, W>
+impl<G, W> TryFrom<BoundedDiameterSpanningTreeData<G, W>> for BoundedDiameterSpanningTree<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
-    W::Sum: Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = BoundedDiameterSpanningTreeData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BoundedDiameterSpanningTreeData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.edge_weights,
             data.weight_bound,
             data.diameter_bound,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

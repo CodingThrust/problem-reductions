@@ -48,7 +48,11 @@ inventory::submit! {
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
 /// * `W` - The weight type for edges and requirements (e.g., `i64`)
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumCapacitatedSpanningTreeData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
 pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
     graph: G,
@@ -74,14 +78,15 @@ struct MinimumCapacitatedSpanningTreeData<G, W: WeightElement> {
     capacity: W::Sum,
 }
 
-impl<'de, G, W> Deserialize<'de> for MinimumCapacitatedSpanningTree<G, W>
+impl<G, W> TryFrom<MinimumCapacitatedSpanningTreeData<G, W>>
+    for MinimumCapacitatedSpanningTree<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
-    W::Sum: Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MinimumCapacitatedSpanningTreeData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MinimumCapacitatedSpanningTreeData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(
             data.graph,
             data.weights,
@@ -89,7 +94,6 @@ where
             data.requirements,
             data.capacity,
         )
-        .map_err(serde::de::Error::custom)
     }
 }
 

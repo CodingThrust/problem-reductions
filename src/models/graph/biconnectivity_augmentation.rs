@@ -36,8 +36,12 @@ inventory::submit! {
 /// determine whether there exists a subset of potential edges `E'` such that:
 /// - `sum_{e in E'} w(e) <= B`
 /// - `(V, E union E')` is biconnected
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(serialize = "G: serde::Serialize, W: serde::Serialize, W::Sum: serde::Serialize"))]
+#[serde(try_from = "BiconnectivityAugmentationData<G, W>")]
+#[serde(bound(
+    deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"
+))]
 pub struct BiconnectivityAugmentation<G, W>
 where
     W: WeightElement,
@@ -60,16 +64,15 @@ struct BiconnectivityAugmentationData<G, W: WeightElement> {
     budget: W::Sum,
 }
 
-impl<'de, G, W> Deserialize<'de> for BiconnectivityAugmentation<G, W>
+impl<G, W> TryFrom<BiconnectivityAugmentationData<G, W>> for BiconnectivityAugmentation<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
-    W::Sum: Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = BiconnectivityAugmentationData::<G, W>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: BiconnectivityAugmentationData<G, W>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.potential_weights, data.budget)
-            .map_err(serde::de::Error::custom)
     }
 }
 

@@ -190,3 +190,20 @@ fn test_minimum_matrix_cover_rejects_negative_entries() {
     );
     assert!(std::panic::catch_unwind(|| MinimumMatrixCover::new(vec![vec![-1]])).is_err());
 }
+
+#[test]
+fn test_deserialization_preserves_data_shape_errors() {
+    for (input, expected) in [
+        (
+            serde_json::Value::Null,
+            "invalid type: null, expected struct Data",
+        ),
+        (
+            serde_json::json!([]),
+            "invalid length 0, expected struct Data with 1 element",
+        ),
+    ] {
+        let error = serde_json::from_value::<MinimumMatrixCover>(input).unwrap_err();
+        assert_eq!(error.to_string(), expected);
+    }
+}

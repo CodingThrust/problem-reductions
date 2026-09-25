@@ -68,7 +68,9 @@ inventory::submit! {
 /// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "HamiltonianPathBetweenTwoVerticesData<G>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>"))]
 pub struct HamiltonianPathBetweenTwoVertices<G> {
     graph: G,
     source_vertex: usize,
@@ -83,14 +85,14 @@ struct HamiltonianPathBetweenTwoVerticesData<G> {
     target_vertex: usize,
 }
 
-impl<'de, G> Deserialize<'de> for HamiltonianPathBetweenTwoVertices<G>
+impl<G> TryFrom<HamiltonianPathBetweenTwoVerticesData<G>> for HamiltonianPathBetweenTwoVertices<G>
 where
-    G: Graph + Deserialize<'de>,
+    G: Graph,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = HamiltonianPathBetweenTwoVerticesData::<G>::deserialize(deserializer)?;
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: HamiltonianPathBetweenTwoVerticesData<G>) -> Result<Self, Self::Error> {
         Self::try_new(data.graph, data.source_vertex, data.target_vertex)
-            .map_err(serde::de::Error::custom)
     }
 }
 

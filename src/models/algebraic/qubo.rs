@@ -55,7 +55,9 @@ inventory::submit! {
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![false, true]));
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(try_from = "QuboInputData<W>")]
+#[serde(bound(deserialize = "W: WeightElement + Deserialize<'de>"))]
 pub struct QUBO<W = i64> {
     /// Number of variables.
     num_vars: usize,
@@ -71,14 +73,32 @@ struct QuboData<W> {
     entries: Vec<(usize, usize, W)>,
 }
 
-impl<'de, W: WeightElement + Deserialize<'de>> Deserialize<'de> for QUBO<W> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = QuboData::deserialize(deserializer).map_err(|error| {
-            serde::de::Error::custom(format!(
-                "{error}; expected QUBO format: num_vars and sparse entries [row, col, value] with row <= col"
-            ))
-        })?;
-        Self::try_from(data).map_err(serde::de::Error::custom)
+// Keep parse-error format guidance separate from constructor validation errors.
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct QuboInputData<W> {
+    #[serde(
+        deserialize_with = "deserialize_qubo_data",
+        bound(deserialize = "W: Deserialize<'de>")
+    )]
+    data: QuboData<W>,
+}
+
+fn deserialize_qubo_data<'de, W: Deserialize<'de>, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<QuboData<W>, D::Error> {
+    QuboData::deserialize(deserializer).map_err(|error| {
+        serde::de::Error::custom(format!(
+            "{error}; expected QUBO format: num_vars and sparse entries [row, col, value] with row <= col"
+        ))
+    })
+}
+
+impl<W: WeightElement> TryFrom<QuboInputData<W>> for QUBO<W> {
+    type Error = ConstructionError;
+
+    fn try_from(input: QuboInputData<W>) -> Result<Self, Self::Error> {
+        Self::try_from(input.data)
     }
 }
 

@@ -56,7 +56,9 @@ inventory::submit! {
 /// // Maximum clique in a triangle (K3) is size 3
 /// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 3));
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MaximumCliqueData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: Clone + Default + Deserialize<'de>"))]
 pub struct MaximumClique<G, W> {
     /// The underlying graph.
     graph: G,
@@ -70,14 +72,15 @@ struct MaximumCliqueData<G, W> {
     weights: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for MaximumClique<G, W>
+impl<G, W> TryFrom<MaximumCliqueData<G, W>> for MaximumClique<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: Clone + Default + Deserialize<'de>,
+    G: Graph,
+    W: Clone + Default,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = MaximumCliqueData::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.weights).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: MaximumCliqueData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.weights)
     }
 }
 

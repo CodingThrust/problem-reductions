@@ -40,7 +40,9 @@ inventory::submit! {
 ///
 /// A valid configuration must select edges that form exactly one connected
 /// simple circuit using only edges from `graph`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "LongestCircuitData<G, W>")]
+#[serde(bound(deserialize = "G: Graph + Deserialize<'de>, W: WeightElement + Deserialize<'de>"))]
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
@@ -53,14 +55,15 @@ struct LongestCircuitData<G, W: WeightElement> {
     edge_lengths: Vec<W>,
 }
 
-impl<'de, G, W> Deserialize<'de> for LongestCircuit<G, W>
+impl<G, W> TryFrom<LongestCircuitData<G, W>> for LongestCircuit<G, W>
 where
-    G: Graph + Deserialize<'de>,
-    W: WeightElement + Deserialize<'de>,
+    G: Graph,
+    W: WeightElement,
 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let data = LongestCircuitData::<G, W>::deserialize(deserializer)?;
-        Self::try_new(data.graph, data.edge_lengths).map_err(serde::de::Error::custom)
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(data: LongestCircuitData<G, W>) -> Result<Self, Self::Error> {
+        Self::try_new(data.graph, data.edge_lengths)
     }
 }
 
