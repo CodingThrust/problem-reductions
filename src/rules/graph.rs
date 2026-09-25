@@ -1530,18 +1530,127 @@ pub struct MatchedEntry {
     pub parameter_contract: Result<ReductionParameterContract, ParameterContractError>,
 }
 
+/// One executed edge and its source instance for completed-result recovery.
+pub(crate) struct RecoveryStep<'a> {
+    pub result: &'a dyn DynReductionResult,
+    pub aggregate_view: Option<crate::rules::registry::AggregateViewFn>,
+    pub source: &'a dyn crate::registry::DynProblem,
+}
+
+/// Recover a completed result under the caller's solver contract.
+/// `None` denotes established infeasibility, never an extraction failure.
+pub(crate) fn recover_completed_result(
+    steps: &[RecoveryStep<'_>],
+    target: &dyn crate::registry::DynProblem,
+    outcome: &crate::solvers::SolveOutcome,
+) -> crate::rules::ExtractionResult<Option<(Box<dyn Any>, String)>> {
+    use crate::rules::ExtractionError;
+    use crate::solvers::SolveOutcome;
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = outcome
+    else {
+        return Ok(None);
+    };
+    let mut value = target.evaluate_json(solution)?;
+    let mut actual = target
+        .aggregate_witness_evaluation(&value)?
+        .ok_or_else(|| ExtractionError::invalid("target witness is infeasible"))?;
+    if evaluation != &actual {
+        return Err(ExtractionError::invalid(
+            "target evaluation does not match the witness",
+        ));
+    }
+    let last = steps
+        .last()
+        .ok_or_else(|| ExtractionError::invalid("recovery requires a reduction edge"))?;
+    let mut witness = last.result.target_solution_from_json(solution.clone())?;
+    for step in steps.iter().rev() {
+        let mapped = step
+            .aggregate_view
+            .map(|view| view(step.result)?.extract_value_dyn(value.clone()))
+            .transpose()?;
+        if let Some(mapped_value) = &mapped {
+            if step
+                .source
+                .aggregate_witness_evaluation(mapped_value)?
+                .is_none()
+            {
+                return Ok(None);
+            }
+        }
+        witness = step.result.extract_solution_dyn(witness.as_ref())?;
+        value = step
+            .source
+            .evaluate_json(&step.result.source_solution_json(witness.as_ref())?)?;
+        actual = step
+            .source
+            .aggregate_witness_evaluation(&value)?
+            .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?;
+        if mapped.is_some_and(|mapped| mapped != value) {
+            return Err(ExtractionError::invalid(
+                "extracted witness does not realize the mapped aggregate",
+            ));
+        }
+    }
+    Ok(Some((witness, actual)))
+}
+
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
 ///
 /// Holds the intermediate reduction results from executing a multi-step
 /// reduction path. Provides access to the final target problem and
 /// solution and aggregate-value mappings back to the source problem space.
-/// Solver status and result recovery belong to the execution layer.
+/// Callers establish solver status before recovering a completed result.
 pub struct ReductionChain {
     steps: Vec<Box<dyn DynReductionResult>>,
     aggregate_views: Vec<Option<crate::rules::registry::AggregateViewFn>>,
+    path: ReductionPath,
 }
 
 impl ReductionChain {
+    /// Recover a completed target result, checking mapped values against extracted witnesses.
+    /// The caller establishes optimality or infeasibility under its solver's contract.
+    pub fn extract_result(
+        &self,
+        source: &dyn crate::registry::DynProblem,
+        outcome: &crate::solvers::SolveOutcome,
+    ) -> crate::rules::ExtractionResult<crate::solvers::SolveOutcome> {
+        use crate::rules::ExtractionError;
+        use crate::solvers::SolveOutcome;
+        let borrow = |index: usize, problem| {
+            let node = &self.path.steps[index];
+            crate::registry::find_variant_entry(&node.name, &node.variant)
+                .and_then(|entry| (entry.borrow_fn)(problem))
+                .ok_or_else(|| ExtractionError::invalid("intermediate problem type mismatch"))
+        };
+        let steps = self
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(index, step)| {
+                Ok(RecoveryStep {
+                    result: step.as_ref(),
+                    aggregate_view: self.aggregate_views[index],
+                    source: if index == 0 {
+                        source
+                    } else {
+                        borrow(index, self.steps[index - 1].target_problem_any())?
+                    },
+                })
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
+        let target = borrow(self.steps.len(), self.target_problem_any())?;
+        match recover_completed_result(&steps, target, outcome)? {
+            None => Ok(SolveOutcome::Infeasible),
+            Some((witness, evaluation)) => Ok(SolveOutcome::Optimal {
+                solution: steps[0].result.source_solution_json(witness.as_ref())?,
+                evaluation,
+            }),
+        }
+    }
+
     /// Whether every step can map an aggregate value using its existing construction.
     pub fn has_value_mapping(&self) -> bool {
         self.aggregate_views.iter().all(Option::is_some)
@@ -1721,6 +1830,7 @@ impl ReductionGraph {
         Ok(Some(ReductionChain {
             steps,
             aggregate_views,
+            path: path.clone(),
         }))
     }
 

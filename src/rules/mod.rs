@@ -29,6 +29,7 @@ pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod exactcoverby3sets_subsetproduct;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) use graph::{recover_completed_result, RecoveryStep};
 pub(crate) mod graph_helpers;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;

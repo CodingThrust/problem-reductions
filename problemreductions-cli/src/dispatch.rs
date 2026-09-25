@@ -205,12 +205,7 @@ pub struct BundleReplay {
     pub(crate) source_name: String,
     pub(crate) target: LoadedProblem,
     pub(crate) target_name: String,
-    steps: Vec<WitnessStep>,
-}
-
-struct WitnessStep {
     chain: problemreductions::rules::ReductionChain,
-    source_variant: &'static problemreductions::registry::VariantEntry,
 }
 
 fn load_bundle_endpoints(
@@ -313,33 +308,16 @@ impl BundleReplay {
     pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
         let (source, target, reduction_path) = load_bundle_endpoints(bundle)?;
         let graph = ReductionGraph::new();
-        let mut steps: Vec<WitnessStep> = Vec::new();
-        for edge in reduction_path.steps.windows(2) {
-            let input = steps
-                .last()
-                .map_or(source.as_any(), |step| step.chain.target_problem_any());
-            let path = problemreductions::rules::ReductionPath {
-                steps: edge.to_vec(),
-            };
-            let chain = graph.reduce_along_path(&path, input)?.ok_or_else(|| {
-                anyhow::anyhow!("Bundle requires a witness-capable reduction path")
-            })?;
-            let source_variant =
-                problemreductions::registry::find_variant_entry(&edge[0].name, &edge[0].variant)
-                    .context("missing intermediate problem registration")?;
-            steps.push(WitnessStep {
-                chain,
-                source_variant,
-            });
-        }
-
-        validate_replayed_target(bundle, steps.last().unwrap().chain.target_problem_any())?;
+        let chain = graph
+            .reduce_along_path(&reduction_path, source.as_any())?
+            .context("Bundle requires a witness-capable reduction path")?;
+        validate_replayed_target(bundle, chain.target_problem_any())?;
         Ok(Self {
             source_name: source.problem_name().to_string(),
             target_name: target.problem_name().to_string(),
             source,
             target,
-            steps,
+            chain,
         })
     }
 
@@ -348,13 +326,7 @@ impl BundleReplay {
         &self,
         target_config: &serde_json::Value,
     ) -> Result<(serde_json::Value, String)> {
-        let source_config = self
-            .steps
-            .iter()
-            .rev()
-            .try_fold(target_config.clone(), |solution, step| {
-                step.chain.extract_solution_json(solution)
-            })?;
+        let source_config = self.chain.extract_solution_json(target_config.clone())?;
         let source_eval = self.source.evaluate_witness_dyn(&source_config)?.ok_or_else(|| {
             problemreductions::rules::ExtractionError::invalid(format!(
                 "extracted solution is infeasible for {}; the reduction did not establish a source solution",
@@ -368,62 +340,7 @@ impl BundleReplay {
     /// or infeasibility under its solver contract, including numerical tolerances;
     /// evaluating a candidate cannot establish it.
     pub(crate) fn extract_result(&self, result: &SolveOutcome) -> Result<SolveOutcome> {
-        use problemreductions::rules::ExtractionError;
-        let steps = &self.steps;
-        let (mut witness, mut value, mut evaluation) = match result {
-            SolveOutcome::Optimal {
-                solution,
-                evaluation,
-            } => {
-                let value = self.target.evaluate_json(solution)?;
-                let actual = self
-                    .target
-                    .aggregate_witness_evaluation(&value)?
-                    .ok_or_else(|| ExtractionError::invalid("target witness is infeasible"))?;
-                if evaluation != &actual {
-                    return Err(ExtractionError::invalid(
-                        "target evaluation does not match the witness",
-                    )
-                    .into());
-                }
-                (solution.clone(), value, actual)
-            }
-            SolveOutcome::Infeasible => return Ok(SolveOutcome::Infeasible),
-        };
-        for (index, step) in steps.iter().enumerate().rev() {
-            let input: &dyn DynProblem = if index == 0 {
-                &*self.source
-            } else {
-                (step.source_variant.borrow_fn)(steps[index - 1].chain.target_problem_any())
-                    .context("intermediate problem type mismatch")?
-            };
-            let mapped = if step.chain.has_value_mapping() {
-                Some(step.chain.extract_value(value)?)
-            } else {
-                None
-            };
-            if let Some(mapped_value) = &mapped {
-                if input.aggregate_witness_evaluation(mapped_value)?.is_none() {
-                    return Ok(SolveOutcome::Infeasible);
-                }
-            }
-            let solution = step.chain.extract_solution_json(witness)?;
-            value = input.evaluate_json(&solution)?;
-            evaluation = input
-                .aggregate_witness_evaluation(&value)?
-                .ok_or_else(|| ExtractionError::invalid("extracted solution is infeasible"))?;
-            if mapped.is_some_and(|mapped| mapped != value) {
-                return Err(ExtractionError::invalid(
-                    "extracted witness does not realize the mapped aggregate",
-                )
-                .into());
-            }
-            witness = solution;
-        }
-        Ok(SolveOutcome::Optimal {
-            solution: witness,
-            evaluation,
-        })
+        Ok(self.chain.extract_result(&*self.source, result)?)
     }
 
     /// Solve the target and map the result back to the source problem.
@@ -601,10 +518,7 @@ mod tests {
                     problem_step::<ILP<bool>>(),
                 ],
             );
-            assert!(replay
-                .steps
-                .iter()
-                .all(|step| !step.chain.has_value_mapping()));
+            assert!(!replay.chain.has_value_mapping());
             let result = replay.solve(SolverRequest::Ilp).unwrap();
             if rank == 1 {
                 assert!(matches!(result.target_outcome, SolveOutcome::Infeasible));
@@ -637,7 +551,7 @@ mod tests {
         )
         .unwrap();
         let replay = replay(&source, vec![problem_step::<ILP<bool, f64>>()]);
-        assert!(!replay.steps[0].chain.has_value_mapping());
+        assert!(!replay.chain.has_value_mapping());
         let result = replay.solve(SolverRequest::Ilp).unwrap();
         assert!(matches!(result.target_outcome, SolveOutcome::Infeasible));
         assert!(matches!(result.source_outcome, SolveOutcome::Infeasible));

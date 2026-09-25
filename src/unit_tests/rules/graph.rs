@@ -2112,3 +2112,159 @@ fn test_composed_path_parameters_transform_evaluation() {
     assert_eq!(final_size.get("num_vertices"), Some(10));
     assert_eq!(final_size.get("num_edges"), Some(20));
 }
+
+struct RecoveryFixture {
+    target: MaxCut<SimpleGraph, i64>,
+    mapped: crate::types::Max<i64>,
+    extraction_fails: bool,
+}
+
+impl ReductionResult for RecoveryFixture {
+    type Source = MaxCut<SimpleGraph, i64>;
+    type Target = MaxCut<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, solution: &Vec<bool>) -> crate::rules::ExtractionResult<Vec<bool>> {
+        crate::rules::traits::validate_target_solution(&self.target, solution)?;
+        if self.extraction_fails {
+            return Err(crate::rules::ExtractionError::invalid(
+                "fixture extraction failure",
+            ));
+        }
+        Ok(solution.clone())
+    }
+}
+
+impl AggregateReductionResult for RecoveryFixture {
+    type Source = MaxCut<SimpleGraph, i64>;
+    type Target = MaxCut<SimpleGraph, i64>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, _: crate::types::Max<i64>) -> crate::types::Max<i64> {
+        self.mapped
+    }
+}
+
+fn recovery_fixture(mapped: Option<i64>, extraction_fails: bool) -> RecoveryFixture {
+    RecoveryFixture {
+        target: MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1]),
+        mapped: crate::types::Max(mapped),
+        extraction_fails,
+    }
+}
+
+fn recover_fixture(
+    fixture: &RecoveryFixture,
+    outcome: &crate::solvers::SolveOutcome,
+) -> crate::rules::ExtractionResult<Option<(Box<dyn Any>, String)>> {
+    // The first edge has no value map. A NO from the second must bypass its decoder.
+    let upstream = recovery_fixture(Some(1), true);
+    let steps = [
+        RecoveryStep {
+            result: &upstream,
+            aggregate_view: None,
+            source: &upstream.target,
+        },
+        RecoveryStep {
+            result: fixture,
+            aggregate_view: Some(crate::rules::aggregate_view::<RecoveryFixture>),
+            source: &fixture.target,
+        },
+    ];
+    recover_completed_result(&steps, &fixture.target, outcome)
+}
+
+fn completed_cut() -> crate::solvers::SolveOutcome {
+    crate::solvers::SolveOutcome::Optimal {
+        solution: json!([false, true]),
+        evaluation: "Max(1)".into(),
+    }
+}
+
+#[test]
+fn completed_recovery_propagates_target_infeasibility() {
+    assert!(recover_fixture(
+        &recovery_fixture(Some(1), true),
+        &crate::solvers::SolveOutcome::Infeasible
+    )
+    .unwrap()
+    .is_none());
+}
+
+#[test]
+fn completed_recovery_propagates_mapped_value_without_witness() {
+    assert!(
+        recover_fixture(&recovery_fixture(None, true), &completed_cut())
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn completed_recovery_rejects_witness_not_realizing_mapped_value() {
+    let error = recover_fixture(&recovery_fixture(Some(2), false), &completed_cut())
+        .err()
+        .unwrap();
+    assert!(error
+        .to_string()
+        .contains("does not realize the mapped aggregate"));
+}
+
+#[test]
+fn completed_recovery_preserves_extraction_error() {
+    let error = recover_fixture(&recovery_fixture(Some(1), true), &completed_cut())
+        .err()
+        .unwrap();
+    assert!(matches!(
+        error,
+        crate::rules::ExtractionError::Reduction { .. }
+    ));
+    assert!(error.to_string().contains("fixture extraction failure"));
+}
+
+#[test]
+fn completed_recovery_checks_target_evaluation() {
+    let outcome = crate::solvers::SolveOutcome::Optimal {
+        solution: json!([false, true]),
+        evaluation: "Max(2)".into(),
+    };
+    let error = recover_fixture(&recovery_fixture(Some(1), false), &outcome)
+        .err()
+        .unwrap();
+    assert!(error
+        .to_string()
+        .contains("target evaluation does not match"));
+}
+
+#[test]
+fn completed_recovery_returns_realizing_witness_with_or_without_map() {
+    let fixture = recovery_fixture(Some(1), false);
+    for aggregate_view in [
+        None,
+        Some(
+            crate::rules::aggregate_view::<RecoveryFixture>
+                as crate::rules::registry::AggregateViewFn,
+        ),
+    ] {
+        let steps = [RecoveryStep {
+            result: &fixture,
+            aggregate_view,
+            source: &fixture.target,
+        }];
+        let (solution, evaluation) =
+            recover_completed_result(&steps, &fixture.target, &completed_cut())
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            *solution.downcast::<Vec<bool>>().unwrap(),
+            vec![false, true]
+        );
+        assert_eq!(evaluation, "Max(1)");
+    }
+}

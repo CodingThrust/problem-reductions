@@ -142,37 +142,55 @@ impl CompiledIlpPipeline {
 
         let target = reductions
             .last()
-            .expect("non-empty fixed pipeline must produce a target")
+            .ok_or_else(|| crate::rules::ExtractionError::invalid("pipeline has no target"))?
             .target_problem_any();
-        let solution = solver.solve_dyn(target)?;
-        let mut source_solution: Box<dyn Any> = Box::new(solution);
-        for (index, step) in reductions.iter().enumerate().rev() {
-            if let Some(view) = self.reducers[index].1 {
-                let input = if index == 0 {
-                    source
-                } else {
-                    reductions[index - 1].target_problem_any()
-                };
-                let aggregate = view(step.as_ref())?;
-                let value = aggregate.extract_value_from_solution_dyn(source_solution.as_ref())?;
-                let input_problem = crate::registry::find_variant_entry(
-                    &self.path[index].name,
-                    &self.path[index].variant,
-                )
-                .and_then(|entry| (entry.borrow_fn)(input))
+        let borrow = |index: usize, problem| {
+            crate::registry::find_variant_entry(&self.path[index].name, &self.path[index].variant)
+                .and_then(|entry| (entry.borrow_fn)(problem))
                 .ok_or_else(|| {
                     crate::rules::ExtractionError::invalid("pipeline source type mismatch")
+                })
+        };
+        let target_problem = borrow(reductions.len(), target)?;
+        let outcome = match solver.solve_dyn(target) {
+            Ok(solution) => {
+                let solution = serde_json::to_value(solution).map_err(|error| {
+                    crate::rules::ExtractionError::invalid(format!(
+                        "ILP solution serialization failed: {error}"
+                    ))
                 })?;
-                if input_problem
-                    .aggregate_witness_evaluation(&value)
-                    .map_err(crate::rules::ExtractionError::from)?
-                    .is_none()
-                {
-                    return Err(super::ILPSolveError::Infeasible);
+                let evaluation = target_problem
+                    .evaluate_dyn(&solution)
+                    .map_err(crate::rules::ExtractionError::from)?;
+                super::SolveOutcome::Optimal {
+                    solution,
+                    evaluation,
                 }
             }
-            source_solution = step.extract_solution_dyn(source_solution.as_ref())?;
-        }
+            Err(super::ILPSolveError::Infeasible) => super::SolveOutcome::Infeasible,
+            Err(error) => return Err(error),
+        };
+        let steps = reductions
+            .iter()
+            .enumerate()
+            .map(|(index, step)| {
+                Ok(crate::rules::RecoveryStep {
+                    result: step.as_ref(),
+                    aggregate_view: self.reducers[index].1,
+                    source: borrow(
+                        index,
+                        if index == 0 {
+                            source
+                        } else {
+                            reductions[index - 1].target_problem_any()
+                        },
+                    )?,
+                })
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
+        let (source_solution, _) =
+            crate::rules::recover_completed_result(&steps, target_problem, &outcome)?
+                .ok_or(super::ILPSolveError::Infeasible)?;
         finish(source_solution, Some(reductions[0].as_ref()))
     }
 
