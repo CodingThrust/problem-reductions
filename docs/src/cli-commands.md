@@ -70,7 +70,7 @@ Other input structures:
 
 ```bash
 pred create SAT --num-vars 3 --clauses '1,2;-1,3' -o sat.json          # signed one-based literals; ';' separates clauses
-pred create QUBO --matrix '1,0.5;0.5,2' -o qubo.json                    # ';' separates rows
+pred create QUBO --matrix '1,1;0,2' -o qubo.json                    # ';' separates rows
 pred create X3C --universe-size 6 --subsets '0,1,2;3,4,5;0,3,4' -o x3c.json
 pred create Factoring --target 6 --m 2 --n 2 -o factoring.json
 ```
@@ -90,11 +90,13 @@ For a problem file, JSON inspection includes `parameter_values`, the model's act
 ## Reduce
 
 ```bash
-pred path MIS QUBO --json -o paths.json
+pred create DecisionMinimumVertexCover --graph 0-1,1-2,0-2 --weights 1,1,1 --bound 2 -o decision-mvc.json
+pred path DecisionMinimumVertexCover MinimumVertexCover --json -o paths.json
 python3 -c 'import json; print(json.dumps(json.load(open("paths.json"))["paths"][0]))' > path.json
-pred reduce problem.json --via path.json -o reduced.json
-pred extract reduced.json --config '[true,false]' -o source-solution.json
+pred reduce decision-mvc.json --via path.json --aggregate -o reduced.json
 pred extract reduced.json --value 2
+pred extract reduced.json --config '[true,true,false]' -o source-solution.json
+pred reduce decision-mvc.json --via path.json --aggregate | pred extract - --value 2
 ```
 
 The bundle contains the source instance, the target instance, and the variant-level path; keep it whole to preserve solution recovery. `--via` replays one route extracted from the `paths` envelope, whose source variant must match the input.
@@ -111,8 +113,9 @@ MinimumVertexCover maps target optimum `2` to source value `false`.
 Its witness mapping cannot produce a cover of size at most 1 from a two-vertex
 cover; that mapping returns an error. These are the rule's two distinct contracts.
 
-The example inputs above are illustrative; use the actual target's configuration
-or value encoding. Extraction requires no `status`, runs no solver, and does not
+The triangle above has minimum cover size 2, so both extractions certify YES.
+`--value` takes raw JSON such as `2`, `true`, or `null`, without wrappers such as
+`Min(2)`. Extraction requires no `status`, runs no solver, and does not
 prove that a supplied aggregate is complete or optimal. Unsupported mappings and
 malformed inputs are errors. `pred solve reduced.json` still handles completed
 solver results internally.
