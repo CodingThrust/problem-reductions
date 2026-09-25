@@ -86,14 +86,14 @@ fn test_creation() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match num_edges")]
+#[should_panic(expected = "weights has length 3, expected 2")]
 fn test_rejects_wrong_weight_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1, 1], 0, vec![0, 1, 1], 3);
 }
 
 #[test]
-#[should_panic(expected = "requirements length must match num_vertices")]
+#[should_panic(expected = "requirements has length 2, expected 3")]
 fn test_rejects_wrong_requirements_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = MinimumCapacitatedSpanningTree::new(graph, vec![1, 1], 0, vec![0, 1], 3);

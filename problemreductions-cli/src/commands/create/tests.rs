@@ -1436,7 +1436,7 @@ fn test_create_capacity_assignment_rejects_matrix_width_mismatch() {
 
     let err = create(&args, &out).unwrap_err().to_string();
     assert!(err.contains("cost row 0"));
-    assert!(err.contains("capacities length"));
+    assert!(err.contains("has length 2, expected 3"));
 }
 
 #[test]
@@ -1978,7 +1978,7 @@ fn test_create_stacker_crane_rejects_mismatched_arc_lengths() {
     };
 
     let err = create(&args, &out).unwrap_err().to_string();
-    assert!(err.contains("arc_lengths length must match arcs length"));
+    assert!(err.contains("arc_lengths has length 4, expected 5"));
 }
 
 #[test]

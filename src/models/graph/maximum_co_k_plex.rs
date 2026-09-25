@@ -136,7 +136,11 @@ impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
         bound_k: usize,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if weights.len() != graph.num_vertices() {
-            return Err("weights length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
         }
         if bound_k == 0 {
             return Err("co-k-plex parameter k must be at least 1".into());

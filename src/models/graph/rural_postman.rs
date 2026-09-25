@@ -207,7 +207,11 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
     fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
         if weights.len() != graph.num_edges() {
-            return Err("edge_lengths length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_edges(),
+            ));
         }
         Ok(())
     }

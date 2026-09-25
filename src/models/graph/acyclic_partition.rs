@@ -175,7 +175,11 @@ impl<W: WeightElement> AcyclicPartition<W> {
         vertex_weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if vertex_weights.len() != graph.num_vertices() {
-            return Err("vertex_weights length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "vertex_weights",
+                vertex_weights.len(),
+                graph.num_vertices(),
+            ));
         }
         Ok(())
     }
@@ -191,7 +195,11 @@ impl<W: WeightElement> AcyclicPartition<W> {
         arc_costs: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if arc_costs.len() != graph.num_arcs() {
-            return Err("arc_costs length must match graph num_arcs".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "arc_costs",
+                arc_costs.len(),
+                graph.num_arcs(),
+            ));
         }
         Ok(())
     }

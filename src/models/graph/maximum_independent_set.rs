@@ -215,7 +215,11 @@ impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
 
     fn try_new(graph: G, weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
         if weights.len() != graph.num_vertices() {
-            return Err("weights length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
         }
         Ok(Self { graph, weights })
     }

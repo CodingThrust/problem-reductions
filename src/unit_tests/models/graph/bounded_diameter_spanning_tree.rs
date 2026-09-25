@@ -183,7 +183,7 @@ fn test_bounded_diameter_spanning_tree_zero_diameter_panics() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
+#[should_panic(expected = "weights has length 1, expected 2")]
 fn test_bounded_diameter_spanning_tree_wrong_weights_length_panics() {
     let _ =
         BoundedDiameterSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1], 5, 2);

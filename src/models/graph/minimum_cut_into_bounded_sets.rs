@@ -158,7 +158,11 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
         size_bound: usize,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if edge_weights.len() != graph.num_edges() {
-            return Err("edge_weights length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
         }
         if source >= graph.num_vertices() {
             return Err("source vertex out of bounds".into());

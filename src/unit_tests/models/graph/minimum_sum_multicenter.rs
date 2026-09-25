@@ -232,14 +232,14 @@ fn test_min_sum_multicenter_all_centers() {
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
+#[should_panic(expected = "vertex_weights has length 2, expected 3")]
 fn test_min_sum_multicenter_wrong_vertex_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinimumSumMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "edge_lengths has length 2, expected 1")]
 fn test_min_sum_multicenter_wrong_edge_lengths_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinimumSumMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);

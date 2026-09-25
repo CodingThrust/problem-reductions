@@ -200,7 +200,7 @@ fn test_maximum_co_k_plex_rejects_zero_k() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match graph num_vertices")]
+#[should_panic(expected = "weights has length 4, expected 5")]
 fn test_maximum_co_k_plex_rejects_weight_length_mismatch() {
     let _ = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 4], 2);
 }

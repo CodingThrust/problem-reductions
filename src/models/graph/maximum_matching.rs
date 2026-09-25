@@ -227,7 +227,11 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         edge_weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if edge_weights.len() != graph.num_edges() {
-            return Err("edge_weights length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
         }
         Ok(())
     }

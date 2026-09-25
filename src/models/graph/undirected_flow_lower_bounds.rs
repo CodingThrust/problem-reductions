@@ -94,10 +94,18 @@ impl UndirectedFlowLowerBounds {
         requirement: i64,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if capacities.len() != graph.num_edges() {
-            return Err("capacities length must match graph num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "capacities",
+                capacities.len(),
+                graph.num_edges(),
+            ));
         }
         if lower_bounds.len() != graph.num_edges() {
-            return Err("lower_bounds length must match graph num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "lower_bounds",
+                lower_bounds.len(),
+                graph.num_edges(),
+            ));
         }
 
         let num_vertices = graph.num_vertices();

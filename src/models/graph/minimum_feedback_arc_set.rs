@@ -130,7 +130,11 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
         weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if weights.len() != graph.num_arcs() {
-            return Err("weights length must match graph num_arcs".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_arcs(),
+            ));
         }
         Ok(())
     }

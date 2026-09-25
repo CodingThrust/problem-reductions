@@ -120,8 +120,10 @@ impl<W: WeightElement> MaximumEdgeWeightedKClique<W> {
         k: usize,
     ) -> Result<Self, ConstructionError> {
         if edge_weights.len() != graph.num_edges() {
-            return Err(ConstructionError::Conversion(
-                "edge_weights length must match graph num_edges".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
             ));
         }
         for (index, weight) in edge_weights.iter().enumerate() {

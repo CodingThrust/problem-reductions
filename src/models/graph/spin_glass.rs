@@ -216,13 +216,17 @@ impl<G: Graph, W: WeightElement> SpinGlass<G, W> {
         fields: Vec<W>,
     ) -> Result<Self, ConstructionError> {
         if couplings.len() != graph.num_edges() {
-            return Err(ConstructionError::Conversion(
-                "couplings length must match num_edges".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "couplings",
+                couplings.len(),
+                graph.num_edges(),
             ));
         }
         if fields.len() != graph.num_vertices() {
-            return Err(ConstructionError::Conversion(
-                "fields length must match num_vertices".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "fields",
+                fields.len(),
+                graph.num_vertices(),
             ));
         }
         for (index, coupling) in couplings.iter().enumerate() {

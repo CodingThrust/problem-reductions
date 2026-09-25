@@ -15,7 +15,7 @@ fn test_evaluate_rejects_invalid_model_json_without_panicking() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("weights length must match graph num_vertices"),
+        stderr.contains("weights has length 0, expected 1"),
         "{stderr}"
     );
     assert!(!stderr.contains("panicked"), "{stderr}");
@@ -1008,7 +1008,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_cou
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("capacities length must match graph edge count"));
+    assert!(stderr.contains("capacities has length 2, expected 3"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -1176,7 +1176,7 @@ fn test_create_integral_flow_bundles_rejects_wrong_bundle_capacity_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("bundles length must match bundle_capacities length"));
+    assert!(stderr.contains("bundles has length 3, expected 2"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
 }
 
@@ -1410,7 +1410,7 @@ fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("multipliers length must match num_vertices"));
+    assert!(stderr.contains("multipliers has length 3, expected 4"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -3104,7 +3104,7 @@ fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge_weights length must match num_edges"),
+        stderr.contains("edge_weights has length 2, expected 4"),
         "expected edge-weight mismatch diagnostic, got: {stderr}"
     );
 }
@@ -8680,7 +8680,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("edge lengths length must match num_edges"),
+        stderr.contains("edge lengths has length 7, expected 8"),
         "stderr: {stderr}"
     );
 }

@@ -121,6 +121,12 @@ pub enum ConstructionError {
     InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
 }
 
+impl ConstructionError {
+    pub(crate) fn length_mismatch(field: &str, actual: usize, expected: usize) -> Self {
+        Self::Conversion(format!("{field} has length {actual}, expected {expected}"))
+    }
+}
+
 impl From<String> for ConstructionError {
     fn from(message: String) -> Self {
         Self::Conversion(message)

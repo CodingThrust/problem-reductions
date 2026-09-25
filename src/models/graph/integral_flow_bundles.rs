@@ -138,7 +138,11 @@ impl IntegralFlowBundles {
             return Err("source and sink must be distinct".into());
         }
         if bundles.len() != bundle_capacities.len() {
-            return Err("bundles length must match bundle_capacities length".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "bundles",
+                bundles.len(),
+                bundle_capacities.len(),
+            ));
         }
         if requirement <= 0 {
             return Err("requirement must be positive".into());

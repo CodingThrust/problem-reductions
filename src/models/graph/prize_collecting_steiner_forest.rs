@@ -212,13 +212,17 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
         omega: W,
     ) -> Result<Self, ConstructionError> {
         if vertex_prizes.len() != graph.num_vertices() {
-            return Err(ConstructionError::Conversion(
-                "vertex_prizes length must match graph num_vertices".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "vertex_prizes",
+                vertex_prizes.len(),
+                graph.num_vertices(),
             ));
         }
         if edge_costs.len() != graph.num_edges() {
-            return Err(ConstructionError::Conversion(
-                "edge_costs length must match graph num_edges".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_costs",
+                edge_costs.len(),
+                graph.num_edges(),
             ));
         }
         for (index, prize) in vertex_prizes.iter().enumerate() {

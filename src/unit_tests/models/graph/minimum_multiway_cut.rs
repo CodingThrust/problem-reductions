@@ -150,7 +150,7 @@ fn test_minimummultiwaycut_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
+#[should_panic(expected = "edge_weights has length 1, expected 2")]
 fn test_minimummultiwaycut_panic_wrong_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64]);

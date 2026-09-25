@@ -185,7 +185,7 @@ fn test_prize_collecting_steiner_forest_rejects_vertex_prizes_length_mismatch() 
     assert!(matches!(
         error,
         crate::registry::ConstructionError::Conversion(message)
-            if message == "vertex_prizes length must match graph num_vertices"
+            if message == "vertex_prizes has length 2, expected 3"
     ));
 }
 
@@ -202,7 +202,7 @@ fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
     assert!(matches!(
         error,
         crate::registry::ConstructionError::Conversion(message)
-            if message == "edge_costs length must match graph num_edges"
+            if message == "edge_costs has length 3, expected 2"
     ));
 }
 

@@ -111,7 +111,11 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
         max_weight: W::Sum,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if weights.len() != graph.num_vertices() {
-            return Err("weights length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_vertices(),
+            ));
         }
         if !weights
             .iter()

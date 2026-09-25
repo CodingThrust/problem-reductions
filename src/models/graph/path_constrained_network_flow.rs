@@ -158,9 +158,11 @@ impl PathConstrainedNetworkFlow {
     ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         if capacities.len() != graph.num_arcs() {
-            return Err("capacities length must match graph num_arcs"
-                .to_string()
-                .into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "capacities",
+                capacities.len(),
+                graph.num_arcs(),
+            ));
         }
         if source >= num_vertices {
             return Err(format!("source ({source}) >= num_vertices ({num_vertices})").into());

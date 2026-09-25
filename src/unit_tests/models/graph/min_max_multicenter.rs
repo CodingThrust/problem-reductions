@@ -239,14 +239,14 @@ fn test_minmaxmulticenter_nonunit_edge_lengths() {
 }
 
 #[test]
-#[should_panic(expected = "vertex_weights length must match num_vertices")]
+#[should_panic(expected = "vertex_weights has length 2, expected 3")]
 fn test_minmaxmulticenter_wrong_vertex_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinMaxMulticenter::new(graph, vec![1i64; 2], vec![1i64; 1], 1);
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "edge_lengths has length 2, expected 1")]
 fn test_minmaxmulticenter_wrong_edge_lengths_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 1);

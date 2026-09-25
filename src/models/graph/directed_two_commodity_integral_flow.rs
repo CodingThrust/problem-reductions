@@ -161,7 +161,11 @@ impl DirectedTwoCommodityIntegralFlow {
     ) -> Result<Self, crate::registry::ConstructionError> {
         let n = graph.num_vertices();
         if capacities.len() != graph.num_arcs() {
-            return Err("capacities length must match graph num_arcs".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "capacities",
+                capacities.len(),
+                graph.num_arcs(),
+            ));
         }
         if capacities.iter().any(|&capacity| capacity < 0) {
             return Err("capacities must be nonnegative".into());

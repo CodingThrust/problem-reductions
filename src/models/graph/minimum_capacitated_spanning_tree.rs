@@ -151,7 +151,11 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
     ) -> Result<Self, crate::registry::ConstructionError> {
         Self::check_weights(&graph, &weights)?;
         if requirements.len() != graph.num_vertices() {
-            return Err("requirements length must match num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "requirements",
+                requirements.len(),
+                graph.num_vertices(),
+            ));
         }
         if root >= graph.num_vertices() {
             return Err(format!(
@@ -190,7 +194,11 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
 
     fn check_weights(graph: &G, weights: &[W]) -> Result<(), crate::registry::ConstructionError> {
         if weights.len() != graph.num_edges() {
-            return Err("weights length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                graph.num_edges(),
+            ));
         }
         Ok(())
     }

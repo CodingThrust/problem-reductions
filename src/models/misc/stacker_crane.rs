@@ -150,14 +150,18 @@ impl StackerCrane {
         edge_lengths: Vec<i64>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if arc_lengths.len() != arcs.len() {
-            return Err("arc_lengths length must match arcs length"
-                .to_string()
-                .into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "arc_lengths",
+                arc_lengths.len(),
+                arcs.len(),
+            ));
         }
         if edge_lengths.len() != edges.len() {
-            return Err("edge_lengths length must match edges length"
-                .to_string()
-                .into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_lengths",
+                edge_lengths.len(),
+                edges.len(),
+            ));
         }
         for (arc_index, &(tail, head)) in arcs.iter().enumerate() {
             if tail >= num_vertices || head >= num_vertices {

@@ -174,10 +174,18 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
         k: usize,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if vertex_weights.len() != graph.num_vertices() {
-            return Err("vertex_weights length must match num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "vertex_weights",
+                vertex_weights.len(),
+                graph.num_vertices(),
+            ));
         }
         if edge_lengths.len() != graph.num_edges() {
-            return Err("edge_lengths length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_lengths",
+                edge_lengths.len(),
+                graph.num_edges(),
+            ));
         }
         let zero = W::Sum::zero();
         if !vertex_weights

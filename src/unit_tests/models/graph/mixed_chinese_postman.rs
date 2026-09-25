@@ -190,12 +190,12 @@ fn test_mixed_chinese_postman_deserialization_rejects_invalid_weights() {
         (
             "arc_weights",
             serde_json::json!([2, 3, 1]),
-            "arc_weights length must match num_arcs",
+            "arc_weights has length 3, expected 4",
         ),
         (
             "edge_weights",
             serde_json::json!([2, 3, 1, 2, 7]),
-            "edge_weights length must match num_edges",
+            "edge_weights has length 5, expected 4",
         ),
         (
             "arc_weights",

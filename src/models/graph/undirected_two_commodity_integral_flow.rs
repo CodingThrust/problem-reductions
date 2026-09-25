@@ -161,7 +161,11 @@ impl UndirectedTwoCommodityIntegralFlow {
         requirement_2: i64,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if capacities.len() != graph.num_edges() {
-            return Err("capacities length must match graph edge count".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "capacities",
+                capacities.len(),
+                graph.num_edges(),
+            ));
         }
 
         let num_vertices = graph.num_vertices();

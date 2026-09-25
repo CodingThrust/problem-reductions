@@ -160,7 +160,11 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
 
     fn try_new(graph: G, edge_weights: Vec<W>) -> Result<Self, crate::registry::ConstructionError> {
         if edge_weights.len() != graph.num_edges() {
-            return Err("edge_weights length must match num_edges".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "edge_weights",
+                edge_weights.len(),
+                graph.num_edges(),
+            ));
         }
         Ok(Self {
             graph,

@@ -219,7 +219,7 @@ fn test_steiner_tree_rejects_out_of_range_terminal() {
 }
 
 #[test]
-#[should_panic(expected = "edge_weights length must match num_edges")]
+#[should_panic(expected = "edge_weights has length 3, expected 2")]
 fn test_steiner_tree_rejects_wrong_weight_count() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = SteinerTree::new(graph, vec![1, 1, 1], vec![0, 2]);

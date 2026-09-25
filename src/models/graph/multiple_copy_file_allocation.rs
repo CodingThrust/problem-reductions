@@ -112,10 +112,18 @@ impl MultipleCopyFileAllocation {
         storage: Vec<i64>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         if usage.len() != graph.num_vertices() {
-            return Err("usage length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "usage",
+                usage.len(),
+                graph.num_vertices(),
+            ));
         }
         if storage.len() != graph.num_vertices() {
-            return Err("storage length must match graph num_vertices".into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "storage",
+                storage.len(),
+                graph.num_vertices(),
+            ));
         }
         Ok(Self {
             graph,

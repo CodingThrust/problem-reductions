@@ -191,3 +191,12 @@ fn test_setpacking_paper_example() {
 fn test_maximum_set_packing_rejects_non_finite_weight() {
     assert!(MaximumSetPacking::with_weights(vec![vec![0]], vec![f64::NEG_INFINITY]).is_err());
 }
+
+#[test]
+fn test_set_packing_weight_length_error_reports_counts() {
+    let error = MaximumSetPacking::with_weights(vec![vec![0], vec![1]], vec![1_i64]).unwrap_err();
+    assert_eq!(
+        error,
+        crate::registry::ConstructionError::Conversion("weights has length 1, expected 2".into())
+    );
+}

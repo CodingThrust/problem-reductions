@@ -111,8 +111,10 @@ impl<W: Clone + Default> MaximumSetPacking<W> {
         W: WeightElement,
     {
         if sets.len() != weights.len() {
-            return Err(ConstructionError::Conversion(
-                "weights length must match number of sets".into(),
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                "weights",
+                weights.len(),
+                sets.len(),
             ));
         }
         for (index, weight) in weights.iter().enumerate() {

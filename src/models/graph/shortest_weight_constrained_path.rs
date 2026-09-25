@@ -139,7 +139,11 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         label: &str,
     ) -> Result<(), crate::registry::ConstructionError> {
         if values.len() != graph.num_edges() {
-            return Err(format!("{label} length must match num_edges").into());
+            return Err(crate::registry::ConstructionError::length_mismatch(
+                label,
+                values.len(),
+                graph.num_edges(),
+            ));
         }
         if !values.iter().all(|value| value.to_sum() > N::Sum::zero()) {
             return Err(format!("All {label} must be positive (> 0)").into());

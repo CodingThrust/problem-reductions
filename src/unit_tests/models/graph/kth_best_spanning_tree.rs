@@ -180,7 +180,7 @@ fn test_kthbestspanningtree_single_vertex_rejects_multiple_empty_trees() {
 }
 
 #[test]
-#[should_panic(expected = "weights length must match graph num_edges")]
+#[should_panic(expected = "weights has length 1, expected 2")]
 fn test_kthbestspanningtree_creation_rejects_weight_length_mismatch() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = KthBestSpanningTree::<i64>::new(graph, vec![1], 1, 2);

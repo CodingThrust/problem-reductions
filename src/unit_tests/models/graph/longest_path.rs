@@ -207,7 +207,7 @@ fn test_longest_path_problem_name() {
 }
 
 #[test]
-#[should_panic(expected = "edge_lengths length must match num_edges")]
+#[should_panic(expected = "weights has length 1, expected 2")]
 fn test_longest_path_rejects_wrong_edge_lengths_len() {
     LongestPath::new(SimpleGraph::path(3), vec![1], 0, 2);
 }
