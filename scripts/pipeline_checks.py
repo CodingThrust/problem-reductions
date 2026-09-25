@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic review checks for scope detection and file whitelists."""
+"""Deterministic review checks (scope detection, whitelists, completeness) and issue-context CLI."""
 
 from __future__ import annotations
 
@@ -645,61 +645,13 @@ def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
     return [pr for pr in data if _pr_references_issue(pr, issue_number)]
 
 
-def git_output(*args: str) -> list[str]:
-    output = subprocess.check_output(["git", *args], text=True)
-    return [line for line in output.splitlines() if line]
-
-
-def git_text(*args: str) -> str:
-    return subprocess.check_output(["git", *args], text=True)
-
-
-def load_file_list(path: str | Path) -> list[str]:
-    lines = Path(path).read_text().splitlines()
-    return [line.strip() for line in lines if line.strip()]
-
-
 def emit_result(result: dict, fmt: str) -> None:
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Pipeline review checks.")
+    parser = argparse.ArgumentParser(description="Issue context checks.")
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    detect = subparsers.add_parser("detect-scope")
-    detect.add_argument("--base", required=True)
-    detect.add_argument("--head", required=True)
-    detect.add_argument("--format", choices=["json", "text"], default="json")
-
-    whitelist = subparsers.add_parser("file-whitelist")
-    whitelist.add_argument("--kind", choices=["model", "rule"], required=True)
-    whitelist.add_argument("--files-file", required=True)
-    whitelist.add_argument("--format", choices=["json", "text"], default="json")
-
-    completeness = subparsers.add_parser("completeness")
-    completeness.add_argument("--kind", choices=["model", "rule"], required=True)
-    completeness.add_argument("--name", required=True)
-    completeness.add_argument("--source")
-    completeness.add_argument("--target")
-    completeness.add_argument("--repo-root", default=".")
-    completeness.add_argument("--format", choices=["json", "text"], default="json")
-
-    review_context = subparsers.add_parser("review-context")
-    review_context.add_argument("--repo-root", default=".")
-    review_context.add_argument("--base", required=True)
-    review_context.add_argument("--head", required=True)
-    review_context.add_argument("--kind", choices=["model", "rule", "generic"])
-    review_context.add_argument("--name")
-    review_context.add_argument("--source")
-    review_context.add_argument("--target")
-    review_context.add_argument("--format", choices=["json", "text"], default="json")
-
-    issue_guards = subparsers.add_parser("issue-guards")
-    issue_guards.add_argument("--repo", required=True)
-    issue_guards.add_argument("--issue", required=True, type=int)
-    issue_guards.add_argument("--repo-root", default=".")
-    issue_guards.add_argument("--format", choices=["json", "text"], default="json")
 
     issue_context = subparsers.add_parser("issue-context")
     issue_context.add_argument("--repo", required=True)
@@ -713,74 +665,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
 
-    if args.command == "detect-scope":
-        changed_files = git_output("diff", "--name-only", f"{args.base}..{args.head}")
-        added_files = git_output(
-            "diff",
-            "--name-only",
-            "--diff-filter=A",
-            f"{args.base}..{args.head}",
-        )
-        emit_result(
-            detect_scope_from_paths(
-                added_files=added_files,
-                changed_files=changed_files,
-            ),
-            args.format,
-        )
-        return 0
-
-    if args.command == "file-whitelist":
-        emit_result(
-            file_whitelist_check(args.kind, load_file_list(args.files_file)),
-            args.format,
-        )
-        return 0
-
-    if args.command == "completeness":
-        emit_result(
-            completeness_check(
-                args.kind,
-                args.repo_root,
-                name=args.name,
-                source=args.source,
-                target=args.target,
-            ),
-            args.format,
-        )
-        return 0
-
-    if args.command == "review-context":
-        changed_files = git_output("diff", "--name-only", f"{args.base}..{args.head}")
-        added_files = git_output(
-            "diff",
-            "--name-only",
-            "--diff-filter=A",
-            f"{args.base}..{args.head}",
-        )
-        scope = detect_scope_from_paths(
-            added_files=added_files,
-            changed_files=changed_files,
-        )
-        subject = infer_review_subject(
-            scope,
-            kind=args.kind,
-            name=args.name,
-            source=args.source,
-            target=args.target,
-        )
-        emit_result(
-            build_review_context(
-                args.repo_root,
-                diff_stat=git_text("diff", "--stat", f"{args.base}..{args.head}"),
-                scope=scope,
-                subject=subject,
-            ),
-            args.format,
-        )
-        return 0
-
-    if args.command in {"issue-guards", "issue-context"}:
+    if args.command == "issue-context":
         emit_result(
             issue_context_check(
                 args.repo_root,

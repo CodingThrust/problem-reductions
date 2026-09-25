@@ -1,6 +1,6 @@
 # Quick Reference: Known Facts for Issue Fact-Checking
 
-Use this file to cross-check claims in `[Rule]` and `[Model]` issues against established results. Built from the Related Projects in README.md. Each entry includes source URLs for traceability.
+Cross-check `[Rule]` and `[Model]` issue claims against established results. Each entry has source URLs.
 
 ---
 
@@ -84,21 +84,6 @@ SAT
 
 **Source:** [complexityzoo.net](https://complexityzoo.net/) — Comprehensive catalog of 550+ complexity classes (Scott Aaronson).
 
-### Key Complexity Classes
-
-| Class | Description | Source |
-|-------|-------------|--------|
-| **P** | Deterministic polynomial time | [P](https://complexityzoo.net/Complexity_Zoo:P#p) |
-| **NP** | Nondeterministic polynomial time; "yes" certificates verifiable in poly time | [NP](https://complexityzoo.net/Complexity_Zoo:N#np) |
-| **co-NP** | Complements of NP problems | [co-NP](https://complexityzoo.net/Complexity_Zoo:C#conp) |
-| **PSPACE** | Polynomial space (contains NP) | [PSPACE](https://complexityzoo.net/Complexity_Zoo:P#pspace) |
-| **EXP** | Exponential time | [EXP](https://complexityzoo.net/Complexity_Zoo:E#exp) |
-| **BPP** | Bounded-error probabilistic polynomial time | [BPP](https://complexityzoo.net/Complexity_Zoo:B#bpp) |
-| **BQP** | Bounded-error quantum polynomial time | [BQP](https://complexityzoo.net/Complexity_Zoo:B#bqp) |
-| **PH** | Polynomial hierarchy | [PH](https://complexityzoo.net/Complexity_Zoo:P#ph) |
-| **APX** | Problems with constant-factor approximation | [APX](https://complexityzoo.net/Complexity_Zoo:A#apx) |
-| **MAX SNP** | Syntactically defined optimization class | [MAX SNP](https://complexityzoo.net/Complexity_Zoo:M#maxsnp) |
-
 ### Canonical NP-Complete Problems (from Complexity Zoo)
 
 Source: [Complexity Zoo: NP](https://complexityzoo.net/Complexity_Zoo:N#np)
@@ -109,13 +94,6 @@ Source: [Complexity Zoo: NP](https://complexityzoo.net/Complexity_Zoo:N#np)
 - **Traveling Salesperson** — Is there a tour within distance T?
 - **Maximum Clique** — Do k mutually-adjacent vertices exist?
 - **Subset Sum** — Does a subset sum to exactly x?
-
-### Key Class Relationships
-
-- P vs NP: Open problem; unequal relative to random oracles
-- NP = co-NP iff PH collapses
-- NP ⊆ PSPACE (Savitch's theorem)
-- If NP ⊆ P/poly then PH collapses to Σ₂P
 
 ---
 
@@ -242,16 +220,16 @@ Uses same category codes as the Compendium (GT, ND, SP, SS, MP, AN, GP, LO, AL, 
 | GT20 | Maximum Independent Set | MaximumIndependentSet |
 | GT21 | Maximum Clique | MaximumClique |
 | GT24 | Maximum Cut | MaxCut |
-| GT34 | Hamiltonian Circuit | — |
-| GT39 | Feedback Vertex Set | — |
+| GT34 | Hamiltonian Circuit | HamiltonianCircuit |
+| GT39 | Feedback Vertex Set | MinimumFeedbackVertexSet |
 | GT46 | Traveling Salesman | TravelingSalesman |
-| ND5 | Steiner Tree in Graphs | — |
-| SP1 | 3-Dimensional Matching | — |
-| SP2 | Partition | — |
+| ND5 | Steiner Tree in Graphs | SteinerTree |
+| SP1 | 3-Dimensional Matching | ThreeDimensionalMatching |
+| SP2 | Partition | Partition |
 | SP5 | Set Covering | MinimumSetCovering |
 | SP3 | Set Packing | MaximumSetPacking |
 | SP13 | Bin Packing | BinPacking |
-| SS1 | Multiprocessor Scheduling | — |
+| SS1 | Multiprocessor Scheduling | MultiprocessorScheduling |
 | MP1 | Integer Programming | ILP |
 | LO1 | Satisfiability (SAT) | Satisfiability |
 | LO2 | 3-Satisfiability | KSatisfiability |
@@ -303,4 +281,4 @@ Source: Chapter 3, "Proving NP-Completeness Results" (pp. 45-89).
 | BMF | | | | |
 | BicliqueCover | | | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | |
 | MaximalIS | | | | |
-| CVP | | | | |
+| ClosestVectorProblem | | | | |

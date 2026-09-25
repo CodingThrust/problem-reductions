@@ -721,18 +721,6 @@ def post_pr_comment(repo: str, pr_number: int, body_file: str) -> None:
     )
 
 
-def edit_pr_body(repo: str, pr_number: int, body_file: str) -> None:
-    run_gh_checked(
-        "pr",
-        "edit",
-        str(pr_number),
-        "--repo",
-        repo,
-        "--body-file",
-        body_file,
-    )
-
-
 def render_context_text(result: dict) -> str:
     comments = result.get("comments") or {}
     counts = comments.get("counts") or {}
@@ -829,25 +817,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     context.add_argument("--current", action="store_true")
     context.add_argument("--format", choices=["json", "text"], default="json")
 
-    for name in [
-        "current",
-        "snapshot",
-        "comments",
-        "ci",
-        "wait-ci",
-        "codecov",
-        "linked-issue",
-        "create",
-        "comment",
-        "edit-body",
-    ]:
+    for name in ["comments", "ci", "wait-ci", "codecov", "create", "comment"]:
         command = subparsers.add_parser(name)
-        if name == "current":
-            command.add_argument("--format", choices=["json", "text"], default="json")
-        else:
-            command.add_argument("--repo", required=True)
-            if name != "create":
-                command.add_argument("--pr", required=True, type=int)
+        command.add_argument("--repo", required=True)
+        if name != "create":
+            command.add_argument("--pr", required=True, type=int)
         if name == "wait-ci":
             command.add_argument("--timeout", type=float, default=900)
             command.add_argument("--interval", type=float, default=30)
@@ -857,9 +831,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             command.add_argument("--base")
             command.add_argument("--head")
             command.add_argument("--format", choices=["json", "text"], default="json")
-        elif name in {"comment", "edit-body"}:
+        elif name == "comment":
             command.add_argument("--body-file", required=True)
-        elif name != "current":
+        else:
             command.add_argument("--format", choices=["json", "text"], default="json")
 
     return parser.parse_args(argv)
@@ -878,17 +852,6 @@ def main(argv: list[str] | None = None) -> int:
             repo = args.repo
             pr_number = args.pr
         emit_result(build_pr_context(repo, pr_number), args.format)
-        return 0
-
-    if args.command == "current":
-        emit_result(
-            build_current_pr_context(fetch_current_repo(), fetch_current_pr_data()),
-            args.format,
-        )
-        return 0
-
-    if args.command == "snapshot":
-        emit_result(build_pr_snapshot(args.repo, args.pr), args.format)
         return 0
 
     if args.command == "comments":
@@ -912,25 +875,6 @@ def main(argv: list[str] | None = None) -> int:
         emit_result(build_codecov_summary(args.repo, args.pr), args.format)
         return 0
 
-    if args.command == "linked-issue":
-        pr_data = fetch_pr_data(args.repo, args.pr)
-        issue_number, issue = fetch_linked_issue_bundle(args.repo, pr_data)
-        issue_comments = (
-            fetch_issue_comments(args.repo, issue_number)
-            if issue_number is not None
-            else []
-        )
-        emit_result(
-            build_linked_issue_result(
-                pr_number=args.pr,
-                linked_issue_number=issue_number,
-                linked_issue=issue,
-                linked_issue_comments=issue_comments,
-            ),
-            args.format,
-        )
-        return 0
-
     if args.command == "create":
         emit_result(
             create_pr(
@@ -946,10 +890,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "comment":
         post_pr_comment(args.repo, args.pr, args.body_file)
-        return 0
-
-    if args.command == "edit-body":
-        edit_pr_body(args.repo, args.pr, args.body_file)
         return 0
 
     raise AssertionError(f"Unhandled command: {args.command}")

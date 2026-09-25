@@ -11,43 +11,24 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - **Tests over implementation.** Spend more time designing tests than implementing code.
   Well-designed tests catch bugs early and document intended behavior.
 
-## Agent Preferences
-- For tasks with complex logic (implementing reductions, fixing CI, issue-to-pr, check-issue, etc.), prefer invoking the `codex` CLI (if installed) with the latest model: `codex exec -c model="gpt-5.4" "<prompt>"`.
-
 ## Skills
-These repo-local skills live under `.claude/skills/*/SKILL.md`.
+Repo-local skills live under `.claude/skills/*/SKILL.md`; any agent can read and follow them. There is no project board or pipeline: agents pick up the `how-to-*` guides automatically while working, and humans merge.
 
-- [run-pipeline](skills/run-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool. One issue at a time; forever-loop handles iteration.
-- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Default rule: one item per PR. Exception: a `[Model]` issue that explicitly claims direct ILP solvability should implement the model and its direct `<Model> -> ILP` rule together; `[Rule]` issues still require both models to exist on `main`.
-- [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Runs mathematical verification by default (via `/verify-reduction`); pass `--no-verify` to skip for trivial reductions. Can be used standalone or called from `issue-to-pr`.
-- [review-structural](skills/review-structural/SKILL.md) -- Project-specific structural completeness check: model/rule checklists, build, semantic correctness, issue compliance. Read-only, no code changes. Called by `review-pipeline`.
-- [review-quality](skills/review-quality/SKILL.md) -- Generic code quality review: DRY, KISS, cohesion/coupling, test quality, HCI. Read-only, no code changes. Called by `review-pipeline`.
-- [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments, fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
-- [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-model` Step 6.
-- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 6.
-- [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
-- [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
-- [fix-issue](skills/fix-issue/SKILL.md) -- Fix quality issues found by check-issue — auto-fixes mechanical problems, brainstorms substantive issues with human, then re-checks and moves to Ready.
-- [topology-sanity-check](skills/topology-sanity-check/SKILL.md) -- Run sanity checks on the reduction graph: detect orphan (isolated) problems and redundant reduction rules.
-  - `topology-sanity-check orphans` -- Detect isolated problem types (runs `examples/detect_isolated_problems.rs`)
-  - `topology-sanity-check np-hardness` -- Verify NP-hardness proof chains from 3-SAT (runs `examples/detect_unreachable_from_3sat.rs`)
-  - `topology-sanity-check redundancy [source target]` -- Check for dominated reduction rules
-- [review-pipeline](skills/review-pipeline/SKILL.md) -- Agentic review for PRs in Review pool: runs structural check, quality check, and agentic feature tests (no code changes), posts combined verdict, always moves to Final review.
-- [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
-- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Merges main, walks through agentic review bullets with human, then merge or hold.
-- [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
-- [verify-reduction](skills/verify-reduction/SKILL.md) -- Standalone mathematical verification of a reduction rule: Typst proof, constructor Python (≥5000 checks), adversary Python (≥5000 independent checks). Reports verdict, no artifacts saved. Also called as a subroutine by `/add-rule` (default behavior).
-- [update-papers](skills/update-papers/SKILL.md) -- Update research paper collection: download new papers from references.bib, retry failed downloads, sync to Google Drive, regenerate index.md.
-- [find-solver](skills/find-solver/SKILL.md) -- Interactive guide: match a real-world problem to a library model, explore reduction paths, recommend solvers (built-in + external), and generate a solution doc.
-- [find-problem](skills/find-problem/SKILL.md) -- Reverse of find-solver: given a solver for a model, discover what other problems it can handle via incoming reductions, ranked by effective complexity.
+Guides (auto-invoked):
+- [how-to-code](skills/how-to-code/SKILL.md) -- Implement or modify a problem model or reduction rule.
+- [how-to-verify](skills/how-to-verify/SKILL.md) -- Certify a reduction (type gate, Typst proof, constructor + adversary checks, PR verification certificate) and check reduction-graph topology.
+- [how-to-write-manual](skills/how-to-write-manual/SKILL.md) -- Write or audit Typst manual entries (`docs/paper/reductions.typ`) and mdBook docs.
+- [how-to-review](skills/how-to-review/SKILL.md) -- Fresh-context PR review: structural, quality, and `pred` feature test; posts an Agentic Review Report.
+- [how-to-triage-issue](skills/how-to-triage-issue/SKILL.md) -- Quality-check `[Model]`/`[Rule]` issues, label them, fix mechanical problems, discuss substantive ones.
+- [how-to-ship](skills/how-to-ship/SKILL.md) -- Issue to merge-ready PR: branch, gates, review subagent, CI/comments/codecov fixes. One item per PR, except a `[Model]` claiming direct ILP solvability ships its `<Model> -> ILP` rule too.
 
-## Codex Compatibility
-- Claude slash commands such as `/issue-to-pr 42 --execute` are aliases for the matching repo-local skill files under `.claude/skills/`.
-- In Codex, read the relevant `SKILL.md` directly and follow it; do not assume slash-command support exists.
-- The Makefile targets `run-plan`, `run-issue`, `run-pipeline`, and `run-review` already translate these workflows into explicit `SKILL.md` prompts for Codex.
-- The default Codex model in the Makefile is `gpt-5.4`. Override it with `CODEX_MODEL=<model>` if needed.
-- The Step 0/Step 1 packet builders under `scripts/pipeline_skill_context.py` and `scripts/pipeline_checks.py` are expensive GitHub-backed calls. Per top-level skill invocation, generate each packet at most once and reuse the resulting text/JSON for all later steps unless the skill explicitly requires a fresh rerun.
+Tools (invoked on request):
+- [propose](skills/propose/SKILL.md) -- Help a domain expert turn an idea into a well-formed model/rule issue.
+- [find-solver](skills/find-solver/SKILL.md) -- Match a real-world problem to a model, route, and solver; writes a doc to `docs/solutions/`.
+- [find-problem](skills/find-problem/SKILL.md) -- Given a solver for a model, find source problems it handles via incoming reductions.
+- [dev-setup](skills/dev-setup/SKILL.md) -- Install and configure development tools.
+- [release](skills/release/SKILL.md) -- Guarded crate release via `make release`.
+- [update-papers](skills/update-papers/SKILL.md) -- Refresh the research paper collection.
 
 ## Commands
 ```bash
@@ -73,22 +54,12 @@ make cli           # Build the pred CLI tool (without MCP, fast)
 make mcp           # Build the pred CLI tool with MCP server support
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
-make run-plan      # Execute a plan with Codex or Claude
-make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
-make run-pipeline  # Pick next Ready issue from project board, implement, move to Review pool
-make run-pipeline N=97 # Process a specific issue from the project board
-make run-pipeline-forever # Drain eligible Ready issues forever; poll only while idle
-make run-review    # Pick next PR from Review pool column, run agentic review, move to Final review
-make run-review N=570 # Process a specific PR from the Review pool column
-make run-review-forever # Drain eligible Review pool PRs forever; poll only while idle
 make copilot-review # (Optional) Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 make papers        # Full paper fetch: lookup + download + scihub
 make papers-status # Show research paper collection stats
 make papers-push   # Push PDFs to shared remote (requires rclone + PAPERS_REMOTE)
 make papers-pull   # Pull PDFs from shared remote
-# Set RUNNER=claude to use Claude instead of Codex (default: codex)
-# Default Codex model: CODEX_MODEL=gpt-5.4
 # Set PAPERS_REMOTE=gdrive:folder for paper sync (requires rclone)
 ```
 
@@ -116,7 +87,6 @@ make papers-pull   # Pull PDFs from shared remote
 - `tests/main.rs` - Integration tests (modules in `tests/suites/`); example tests use `include!` for direct invocation (no subprocess)
 - `tests/data/` - Ground truth JSON for integration tests
 - `scripts/` - Python test data generation scripts (managed with `uv`)
-- `docs/plans/` - Implementation plans
 
 ### Trait Hierarchy
 
@@ -225,7 +195,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers solution-mapping reductions today; this edge capability does not imply that a problem may solve successfully without a `Solution`
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
-- Canonical model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
+- Canonical model examples live beside each model in `canonical_model_example_specs()` (collected by `src/example_db/model_builders.rs`); rule examples live beside their rules and are collected by `src/rules/mod.rs`
 
 ## Conventions
 
@@ -250,7 +220,7 @@ fields to issue templates. Changes to issue templates require user approval.
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
-- Canonical examples: model builders in `src/example_db/model_builders.rs`; rule-local `canonical_rule_example_specs()` functions collected by `src/rules/mod.rs`
+- Canonical examples: model-local `canonical_model_example_specs()` functions collected by `src/example_db/model_builders.rs`; rule-local `canonical_rule_example_specs()` functions collected by `src/rules/mod.rs`
 - Example binaries in `examples/`: utility/export tools and pedagogical demos only (not per-reduction files)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 

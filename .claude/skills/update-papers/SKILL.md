@@ -1,129 +1,43 @@
 ---
 name: update-papers
-description: Update the research paper collection — download new papers from references.bib, retry failed downloads, sync to Google Drive, and regenerate index.md
+description: Use when the research paper collection in docs/research/ needs refreshing — fetches PDFs for new references.bib entries, retries missing ones, regenerates the index, and syncs PDFs to the shared rclone remote
 ---
 
 # Update Papers
 
-Maintain the research paper collection in `docs/research/`. Downloads papers referenced in `docs/paper/references.bib`, manages the manifest, syncs to Google Drive, and keeps `docs/research/index.md` current.
+PDFs for `docs/paper/references.bib` live in `docs/research/raw/`, tracked by
+`docs/research/manifest.json`; `docs/research/index.md` cross-references them against
+`docs/paper/reductions.typ`. Scripts: `scripts/fetch_papers.py`, `scripts/gen_paper_index.py`.
 
-## Prerequisites
+Requires `rclone` with a `gdrive` remote and `PAPERS_REMOTE` set (e.g.
+`export PAPERS_REMOTE=gdrive:problemreductions-papers`) for the push step.
 
-- `rclone` installed and configured with a `gdrive` remote
-- `PAPERS_REMOTE` env var set (e.g., `gdrive:problemreductions-papers`)
-
-## Step 1: Check Current Status
-
-```bash
-make papers-status
-```
-
-Note the counts: total entries, PDFs on disk, pending downloads, missing papers.
-
-## Step 2: Lookup New Papers
-
-Run the lookup to find arxiv/OA URLs for any new entries in `references.bib` since the last run. This is incremental — it skips entries already found in the manifest.
+## Flow
 
 ```bash
-make papers-lookup
+make papers          # lookup (arXiv/OA via Semantic Scholar) -> download -> scihub -> status
+make papers-index    # regenerate docs/research/index.md
+make papers-push     # upload new/changed PDFs + manifest to $PAPERS_REMOTE
 ```
 
-Review the output:
-- New arxiv papers found
-- New OA (open access) papers found
-- Papers with no free source (will need Sci-Hub in Step 4)
+All steps are incremental and idempotent; OA 403s are normal and fall through to Sci-Hub.
 
-## Step 3: Download Free Papers
+## Leftovers
 
-Download papers with known free URLs (arxiv + open access). Skips PDFs already on disk.
+After `make papers`, check `make papers-status` for missing entries. For each one, search
+`"<title>" <first author> pdf`: author homepages, arXiv by title, and open-access fallbacks
+(LIPIcs/Dagstuhl, HAL, ECCC, IACR ePrint). Download with
+`curl -L -o docs/research/raw/<bibkey>.pdf '<url>'` and confirm with `file` that it is a PDF,
+not an HTML paywall page. Rerun `make papers-index` and `make papers-push` afterwards.
 
-```bash
-make papers-download
-```
-
-If some OA downloads fail with 403, that's expected — publisher paywalls. These will be picked up by Sci-Hub in the next step.
-
-## Step 4: Fetch Remaining via Sci-Hub
-
-For papers with DOIs that aren't on disk yet, try Sci-Hub mirrors. This is the slowest step (~5 seconds per paper).
-
-```bash
-make papers-scihub
-```
-
-The script tries multiple mirrors (`sci-hub.ru`, `sci-hub.do`, `sci-hub.it.nf`, `sci-hub.es.ht`). If all mirrors are down, retry later — the script is fully idempotent.
-
-## Step 4b: Manual Web Search for Remaining Failures
-
-After Sci-Hub, check `make papers-status` for papers still missing. For each one with a DOI that Sci-Hub couldn't find:
-
-1. **Web search** for `"<title>" <first-author> PDF` — try:
-   - Author homepages (Stanford, university pages)
-   - Open-access publishers: LIPIcs/Dagstuhl (all free), HAL archives, ECCC
-   - Preprint servers: arxiv (search by title), IACR ePrint
-2. **Download manually** with `curl -L -o docs/research/raw/<key>.pdf "<url>"`
-3. **Verify** the file is a real PDF: `file docs/research/raw/<key>.pdf`
-
-Skip textbooks (garey1979, sipser2012, cormen2022, conway1967) — these aren't available as single PDFs.
-
-## Step 5: Regenerate Index
-
-Update `docs/research/index.md` with the latest paper collection, cross-referenced against reduction rules and problem definitions in `reductions.typ`.
-
-```bash
-make papers-index
-```
-
-Verify the index looks correct:
-- Check the download count at the top
-- Spot-check that new papers appear in the correct section (rules / problems / other)
-- Confirm PDF links resolve for newly downloaded papers
-
-## Step 6: Sync to Google Drive
-
-Push updated PDFs and manifest to the shared Google Drive remote. Only uploads new/changed files.
-
-First verify the remote is configured:
-
-```bash
-echo $PAPERS_REMOTE    # should show e.g. gdrive:problemreductions-papers
-# If empty, set it:
-export PAPERS_REMOTE=gdrive:problemreductions-papers
-```
-
-Then push:
-
-```bash
-make papers-push
-```
-
-## Step 7: Final Status
-
-```bash
-make papers-status
-```
-
-Report to the user:
-- How many new papers were downloaded
-- How many remain missing (and why: no DOI, textbooks, Sci-Hub mirrors down)
-- Whether the Google Drive sync succeeded
-
-## One-Liner
-
-For a full update in one command:
-
-```bash
-make papers && make papers-index
-```
-
-This runs: lookup → download → scihub → status → index.
+Skip textbooks; they have no single PDF: garey1979, sipser2012, cormen2022, conway1967.
 
 ## Troubleshooting
 
-**Sci-Hub mirrors all fail**: Mirrors rotate frequently. Update `SCIHUB_DOMAINS` in `scripts/fetch_papers.py` or retry later.
+- All Sci-Hub mirrors fail: retry later or update `SCIHUB_DOMAINS` in `scripts/fetch_papers.py`.
+- rclone auth expired: `rclone config reconnect gdrive:`.
+- Stale manifest: delete `docs/research/manifest.json` and rerun `make papers`; PDFs on disk are
+  kept.
+- New bib entry ignored: it must parse as `@type{key, ...}` with `title` and ideally `doi`.
 
-**rclone auth expired**: Run `rclone config reconnect gdrive:` to refresh the OAuth token.
-
-**Manifest is stale**: Delete `docs/research/manifest.json` and re-run `make papers-lookup` to rebuild from scratch. Existing PDFs on disk are preserved.
-
-**New bib entry not appearing**: Ensure the entry is in `docs/paper/references.bib` with proper formatting. The parser expects `@type{key, ... }` with fields like `title`, `doi`, `author`, `year`.
+Report: newly downloaded, still missing (and why), and whether the push succeeded.

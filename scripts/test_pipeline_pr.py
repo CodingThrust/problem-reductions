@@ -12,7 +12,6 @@ from pipeline_pr import (
     build_snapshot,
     create_pr,
     emit_result,
-    edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
     fetch_linked_issue_bundle,
@@ -605,27 +604,6 @@ class PipelinePrHelpersTests(unittest.TestCase):
             ]
         )
 
-    @mock.patch("pipeline_pr.subprocess.check_call")
-    def test_edit_pr_body_uses_gh_pr_edit_with_body_file(self, check_call: mock.Mock) -> None:
-        edit_pr_body(
-            "CodingThrust/problem-reductions",
-            570,
-            "/tmp/body.md",
-        )
-
-        check_call.assert_called_once_with(
-            [
-                "gh",
-                "pr",
-                "edit",
-                "570",
-                "--repo",
-                "CodingThrust/problem-reductions",
-                "--body-file",
-                "/tmp/body.md",
-            ]
-        )
-
     @mock.patch("pipeline_pr.fetch_current_pr_data_for_repo")
     @mock.patch("pipeline_pr.run_gh_checked")
     def test_create_pr_uses_gh_pr_create_and_returns_current_context(
@@ -666,7 +644,7 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertEqual(result["pr_number"], 570)
         self.assertEqual(result["repo"], "CodingThrust/problem-reductions")
 
-    def test_parse_args_accepts_comment_and_edit_body_commands(self) -> None:
+    def test_parse_args_accepts_comment_and_create_commands(self) -> None:
         comment_args = parse_args(
             [
                 "comment",
@@ -680,36 +658,6 @@ class PipelinePrHelpersTests(unittest.TestCase):
         )
         self.assertEqual(comment_args.command, "comment")
         self.assertEqual(comment_args.body_file, "/tmp/comment.md")
-
-        edit_args = parse_args(
-            [
-                "edit-body",
-                "--repo",
-                "CodingThrust/problem-reductions",
-                "--pr",
-                "570",
-                "--body-file",
-                "/tmp/body.md",
-            ]
-        )
-        self.assertEqual(edit_args.command, "edit-body")
-        self.assertEqual(edit_args.body_file, "/tmp/body.md")
-
-        current_args = parse_args(["current", "--format", "json"])
-        self.assertEqual(current_args.command, "current")
-
-        linked_issue_args = parse_args(
-            [
-                "linked-issue",
-                "--repo",
-                "CodingThrust/problem-reductions",
-                "--pr",
-                "570",
-                "--format",
-                "json",
-            ]
-        )
-        self.assertEqual(linked_issue_args.command, "linked-issue")
 
         create_args = parse_args(
             [
