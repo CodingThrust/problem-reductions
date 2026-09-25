@@ -2,6 +2,7 @@
 
 use crate::models::algebraic::ClosestVectorProblem;
 use crate::solvers::SolveError;
+use crate::traits::Problem;
 use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::{Signed, ToPrimitive, Zero};
@@ -35,7 +36,10 @@ pub(crate) fn solve(problem: &ClosestVectorProblem) -> Result<Vec<i64>, SolveErr
 
     let mut coefficients = vec![BigInt::zero(); n];
     let mut best = coefficients.clone();
+    let mut best_representable = problem.evaluate(&vec![0; n]).is_ok();
     enumerate(
+        problem,
+        &mut best_representable,
         n - 1,
         BigRational::zero(),
         &mu,
@@ -93,6 +97,8 @@ fn gram_schmidt(basis: &[Vec<BigRational>], target: &[BigRational]) -> GramSchmi
 
 #[allow(clippy::too_many_arguments)]
 fn enumerate(
+    problem: &ClosestVectorProblem,
+    best_representable: &mut bool,
     level: usize,
     partial_squared: BigRational,
     mu: &[Vec<BigRational>],
@@ -102,7 +108,8 @@ fn enumerate(
     best: &mut [BigInt],
     best_squared: &mut BigRational,
 ) {
-    if partial_squared >= *best_squared {
+    if partial_squared > *best_squared || (partial_squared == *best_squared && *best_representable)
+    {
         return;
     }
 
@@ -121,25 +128,39 @@ fn enumerate(
         coefficients[level] = candidate.clone();
         let delta = BigRational::from_integer(candidate.clone()) - &center;
         let next_squared = &partial_squared + &norms[level] * &delta * &delta;
-        if next_squared >= *best_squared {
+        if next_squared > *best_squared || (next_squared == *best_squared && *best_representable) {
             break;
         }
         if level == 0 {
             *best_squared = next_squared;
             best.clone_from_slice(coefficients);
-            break;
+            // Equal optima may differ in whether checked evaluation can represent
+            // their lattice coordinates. Keep searching ties until one fits.
+            *best_representable = coefficients
+                .iter()
+                .map(ToPrimitive::to_i64)
+                .collect::<Option<Vec<_>>>()
+                .is_some_and(|solution| problem.evaluate(&solution).is_ok());
+            if *best_representable {
+                break;
+            }
+        } else {
+            enumerate(
+                problem,
+                best_representable,
+                level - 1,
+                next_squared,
+                mu,
+                norms,
+                alpha,
+                coefficients,
+                best,
+                best_squared,
+            );
         }
-        enumerate(
-            level - 1,
-            next_squared,
-            mu,
-            norms,
-            alpha,
-            coefficients,
-            best,
-            best_squared,
-        );
-        if partial_squared >= *best_squared {
+        if partial_squared > *best_squared
+            || (partial_squared == *best_squared && *best_representable)
+        {
             break;
         }
         // Differences +1,-2,+3,... (or -1,+2,-3,...) alternate around the center.

@@ -162,3 +162,17 @@ fn decision_cvp_uses_the_exact_optimum_and_bound() {
         }
     }
 }
+
+#[test]
+fn test_cvp_solver_prefers_representable_tied_optima() {
+    for (basis, target, expected) in [
+        (2, i64::MAX, (1_i64 << 62) - 1),
+        (-2, i64::MAX, -((1_i64 << 62) - 1)),
+        (2, i64::MIN + 1, -(1_i64 << 62)),
+    ] {
+        let problem = ClosestVectorProblem::new(vec![vec![basis]], vec![target]).unwrap();
+        let solution = solve(&problem).unwrap();
+        assert_eq!(solution, vec![expected]);
+        assert_eq!(problem.evaluate(&solution).unwrap().0, Some(1));
+    }
+}
