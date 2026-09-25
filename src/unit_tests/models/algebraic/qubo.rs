@@ -281,3 +281,13 @@ fn test_qubo_entries_reject_oversized_num_vars() {
         assert!(error.to_string().contains("too large"), "{error}");
     }
 }
+
+#[test]
+fn test_qubo_legacy_matrix_error_explains_sparse_format() {
+    let error = serde_json::from_value::<QUBO<i64>>(serde_json::json!({"matrix": [[1]]}))
+        .unwrap_err()
+        .to_string();
+    for hint in ["num_vars", "sparse entries [row, col, value]", "row <= col"] {
+        assert!(error.contains(hint), "{error}");
+    }
+}

@@ -349,3 +349,17 @@ fn concrete_rule_and_solver_variants_have_standard_registration() {
         crate::solvers::solver_capabilities(&key).expect("all concrete solvers must be registered");
     }
 }
+
+#[test]
+fn legacy_cvp_variant_names_expected_dimension_key() {
+    let problem = find_problem_type("ClosestVectorProblem").unwrap();
+    for key in ["target", "weight"] {
+        let error =
+            ProblemRef::from_prefix_map(&problem, [(key.to_string(), "i64".to_string())].into())
+                .unwrap_err();
+        assert!(
+            error.to_string().contains("dimension keys: coefficient"),
+            "{error}"
+        );
+    }
+}

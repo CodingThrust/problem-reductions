@@ -55,11 +55,7 @@ inventory::submit! {
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![false, true]));
 /// ```
-#[derive(Debug, Clone, Deserialize)]
-#[serde(
-    try_from = "QuboData<W>",
-    bound(deserialize = "W: WeightElement + Deserialize<'de>")
-)]
+#[derive(Debug, Clone)]
 pub struct QUBO<W = i64> {
     /// Number of variables.
     num_vars: usize,
@@ -73,6 +69,17 @@ pub struct QUBO<W = i64> {
 struct QuboData<W> {
     num_vars: usize,
     entries: Vec<(usize, usize, W)>,
+}
+
+impl<'de, W: WeightElement + Deserialize<'de>> Deserialize<'de> for QUBO<W> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = QuboData::deserialize(deserializer).map_err(|error| {
+            serde::de::Error::custom(format!(
+                "{error}; expected QUBO format: num_vars and sparse entries [row, col, value] with row <= col"
+            ))
+        })?;
+        Self::try_from(data).map_err(serde::de::Error::custom)
+    }
 }
 
 impl<W: WeightElement + Serialize> Serialize for QUBO<W> {

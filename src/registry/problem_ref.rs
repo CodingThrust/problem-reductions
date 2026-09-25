@@ -135,8 +135,14 @@ impl ProblemRef {
                 .any(|dimension| !variant.contains_key(dimension.key))
         {
             return Err(format!(
-                "Variant for {} must specify a prefix of its dimensions",
-                problem_type.canonical_name
+                "Variant for {} must specify a prefix of its dimension keys: {}",
+                problem_type.canonical_name,
+                problem_type
+                    .dimensions
+                    .iter()
+                    .map(|dimension| dimension.key)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )
             .into());
         }
