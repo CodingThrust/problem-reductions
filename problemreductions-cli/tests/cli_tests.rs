@@ -9794,7 +9794,7 @@ fn test_extract_roundtrip_mis_to_qubo() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
     assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
-    assert_eq!(json["solver"].as_str().unwrap(), "external");
+    assert!(json.get("solver").is_none());
     // extract on pred-solve's own target config must round-trip to the same source evaluation.
     assert_eq!(json["evaluation"].as_str().unwrap(), expected_source_eval);
     assert_eq!(json["intermediate"]["problem"].as_str().unwrap(), "QUBO");
@@ -10190,7 +10190,7 @@ fn test_extract_reads_bundle_from_stdin() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
     assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
-    assert_eq!(json["solver"].as_str().unwrap(), "external");
+    assert!(json.get("solver").is_none());
     assert_eq!(json["evaluation"].as_str().unwrap(), "Max(2)");
 
     std::fs::remove_file(&problem_file).ok();

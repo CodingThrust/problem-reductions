@@ -25,38 +25,35 @@ pub fn extract(args: &ExtractArgs, out: &OutputConfig) -> Result<()> {
             || Ok(serde_json::json!({"problem": bundle.source.problem_type, "value": source_value})),
         );
     }
-    let solution = serde_json::from_str(
-        args.config
-            .as_deref()
-            .context("--config or --value is required")?,
-    )
-    .context("Target config is not valid JSON")?;
-    let replay = BundleReplay::prepare(&bundle)?;
-    let target_evaluation = replay
-        .target
-        .evaluate_witness_dyn(&solution)?
-        .context("target witness is infeasible")?;
-    let (source_solution, source_evaluation) = replay.extract(&solution)?;
-    out.emit(
-        || {
-            format!(
-                "Problem: {}\nSolution: {source_solution}\nEvaluation: {source_evaluation}",
-                replay.source_name
-            )
-        },
-        || {
-            Ok(serde_json::json!({
-                "problem": replay.source_name,
-                "solver": "external",
-                "reduced_to": replay.target_name,
-                "solution": source_solution,
-                "evaluation": source_evaluation,
-                "intermediate": {
-                    "problem": replay.target_name,
-                    "solution": solution,
-                    "evaluation": target_evaluation,
-                },
-            }))
-        },
-    )
+    if let Some(config) = &args.config {
+        let solution = serde_json::from_str(config).context("Target config is not valid JSON")?;
+        let replay = BundleReplay::prepare(&bundle)?;
+        let target_evaluation = replay
+            .target
+            .evaluate_witness_dyn(&solution)?
+            .context("target witness is infeasible")?;
+        let (source_solution, source_evaluation) = replay.extract(&solution)?;
+        out.emit(
+            || {
+                format!(
+                    "Problem: {}\nSolution: {source_solution}\nEvaluation: {source_evaluation}",
+                    replay.source_name
+                )
+            },
+            || {
+                Ok(serde_json::json!({
+                    "problem": replay.source_name,
+                    "reduced_to": replay.target_name,
+                    "solution": source_solution,
+                    "evaluation": source_evaluation,
+                    "intermediate": {
+                        "problem": replay.target_name,
+                        "solution": solution,
+                        "evaluation": target_evaluation,
+                    },
+                }))
+            },
+        )?;
+    }
+    Ok(())
 }

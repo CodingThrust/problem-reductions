@@ -215,9 +215,11 @@ Examples:
   pred extract bundle.json --config '[true,false]'
   pred extract bundle.json --config '[true,false]' -o source.json
   pred extract bundle.json --value 2
+  pred extract - --config '[true,false]' < bundle.json
 
 --config calls the rules' solution mapping; --value calls their aggregate mapping.
-Supply the completed target aggregate for --value, such as an optimum or count.
+Supply raw JSON of the completed target aggregate for --value: 2, true, or null.
+Do not use wrapper syntax such as Min(2).
 Extraction does not solve the target or prove that the supplied value is optimal.")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
@@ -575,17 +577,15 @@ mod tests {
         .is_ok());
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json", "--value", "2"]).is_ok());
-        for flag in ["--result", "--value", "--status"] {
-            assert!(Cli::try_parse_from([
-                "pred",
-                "extract",
-                "bundle.json",
-                "--config",
-                "[true,false]",
-                flag,
-                "2"
-            ])
-            .is_err());
-        }
+        assert!(Cli::try_parse_from([
+            "pred",
+            "extract",
+            "bundle.json",
+            "--config",
+            "[true,false]",
+            "--value",
+            "2"
+        ])
+        .is_err());
     }
 }
