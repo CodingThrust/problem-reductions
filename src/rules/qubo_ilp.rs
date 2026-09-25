@@ -55,29 +55,21 @@ where
     C: ILPCoefficient + crate::variant::VariantParam + From<i8>,
 {
     let n = source.num_vars();
-    let matrix = source.matrix();
+    let entries = source.entries();
 
-    // Collect non-zero off-diagonal entries (i < j)
-    let mut off_diag: Vec<(usize, usize, C)> = Vec::new();
-    for (i, row) in matrix.iter().enumerate() {
-        for (j, &q_ij) in row.iter().enumerate().skip(i + 1) {
-            if q_ij != C::zero() {
-                off_diag.push((i, j, q_ij));
-            }
-        }
-    }
+    // Non-zero off-diagonal entries (i < j), one auxiliary product variable each
+    let off_diag: Vec<(usize, usize, C)> =
+        entries.iter().copied().filter(|&(i, j, _)| i < j).collect();
 
     let m = off_diag.len();
     let total_vars = n + m;
 
     // Objective: minimize Σ Q_ii · x_i + Σ Q_ij · y_k
-    let mut objective: Vec<(usize, C)> = Vec::new();
-    for (i, row) in matrix.iter().enumerate() {
-        let q_ii = row[i];
-        if q_ii != C::zero() {
-            objective.push((i, q_ii));
-        }
-    }
+    let mut objective: Vec<(usize, C)> = entries
+        .iter()
+        .filter(|&&(i, j, _)| i == j)
+        .map(|&(i, _, q_ii)| (i, q_ii))
+        .collect();
     for (k, &(_, _, q_ij)) in off_diag.iter().enumerate() {
         objective.push((n + k, q_ij));
     }

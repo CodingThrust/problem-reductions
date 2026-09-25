@@ -271,14 +271,37 @@ fn test_integer_qubo_reports_objective_overflow() {
 }
 
 #[test]
-fn test_qubo_entries_reject_oversized_num_vars() {
-    for num_vars in [MAX_PERSISTED_QUBO_VARS + 1, 20_000, usize::MAX] {
-        let error = QUBO::<i64>::try_from(QuboData {
-            num_vars,
-            entries: vec![],
-        })
-        .unwrap_err();
-        assert!(error.to_string().contains("too large"), "{error}");
+fn test_qubo_entries_load_huge_sparse_instance() {
+    // Storage is proportional to the entries, not num_vars^2.
+    let data =
+        serde_json::json!({"num_vars": 10_000_000_000u64, "entries": [[0, 9_999_999_999u64, 5]]});
+    let problem: QUBO<i64> = serde_json::from_value(data.clone()).unwrap();
+    assert_eq!(problem.num_vars(), 10_000_000_000);
+    assert_eq!(problem.get(0, 9_999_999_999), Some(&5));
+    assert_eq!(problem.get(1, 2), Some(&0));
+    assert_eq!(problem.get(10_000_000_000, 0), None);
+    assert_eq!(serde_json::to_value(&problem).unwrap(), data);
+}
+
+#[test]
+fn test_qubo_from_entries() {
+    let problem = QUBO::from_entries(3, vec![(1, 2, 4), (0, 0, -1), (1, 1, 0)]).unwrap();
+    assert_eq!(problem.entries(), &[(0, 0, -1), (1, 2, 4)]);
+    assert_eq!(
+        problem.matrix(),
+        vec![vec![-1, 0, 0], vec![0, 0, 4], vec![0, 0, 0]]
+    );
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        Min(Some(3))
+    );
+    for (entries, message) in [
+        (vec![(0, 3, 1)], "outside 0..3"),
+        (vec![(2, 1, 1)], "below the diagonal"),
+        (vec![(0, 1, 1), (0, 1, 2)], "duplicate QUBO index"),
+    ] {
+        let error = QUBO::from_entries(3, entries).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
     }
 }
 

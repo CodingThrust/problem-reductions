@@ -61,9 +61,11 @@ inventory::submit! {
 pub struct QUBO<W = i64> {
     /// Number of variables.
     num_vars: usize,
-    /// Q matrix stored as upper triangular (row-major).
-    /// `Q[i][j]` for i <= j represents the coefficient of x_i * x_j
-    matrix: Vec<Vec<W>>,
+    /// Nonzero upper-triangular coefficients `(i, j, Q[i][j])` with `i <= j`,
+    /// sorted by `(i, j)`; absent entries are zero.
+    entries: Vec<(usize, usize, W)>,
+    /// Zero coefficient returned by [`QUBO::get`] for absent entries.
+    zero: W,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -104,73 +106,23 @@ impl<W: WeightElement> TryFrom<QuboInputData<W>> for QUBO<W> {
 
 impl<W: WeightElement + Serialize> Serialize for QUBO<W> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let entries = self
-            .matrix
-            .iter()
-            .enumerate()
-            .flat_map(|(row, values)| {
-                values
-                    .iter()
-                    .enumerate()
-                    .skip(row)
-                    .filter_map(move |(column, value)| {
-                        (!value.to_sum().is_zero()).then_some((row, column, value))
-                    })
-            })
-            .collect();
         QuboData {
             num_vars: self.num_vars,
-            entries,
+            entries: self
+                .entries
+                .iter()
+                .map(|(i, j, value)| (*i, *j, value))
+                .collect(),
         }
         .serialize(serializer)
     }
 }
 
-/// Largest `num_vars` accepted from the sparse persisted format.
-const MAX_PERSISTED_QUBO_VARS: usize = 8192;
-
 impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
     type Error = ConstructionError;
 
-    fn try_from(mut data: QuboData<W>) -> Result<Self, Self::Error> {
-        for &(row, column, _) in &data.entries {
-            if row >= data.num_vars || column >= data.num_vars {
-                return Err(ConstructionError::Conversion(format!(
-                    "QUBO index ({row}, {column}) is outside 0..{}",
-                    data.num_vars
-                )));
-            }
-        }
-        for &(row, column, _) in &data.entries {
-            if row > column {
-                return Err(ConstructionError::Conversion(format!(
-                    "QUBO index ({row}, {column}) is below the diagonal; use ({column}, {row}) instead"
-                )));
-            }
-        }
-        data.entries.sort_by_key(|&(row, column, _)| (row, column));
-        for pair in data.entries.windows(2) {
-            if (pair[0].0, pair[0].1) == (pair[1].0, pair[1].1) {
-                return Err(ConstructionError::Conversion(format!(
-                    "duplicate QUBO index ({}, {})",
-                    pair[0].0, pair[0].1
-                )));
-            }
-        }
-        // ponytail: the sparse format still loads into a dense matrix, so cap
-        // num_vars (8192^2 cells) to keep a tiny file from demanding n^2 memory.
-        // Store the matrix sparsely if larger persisted QUBOs are needed.
-        if data.num_vars > MAX_PERSISTED_QUBO_VARS {
-            return Err(ConstructionError::Conversion(format!(
-                "QUBO with {} variables is too large to load (at most {MAX_PERSISTED_QUBO_VARS})",
-                data.num_vars
-            )));
-        }
-        let mut matrix = vec![vec![W::default(); data.num_vars]; data.num_vars];
-        for (row, column, value) in data.entries {
-            matrix[row][column] = value;
-        }
-        Self::from_matrix(matrix)
+    fn try_from(data: QuboData<W>) -> Result<Self, Self::Error> {
+        Self::from_entries(data.num_vars, data.entries)
     }
 }
 
@@ -210,7 +162,59 @@ impl<W: WeightElement> QUBO<W> {
                 value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
             }
         }
-        Ok(Self { num_vars, matrix })
+        let entries = matrix
+            .into_iter()
+            .enumerate()
+            .flat_map(|(row, values)| {
+                values
+                    .into_iter()
+                    .enumerate()
+                    .skip(row)
+                    .map(move |(column, value)| (row, column, value))
+            })
+            .collect();
+        Self::from_entries(num_vars, entries)
+    }
+
+    /// Create a QUBO from sparse coefficients `(i, j, Q[i][j])`.
+    ///
+    /// Indices must be in `0..num_vars` with `i <= j`, and each pair may
+    /// appear at most once. Zero coefficients are dropped.
+    pub fn from_entries(
+        num_vars: usize,
+        mut entries: Vec<(usize, usize, W)>,
+    ) -> Result<Self, ConstructionError> {
+        for (row, column, value) in &entries {
+            if *row >= num_vars || *column >= num_vars {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO index ({row}, {column}) is outside 0..{num_vars}"
+                )));
+            }
+            if row > column {
+                return Err(ConstructionError::Conversion(format!(
+                    "QUBO index ({row}, {column}) is below the diagonal; use ({column}, {row}) instead"
+                )));
+            }
+            value.validate_element(&format!("QUBO coefficient at ({row}, {column})"))?;
+        }
+        entries.sort_by_key(|&(row, column, _)| (row, column));
+        if let Some(pair) = entries
+            .windows(2)
+            .find(|pair| (pair[0].0, pair[0].1) == (pair[1].0, pair[1].1))
+        {
+            return Err(ConstructionError::Conversion(format!(
+                "duplicate QUBO index ({}, {})",
+                pair[0].0, pair[0].1
+            )));
+        }
+        Ok(Self {
+            num_vars,
+            entries: entries
+                .into_iter()
+                .filter(|(_, _, value)| !value.to_sum().is_zero())
+                .collect(),
+            zero: W::default(),
+        })
     }
 
     /// Create a QUBO from linear and quadratic terms.
@@ -248,20 +252,36 @@ impl<W: WeightElement> QUBO<W> {
     }
 }
 
-impl<W> QUBO<W> {
+impl<W: Clone> QUBO<W> {
     /// Get the number of variables.
     pub fn num_vars(&self) -> usize {
         self.num_vars
     }
 
-    /// Get the Q matrix.
-    pub fn matrix(&self) -> &[Vec<W>] {
-        &self.matrix
+    /// Nonzero upper-triangular coefficients `(i, j, Q[i][j])`, sorted by `(i, j)`.
+    pub fn entries(&self) -> &[(usize, usize, W)] {
+        &self.entries
     }
 
-    /// Get a specific matrix element `Q[i][j]`.
+    /// Dense upper-triangular copy of Q. Allocates `num_vars^2` elements.
+    pub fn matrix(&self) -> Vec<Vec<W>> {
+        let mut matrix = vec![vec![self.zero.clone(); self.num_vars]; self.num_vars];
+        for (i, j, value) in &self.entries {
+            matrix[*i][*j] = value.clone();
+        }
+        matrix
+    }
+
+    /// Get a specific matrix element `Q[i][j]`; entries below the diagonal are zero.
     pub fn get(&self, i: usize, j: usize) -> Option<&W> {
-        self.matrix.get(i).and_then(|row| row.get(j))
+        if i >= self.num_vars || j >= self.num_vars {
+            return None;
+        }
+        Some(
+            self.entries
+                .binary_search_by_key(&(i, j), |&(row, column, _)| (row, column))
+                .map_or(&self.zero, |index| &self.entries[index].2),
+        )
     }
 }
 
@@ -289,20 +309,11 @@ where
             ));
         }
         let mut value = W::Sum::zero();
-
-        for i in 0..self.num_vars {
-            if !solution[i] {
-                continue;
-            }
-
-            for (j, &selected) in solution.iter().enumerate().skip(i) {
-                if !selected {
-                    continue;
-                }
-
+        for (i, j, coefficient) in &self.entries {
+            if solution[*i] && solution[*j] {
                 value = W::checked_add_to_sum(
                     value,
-                    self.matrix[i][j].to_sum(),
+                    coefficient.to_sum(),
                     "summing selected QUBO coefficients",
                 )?;
             }
