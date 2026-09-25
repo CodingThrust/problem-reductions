@@ -155,13 +155,12 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target cover does not certify the source clique bound",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target cover does not certify the source clique bound",
+        )?;
 
         Ok({
             let n = self.num_source_vertices;
@@ -202,20 +201,10 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
     }
 }
 
-#[crate::aggregate_reduction]
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 {
-    type Source = PartitionIntoCliques<SimpleGraph>;
-    type Target = Decision<MinimumCoveringByCliques<SimpleGraph>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
 }
 
 #[reduction(

@@ -35,13 +35,12 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target witness does not certify a YES answer for the source",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).0,
+            "target witness does not certify a YES answer for the source",
+        )?;
 
         Ok({
             // BinPacking may use any bin indices (0..n-1). Remap the two distinct

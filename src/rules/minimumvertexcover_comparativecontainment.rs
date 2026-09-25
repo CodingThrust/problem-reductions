@@ -34,28 +34,18 @@ impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "containment inequality is not satisfied",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "containment inequality is not satisfied",
+        )?;
         Ok(target_solution.clone())
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionDecisionMVCToComparativeContainment {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, i64>>;
-    type Target = ComparativeContainment<i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionDecisionMVCToComparativeContainment {}
 
 #[reduction(
     transform = upper_bound {

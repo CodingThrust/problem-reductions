@@ -33,13 +33,12 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target partition does not satisfy the acyclic partition constraints",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target partition does not satisfy the acyclic partition constraints",
+        )?;
         let source_label = target_solution[self.source_vertex];
         let selected = target_solution[..self.sat_to_clique.target_problem().num_vertices()]
             .iter()
@@ -49,19 +48,8 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for Reduction3SATToAcyclicPartition {
-    type Source = KSatisfiability<K3>;
-    type Target = AcyclicPartition<i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for Reduction3SATToAcyclicPartition {}
 
 #[reduction(
     transform = upper_bound {

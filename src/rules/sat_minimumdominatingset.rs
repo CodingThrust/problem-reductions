@@ -60,13 +60,12 @@ impl ReductionResult for ReductionSATToDS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target dominating set does not certify satisfiability",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target dominating set does not certify satisfiability",
+        )?;
 
         let mut assignment = vec![false; self.num_literals];
         for (&variable, &gadget) in &self.variables {
@@ -77,19 +76,8 @@ impl ReductionResult for ReductionSATToDS {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionSATToDS {
-    type Source = Satisfiability;
-    type Target = Decision<MinimumDominatingSet<SimpleGraph, i64>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSATToDS {}
 
 impl ReductionSATToDS {
     /// Compute the graph dimensions and exact certificate before allocation.

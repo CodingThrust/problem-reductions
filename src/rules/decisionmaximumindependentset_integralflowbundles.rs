@@ -31,13 +31,12 @@ impl ReductionResult for ReductionDecisionMISToIFB {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let feasible =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !feasible.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target flow must satisfy conservation, bundle capacities, and the requirement",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |feasible| feasible.0,
+            "target flow must satisfy conservation, bundle capacities, and the requirement",
+        )?;
         Ok((0..self.num_source_vertices)
             .map(|i| target_solution[2 * i + 1] == 1)
             .collect())
@@ -76,17 +75,8 @@ fn flow_requirement(n: usize, bound: i64) -> Result<i64, crate::rules::Reduction
     Ok(bound.clamp(0, maximum_requirement - 1) + 1)
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionDecisionMISToIFB {
-    type Source = Decision<MaximumIndependentSet<SimpleGraph, One>>;
-    type Target = IntegralFlowBundles;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionDecisionMISToIFB {}
 
 #[reduction(
     transform = exact {

@@ -42,13 +42,12 @@ impl ReductionResult for ReductionNAESATToMaxCut {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target cut does not certify a satisfying NAE assignment",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target cut does not certify a satisfying NAE assignment",
+        )?;
 
         Ok({
             (0..self.source_num_vars)
@@ -58,19 +57,8 @@ impl ReductionResult for ReductionNAESATToMaxCut {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionNAESATToMaxCut {
-    type Source = NAESatisfiability;
-    type Target = Decision<MaxCut<SimpleGraph, i64>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionNAESATToMaxCut {}
 
 /// Dimensions, variable-edge weight, and certificate for legal clause lengths.
 fn nae_maxcut_parameters(

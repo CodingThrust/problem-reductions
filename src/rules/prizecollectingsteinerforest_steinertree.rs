@@ -75,13 +75,12 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .is_valid()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target edges do not form a Steiner tree",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.is_valid(),
+            "target edges do not form a Steiner tree",
+        )?;
 
         Ok({
             let n = self.num_source_vertices;

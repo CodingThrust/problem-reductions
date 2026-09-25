@@ -78,13 +78,12 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a feasible register assignment realization",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target configuration is not a feasible register assignment realization",
+        )?;
         let mut assignment = vec![false; self.num_vars];
         let compact_vars = self.source_variables.len();
         for (compact, &original) in self.source_variables.iter().enumerate() {
@@ -95,19 +94,8 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for Reduction3SATToFeasibleRegisterAssignment {
-    type Source = KSatisfiability<K3>;
-    type Target = FeasibleRegisterAssignment;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for Reduction3SATToFeasibleRegisterAssignment {}
 
 #[reduction(
     transform = upper_bound {

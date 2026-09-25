@@ -508,3 +508,58 @@ fn universal_reduction_preserves_true_and_false_aggregates_without_witnesses() {
         assert!(reduction.extract_value_dyn(json!("not a Boolean")).is_err());
     }
 }
+
+#[derive(Clone)]
+struct CountedTarget(std::cell::Cell<usize>);
+
+impl Problem for CountedTarget {
+    const NAME: &'static str = "CountedTarget";
+    type Solution = Vec<usize>;
+    type Value = i64;
+    fn parameter_names() -> &'static [&'static str] {
+        &[]
+    }
+    fn parameters(&self) -> crate::types::ProblemParameters {
+        crate::types::ProblemParameters::new(vec![])
+    }
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+
+    fn evaluate(&self, solution: &Self::Solution) -> Result<i64, crate::traits::EvaluationError> {
+        self.0.set(self.0.get() + 1);
+        TargetProblem.evaluate(solution)
+    }
+}
+
+#[test]
+fn target_witness_validation_evaluates_once_and_preserves_rejection() {
+    use crate::rules::{traits::validate_target_witness, ExtractionError};
+    let target = CountedTarget(std::cell::Cell::new(0));
+    validate_target_witness(
+        &target,
+        &vec![1, 1],
+        |value| value == 2,
+        "threshold not met",
+    )
+    .unwrap();
+    assert_eq!(target.0.get(), 1);
+    let error = validate_target_witness(
+        &target,
+        &vec![1, 0],
+        |value| value == 2,
+        "threshold not met",
+    )
+    .unwrap_err();
+    assert_eq!(error, ExtractionError::invalid("threshold not met"));
+    assert_eq!(target.0.get(), 2);
+    let error = validate_target_witness(
+        &target,
+        &vec![2, 0],
+        |_| panic!("invalid input must not reach the predicate"),
+        "threshold not met",
+    )
+    .unwrap_err();
+    assert!(matches!(error, ExtractionError::Evaluation(_)));
+    assert_eq!(target.0.get(), 3);
+}

@@ -256,13 +256,12 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a Hamiltonian circuit",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target configuration is not a Hamiltonian circuit",
+        )?;
 
         Ok({
             match &self.construction {
@@ -295,20 +294,10 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
     edges.insert(edge);
 }
 
-#[crate::aggregate_reduction]
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
 {
-    type Source = Decision<MinimumVertexCover<SimpleGraph, One>>;
-    type Target = HamiltonianCircuit<SimpleGraph>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
 }
 
 #[reduction(

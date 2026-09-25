@@ -28,13 +28,12 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target circuit does not certify a Hamiltonian circuit",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target circuit does not certify a Hamiltonian circuit",
+        )?;
 
         crate::rules::graph_helpers::edges_to_cycle_order(
             self.target.inner().graph(),
@@ -43,19 +42,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = Decision<LongestCircuit<SimpleGraph, i64>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLongestCircuit {}
 
 #[reduction(
     transform = exact {

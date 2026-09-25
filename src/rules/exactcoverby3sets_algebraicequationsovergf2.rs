@@ -22,29 +22,19 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target witness is not satisfying",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness is not satisfying",
+        )?;
 
         Ok(target_solution.to_vec())
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
-    type Source = ExactCoverBy3Sets;
-    type Target = AlgebraicEquationsOverGF2;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {}
 
 #[reduction(
     transform = upper_bound {

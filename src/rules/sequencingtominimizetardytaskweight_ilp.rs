@@ -29,13 +29,12 @@ impl ReductionResult for ReductionSTMTTWToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.is_valid() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.is_valid(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let n = self.num_tasks;

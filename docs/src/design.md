@@ -281,8 +281,13 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
 and returns the source configuration defined by the reduction. Extraction is a
 fallible boundary, not a recovery mechanism:
 
-1. In every direct extractor, call `validate_target_solution()` once before
-   indexing or decoding. Composed extractors delegate this check.
+1. In every direct extractor, validate once before indexing or decoding.
+   Use `validate_target_solution()` when decoding needs the evaluated value.
+   Use `validate_target_witness(target, solution, certifies_source, message)`
+   when the target must certify a source witness. It evaluates once, applies
+   the supplied predicate, and returns `ExtractionError` on rejection.
+   Keep the rule's feasibility check or value-map threshold in that predicate.
+   Composed extractors delegate this check.
 2. For decision sources, reject an infeasible target value or a failed
    rule-owned feasibility threshold. Validate structure required by the inverse mapping, such as
    exactly-one blocks, permutations, paths, flows, or schedules.
@@ -360,6 +365,27 @@ register concrete instances of generic implementations, including
 `VariantReductionResult<S, T>`. Both mappings
 belong to the same graph edge and share its constructed result. Aggregate-only
 rules use `ReduceToAggregate<T>`.
+
+Common maps use an empty implementation:
+
+```rust,ignore
+#[aggregate_reduction(identity)]
+impl AggregateReductionResult for ReductionSATToKSAT<K3> {}
+
+#[aggregate_reduction(ilp_feasibility)]
+impl AggregateReductionResult for ReductionNAESATToILP {}
+```
+
+The shorthand reuses the `ReductionResult` source, target, and target accessor.
+`identity` returns the value unchanged; `ilp_feasibility` returns
+`Or(value.value.is_some())`. Custom maps keep their explicit implementation.
+Generic shorthand implementations still need `register_aggregate_reduction!`
+for each concrete variant.
+
+`ReductionChain::extract_result()` recovers completed results using the same
+library implementation as fixed ILP pipelines. Recovery borrows intermediate
+instances from the executed chain and requires each extracted witness to
+realize its mapped aggregate.
 
 Every witness reduction must construct a feasible target whenever the source
 is feasible. Established target infeasibility therefore implies source

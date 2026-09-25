@@ -30,13 +30,12 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target column order is not a satisfying augmentation certificate",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target column order is not a satisfying augmentation certificate",
+        )?;
         // Validation establishes a permutation within the augmentation budget.
         // The NO sentinel has no such certificate; all remaining columns are
         // source vertices, including the empty permutation for an empty graph.
@@ -48,18 +47,10 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
     }
 }
 
-#[crate::aggregate_reduction]
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation
 {
-    type Source = Decision<OptimalLinearArrangement<SimpleGraph>>;
-    type Target = ConsecutiveOnesMatrixAugmentation;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
 }
 
 #[reduction(

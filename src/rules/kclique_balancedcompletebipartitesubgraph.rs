@@ -38,13 +38,12 @@ impl ReductionResult for ReductionKCliqueToBCBS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target witness is not satisfying",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness is not satisfying",
+        )?;
 
         Ok({
             (0..self.num_original_vertices)
@@ -54,17 +53,8 @@ impl ReductionResult for ReductionKCliqueToBCBS {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {
-    type Source = KClique<SimpleGraph>;
-    type Target = BalancedCompleteBipartiteSubgraph;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {}
 
 #[reduction(
     transform = upper_bound {

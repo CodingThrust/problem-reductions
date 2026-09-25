@@ -38,13 +38,12 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target QUBO configuration does not certify a proper coloring",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target QUBO configuration does not certify a proper coloring",
+        )?;
 
         (0..self.num_vertices)
             .map(|vertex| {
@@ -66,18 +65,8 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 
 crate::register_aggregate_reduction!(ReductionKColoringToQUBO<KN>);
 
-impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKColoringToQUBO<K> {
-    type Source = KColoring<K, SimpleGraph>;
-    type Target = Decision<QUBO<i64>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKColoringToQUBO<K> {}
 
 /// Check dimensions and the omitted constant before allocating the matrix.
 fn coloring_qubo_parameters<K: KValue>(

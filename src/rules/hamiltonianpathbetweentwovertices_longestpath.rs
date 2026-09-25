@@ -34,13 +34,12 @@ impl ReductionResult for ReductionHPBTVToLP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target path does not certify a Hamiltonian source-target path",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target path does not certify a Hamiltonian source-target path",
+        )?;
 
         let mut adjacency = vec![Vec::new(); self.target.inner().num_vertices()];
         for (&selected, (u, v)) in target_solution
@@ -72,19 +71,8 @@ impl ReductionResult for ReductionHPBTVToLP {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionHPBTVToLP {
-    type Source = HamiltonianPathBetweenTwoVertices<SimpleGraph>;
-    type Target = Decision<LongestPath<SimpleGraph, One>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionHPBTVToLP {}
 
 #[reduction(
     transform = exact {

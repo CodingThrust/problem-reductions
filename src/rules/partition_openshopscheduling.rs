@@ -22,13 +22,12 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target schedule does not certify a balanced partition",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target schedule does not certify a balanced partition",
+        )?;
 
         Ok({
             let num_elements = self.target.inner().num_jobs() - 1;
@@ -78,19 +77,8 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopScheduling {
-    type Source = Partition;
-    type Target = Decision<OpenShopScheduling>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopScheduling {}
 
 #[reduction(
     transform = exact {

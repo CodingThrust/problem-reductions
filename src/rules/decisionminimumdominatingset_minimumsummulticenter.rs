@@ -31,32 +31,21 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target placement does not certify a dominating set within the source bound",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target placement does not certify a dominating set within the source bound",
+        )?;
         // Original vertices precede the auxiliary isolated vertices.
         Ok(target_solution[..self.source_num_vertices].to_vec())
     }
 }
 
-#[crate::aggregate_reduction]
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter
 {
-    type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = Decision<MinimumSumMulticenter<SimpleGraph, i64>>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
 }
 
 #[reduction(

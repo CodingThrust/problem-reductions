@@ -85,16 +85,14 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.is_valid(),
+            "target configuration is not a valid intersection graph basis",
+        )?;
 
         Ok({
-            if !value.is_valid() {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target configuration is not a valid intersection graph basis",
-                ));
-            }
-
             extract_edge_clique_cover(self.target.graph(), target_solution).ok_or_else(|| {
                 crate::rules::ExtractionError::invalid(
                     "target basis does not assign a shared label to every source edge",

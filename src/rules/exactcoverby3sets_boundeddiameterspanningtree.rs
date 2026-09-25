@@ -98,13 +98,12 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target edge selection is not a feasible bounded-diameter spanning tree",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target edge selection is not a feasible bounded-diameter spanning tree",
+        )?;
 
         Ok({
             let m = self.source_num_subsets;
@@ -116,17 +115,8 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
-    type Source = ExactCoverBy3Sets;
-    type Target = BoundedDiameterSpanningTree<SimpleGraph, i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionX3CToBoundedDiameterSpanningTree {}
 
 #[reduction(
     transform = upper_bound {

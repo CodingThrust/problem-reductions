@@ -227,12 +227,22 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Register the completed-value mapping implemented by a reduction result.
 /// The result must also belong to a registered `ReduceTo` construction.
+/// Use `#[aggregate_reduction(identity)]` or `#[aggregate_reduction(ilp_feasibility)]`
+/// on an empty impl to generate a common mapping using its `ReductionResult` types.
 /// Register concrete instances of generic implementations with `register_aggregate_reduction!`.
 #[proc_macro_attribute]
 pub fn aggregate_reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
-    parse_macro_input!(attr as syn::parse::Nothing);
+    let mapping = if attr.is_empty() {
+        None
+    } else {
+        Some(parse_macro_input!(attr as syn::Ident))
+    };
     let implementation = parse_macro_input!(item as ItemImpl);
-    match generate_aggregate_impl(&implementation) {
+    let generated = match mapping {
+        None => generate_aggregate_impl(&implementation),
+        Some(mapping) => generate_common_aggregate_impl(&implementation, &mapping),
+    };
+    match generated {
         Ok(tokens) => tokens.into(),
         Err(error) => error.to_compile_error().into(),
     }
@@ -245,7 +255,53 @@ pub fn register_aggregate_reduction(input: TokenStream) -> TokenStream {
     generate_aggregate_entry(&result).into()
 }
 
-fn generate_aggregate_impl(implementation: &ItemImpl) -> syn::Result<TokenStream2> {
+fn generate_common_aggregate_impl(
+    implementation: &ItemImpl,
+    mapping: &syn::Ident,
+) -> syn::Result<TokenStream2> {
+    if !implementation.items.is_empty() {
+        return Err(syn::Error::new_spanned(
+            implementation,
+            "aggregate shorthand requires an empty impl",
+        ));
+    }
+    let body = match mapping.to_string().as_str() {
+        "identity" => quote! { value },
+        "ilp_feasibility" => quote! { crate::types::Or(value.value.is_some()) },
+        _ => {
+            return Err(syn::Error::new_spanned(
+                mapping,
+                "expected identity or ilp_feasibility",
+            ))
+        }
+    };
+    let mut implementation = implementation.clone();
+    let members: ItemImpl = syn::parse_quote! {
+        impl crate::rules::AggregateReductionResult for Placeholder {
+            type Source = <Self as crate::rules::ReductionResult>::Source;
+            type Target = <Self as crate::rules::ReductionResult>::Target;
+            fn target_problem(&self) -> &Self::Target {
+                <Self as crate::rules::ReductionResult>::target_problem(self)
+            }
+            fn extract_value(
+                &self,
+                value: <Self::Target as crate::traits::Problem>::Value,
+            ) -> <Self::Source as crate::traits::Problem>::Value {
+                #body
+            }
+        }
+    };
+    implementation.items = members.items;
+    // Generic maps keep their explicit registrations for concrete variants.
+    if implementation.generics.params.is_empty() {
+        generate_aggregate_impl(&implementation)
+    } else {
+        validate_aggregate_trait(&implementation)?;
+        Ok(quote! { #implementation })
+    }
+}
+
+fn validate_aggregate_trait(implementation: &ItemImpl) -> syn::Result<()> {
     if !implementation.trait_.as_ref().is_some_and(|(path, _)| {
         path.segments
             .last()
@@ -256,6 +312,11 @@ fn generate_aggregate_impl(implementation: &ItemImpl) -> syn::Result<TokenStream
             "expected impl AggregateReductionResult",
         ));
     }
+    Ok(())
+}
+
+fn generate_aggregate_impl(implementation: &ItemImpl) -> syn::Result<TokenStream2> {
+    validate_aggregate_trait(implementation)?;
     if !implementation.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
             implementation,
@@ -1429,5 +1490,25 @@ mod tests {
         assert!(!tokens.contains("solve_typed_fn :"));
         assert!(!tokens.contains("factory : None"));
         assert!(!tokens.contains("serialize_fn : None"));
+    }
+    #[test]
+    fn aggregate_shorthand_validates_declarations() {
+        let concrete: ItemImpl = syn::parse_quote! { impl AggregateReductionResult for Mapping {} };
+        for name in ["identity", "ilp_feasibility"] {
+            let mapping = syn::Ident::new(name, proc_macro2::Span::call_site());
+            let generated = generate_common_aggregate_impl(&concrete, &mapping).unwrap();
+            syn::parse2::<syn::File>(generated).unwrap();
+        }
+        let generic: ItemImpl =
+            syn::parse_quote! { impl<T> AggregateReductionResult for Mapping<T> {} };
+        let identity = syn::parse_quote!(identity);
+        let generated = generate_common_aggregate_impl(&generic, &identity).unwrap();
+        // A generic declaration must leave concrete registration to the caller.
+        syn::parse2::<ItemImpl>(generated).unwrap();
+        let nonempty: ItemImpl = syn::parse_quote! { impl AggregateReductionResult for Mapping { type Source = Source; } };
+        assert!(generate_common_aggregate_impl(&nonempty, &identity).is_err());
+        let wrong: ItemImpl = syn::parse_quote! { impl<T> ReductionResult for Mapping<T> {} };
+        assert!(generate_common_aggregate_impl(&wrong, &identity).is_err());
+        assert!(generate_common_aggregate_impl(&concrete, &syn::parse_quote!(unknown)).is_err());
     }
 }

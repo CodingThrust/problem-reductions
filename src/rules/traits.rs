@@ -168,6 +168,22 @@ pub(crate) fn validate_target_solution<P: Problem>(
     Ok(target.evaluate(solution)?)
 }
 
+/// Validate once, then require the evaluated target to certify a source witness.
+/// The rule supplies its feasibility predicate or value-map threshold and rejection reason.
+/// A rejected candidate is an extraction error, not a completed infeasibility result.
+pub(crate) fn validate_target_witness<P: Problem>(
+    target: &P,
+    solution: &P::Solution,
+    certifies_source: impl FnOnce(P::Value) -> bool,
+    message: &str,
+) -> ExtractionResult<()> {
+    let value = validate_target_solution(target, solution)?;
+    if !certifies_source(value) {
+        return Err(ExtractionError::invalid(message));
+    }
+    Ok(())
+}
+
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods

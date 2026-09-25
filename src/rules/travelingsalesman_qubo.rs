@@ -41,16 +41,16 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if crate::rules::AggregateReductionResult::extract_value(self, value)
-            .0
-            .is_none()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target energy does not encode a feasible tour",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| {
+                crate::rules::AggregateReductionResult::extract_value(self, value)
+                    .0
+                    .is_some()
+            },
+            "target energy does not encode a feasible tour",
+        )?;
         if self.num_vertices < 3 {
             return Ok(self
                 .small_optimum

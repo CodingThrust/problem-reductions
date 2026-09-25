@@ -94,13 +94,12 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.0.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target configuration is not a biclique cover",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0.is_some(),
+            "target configuration is not a biclique cover",
+        )?;
         // Variables absent from every clause may be assigned false.
         // This also defines the inverse map for the empty-formula YES target.
         let mut source_assignment = vec![false; self.source_num_vars];

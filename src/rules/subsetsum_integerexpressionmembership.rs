@@ -21,13 +21,12 @@ impl ReductionResult for ReductionSubsetSumToIntegerExpressionMembership {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target witness does not satisfy the target problem",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         Ok({
             // Union choice 0 = left = Atom(1) = exclude, choice 1 = right = Atom(s_i+1) = include.
@@ -67,17 +66,8 @@ fn build_expression(sizes: &[i64]) -> Result<IntExpr, &'static str> {
     Ok(expr)
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionSubsetSumToIntegerExpressionMembership {
-    type Source = SubsetSum;
-    type Target = IntegerExpressionMembership;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSubsetSumToIntegerExpressionMembership {}
 
 #[reduction(
     transform = exact {

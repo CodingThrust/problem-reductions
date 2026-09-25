@@ -51,13 +51,12 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if !crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .0
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target augmentation is infeasible",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target augmentation is infeasible",
+        )?;
 
         Ok({
             let n = self.num_vertices;
@@ -117,18 +116,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
     }
 }
 
-#[crate::aggregate_reduction]
+#[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult
     for ReductionHamiltonianCircuitToBiconnectivityAugmentation
 {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = BiconnectivityAugmentation<SimpleGraph, i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
 }
 
 #[reduction(

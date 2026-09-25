@@ -25,31 +25,19 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not certify satisfiability",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment does not certify satisfiability",
+        )?;
 
         Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
-    type Source = Satisfiability;
-    type Target = Decision<Maximum2Satisfiability>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {}
 
 fn add_normalized_clause(
     clause: &CNFClause,

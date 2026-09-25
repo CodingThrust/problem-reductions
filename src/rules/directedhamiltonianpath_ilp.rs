@@ -34,13 +34,12 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if value.value.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok({
             let n = self.num_vertices;
@@ -51,17 +50,8 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionDirectedHamiltonianPathToILP {
-    type Source = DirectedHamiltonianPath;
-    type Target = ILP<bool>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
-        crate::types::Or(value.value.is_some())
-    }
-}
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionDirectedHamiltonianPathToILP {}
 
 #[reduction(
     transform = upper_bound {

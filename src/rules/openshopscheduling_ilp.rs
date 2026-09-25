@@ -292,30 +292,18 @@ impl ReductionResult for ReductionDecisionOpenShopSchedulingToILP {
     }
 
     fn extract_solution(&self, solution: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<usize>> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), solution)?;
-        if value.value.is_none() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "ILP assignment does not satisfy the bounded scheduling constraints",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            solution,
+            |value| value.value.is_some(),
+            "ILP assignment does not satisfy the bounded scheduling constraints",
+        )?;
         self.inner.decode_schedule(solution)
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedulingToILP {
-    type Source = Decision<OpenShopScheduling>;
-    type Target = ILP<i64>;
-
-    fn target_problem(&self) -> &Self::Target {
-        self.inner.target_problem()
-    }
-
-    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
-        crate::types::Or(value.value.is_some())
-    }
-}
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedulingToILP {}
 
 #[reduction(
     transform = exact {

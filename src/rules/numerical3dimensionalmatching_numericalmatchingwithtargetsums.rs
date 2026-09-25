@@ -30,13 +30,12 @@ impl ReductionResult for ReductionN3DMToNMTS {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target witness does not satisfy the target problem",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target witness does not satisfy the target problem",
+        )?;
 
         Ok({
             let mut x_indices_by_pair_sum: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
@@ -83,17 +82,8 @@ fn checked_target_sum(bound: i64, w_size: i64) -> Result<i64, &'static str> {
         .ok_or("computing a derived target sum overflowed")
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionN3DMToNMTS {
-    type Source = Numerical3DimensionalMatching;
-    type Target = NumericalMatchingWithTargetSums;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionN3DMToNMTS {}
 
 #[reduction(
     transform = exact {

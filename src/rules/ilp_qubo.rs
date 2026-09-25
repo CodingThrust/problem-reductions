@@ -39,13 +39,12 @@ impl ReductionResult for ReductionILPToQUBO {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !crate::rules::AggregateReductionResult::extract_value(self, value).is_valid() {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target QUBO configuration does not certify a feasible ILP assignment",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| crate::rules::AggregateReductionResult::extract_value(self, value).is_valid(),
+            "target QUBO configuration does not certify a feasible ILP assignment",
+        )?;
 
         Ok(target_solution[..self.num_original_vars]
             .iter()

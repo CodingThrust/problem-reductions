@@ -30,32 +30,20 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        let value =
-            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-        if !value.0 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target assignment does not certify a Hamiltonian circuit",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.0,
+            "target assignment does not certify a Hamiltonian circuit",
+        )?;
 
         // Zero cost makes this permutation itself a Hamiltonian circuit.
         Ok(target_solution.to_vec())
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
-    type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = Decision<QuadraticAssignment>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_value(&self, value: crate::types::Or) -> crate::types::Or {
-        value
-    }
-}
+#[crate::aggregate_reduction(identity)]
+impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {}
 
 #[reduction(
     transform = upper_bound {

@@ -58,14 +58,12 @@ impl ReductionResult for ReductionBiconnAugToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        if crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?
-            .value
-            .is_none()
-        {
-            return Err(crate::rules::ExtractionError::invalid(
-                "target ILP assignment is infeasible",
-            ));
-        }
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
         Ok(target_solution[..self.num_candidates]
             .iter()
@@ -74,17 +72,8 @@ impl ReductionResult for ReductionBiconnAugToILP {
     }
 }
 
-#[crate::aggregate_reduction]
-impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {
-    type Source = BiconnectivityAugmentation<SimpleGraph, i64>;
-    type Target = ILP<i64>;
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-    fn extract_value(&self, value: crate::types::Extremum<i64>) -> crate::types::Or {
-        crate::types::Or(value.value.is_some())
-    }
-}
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
 
 #[reduction(
     transform = upper_bound {
