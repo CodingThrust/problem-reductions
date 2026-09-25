@@ -272,10 +272,12 @@ fn test_integer_qubo_reports_objective_overflow() {
 
 #[test]
 fn test_qubo_entries_reject_oversized_num_vars() {
-    let error = QUBO::<i64>::try_from(QuboData {
-        num_vars: usize::MAX,
-        entries: vec![],
-    })
-    .unwrap_err();
-    assert!(error.to_string().contains("too large"), "{error}");
+    for num_vars in [MAX_PERSISTED_QUBO_VARS + 1, 20_000, usize::MAX] {
+        let error = QUBO::<i64>::try_from(QuboData {
+            num_vars,
+            entries: vec![],
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("too large"), "{error}");
+    }
 }

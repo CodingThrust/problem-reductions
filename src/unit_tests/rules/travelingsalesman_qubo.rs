@@ -222,3 +222,24 @@ fn test_travelingsalesman_to_qubo_weighted_corpus_regression() {
         "weighted TSP position encoding",
     );
 }
+
+#[test]
+fn test_tour_penalty_constant_must_fit_valid_tour_energy() {
+    // n = 3 and all weights -w give A = 3w + 1, so valid tours have energy -6A.
+    let too_negative =
+        TravelingSalesman::new(SimpleGraph::complete(3), vec![-600_000_000_000_000_000; 3]);
+    assert!(matches!(
+        ReduceTo::<QUBO<i64>>::reduce_to(&too_negative),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
+
+    let source =
+        TravelingSalesman::new(SimpleGraph::complete(3), vec![-500_000_000_000_000_000; 3]);
+    let result = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    let identity_tour = vec![true, false, false, false, true, false, false, false, true];
+    let energy = result.target_problem().evaluate(&identity_tour).unwrap();
+    assert_eq!(
+        crate::rules::AggregateReductionResult::extract_value(&result, energy),
+        Min(Some(-1_500_000_000_000_000_000))
+    );
+}

@@ -228,6 +228,10 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
         // A >= |shift| makes this offset positive. Check its transport once.
         let objective_offset = i64::try_from(omitted_constant + n as i128 * i128::from(shift))
             .map_err(|_| overflow("computing the tour objective offset"))?;
+        // A valid tour's energy is its shifted cost minus 2nA, and every
+        // partial sum stays within [-2nA, shifted cost]; -2nA must fit i64.
+        i64::try_from(omitted_constant)
+            .map_err(|_| overflow("computing the tour penalty constant"))?;
         let feasible_energy_upper = i128::from(a) - omitted_constant;
 
         // Build n^2 x n^2 upper-triangular QUBO matrix

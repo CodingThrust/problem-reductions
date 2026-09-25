@@ -98,6 +98,9 @@ impl<W: WeightElement + Serialize> Serialize for QUBO<W> {
     }
 }
 
+/// Largest `num_vars` accepted from the sparse persisted format.
+const MAX_PERSISTED_QUBO_VARS: usize = 8192;
+
 impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
     type Error = ConstructionError;
 
@@ -119,19 +122,16 @@ impl<W: WeightElement> TryFrom<QuboData<W>> for QUBO<W> {
                 )));
             }
         }
-        let n = data.num_vars;
-        let allocation_error =
-            || ConstructionError::Conversion(format!("QUBO with {n} variables is too large"));
-        let mut matrix = Vec::new();
-        matrix
-            .try_reserve_exact(n)
-            .map_err(|_| allocation_error())?;
-        for _ in 0..n {
-            let mut row = Vec::new();
-            row.try_reserve_exact(n).map_err(|_| allocation_error())?;
-            row.resize(n, W::default());
-            matrix.push(row);
+        // ponytail: the sparse format still loads into a dense matrix, so cap
+        // num_vars (8192^2 cells) to keep a tiny file from demanding n^2 memory.
+        // Store the matrix sparsely if larger persisted QUBOs are needed.
+        if data.num_vars > MAX_PERSISTED_QUBO_VARS {
+            return Err(ConstructionError::Conversion(format!(
+                "QUBO with {} variables is too large to load (at most {MAX_PERSISTED_QUBO_VARS})",
+                data.num_vars
+            )));
         }
+        let mut matrix = vec![vec![W::default(); data.num_vars]; data.num_vars];
         for (row, column, value) in data.entries {
             matrix[row][column] = value;
         }
