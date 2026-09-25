@@ -15,8 +15,6 @@ The paper `docs/paper/reductions.typ` is the mathematical manual: one `problem-d
 - Rule: `reduction-rule("MinimumVertexCover", "MaximumIndependentSet"` and its reverse
   `reduction-rule("MaximumIndependentSet", "MinimumVertexCover")` — minimal but complete proof
   structure. For a richer worked example, read `reduction-rule("MaximumIndependentSet", "MaximumClique"`.
-- These older entries still hardcode aliases in `pred create --example MIS`/`MVC`; new entries use
-  `problem-spec(...)` (below).
 
 ## Paper mechanics
 
@@ -60,12 +58,16 @@ rules), using the shared helpers only:
 )
 ```
 
-- `problem-spec(data)` renders `Problem/variant/...`; use it rather than a guessed alias — canonical
-  fixtures often live on non-default variants. Do not redefine it locally.
+- Models: `problem-spec(x)` renders `Problem/variant/...`; use it rather than a guessed alias —
+  canonical fixtures often live on non-default variants. Do not redefine it locally.
+- Rules: `"pred create --example " + rule-spec(ex)` (with `ex` from `load-example`) renders
+  `Src/k=v/... --to Tgt/k=v/...`, which recreates the rule fixture's source instance, so the
+  `--config` from `ex.solutions` applies to it. `problem-spec(ex.source)` or a bare name creates the
+  source *model* example instead, a different instance. Keyed tokens avoid ambiguity such as `ILP/i64/bool`.
 - `cli-config(...)` renders the JSON `--config`; never `map(str).join(",")`.
 - Rules reduce with `pred reduce x.json --via route.json -o bundle.json` (`route.json` = one entry
-  selected from `pred path Src Tgt -o paths.json`), then `pred solve bundle.json`. There is no
-  `--to`, `target-spec()` or `load-results`.
+  selected from `pred path Src Tgt -o paths.json`), then `pred solve bundle.json`. `pred reduce` has no
+  `--to`; `target-spec()` and `load-results` do not exist.
 
 ## Writing content
 
@@ -103,7 +105,7 @@ Problem-def:
 3. Complexity claims cited or footnoted; consistent with `declare_variants!` complexity.
 4. `*Example.*` loaded via `load-model-example`, matches `examples.json`, hand-checkable, exercises
    the defining structure, shows the objective/verifier computation.
-5. `#figure(` present where the structure is visual; `pred-commands` uses `problem-spec` + `cli-config`.
+5. `#figure(` present where the structure is visual; `pred-commands` uses `problem-spec` (models) or `rule-spec` (rules) + `cli-config`.
 6. Definition matches `evaluate()` in `src/models/`; no important special case or relation missing.
 
 Reduction-rule:

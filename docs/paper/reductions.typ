@@ -564,6 +564,14 @@
   else { data.problem + "/" + data.variant.values().join("/") }
 }
 
+// Keyed spec (Problem/key=value/...): positional values can be ambiguous (e.g. ILP/i64/bool)
+#let keyed-spec(data) = {
+  data.problem + data.variant.pairs().map(((k, v)) => "/" + k + "=" + v).join()
+}
+
+// `pred create --example` arguments reproducing a rule example's source instance
+#let rule-spec(example) = keyed-spec(example.source) + " --to " + keyed-spec(example.target)
+
 #let theorem = thmplain("theorem", [#h(-1.2em)Rule], base_level: 1)
 #let proof = thmproof("proof", "Proof")
 #let definition = thmbox(
@@ -871,7 +879,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     *Example.* Consider the Petersen graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = sum_(v in S) w(v) = #alpha = #sym.alpha (G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
 
     #pred-commands(
-      "pred create --example MIS -o mis.json",
+      "pred create --example " + problem-spec(x) + " -o mis.json",
       "pred solve mis.json",
       "pred evaluate mis.json --config " + cli-config(x.optimal_config),
     )
@@ -1405,7 +1413,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     }).join("; "). The complement ${#complement.map(i => $v_#i$).join(", ")}$ is a maximum independent set ($#sym.alpha (G) = #alpha$, confirming $|"VC"| = n - alpha = #wS$).
 
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + problem-spec(x) + " -o mvc.json",
       "pred solve mvc.json",
       "pred evaluate mvc.json --config " + cli-config(x.optimal_config),
     )
@@ -3663,7 +3671,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The triangle $K = {#K.map(i => $v_#i$).join(", ")}$ is a maximum clique of size $omega(G) = #omega$: all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges. No #(omega + 1)-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${#K.map(i => $v_#i$).join(", ")}$.
 
     #pred-commands(
-      "pred create --example MaximumClique -o maximum-clique.json",
+      "pred create --example " + problem-spec(x) + " -o maximum-clique.json",
       "pred solve maximum-clique.json",
       "pred evaluate maximum-clique.json --config " + cli-config(x.optimal_config),
     )
@@ -11315,7 +11323,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [$n = #max2sat_mc.source.instance.num_vars$ variables, $m = #max2sat_mc.source.instance.clauses.len()$ clauses, target has #max2sat_mc.target.instance.graph.num_vertices vertices and #max2sat_mc.target.instance.graph.edges.len() edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
+      "pred create --example " + rule-spec(max2sat_mc) + " -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + cli-config(max2sat_mc_sol.source_config),
@@ -11366,7 +11374,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [$n = #max2sat_ilp.source.instance.num_vars$ variables, $m = #max2sat_ilp.source.instance.clauses.len()$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred create --example " + rule-spec(max2sat_ilp) + " -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + cli-config(max2sat_ilp_sol.source_config),
@@ -11528,7 +11536,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Petersen graph ($n = 10$): VC $arrow.l.r$ IS],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_mis) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_mis_sol.source_config),
@@ -11561,7 +11569,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [6-vertex source: two auxiliary centers encode the domination threshold],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
+      "pred create --example " + rule-spec(dmds_mmmc) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + cli-config(dmds_mmmc_sol.source_config),
@@ -11596,7 +11604,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [6-vertex unit graph: dominating set of size 2 gives total distance 4],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
+      "pred create --example " + rule-spec(dmds_msmc) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + cli-config(dmds_msmc_sol.source_config),
@@ -11681,7 +11689,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       let fmt-seq(xs) = "(" + fmt-values(xs) + ")"
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
+          "pred create --example " + rule-spec(mvc_lcs) + " -o mvc.json",
           "pred reduce mvc.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mvc.json --config " + cli-config(mvc_lcs_sol.source_config),
@@ -11722,7 +11730,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_fvs) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_fvs_sol.source_config),
@@ -11766,7 +11774,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
   extra: [
     #pred-commands(
-      "pred create --example MIS -o mis.json",
+      "pred create --example " + rule-spec(mis_clique) + " -o mis.json",
       "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mis.json --config " + cli-config(mis_clique_sol.source_config),
@@ -11822,7 +11830,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path $P_4$: $n = 4$ vertices, $K = 2$ bound],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmvc_cc.source) + " -o source.json",
+      "pred create --example " + rule-spec(dmvc_cc) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(dmvc_cc_sol.source_config),
@@ -11848,7 +11856,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Three-slot disjoint-union circuit on four atoms],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ec_ilp.source) + " -o ensemble.json",
+      "pred create --example " + rule-spec(ec_ilp) + " -o ensemble.json",
       "pred reduce ensemble.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ensemble.json --config " + cli-config(ec_ilp_sol.source_config),
@@ -11903,7 +11911,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path $P_3$: vertex cover ${1}$ maps to an AND/OR graph of weight 5],
   extra: [
     #pred-commands(
-      "pred create --example MVC -o mvc.json",
+      "pred create --example " + rule-spec(mvc_aog) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_aog_sol.source_config),
@@ -11964,7 +11972,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [10-spin Ising model on Petersen graph],
   extra: [
     #pred-commands(
-      "pred create --example SpinGlass -o spinglass.json",
+      "pred create --example " + rule-spec(sg_qubo) + " -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + cli-config(sg_qubo_sol.source_config),
@@ -12014,7 +12022,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       example-caption: [2D standard CVP with a coefficient box derived by the reduction],
       extra: [
         #pred-commands(
-          "pred create --example CVP -o cvp.json",
+          "pred create --example " + rule-spec(cvp_qubo) + " -o cvp.json",
           "pred reduce cvp.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate cvp.json --config " + cli-config(cvp_qubo_sol.source_config),
@@ -12060,7 +12068,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_qubo.source) + " -o kcoloring.json",
+      "pred create --example " + rule-spec(kc_qubo) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + cli-config(kc_qubo_sol.source_config),
@@ -12145,7 +12153,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with $n = #ksat_qc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_qc.source.instance)$ clause mapped to a quadratic congruence with a $#ksat_qc.target.instance.b.len()$-digit modulus],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_qc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_qc_sol.source_config),
     )
@@ -12217,7 +12225,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with 3 variables and 2 clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ss.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ss) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ss_sol.source_config),
@@ -12258,7 +12266,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
       extra: [
         #pred-commands(
-          "pred create --example SubsetSum -o subsetsum.json",
+          "pred create --example " + rule-spec(ss-cvp) + " -o subsetsum.json",
           "pred reduce subsetsum.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate subsetsum.json --config " + cli-config(ss-cvp-sol.source_config),
@@ -12342,7 +12350,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ks) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ks_sol.source_config),
@@ -12384,7 +12392,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ss_n elements, total sum $S = #part_ss_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ss) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ss_sol.source_config),
@@ -12426,7 +12434,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [#part_ifwm_n elements, total sum $S = #part_ifwm_total$, bottleneck $R = #part_ifwm_half$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_ifwm.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_ifwm) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_ifwm_sol.source_config),
@@ -12469,7 +12477,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [$n = #ks_qubo_num_items$ items, capacity $C = #ks_qubo.source.instance.capacity$],
   extra: [
     #pred-commands(
-      "pred create --example Knapsack -o knapsack.json",
+      "pred create --example " + rule-spec(ks_qubo) + " -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + cli-config(ks_qubo_sol.source_config),
@@ -12510,7 +12518,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [2-link worked example with 4 QUBO variables],
   extra: [
     #pred-commands(
-      "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
+      "pred create --example " + rule-spec(mdpik_qubo) + " -o ik.json",
       "pred reduce ik.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ik.json --config " + cli-config(mdpik_qubo_sol.source_config),
@@ -12565,7 +12573,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#fmt-values(mwc_qubo_terminals)}$, $|E| = #mwc_qubo_edges.len()$ edges],
   extra: [
     #pred-commands(
-      "pred create --example MinimumMultiwayCut -o minimummultiwaycut.json",
+      "pred create --example " + rule-spec(mwc_qubo) + " -o minimummultiwaycut.json",
       "pred reduce minimummultiwaycut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate minimummultiwaycut.json --config " + cli-config(mwc_qubo_sol.source_config),
@@ -12631,7 +12639,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
-      "pred create --example QUBO/f64 -o qubo.json",
+      "pred create --example " + rule-spec(qubo_ilp) + " -o qubo.json",
       "pred reduce qubo.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
@@ -12673,7 +12681,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [1-bit full adder to ILP],
   extra: [
     #pred-commands(
-      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_ilp) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_ilp_sol.source_config),
@@ -12729,7 +12737,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_mis) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_mis_sol.source_config),
@@ -12761,7 +12769,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [5-variable SAT with 3 unit clauses to 3-coloring],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_kc) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_kc_sol.source_config),
@@ -12789,7 +12797,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [5-variable 7-clause 3-SAT to dominating set],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_ds) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ds_sol.source_config),
@@ -12817,7 +12825,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-variable 4-clause SAT to equality-constrained integral flow],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_ifha) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ifha_sol.source_config),
@@ -12873,7 +12881,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Mixed-size clauses (sizes 1 to 5) to 3-SAT],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_ksat) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_ksat_sol.source_config),
@@ -12904,7 +12912,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-variable 2-clause SAT to MAX-2-SAT],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_max2sat) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_max2sat_sol.source_config),
@@ -12971,7 +12979,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-variable SAT formula to boolean circuit],
   extra: [
     #pred-commands(
-      "pred create --example SAT -o sat.json",
+      "pred create --example " + rule-spec(sat_cs) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_cs_sol.source_config),
@@ -13004,7 +13012,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Tseitin encoding of a circuit equation],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_sat) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_sat_sol.source_config),
@@ -13044,7 +13052,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [1-bit full adder to Ising model],
   extra: [
     #pred-commands(
-      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred create --example " + rule-spec(cs_sg) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cli-config(cs_sg_sol.source_config),
@@ -13097,7 +13105,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Factor $N = #fact_cs.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example Factoring -o factoring.json",
+      "pred create --example " + rule-spec(fact_cs) + " -o factoring.json",
       "pred reduce factoring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate factoring.json --config " + cli-config(fact_cs_sol.source_config),
@@ -13136,7 +13144,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],
   extra: [
     #pred-commands(
-      "pred create --example MaxCut -o maxcut.json",
+      "pred create --example " + rule-spec(mc_sg) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_sg_sol.source_config),
@@ -13162,7 +13170,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [10-spin Ising with alternating $J_(i j) in {plus.minus 1}$],
   extra: [
     #pred-commands(
-      "pred create --example SpinGlass -o spinglass.json",
+      "pred create --example " + rule-spec(sg_mc) + " -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + cli-config(sg_mc_sol.source_config),
@@ -13342,7 +13350,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [DAG with #mfdts_ilp.source.instance.num_vertices vertices, #mfdts_ilp.source.instance.inputs.len() inputs, #mfdts_ilp.source.instance.outputs.len() outputs, and #(mfdts_ilp.source.instance.num_vertices - mfdts_ilp.source.instance.inputs.len() - mfdts_ilp.source.instance.outputs.len()) internal vertices],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
+      "pred create --example " + rule-spec(mfdts_ilp) + " -o mfdts.json",
       "pred reduce mfdts.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mfdts.json --config " + cli-config(mfdts_ilp_sol.source_config),
@@ -13418,7 +13426,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
   extra: [
     #pred-commands(
-      "pred create --example MinimumFeedbackVertexSet/One -o fvs.json",
+      "pred create --example " + rule-spec(fvs_cg) + " -o fvs.json",
       "pred reduce fvs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate fvs.json --config " + cli-config(fvs_cg_sol.source_config),
@@ -13466,7 +13474,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mckp_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mckp_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mckp_ilp_sol.source_config),
@@ -13500,7 +13508,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mces_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mces_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mces_ilp_sol.source_config),
@@ -13538,7 +13546,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cmo_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(cmo_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(cmo_ilp_sol.source_config),
@@ -13578,7 +13586,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mewkc_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(mewkc_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mewkc_ilp_sol.source_config),
@@ -13614,7 +13622,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
   extra: [
     #pred-commands(
-      "pred create --example Knapsack -o knapsack.json",
+      "pred create --example " + rule-spec(ks_ilp) + " -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + cli-config(ks_ilp_sol.source_config),
@@ -13664,7 +13672,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       let total_value = chosen.map(((i, c)) => c * values.at(i)).sum()
       [
         #pred-commands(
-          "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
+          "pred create --example " + rule-spec(ik_ilp) + " -o integer-knapsack.json",
           "pred reduce integer-knapsack.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate integer-knapsack.json --config " + cli-config(ik_ilp_sol.source_config),
@@ -13719,7 +13727,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
   extra: [
     #pred-commands(
-      "pred create --example MaximumClique -o maximumclique.json",
+      "pred create --example " + rule-spec(clique_mis) + " -o maximumclique.json",
       "pred reduce maximumclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maximumclique.json --config " + cli-config(clique_mis_sol.source_config),
@@ -13796,7 +13804,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path $P_4$: $n = 4$ vertices, $m = 3$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ola_seqmwct.source) + " -o source.json",
+      "pred create --example " + rule-spec(ola_seqmwct) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(ola_seqmwct_sol.source_config),
@@ -13832,7 +13840,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [6-vertex, 7-edge graph: arrangement of length $11$ gives $4$ augmentations],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dola_c1ma.source) + " -o source.json",
+      "pred create --example " + rule-spec(dola_c1ma) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(dola_c1ma_sol.source_config),
@@ -13898,7 +13906,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_tsp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_tsp_sol.source_config),
@@ -13929,7 +13937,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Weighted $K_4$: the optimal tour $0 arrow 1 arrow 3 arrow 2 arrow 0$ with cost 80 is found by position-based ILP.],
   extra: [
     #pred-commands(
-      "pred create --example TSP -o tsp.json",
+      "pred create --example " + rule-spec(tsp_ilp) + " -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_ilp_sol.source_config),
@@ -13975,7 +13983,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [The 3-vertex path $0 arrow 1 arrow 2$ encoded as a 7-variable ILP with optimum 5.],
   extra: [
     #pred-commands(
-      "pred create --example LongestPath -o longest-path.json",
+      "pred create --example " + rule-spec(lp_ilp) + " -o longest-path.json",
       "pred reduce longest-path.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate longest-path.json --config " + cli-config(lp_ilp_sol.source_config),
@@ -14020,7 +14028,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [TSP on $K_3$ with weights $w_(01) = 1$, $w_(02) = 2$, $w_(12) = 3$: the QUBO ground state encodes the optimal tour with cost $1 + 2 + 3 = 6$.],
   extra: [
     #pred-commands(
-      "pred create --example TSP -o tsp.json",
+      "pred create --example " + rule-spec(tsp_qubo) + " -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + cli-config(tsp_qubo_sol.source_config),
@@ -14059,7 +14067,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [LCS of two strings over a 3-symbol alphabet],
   extra: [
     #pred-commands(
-      "pred create --example LCS -o lcs.json",
+      "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
       "pred reduce lcs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
@@ -14094,7 +14102,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(cs_ilp_str.source) + " -o source.json",
+      "pred create --example " + rule-spec(cs_ilp_str) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(cs_ilp_str_sol.source_config),
@@ -14137,7 +14145,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(css_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(css_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(css_ilp_sol.source_config),
@@ -14230,7 +14238,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Signed-weight exact tree formulation],
   extra: [
     #pred-commands(
-      "pred create --example SteinerTree -o steinertree.json",
+      "pred create --example " + rule-spec(st_ilp) + " -o steinertree.json",
       "pred reduce steinertree.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate steinertree.json --config " + cli-config(st_ilp_sol.source_config),
@@ -14257,7 +14265,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Unit-weight VC to Hitting Set ($n = #graph-num-vertices(mvc_hs.source.instance)$, $|E| = #graph-num-edges(mvc_hs.source.instance)$)],
   extra: [
     #pred-commands(
-      "pred create --example 'MVC {weight: One}' -o mvc.json",
+      "pred create --example " + rule-spec(mvc_hs) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_hs_sol.source_config),
@@ -14352,7 +14360,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$K_4$ with $n = #graph-num-vertices(mono_ilp.source.instance)$ vertices, $m = #graph-num-edges(mono_ilp.source.instance)$ edges, and $#mono_ilp.source.instance.triangles.len()$ triangles],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
+      "pred create --example " + rule-spec(mono_ilp) + " -o monochromatic-triangle.json",
       "pred reduce monochromatic-triangle.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate monochromatic-triangle.json --config " + cli-config(mono_ilp_sol.source_config),
@@ -14391,7 +14399,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [$|U| = #ss_bt.source.instance.universe_size$, $#ss_bt.source.instance.subsets.len()$ subsets, no normalization auxiliaries needed],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
+      "pred create --example " + rule-spec(ss_bt) + " -o set-splitting.json",
       "pred reduce set-splitting.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate set-splitting.json --config " + cli-config(ss_bt_sol.source_config),
@@ -14466,7 +14474,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [#n\-vertex graph with $k = #k$: non-incidence gadget construction],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_bcbs) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_bcbs_sol.source_config),
@@ -14531,7 +14539,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         .map(((i, _)) => i)
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mmm_ach.source) + " -o mmm.json",
+          "pred create --example " + rule-spec(mmm_ach) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + cli-config(mmm_ach_sol.source_config),
@@ -14592,7 +14600,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         .map(((i, _)) => i)
       [
         #pred-commands(
-          "pred create --example " + problem-spec(mmm_mmd.source) + " -o mmm.json",
+          "pred create --example " + rule-spec(mmm_mmd) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + cli-config(s-cfg),
@@ -14875,7 +14883,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [6-vertex graph ($n = 6$, $q = 2$): two $P_3$ paths],
   extra: [
     #pred-commands(
-      "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
+      "pred create --example " + rule-spec(ppl2_bcsf) + " -o ppl2.json",
       "pred reduce ppl2.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ppl2.json --config " + cli-config(ppl2_bcsf_sol.source_config),
@@ -15302,7 +15310,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [A bounded open-shop schedule],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(doss_ilp.source) + " -o schedule.json",
+      "pred create --example " + rule-spec(doss_ilp) + " -o schedule.json",
       "pred reduce schedule.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate schedule.json --config " + cli-config(doss_ilp.solutions.at(0).source_config),
@@ -15517,7 +15525,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hcd_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(hcd_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(hcd_ilp_sol.source_config),
@@ -15551,7 +15559,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ep_ilp.source) + " -o source.json",
+      "pred create --example " + rule-spec(ep_ilp) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(ep_ilp_sol.source_config),
@@ -15616,7 +15624,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_lc) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_lc_sol.source_config),
@@ -15666,7 +15674,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [A circuit meeting a length bound],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dlc_ilp.source) + " -o circuit.json",
+      "pred create --example " + rule-spec(dlc_ilp) + " -o circuit.json",
       "pred reduce circuit.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuit.json --config " + cli-config(dlc_ilp.solutions.at(0).source_config),
@@ -16206,7 +16214,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [4 cars, sequence length 8],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
+      "pred create --example " + rule-spec(ps_qubo) + " -o paintshop.json",
       "pred reduce paintshop.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate paintshop.json --config " + cli-config(ps_qubo_sol.source_config),
@@ -16286,7 +16294,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Path graph $P_4$ ($n = 4$, $|E| = 3$, $K = 5$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
+      "pred create --example " + rule-spec(rta_rtsa) + " -o rta.json",
       "pred reduce rta.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate rta.json --config " + cli-config(rta_rtsa_sol.source_config),
@@ -16409,7 +16417,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example-caption: [Diamond network: $n = 4$ vertices, $m = 5$ arcs, max flow $= 3$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mcmf_mcc.source) + " -o source.json",
+      "pred create --example " + rule-spec(mcmf_mcc) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mcmf_mcc_sol.source_config),
@@ -16467,7 +16475,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       example-caption: [$n = #mlr_n$ items, $#mlr_nv$ pairwise variables, $#mlr_nc$ transitivity constraints],
       extra: [
         #pred-commands(
-          "pred create --example MaximumLikelihoodRanking -o mlr.json",
+          "pred create --example " + rule-spec(mlr_ilp) + " -o mlr.json",
           "pred reduce mlr.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mlr.json --config " + cli-config(mlr_ilp_sol.source_config),
@@ -16511,7 +16519,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       example-caption: [$K_#ocst_n$, #ocst_nv variables, #ocst_nc constraints],
       extra: [
         #pred-commands(
-          "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
+          "pred create --example " + rule-spec(ocst_ilp) + " -o ocst.json",
           "pred reduce ocst.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate ocst.json --config " + cli-config(ocst_ilp_sol.source_config),
@@ -16966,7 +16974,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#hc_hp_n$ ($n = #hc_hp_n$): split $v_0$ into two copies with pendants],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_hp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_hp_sol.source_config),
@@ -16997,7 +17005,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [5-vertex graph with $k = #kc_si.source.instance.k$: clique detection via subgraph isomorphism],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_si) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_si_sol.source_config),
@@ -17061,7 +17069,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_mps_n elements, total sum $S = #part_mps_total$, deadline $D = #part_mps_deadline$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_mps) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_mps_sol.source_config),
@@ -17101,7 +17109,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_sosp_n elements, total sum $S = #part_sosp_total$, optimum $S^2 / 2 = #part_sosp_opt$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_sosp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_sosp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_sosp_sol.source_config),
@@ -17134,7 +17142,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hc_btsp.source.instance)$ vertices, $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges: HC $arrow.r$ BTSP],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_btsp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_btsp_sol.source_config),
@@ -17165,7 +17173,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [5-vertex graph ($n = #kc_cbq.source.instance.graph.num_vertices$, $|E| = #kc_cbq.source.instance.graph.edges.len()$, $k = #kc_cbq.source.instance.k$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
+      "pred create --example " + rule-spec(kc_cbq) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + cli-config(kc_cbq_sol.source_config),
@@ -17214,7 +17222,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|X| = #x3c_ss.source.instance.universe_size$, $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_ss) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_ss_sol.source_config),
@@ -17253,7 +17261,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $n = #ksat_dmvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses reduced to Decision Minimum Vertex Cover with bound $k = #ksat_dmvc.target.instance.bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_dmvc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_dmvc_sol.source_config),
@@ -17289,7 +17297,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-vertex path with bound $k = #dmvc_hc.source.instance.bound$: one selector threads two cover-testing gadgets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
+      "pred create --example " + rule-spec(dmvc_hc) + " -o dmvc.json",
       "pred reduce dmvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmvc.json --config " + cli-config(dmvc_hc_sol.source_config),
@@ -17362,7 +17370,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Single clause ($n = #ksat_1in3.source.instance.num_vars$, $m = #sat-num-clauses(ksat_1in3.source.instance)$): 3-SAT $arrow.r$ 1-in-3 SAT],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_1in3) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_1in3_sol.source_config),
@@ -17414,7 +17422,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause 3-SAT instance ($n = #ksat_d2cif.source.instance.num_vars$, $m = #sat-num-clauses(ksat_d2cif.source.instance)$) reduced to Directed Two-Commodity Integral Flow],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_d2cif) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_d2cif_sol.source_config),
@@ -17465,7 +17473,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause 3-SAT instance ($n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$) reduced to Register Sufficiency],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_rs) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_rs_sol.source_config),
@@ -17535,7 +17543,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle graph ($n = #graph-num-vertices(mvc_mfas.source.instance)$, $|E| = #graph-num-edges(mvc_mfas.source.instance)$): VC $arrow.r$ FAS via vertex splitting],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
+      "pred create --example " + rule-spec(mvc_mfas) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + cli-config(mvc_mfas_sol.source_config),
@@ -17579,7 +17587,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $m = #ksat_kc.source.instance.clauses.len()$ clauses, $n = #ksat_kc.source.instance.num_vars$ variables $arrow.r$ $k$-clique on $#ksat_kc.target.instance.graph.num_vertices$ vertices],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_kc) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_kc_sol.source_config),
@@ -17616,7 +17624,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Single-clause 3-SAT reduced to #ksat_co.target.instance.num_elements cyclic-order elements],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_co) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_co_sol.source_config),
@@ -17660,7 +17668,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-SAT with $n = #ksat_ps.source.instance.num_vars$ variables and $m = #ksat_ps.source.instance.clauses.len()$ clause $arrow.r$ unit-task preemptive schedule on #ksat_ps.target.instance.lengths.len() jobs and $#ksat_ps.target.instance.num_processors$ processors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ps) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ps_sol.source_config),
@@ -17715,7 +17723,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Two-clause satisfiable formula reduced to a timetable gadget instance],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_td) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_td_sol.source_config),
@@ -17786,7 +17794,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4-cycle graph ($n = #graph-num-vertices(hc_bicon.source.instance)$, $|E| = #graph-num-edges(hc_bicon.source.instance)$): HC $arrow.r$ biconnectivity augmentation],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_bicon) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_bicon_sol.source_config),
@@ -17828,7 +17836,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4-cycle ($n = #hc_sca_n$): HC to budget-#hc_sca_n SCA],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_sca) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_sca_sol.source_config),
@@ -17863,7 +17871,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#hc_sc_n$ ($n = #hc_sc_n$): vertex splitting to Stacker Crane],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_sc) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_sc_sol.source_config),
@@ -17899,7 +17907,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#hc_rp_n$ ($n = #hc_rp_n$): vertex splitting to Rural Postman],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_rp) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_rp_sol.source_config),
@@ -17931,7 +17939,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [The three-vertex path has an independent set of size at least two],
   extra: [
     #pred-commands(
-      "pred create --example DecisionMaximumIndependentSet/One -o independent-set.json",
+      "pred create --example " + rule-spec(mis_ifb) + " -o independent-set.json",
       "pred reduce independent-set.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred extract bundle.json --config " + cli-config(mis_ifb_sol.target_config),
@@ -17959,7 +17967,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle graph $C_#hc_qa.source.instance.graph.num_vertices$ ($n = #hc_qa.source.instance.graph.num_vertices$, $|E| = #hc_qa.source.instance.graph.edges.len()$)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
+      "pred create --example " + rule-spec(hc_qa) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + cli-config(hc_qa_sol.source_config),
@@ -18008,7 +18016,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_bp_n elements, total sum $S = #part_bp_total$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_bp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_bp_sol.source_config),
@@ -18039,7 +18047,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_msp.source.instance.subsets.len() subsets over $3q = #x3c_msp.source.instance.universe_size$ elements],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_msp) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_msp_sol.source_config),
@@ -18079,7 +18087,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_mfdts.source.instance.subsets.len() triples over $3q = #x3c_mfdts.source.instance.universe_size$ elements, with one shared output],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_mfdts) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_mfdts_sol.source_config),
@@ -18114,7 +18122,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#x3c_mas.source.instance.subsets.len() triples over $3q = #x3c_mas.source.instance.universe_size$ elements, with decision bound $q = #(x3c_mas.source.instance.universe_size / 3)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_mas) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_mas_sol.source_config),
@@ -18163,7 +18171,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#subsetsum-num-elements(ss_part.source.instance) elements, target $T = #ss_part.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_part.source) + " -o subsetsum.json",
+      "pred create --example " + rule-spec(ss_part) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + cli-config(ss_part_sol.source_config),
@@ -18216,7 +18224,7 @@ The following table shows concrete target-variable counts for example instances,
       let chosen_sum = chosen.map(i => sizes.at(i)).sum()
       [
         #pred-commands(
-          "pred create --example " + problem-spec(ss_ik.source) + " -o subsetsum.json",
+          "pred create --example " + rule-spec(ss_ik) + " -o subsetsum.json",
           "pred solve subsetsum.json",
           "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
           "pred solve integer-knapsack.json",
@@ -18264,7 +18272,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #sat_nt.source.instance.num_vars$ variables, $m = #sat-num-clauses(sat_nt.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(sat_nt.source) + " -o sat.json",
+      "pred create --example " + rule-spec(sat_nt) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + cli-config(sat_nt_sol.source_config),
@@ -18296,7 +18304,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(kc_pic.source.instance)$ vertices, $k = #kc_pic.source.instance.num_colors$ colors],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(kc_pic.source) + " -o kcoloring.json",
+      "pred create --example " + rule-spec(kc_pic) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + cli-config(kc_pic_sol.source_config),
@@ -18392,7 +18400,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.variables.len() variables and #clustering_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
+      "pred create --example " + rule-spec(clustering_ilp) + " -o clustering.json",
       "pred reduce clustering.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate clustering.json --config " + cli-config(clustering_ilp_sol.source_config),
@@ -18437,7 +18445,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edges, $K = #pic_mcbc.source.instance.num_cliques$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
+      "pred create --example " + rule-spec(pic_mcbc) + " -o partition-into-cliques.json",
       "pred reduce partition-into-cliques.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition-into-cliques.json --config " + cli-config(pic_mcbc_sol.source_config),
@@ -18472,7 +18480,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mcbc_migb.source) + " -o source.json",
+      "pred create --example " + rule-spec(mcbc_migb) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(mcbc_migb_sol.source_config),
@@ -18499,7 +18507,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #ksat_ker.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_ker.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_ker.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_ker) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_ker_sol.source_config),
@@ -18547,7 +18555,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hp_dcst.source.instance)$ vertices, $K = 2$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hp_dcst.source) + " -o hampath.json",
+      "pred create --example " + rule-spec(hp_dcst) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + cli-config(hp_dcst_sol.source_config),
@@ -18579,7 +18587,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #nae_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ss.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_ss.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_ss) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_ss_sol.source_config),
@@ -18618,7 +18626,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #nae_ppm.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ppm.source.instance)$ clauses, target $K = #nae_ppm.target.instance.num_matchings$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_ppm) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_ppm_sol.source_config),
@@ -18664,7 +18672,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_sp.source.instance.universe_size$, $|cal(C)| = #x3c_sp.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_sp.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_sp) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_sp_sol.source_config),
@@ -18705,7 +18713,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_bdst.source.instance.universe_size$, $|cal(C)| = #x3c_bdst.source.instance.subsets.len()$ subsets; target $D = #x3c_bdst.target.instance.diameter_bound$, $B = #x3c_bdst.target.instance.weight_bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_bdst.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_bdst) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_bdst_sol.source_config),
@@ -18754,7 +18762,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#subsetsum-num-elements(ss_iem.source.instance) elements, target $B = #ss_iem.source.instance.target$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ss_iem.source) + " -o subsetsum.json",
+      "pred create --example " + rule-spec(ss_iem) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + cli-config(ss_iem_sol.source_config),
@@ -18795,7 +18803,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #ksat_si.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_si.source.instance)$ clauses],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(ksat_si.source) + " -o ksat.json",
+      "pred create --example " + rule-spec(ksat_si) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + cli-config(ksat_si_sol.source_config),
@@ -18834,7 +18842,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$m = 2$ triples, target sum $B = 15$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(n3dm_nmts.source) + " -o source.json",
+      "pred create --example " + rule-spec(n3dm_nmts) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cli-config(n3dm_nmts_sol.source_config),
@@ -18859,7 +18867,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_stw.source.instance.sizes.len() elements, total $= #part_stw.source.instance.sizes.sum()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_stw.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_stw) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_stw_sol.source_config),
@@ -18916,7 +18924,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_oss.source.instance.sizes.len() elements, $m = #part_oss.target.instance.inner.num_machines$ machines],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_oss.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_oss) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_oss_sol.source_config),
@@ -18970,7 +18978,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_mc.source.instance)$ clauses, $M = #(sat-num-clauses(nae_mc.source.instance) + 1)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
+      "pred create --example " + rule-spec(nae_mc) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + cli-config(nae_mc_sol.source_config),
@@ -19022,7 +19030,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_tp.source.instance.universe_size$, $t = #tdm_tp.source.instance.triples.len()$, target has #tdm_tp.target.instance.sizes.len() numbers],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_tp) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_tp_sol.source_config),
@@ -19092,7 +19100,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.variables.len() variables and #tdm_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_ilp) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_ilp_sol.source_config),
@@ -19137,7 +19145,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$q = #tdm_mwd.source.instance.universe_size$, $m = #tdm_mwd.source.instance.triples.len()$ triples $arrow.r$ #tdm_mwd.target.instance.matrix.len() $times$ #tdm_mwd.target.instance.matrix.at(0).len() parity-check matrix],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tdm_mwd.source) + " -o three-dimensional-matching.json",
+      "pred create --example " + rule-spec(tdm_mwd) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_mwd_sol.source_config),
@@ -19184,7 +19192,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#tp_rcs.source.instance.sizes.len() elements, $B = #tp_rcs.source.instance.bound$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
+      "pred create --example " + rule-spec(tp_rcs) + " -o threepartition.json",
       "pred reduce threepartition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate threepartition.json --config " + cli-config(tp_rcs_sol.source_config),
@@ -19219,7 +19227,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [3-Partition with $3m = #tp_srd.source.instance.sizes.len()$ elements and $B = #tp_srd.source.instance.bound$ mapped to #tp_srd.target.instance.lengths.len() sequencing tasks],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
+      "pred create --example " + rule-spec(tp_srd) + " -o tp.json",
       "pred reduce tp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tp.json --config " + cli-config(tp_srd_sol.source_config),
@@ -19258,7 +19266,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Triangle graph ($n = #mc_mcbs.source.instance.graph.num_vertices$, $|E| = #mc_mcbs.source.instance.graph.edges.len()$, unit weights) mapped to $K_#mc_mcbs.target.instance.graph.num_vertices$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
+      "pred create --example " + rule-spec(mc_mcbs) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_mcbs_sol.source_config),
@@ -19297,7 +19305,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Cycle $C_#mc_mmc_n$ (unit weights, $W = #mc_mmc_W$): adjacency matrix as quadratic form],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mc_mmc.source) + " -o maxcut.json",
+      "pred create --example " + rule-spec(mc_mmc) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + cli-config(mc_mmc_sol.source_config),
@@ -19335,7 +19343,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hp_ist.source.instance)$ vertices, target tree $P_n$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hp_ist.source) + " -o hampath.json",
+      "pred create --example " + rule-spec(hp_ist) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + cli-config(hp_ist_sol.source_config),
@@ -19367,7 +19375,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$|U| = #x3c_gf2.source.instance.universe_size$, $|cal(C)| = #x3c_gf2.source.instance.subsets.len()$ subsets],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(x3c_gf2.source) + " -o x3c.json",
+      "pred create --example " + rule-spec(x3c_gf2) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + cli-config(x3c_gf2_sol.source_config),
@@ -19410,7 +19418,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [#part_pp.source.instance.sizes.len() elements, total $= #part_pp.source.instance.sizes.sum()$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(part_pp.source) + " -o partition.json",
+      "pred create --example " + rule-spec(part_pp) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + cli-config(part_pp_sol.source_config),
@@ -19462,7 +19470,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(hpbtv_lp.source.instance)$ vertices, $s = #hpbtv_lp.source.instance.source_vertex$, $t = #hpbtv_lp.source.instance.target_vertex$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(hpbtv_lp.source) + " -o hampath2v.json",
+      "pred create --example " + rule-spec(hpbtv_lp) + " -o hampath2v.json",
       "pred reduce hampath2v.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath2v.json --config " + cli-config(hpbtv_lp_sol.source_config),
@@ -19494,7 +19502,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [$n = #graph-num-vertices(gp_mc.source.instance)$ vertices, $|E| = #graph-num-edges(gp_mc.source.instance)$],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(gp_mc.source) + " -o graphpart.json",
+      "pred create --example " + rule-spec(gp_mc) + " -o graphpart.json",
       "pred reduce graphpart.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate graphpart.json --config " + cli-config(gp_mc_sol.source_config),
@@ -19552,7 +19560,7 @@ The following table shows concrete target-variable counts for example instances,
   example-caption: [Canonical PCSF $arrow$ Steiner Tree instance (path $0 - 1 - 2$, $n = #pcsf_st_n$, $m = #pcsf_st_m$, $k = #pcsf_st_k$ prized vertices)],
   extra: [
     #pred-commands(
-      "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
+      "pred create --example " + rule-spec(pcsf_st) + " -o pcsf.json",
       "pred reduce pcsf.json --via route.json -o bundle.json",
       "pred solve bundle.json",
     )
