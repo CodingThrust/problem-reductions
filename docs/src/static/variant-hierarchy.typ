@@ -47,8 +47,6 @@
     node((4.2, 1), [K1], fill: k-fill, corner-radius: 5pt, inset: 6pt),
     node((4.6, 1), [K2], fill: k-fill, corner-radius: 5pt, inset: 6pt),
     node((5, 1), [K3], fill: k-fill, corner-radius: 5pt, inset: 6pt),
-    node((5.4, 1), [K4], fill: k-fill, corner-radius: 5pt, inset: 6pt),
-    node((5.8, 1), [K5], fill: k-fill, corner-radius: 5pt, inset: 6pt),
   )
 
   v(3mm)
