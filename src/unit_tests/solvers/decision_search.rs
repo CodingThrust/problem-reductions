@@ -135,3 +135,23 @@ fn test_decision_search_infeasibility_and_evaluation_failure() {
         assert!(matches!(result, Err(SolveError::Evaluation(_))));
     }
 }
+
+#[test]
+fn test_decision_search_matches_brute_force_on_five_cycle() {
+    let graph = SimpleGraph::cycle(5);
+    let min = MinimumVertexCover::new(graph.clone(), vec![1_i64; 5]);
+    let max = MaximumIndependentSet::new(graph, vec![1_i64; 5]);
+    let solver = crate::solvers::BruteForce::new();
+    let min_witness = solver.solve(&min).unwrap().unwrap();
+    let max_witness = solver.solve(&max).unwrap().unwrap();
+    assert_eq!(min.evaluate(&min_witness).unwrap().0, Some(3));
+    assert_eq!(max.evaluate(&max_witness).unwrap().0, Some(2));
+    assert_eq!(
+        solve_via_decision(&min, 0, 5).unwrap(),
+        min.evaluate(&min_witness).unwrap().0
+    );
+    assert_eq!(
+        solve_via_decision(&max, 0, 5).unwrap(),
+        max.evaluate(&max_witness).unwrap().0
+    );
+}
