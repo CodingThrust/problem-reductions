@@ -1400,3 +1400,22 @@ fn test_find_rule_example_maxcut_to_minimumcutintoboundedsets() {
     assert_eq!(example.source.problem, "MaxCut");
     assert_eq!(example.target.problem, "MinimumCutIntoBoundedSets");
 }
+
+#[test]
+fn test_small_decision_model_examples_have_valid_witnesses() {
+    for spec in [
+        "DecisionOpenShopScheduling",
+        "DecisionLongestCircuit",
+        "DecisionMinimumVertexCover/SimpleGraph/One",
+    ] {
+        let problem = crate::registry::parse_catalog_problem_ref(spec)
+            .unwrap()
+            .to_export_ref();
+        let example = find_model_example(&problem).unwrap();
+        let model = load_dyn(&example.problem, &example.variant, example.instance.clone()).unwrap();
+        assert_eq!(
+            model.evaluate_witness_dyn(&example.optimal_config).unwrap(),
+            Some("Or(true)".to_string())
+        );
+    }
+}

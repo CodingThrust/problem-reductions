@@ -1421,7 +1421,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("DecisionMinimumVertexCover")
+  let x = load-model-example("DecisionMinimumVertexCover", variant: (graph: "SimpleGraph", weight: "i64"))
   let inner = x.instance.inner
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
