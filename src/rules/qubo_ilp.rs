@@ -90,15 +90,14 @@ where
     })
 }
 
+#[rustfmt::skip]
 macro_rules! impl_qubo_to_ilp {
     ($coefficient:ty) => {
         #[reduction(
-            transform = upper_bound {
-                num_vars = "num_vars^2 + num_vars",
-                num_constraints = "3 * num_vars^2",
-            },
-            unavailable = {
-                num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+            transform = exact {
+                num_vars = "num_vars + num_quadratic_terms",
+                num_constraints = "3 * num_quadratic_terms",
+                num_nonzeros = "7 * num_quadratic_terms",
             }
         )]
         impl ReduceTo<ILP<bool, $coefficient>> for QUBO<$coefficient> {
@@ -108,7 +107,7 @@ macro_rules! impl_qubo_to_ilp {
                 reduce_qubo(self)
             }
         }
-    }
+    };
 }
 
 impl_qubo_to_ilp!(i64);

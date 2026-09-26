@@ -258,6 +258,11 @@ impl<W: Clone> QUBO<W> {
         self.num_vars
     }
 
+    /// Number of nonzero off-diagonal coefficients.
+    pub fn num_quadratic_terms(&self) -> usize {
+        self.entries.iter().filter(|(i, j, _)| i != j).count()
+    }
+
     /// Nonzero upper-triangular coefficients `(i, j, Q[i][j])`, sorted by `(i, j)`.
     pub fn entries(&self) -> &[(usize, usize, W)] {
         &self.entries
@@ -293,7 +298,10 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_parameters![("num_vars", num_vars),];
+    crate::problem_parameters![
+        ("num_vars", num_vars),
+        ("num_quadratic_terms", num_quadratic_terms),
+    ];
 
     fn evaluate(
         &self,

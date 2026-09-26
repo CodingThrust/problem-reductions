@@ -43,6 +43,9 @@ impl ReductionResult for ReductionSPToQUBO {
 #[reduction(
     transform = exact {
         num_vars = "num_sets",
+    },
+    unavailable = {
+        num_quadratic_terms = "the number of overlapping set pairs is not a registered source parameter",
     }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {

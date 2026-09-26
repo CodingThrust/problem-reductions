@@ -80,6 +80,8 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
 
 #[reduction(transform = exact {
     num_vars = "num_orientation_samples",
+}, unavailable = {
+    num_quadratic_terms = "the nonzero products depend on the sampled geometry",
 })]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
     type Result = ReductionMinimumDiscretePlanarInverseKinematicsToQUBO;

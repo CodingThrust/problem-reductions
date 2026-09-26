@@ -332,6 +332,9 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {}
 #[reduction(
     transform = exact {
         num_vars = "num_vars",
+    },
+    unavailable = {
+        num_quadratic_terms = "clause literals can overlap and cancel in the QUBO coefficients",
     }
 )]
 impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> {
@@ -365,6 +368,9 @@ impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> {
 #[reduction(
     transform = exact {
         num_vars = "num_vars + num_clauses",
+    },
+    unavailable = {
+        num_quadratic_terms = "clause literals can overlap and cancel in the QUBO coefficients",
     }
 )]
 impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K3> {

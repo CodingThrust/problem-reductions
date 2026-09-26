@@ -86,6 +86,8 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
 
 #[reduction(transform = exact {
     num_vars = "num_terminals * num_vertices",
+}, unavailable = {
+    num_quadratic_terms = "the nonzero products depend on edge weights and terminal placement",
 })]
 impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMinimumMultiwayCutToQUBO;

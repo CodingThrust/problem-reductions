@@ -233,6 +233,7 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
 
 #[reduction(transform = unavailable {
     num_vars = "the exact encoding size depends on the concrete basis and target values",
+    num_quadratic_terms = "the number of nonzero products depends on the concrete basis coefficients",
 })]
 impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;
