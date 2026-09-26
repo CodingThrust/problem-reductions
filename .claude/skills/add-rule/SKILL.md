@@ -168,6 +168,8 @@ Add to `src/rules/mod.rs`:
 
 Create `src/unit_tests/rules/<source>_<target>.rs`:
 
+Follow the [reduction parameter testing requirement](../../CLAUDE.md#reduction-parameter-relation): the shared test must cover every declared `exact` or `upper_bound` field using a valid source instance.
+
 **Required: closed-loop test** (`test_<source>_to_<target>_closed_loop`):
 ```rust
 // 1. Create source problem instance

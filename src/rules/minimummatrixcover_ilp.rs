@@ -56,10 +56,8 @@ fn y_index(n: usize, i: usize, j: usize) -> usize {
     transform = exact {
         num_vars = "num_rows + num_rows * (num_rows - 1) / 2",
         num_constraints = "3 * num_rows * (num_rows - 1) / 2",
+        num_nonzeros = "7 * num_rows * (num_rows - 1) / 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
     type Result = ReductionMinimumMatrixCoverToILP;

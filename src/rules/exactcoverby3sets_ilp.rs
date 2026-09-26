@@ -43,9 +43,7 @@ impl crate::rules::AggregateReductionResult for ReductionX3CToILP {}
     transform = exact {
         num_vars = "num_subsets",
         num_constraints = "universe_size + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "4 * num_subsets",
     }
 )]
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {

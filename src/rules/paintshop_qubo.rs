@@ -40,6 +40,8 @@ impl ReductionResult for ReductionPaintShopToQUBO {
 
 #[reduction(transform = exact {
     num_vars = "num_cars",
+}, unavailable = {
+    num_quadratic_terms = "adjacency contributions can cancel between repeated car pairs",
 })]
 impl ReduceTo<QUBO<i64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;

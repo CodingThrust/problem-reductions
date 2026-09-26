@@ -36,9 +36,7 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
     transform = exact {
         num_vars = "num_items",
         num_constraints = "num_items + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "2 * num_items",
     }
 )]
 impl ReduceTo<ILP<i64>> for IntegerKnapsack {

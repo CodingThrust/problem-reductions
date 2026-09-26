@@ -139,9 +139,7 @@ impl crate::rules::AggregateReductionResult for ReductionCDFTToILP {}
     transform = exact {
         num_vars = "num_objects * total_domain_size + num_objects * num_frequency_cells",
         num_constraints = "num_objects * num_attributes + num_known_values + num_frequency_cells + 3 * num_objects * num_frequency_cells",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "num_objects * total_domain_size + num_known_values + 8 * num_objects * num_frequency_cells",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {

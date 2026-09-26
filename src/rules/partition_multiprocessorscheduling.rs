@@ -56,9 +56,7 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToMPS {}
 #[reduction(
     transform = exact {
         num_tasks = "num_elements",
-    },
-    unavailable = {
-        num_processors = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_processors = "2",
     }
 )]
 impl ReduceTo<MultiprocessorScheduling> for Partition {

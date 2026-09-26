@@ -81,6 +81,7 @@ impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
 #[reduction(
     transform = unavailable {
         num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
+        num_quadratic_terms = "the nonzero products depend on generated penalty coefficients",
     }
 )]
 impl ReduceTo<QUBO<i64>> for ILP<bool> {

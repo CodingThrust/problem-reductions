@@ -152,3 +152,286 @@ fn canonical_examples_satisfy_upper_bound_parameter_contracts() {
         }
     }
 }
+
+fn check_reduced_parameters<S, T>(source: S, fields: &[&str], relation: ParameterRelation)
+where
+    S: Problem + ReduceTo<T>,
+    T: Problem,
+{
+    let reduction = source.reduce_to().expect("reduction should succeed");
+    let actual = reduction.target_problem().parameters();
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == S::NAME
+                && entry.target_name == T::NAME
+                && entry.source_variant() == S::variant()
+                && entry.target_variant() == T::variant()
+        })
+        .expect("direct reduction is registered");
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().expect("symbolic transform exists");
+    assert_eq!(transform.relation(), relation, "{} -> {}", S::NAME, T::NAME);
+    let predicted = transform.evaluate(&source.parameters()).unwrap();
+    if relation == ParameterRelation::Exact {
+        for (field, _) in transform.expressions() {
+            if fields.contains(&field) {
+                continue;
+            }
+            assert_eq!(
+                predicted.get(field),
+                actual.get(field),
+                "{} -> {}: {field}",
+                S::NAME,
+                T::NAME
+            );
+        }
+    }
+    for &field in fields {
+        assert_eq!(
+            predicted.get(field),
+            actual.get(field),
+            "{} -> {}: {field}",
+            S::NAME,
+            T::NAME
+        );
+        assert!(
+            !contract
+                .unavailable()
+                .iter()
+                .any(|item| item.field == field),
+            "{} -> {}: {field} is still unavailable",
+            S::NAME,
+            T::NAME
+        );
+    }
+}
+
+#[test]
+fn newly_exact_parameters_match_reduced_instances() {
+    use crate::models::algebraic::MinimumMatrixCover;
+    use crate::models::algebraic::{
+        IntegerVariable, LinearConstraint, ObjectiveSense, QuadraticAssignment, BMF, ILP,
+    };
+    use crate::models::graph::BicliqueCover;
+    use crate::models::graph::{
+        HamiltonianPath, MaximumContactMapOverlap, MinimumVertexCover, OptimalLinearArrangement,
+    };
+    use crate::models::misc::{
+        ClosestString, ConsistencyOfDatabaseFrequencyTables, ExpectedRetrievalCost,
+        FeasibleRegisterAssignment, LongestCommonSubsequence, MaximumLikelihoodRanking,
+        MultiprocessorScheduling, Partition, RegisterSufficiency, ResourceConstrainedScheduling,
+        SequencingToMinimizeWeightedCompletionTime, SumOfSquaresPartition, ThreePartition,
+    };
+    use crate::models::set::{IntegerKnapsack, ThreeDimensionalMatching};
+    use crate::types::One;
+
+    let exact = ParameterRelation::Exact;
+    check_reduced_parameters::<_, ILP<bool>>(
+        BMF::new(vec![vec![true, false], vec![false, true]], 2),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<i64>>(
+        ClosestString::new(2, vec![vec![0, 1], vec![1, 0]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        ConsistencyOfDatabaseFrequencyTables::new(1, vec![2, 2], vec![], vec![]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        ExactCoverBy3Sets::new(3, vec![[0, 1, 2]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool, f64>>(
+        ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap(),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<i64>>(
+        FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<i64>>(
+        IntegerKnapsack::new(vec![3, 4], vec![5, 6], 7).unwrap(),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0, 1]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        MaximumContactMapOverlap::new(3, vec![(0, 2)], 3, vec![(0, 1)]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        MaximumLikelihoodRanking::new(vec![vec![0, 1, 2], vec![2, 0, 1], vec![1, 2, 0]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        MinimumMatrixCover::new(vec![vec![0, 2], vec![3, 0]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<i64>>(
+        RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        SumOfSquaresPartition::new(vec![1, 2, 3], 2),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        ThreeDimensionalMatching::new(2, vec![(0, 1, 1), (1, 0, 0)]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        QuadraticAssignment::new(vec![vec![0, 1], vec![2, 0]], vec![vec![0, 3], vec![4, 0]]),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, BicliqueCover>(
+        BMF::new(vec![vec![true, false], vec![false, true]], 1),
+        &["num_vertices", "left_size", "right_size", "rank"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        ILP::<i64>::with_variables(
+            vec![IntegerVariable::new(Some(0), Some(3)).unwrap()],
+            vec![LinearConstraint::le(vec![(0, 1)], 2)],
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap(),
+        &["num_constraints"],
+        exact,
+    );
+    check_reduced_parameters::<_, LongestCommonSubsequence>(
+        MinimumVertexCover::new(SimpleGraph::path(4), vec![One; 4]),
+        &["sum_triangular_lengths"],
+        exact,
+    );
+    check_reduced_parameters::<_, SequencingToMinimizeWeightedCompletionTime>(
+        OptimalLinearArrangement::new(SimpleGraph::path(4)),
+        &["num_precedences"],
+        exact,
+    );
+    check_reduced_parameters::<_, MultiprocessorScheduling>(
+        Partition::new(vec![1, 2, 3]).unwrap(),
+        &["num_processors"],
+        exact,
+    );
+    check_reduced_parameters::<_, ResourceConstrainedScheduling>(
+        ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15),
+        &["deadline", "num_resources"],
+        exact,
+    );
+}
+
+#[test]
+fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
+    use crate::models::algebraic::{QuadraticAssignment, BMF, ILP};
+    use crate::models::graph::{
+        BicliqueCover, HamiltonianCircuit, HamiltonianPath, MinimumVertexCover,
+    };
+    use crate::models::misc::{
+        ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue, LongestCommonSubsequence,
+        MaximumLikelihoodRanking, RegisterSufficiency,
+    };
+
+    let exact = ParameterRelation::Exact;
+    check_reduced_parameters::<_, ILP<bool>>(
+        ConsistencyOfDatabaseFrequencyTables::new(
+            2,
+            vec![2, 2],
+            vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
+            vec![KnownValue::new(0, 0, 0)],
+        ),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        MaximumLikelihoodRanking::new(vec![]),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<i64>>(
+        RegisterSufficiency::new(0, vec![], 0),
+        &["num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        QuadraticAssignment::new(vec![], vec![vec![0]]),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        QuadraticAssignment::new(vec![vec![0]], vec![vec![0, 1], vec![1, 0]]),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        HamiltonianPath::new(SimpleGraph::new(0, vec![])),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        HamiltonianPath::new(SimpleGraph::new(1, vec![])),
+        &["num_vars", "num_constraints", "num_nonzeros"],
+        exact,
+    );
+    check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
+        HamiltonianCircuit::new(SimpleGraph::new(0, vec![])),
+        &["num_consecutive_positions"],
+        ParameterRelation::UpperBound,
+    );
+    check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
+        HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        &["num_consecutive_positions"],
+        ParameterRelation::UpperBound,
+    );
+    check_reduced_parameters::<_, LongestCommonSubsequence>(
+        MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![]),
+        &["sum_triangular_lengths"],
+        exact,
+    );
+
+    let source = BMF::new(vec![vec![true, false], vec![false, true]], 1);
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
+    assert_eq!(
+        reduction.target_problem().parameters().get("num_edges"),
+        Some(2)
+    );
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| entry.source_name == "BMF" && entry.target_name == "BicliqueCover")
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    assert!(contract.transform().unwrap().get("num_edges").is_none());
+    assert!(contract
+        .unavailable()
+        .iter()
+        .any(|field| field.field == "num_edges"));
+}

@@ -51,9 +51,7 @@ impl crate::rules::AggregateReductionResult for ReductionFeasibleRegisterAssignm
     transform = exact {
         num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
         num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "4 * num_vertices + 4 * num_arcs + 7 * num_vertices * (num_vertices - 1) / 2 + 6 * num_same_register_pairs",
     }
 )]
 impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
