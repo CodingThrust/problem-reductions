@@ -136,8 +136,8 @@ pub use problemreductions_macros::{
 pub use inventory;
 
 #[cfg(all(test, feature = "example-db"))]
-#[path = "unit_tests/exact_parameter_randomized.rs"]
-mod exact_parameter_randomized;
+#[path = "unit_tests/parameter_formula_validation.rs"]
+mod parameter_formula_validation;
 #[cfg(all(test, feature = "example-db"))]
 #[path = "unit_tests/symbolic_parameter_contracts.rs"]
 mod symbolic_parameter_contracts;

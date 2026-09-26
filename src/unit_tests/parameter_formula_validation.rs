@@ -94,9 +94,10 @@ fn variations(value: &Value) -> Vec<Value> {
     }
 }
 
-fn random_source(
+fn sampled_source(
     entry: &ReductionEntry,
     sources: &BTreeMap<SourceKey, Vec<Value>>,
+    allow_canonical: bool,
 ) -> Result<Box<dyn DynProblem>, String> {
     let variant = ReductionGraph::variant_to_map(&entry.source_variant());
     let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
@@ -214,7 +215,13 @@ fn random_source(
         }
         same_size.get_or_insert(problem);
     }
-    same_size.ok_or_else(|| format!("no valid variation for {key:?}: {base}"))
+    if let Some(problem) = same_size {
+        return Ok(problem);
+    }
+    if allow_canonical {
+        return (registered.factory)(base.clone()).map_err(|error| error.to_string());
+    }
+    Err(format!("no valid variation for {key:?}: {base}"))
 }
 
 fn target_parameters(
@@ -264,7 +271,7 @@ fn target_parameters(
 }
 
 #[test]
-fn every_exact_field_matches_a_random_reduced_instance() {
+fn every_parameter_formula_matches_a_constructed_target() {
     let sources = canonical_sources();
     let mut checked = 0;
     let mut expected = 0;
@@ -274,9 +281,6 @@ fn every_exact_field_matches_a_random_reduced_instance() {
         let Some(transform) = contract.transform() else {
             continue;
         };
-        if transform.relation() != ParameterRelation::Exact {
-            continue;
-        }
         expected += transform.expressions().count();
         let label = format!(
             "{} {:?} -> {} {:?}",
@@ -286,15 +290,27 @@ fn every_exact_field_matches_a_random_reduced_instance() {
             entry.target_variant()
         );
         let result = (|| {
-            let source = random_source(entry, &sources)?;
+            let source = sampled_source(
+                entry,
+                &sources,
+                transform.relation() == ParameterRelation::UpperBound,
+            )?;
             let actual = target_parameters(entry, source.as_ref())?;
             let predicted = transform
                 .evaluate(&source.parameters_dyn())
                 .map_err(|error| error.to_string())?;
             for (field, _) in transform.expressions() {
-                if predicted.get(field) != actual.get(field) {
+                let valid = match (predicted.get(field), actual.get(field)) {
+                    (Some(predicted), Some(actual)) => match transform.relation() {
+                        ParameterRelation::Exact => predicted == actual,
+                        ParameterRelation::UpperBound => predicted >= actual,
+                    },
+                    _ => false,
+                };
+                if !valid {
                     return Err(format!(
-                        "{field}: predicted {:?}, measured {:?}; source {}",
+                        "{field} ({:?}): predicted {:?}, measured {:?}; source {}",
+                        transform.relation(),
                         predicted.get(field),
                         actual.get(field),
                         source.serialize_json()
@@ -310,5 +326,5 @@ fn every_exact_field_matches_a_random_reduced_instance() {
     }
     assert!(expected > 0);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
-    assert_eq!(checked, expected, "some exact fields were not checked");
+    assert_eq!(checked, expected, "some formula fields were not checked");
 }
