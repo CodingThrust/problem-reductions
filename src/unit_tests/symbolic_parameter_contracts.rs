@@ -173,6 +173,20 @@ where
     let transform = contract.transform().expect("symbolic transform exists");
     assert_eq!(transform.relation(), relation, "{} -> {}", S::NAME, T::NAME);
     let predicted = transform.evaluate(&source.parameters()).unwrap();
+    if relation == ParameterRelation::Exact {
+        for (field, _) in transform.expressions() {
+            if fields.contains(&field) {
+                continue;
+            }
+            assert_eq!(
+                predicted.get(field),
+                actual.get(field),
+                "{} -> {}: {field}",
+                S::NAME,
+                T::NAME
+            );
+        }
+    }
     for &field in fields {
         assert_eq!(
             predicted.get(field),
