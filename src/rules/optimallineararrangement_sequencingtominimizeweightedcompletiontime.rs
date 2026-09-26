@@ -57,9 +57,7 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
 #[reduction(
     transform = exact {
         num_tasks = "num_vertices + num_edges",
-    },
-    unavailable = {
-        num_precedences = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_precedences = "2 * num_edges",
     }
 )]
 impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>

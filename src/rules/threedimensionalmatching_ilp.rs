@@ -40,10 +40,8 @@ impl crate::rules::AggregateReductionResult for ReductionThreeDimensionalMatchin
     transform = exact {
         num_vars = "num_triples",
         num_constraints = "3 * universe_size",
+        num_nonzeros = "3 * num_triples",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<ILP<bool>> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToILP;

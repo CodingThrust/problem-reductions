@@ -80,9 +80,7 @@ impl ReductionResult for ReductionERCToILP {
     transform = exact {
         num_vars = "num_records * num_sectors + num_records^2 * num_sectors^2",
         num_constraints = "num_records + 3 * num_records^2 * num_sectors^2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "7 * num_records^2 * num_sectors^2",
     }
 )]
 impl ReduceTo<ILP<bool, f64>> for ExpectedRetrievalCost {

@@ -90,6 +90,7 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToHam
     transform = upper_bound {
         num_vertices = "num_vertices + 3",
         num_edges = "num_edges + num_vertices + 1",
+        num_consecutive_positions = "num_vertices + 2",
     }
 )]
 impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> {

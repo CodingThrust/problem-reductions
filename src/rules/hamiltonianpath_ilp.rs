@@ -54,12 +54,10 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianPathToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
-        num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+    transform = exact {
+        num_vars = "num_vertices^2 + 2 * num_edges * num_consecutive_positions",
+        num_constraints = "2 * num_vertices + 6 * num_edges * num_consecutive_positions + num_consecutive_positions",
+        num_nonzeros = "2 * num_vertices^2 + 16 * num_edges * num_consecutive_positions",
     }
 )]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
@@ -70,7 +68,7 @@ impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
         let graph = self.graph();
         let edges = graph.edges();
         let m = edges.len();
-        let n_pos = if n == 0 { 0 } else { n - 1 }; // number of consecutive-position pairs
+        let n_pos = self.num_consecutive_positions();
 
         let num_x = n * n;
         let num_z = 2 * m * n_pos;
