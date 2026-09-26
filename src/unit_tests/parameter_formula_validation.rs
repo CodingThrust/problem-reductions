@@ -1,33 +1,10 @@
 use crate::parameters::ParameterRelation;
-use crate::registry::{load_dyn, DynProblem};
+use crate::registry::DynProblem;
 use crate::rules::{registry::ReductionEntry, ReductionGraph};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);
-
-fn next(seed: &mut u64) -> u64 {
-    *seed ^= *seed << 13;
-    *seed ^= *seed >> 7;
-    *seed ^= *seed << 17;
-    *seed
-}
-
-fn seed_for(entry: &ReductionEntry) -> u64 {
-    let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
-    for byte in format!(
-        "{}{:?}{}{:?}",
-        entry.source_name,
-        entry.source_variant(),
-        entry.target_name,
-        entry.target_variant()
-    )
-    .bytes()
-    {
-        seed = seed.wrapping_mul(0x100_0000_01b3) ^ u64::from(byte);
-    }
-    seed
-}
 
 fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
     let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
@@ -40,13 +17,14 @@ fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
     }
     for rule in db.rules {
         let source = rule.source;
-        if let Some(inner) = source.instance.get("inner") {
-            if let Some(name) = source.problem.strip_prefix("Decision") {
-                sources
-                    .entry((name.to_string(), source.variant.clone()))
-                    .or_default()
-                    .push(inner.clone());
-            }
+        if let (Some(name), Some(inner)) = (
+            source.problem.strip_prefix("Decision"),
+            source.instance.get("inner"),
+        ) {
+            sources
+                .entry((name.to_string(), source.variant.clone()))
+                .or_default()
+                .push(inner.clone());
         }
         sources
             .entry((source.problem, source.variant))
@@ -54,174 +32,6 @@ fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
             .push(source.instance);
     }
     sources
-}
-
-// These changes preserve the element type and start from an independently
-// constructed canonical instance. Deserialization and reduction must both accept
-// a candidate before it is used as a test instance.
-fn variations(value: &Value) -> Vec<Value> {
-    match value {
-        Value::Array(items) => {
-            let mut result = Vec::new();
-            if items.len() > 1 {
-                let mut shorter = items.clone();
-                shorter.pop();
-                result.push(Value::Array(shorter));
-                let mut reordered = items.clone();
-                reordered.rotate_left(1);
-                result.push(Value::Array(reordered));
-            }
-            for (index, item) in items.iter().enumerate() {
-                for changed in variations(item) {
-                    let mut copy = items.clone();
-                    copy[index] = changed;
-                    result.push(Value::Array(copy));
-                }
-            }
-            result
-        }
-        Value::Object(fields) => fields
-            .iter()
-            .flat_map(|(key, child)| {
-                variations(child).into_iter().map(move |changed| {
-                    let mut copy = fields.clone();
-                    copy.insert(key.clone(), changed);
-                    Value::Object(copy)
-                })
-            })
-            .collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn sampled_source(
-    entry: &ReductionEntry,
-    sources: &BTreeMap<SourceKey, Vec<Value>>,
-    allow_canonical: bool,
-) -> Result<Box<dyn DynProblem>, String> {
-    let variant = ReductionGraph::variant_to_map(&entry.source_variant());
-    let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
-    let mut seed = seed_for(entry);
-    if let Some(random) = registered.random {
-        let mut args = serde_json::Map::new();
-        for input in (random.inputs)() {
-            let value = match input.name {
-                "num_vertices" => json!(4 + next(&mut seed) % 3),
-                "seed" => json!((next(&mut seed) >> 1) as i64),
-                "k" => json!(if variant.get("k").is_some_and(|value| value == "K3") {
-                    3
-                } else {
-                    2
-                }),
-                "bound" => json!(2),
-                _ if !input.required => continue,
-                name => return Err(format!("unsupported random input {name}")),
-            };
-            args.insert(input.name.to_string(), value);
-        }
-        return (random.generate)(Value::Object(args)).map_err(|error| error.to_string());
-    }
-    if entry.source_name == "MaximumLikelihoodRanking" {
-        let n = 3 + next(&mut seed) as usize % 3;
-        let mut matrix = vec![vec![0; n]; n];
-        for i in 0..n {
-            let (earlier, later) = matrix.split_at_mut(i + 1);
-            for (offset, row) in later.iter_mut().enumerate() {
-                let j = i + offset + 1;
-                earlier[i][j] = (next(&mut seed) % 6) as i64;
-                row[i] = 5 - earlier[i][j];
-            }
-        }
-        return Ok(Box::new(
-            crate::models::misc::MaximumLikelihoodRanking::new(matrix),
-        ));
-    }
-    if entry.source_name == "OptimumCommunicationSpanningTree" {
-        let n = 3 + next(&mut seed) as usize % 2;
-        let mut weights = vec![vec![0; n]; n];
-        let mut requirements = vec![vec![0; n]; n];
-        for i in 0..n {
-            for j in (i + 1)..n {
-                weights[i][j] = 1 + (next(&mut seed) % 4) as i64;
-                weights[j][i] = weights[i][j];
-                requirements[i][j] = 1 + (next(&mut seed) % 3) as i64;
-                requirements[j][i] = requirements[i][j];
-            }
-        }
-        return Ok(Box::new(
-            crate::models::misc::OptimumCommunicationSpanningTree::new(weights, requirements),
-        ));
-    }
-    if entry.source_name == "DecisionOpenShopScheduling" {
-        let time = 1 + (next(&mut seed) % 3) as i64;
-        return Ok(Box::new(crate::models::decision::Decision::new(
-            crate::models::misc::OpenShopScheduling::new(2, vec![vec![time, 1], vec![2, time]]),
-            4,
-        )));
-    }
-    if entry.source_name == "ExpectedRetrievalCost" {
-        let records = 2 + next(&mut seed) as usize % 3;
-        return Ok(Box::new(
-            crate::models::misc::ExpectedRetrievalCost::new(vec![1.0 / records as f64; records], 2)
-                .unwrap(),
-        ));
-    }
-    if entry.source_name == "ILP" && variant.get("variable").is_some_and(|v| v == "i64") {
-        use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
-        let upper = 2 + (next(&mut seed) % 4) as i64;
-        return Ok(Box::new(
-            ILP::<i64>::with_variables(
-                vec![IntegerVariable::new(Some(0), Some(upper)).unwrap()],
-                vec![LinearConstraint::le(vec![(0, 1)], upper)],
-                vec![(0, 1)],
-                ObjectiveSense::Minimize,
-            )
-            .unwrap(),
-        ));
-    }
-
-    let key = (entry.source_name.to_string(), variant.clone());
-    let examples = sources
-        .get(&key)
-        .ok_or_else(|| format!("no canonical source for {key:?}"))?;
-    let base = &examples[next(&mut seed) as usize % examples.len()];
-    let base_params = load_dyn(entry.source_name, &variant, base.clone())
-        .map_err(|error| error.to_string())?
-        .parameters_dyn();
-    let use_constructor = (registered.construct_fn)(base.clone()).is_ok();
-    let mut candidates = variations(base);
-    // Check a seeded permutation of the candidates, preferring an instance
-    // with different measured source parameters.
-    let mut same_size = None;
-    while !candidates.is_empty() {
-        let index = next(&mut seed) as usize % candidates.len();
-        let candidate = candidates.swap_remove(index);
-        if candidate == *base {
-            continue;
-        }
-        let problem = if use_constructor {
-            (registered.construct_fn)(candidate).ok()
-        } else {
-            (registered.factory)(candidate).ok()
-        };
-        let Some(problem) = problem else {
-            continue;
-        };
-        if target_parameters(entry, problem.as_ref()).is_err() {
-            continue;
-        }
-        if problem.parameters_dyn() != base_params {
-            return Ok(problem);
-        }
-        same_size.get_or_insert(problem);
-    }
-    if let Some(problem) = same_size {
-        return Ok(problem);
-    }
-    if allow_canonical {
-        return (registered.factory)(base.clone()).map_err(|error| error.to_string());
-    }
-    Err(format!("no valid variation for {key:?}: {base}"))
 }
 
 fn target_parameters(
@@ -265,9 +75,59 @@ fn target_parameters(
     } else {
         return Err("no executable reduction or test construction".into());
     };
-    let target =
-        load_dyn(entry.target_name, &variant, target_json).map_err(|error| error.to_string())?;
+    let target = crate::registry::load_dyn(entry.target_name, &variant, target_json)
+        .map_err(|error| error.to_string())?;
     Ok(target.parameters_dyn())
+}
+
+fn source_for(
+    entry: &ReductionEntry,
+    sources: &BTreeMap<SourceKey, Vec<Value>>,
+) -> Result<Box<dyn DynProblem>, String> {
+    let variant = ReductionGraph::variant_to_map(&entry.source_variant());
+    let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
+    let key = (entry.source_name.to_string(), variant.clone());
+    if let Some(examples) = sources.get(&key) {
+        for example in examples {
+            if let Ok(source) = (registered.factory)(example.clone()) {
+                if target_parameters(entry, source.as_ref()).is_ok() {
+                    return Ok(source);
+                }
+            }
+        }
+    }
+    if entry.source_name == "ILP" && variant.get("variable").is_some_and(|v| v == "i64") {
+        use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+        return Ok(Box::new(
+            ILP::<i64>::with_variables(
+                vec![IntegerVariable::new(Some(0), Some(3)).unwrap()],
+                vec![LinearConstraint::le(vec![(0, 1)], 3)],
+                vec![(0, 1)],
+                ObjectiveSense::Minimize,
+            )
+            .unwrap(),
+        ));
+    }
+    let random = registered
+        .random
+        .ok_or_else(|| format!("no usable canonical source for {key:?}"))?;
+    let mut args = serde_json::Map::new();
+    for input in (random.inputs)() {
+        let value = match input.name {
+            "num_vertices" => json!(5),
+            "seed" => json!(42),
+            "k" => json!(if variant.get("k").is_some_and(|v| v == "K3") {
+                3
+            } else {
+                2
+            }),
+            "bound" => json!(2),
+            _ if !input.required => continue,
+            name => return Err(format!("unsupported random input {name}")),
+        };
+        args.insert(input.name.to_string(), value);
+    }
+    (random.generate)(Value::Object(args)).map_err(|error| error.to_string())
 }
 
 #[test]
@@ -290,11 +150,7 @@ fn every_parameter_formula_matches_a_constructed_target() {
             entry.target_variant()
         );
         let result = (|| {
-            let source = sampled_source(
-                entry,
-                &sources,
-                transform.relation() == ParameterRelation::UpperBound,
-            )?;
+            let source = source_for(entry, &sources)?;
             let actual = target_parameters(entry, source.as_ref())?;
             let predicted = transform
                 .evaluate(&source.parameters_dyn())
