@@ -5000,7 +5000,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("ILP")
+  let x = load-model-example("ILP", variant: (bounds: "general", coefficient: "i64", variable: "i64"))
   let nv = x.instance.variables.len()
   let obj = x.instance.objective
   let constraints = x.instance.constraints
@@ -12621,13 +12621,13 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   "QUBO",
   "ILP",
   source-variant: (weight: "f64"),
-  target-variant: (coefficient: "f64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "f64", variable: "bool"),
 )
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
 #reduction-rule("QUBO", "ILP",
   example: true,
   example-source-variant: (weight: "f64"),
-  example-target-variant: (coefficient: "f64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "f64", variable: "bool"),
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
@@ -13456,13 +13456,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumCoKPlex",
   "ILP",
   source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mckp_ilp_sol = mckp_ilp.solutions.at(0)
 #reduction-rule("MaximumCoKPlex", "ILP",
   example: true,
   example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
     #pred-commands(
@@ -13491,12 +13491,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let mces_ilp = load-example(
   "MaximumCommonEdgeSubgraph",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mces_ilp_sol = mces_ilp.solutions.at(0)
 #reduction-rule("MaximumCommonEdgeSubgraph", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
   extra: [
     #pred-commands(
@@ -13529,12 +13529,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cmo_ilp = load-example(
   "MaximumContactMapOverlap",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let cmo_ilp_sol = cmo_ilp.solutions.at(0)
 #reduction-rule("MaximumContactMapOverlap", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
   extra: [
     #pred-commands(
@@ -13568,13 +13568,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumEdgeWeightedKClique",
   "ILP",
   source-variant: (weight: "i64"),
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mewkc_ilp_sol = mewkc_ilp.solutions.at(0)
 #reduction-rule("MaximumEdgeWeightedKClique", "ILP",
   example: true,
   example-source-variant: (weight: "i64"),
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
     #pred-commands(
@@ -14085,12 +14085,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cs_ilp_str = load-example(
   "ClosestString",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let cs_ilp_str_sol = cs_ilp_str.solutions.at(0)
 #reduction-rule("ClosestString", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
@@ -14128,12 +14128,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let css_ilp = load-example(
   "ClosestSubstring",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let css_ilp_sol = css_ilp.solutions.at(0)
 #reduction-rule("ClosestSubstring", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
@@ -15508,12 +15508,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let hcd_ilp = load-example(
   "HighlyConnectedDeletion",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let hcd_ilp_sol = hcd_ilp.solutions.at(0)
 #reduction-rule("HighlyConnectedDeletion", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
@@ -15542,12 +15542,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let ep_ilp = load-example(
   "EulerianPath",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let ep_ilp_sol = ep_ilp.solutions.at(0)
 #reduction-rule("EulerianPath", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
