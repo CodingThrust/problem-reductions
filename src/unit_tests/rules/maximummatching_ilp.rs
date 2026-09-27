@@ -5,6 +5,35 @@ use crate::traits::Problem;
 use crate::types::Max;
 
 #[test]
+fn parameter_predictions_account_for_isolated_vertices_and_loops() {
+    use crate::parameters::ParameterRelation;
+    for (vertices, edges, expected_constraints) in [(3, vec![(0, 1)], 2), (1, vec![(0, 0)], 1)] {
+        let source = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(vertices, edges));
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let actual = reduction.target_problem().parameters();
+        assert_eq!(actual.get("num_constraints"), Some(expected_constraints));
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| entry.source_name == "MaximumMatching" && entry.target_name == "ILP")
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let transform = contract.transform().unwrap();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        for (field, _) in transform.expressions() {
+            match transform.relation(field).unwrap() {
+                ParameterRelation::Exact => {
+                    assert_eq!(predicted.get(field), actual.get(field), "{field}")
+                }
+                ParameterRelation::UpperBound => assert!(
+                    predicted.get(field).unwrap() >= actual.get(field).unwrap(),
+                    "{field}"
+                ),
+            }
+        }
+    }
+}
+
+#[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
     let problem =

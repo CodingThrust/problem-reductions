@@ -49,15 +49,11 @@ impl ReductionResult for ReductionPartitionIntoCliquesToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPartitionIntoCliquesToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices + num_vertices^3",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter depends on the source clique bound and non-edges",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices^2",
+    num_constraints = "num_vertices + num_vertices^3",
+    num_nonzeros = "(num_vertices^2) * (num_vertices + num_vertices^3)",
+})]
 impl ReduceTo<ILP<bool>> for PartitionIntoCliques<SimpleGraph> {
     type Result = ReductionPartitionIntoCliquesToILP;
 

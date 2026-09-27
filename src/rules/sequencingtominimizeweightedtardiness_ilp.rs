@@ -4,7 +4,7 @@
 //! and nonnegative tardiness variables T_j. Big-M disjunctive constraints
 //! force a single-machine order; the weighted tardiness sum is bounded by K.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedTardiness;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -57,15 +57,11 @@ impl ReductionResult for ReductionSTMWTToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSTMWTToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_tasks^2 + 2 * num_tasks",
     num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    num_nonzeros = "(num_tasks^2 + 2 * num_tasks) * (2 * num_tasks^2 + 3 * num_tasks + 1)",
+})]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;
 
@@ -156,8 +152,13 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
         let terms: Vec<(usize, i64)> = (0..n).map(|j| (t_var(j), weights[j])).collect();
         constraints.push(LinearConstraint::le(terms, bound));
 
+        // Left-justify the job order: completion and tardiness are <= horizon, with no increase in cost.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_order_vars..]
+            .fill(IntegerVariable::new(Some(0), Some(horizon)).map_err(Self::target_construction)?);
+
         Ok(ReductionSTMWTToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_tasks: n,
             num_order_vars,

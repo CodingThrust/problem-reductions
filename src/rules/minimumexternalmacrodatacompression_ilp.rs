@@ -213,15 +213,11 @@ fn encode_pointer(n: usize, start: usize, len: usize) -> usize {
     idx + len - 1
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "string_length * alphabet_size + 2 * string_length + string_length ^ 3",
-        num_constraints = "string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "string_length * alphabet_size + 2 * string_length + string_length ^ 3",
+    num_constraints = "string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length",
+    num_nonzeros = "(string_length * alphabet_size + 2 * string_length + string_length ^ 3) * (string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length)",
+})]
 impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
     type Result = ReductionEMDCToILP;
 

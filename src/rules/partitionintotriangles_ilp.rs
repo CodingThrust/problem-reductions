@@ -60,15 +60,11 @@ impl ReductionResult for ReductionPITToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPITToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices^2 * num_vertices",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices^2",
+    num_constraints = "num_vertices^2 * num_vertices",
+    num_nonzeros = "(num_vertices^2) * (num_vertices^2 * num_vertices)",
+})]
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
     type Result = ReductionPITToILP;
 

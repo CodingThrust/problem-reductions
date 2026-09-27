@@ -4,7 +4,7 @@
 //! capacity inequality is kept directly, and explicit upper bounds
 //! `c_i <= floor(B / s_i)` preserve the exact witness domain of the source.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::IntegerKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -64,9 +64,21 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
 
         let objective = values.iter().copied().enumerate().collect();
 
+        let variables = self
+            .sizes()
+            .iter()
+            .map(|&size| IntegerVariable::new(Some(0), Some(self.capacity() / size)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionIntegerKnapsackToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Maximize,
+            )
+            .map_err(Self::target_construction)?,
         })
     }
 }

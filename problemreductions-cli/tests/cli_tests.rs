@@ -5554,6 +5554,51 @@ fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() 
 }
 
 #[test]
+fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
+    for target in ["DecisionQUBO", "QUBO"] {
+        let output = pred()
+            .args([
+                "path",
+                "KSatisfiability/K2",
+                target,
+                "--limit",
+                "1",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let fields = envelope["paths"][0]["overall_parameters"]["fields"]
+            .as_array()
+            .unwrap();
+        let relations = fields
+            .iter()
+            .map(|field| {
+                (
+                    field["field"].as_str().unwrap(),
+                    field["relation"].as_str().unwrap(),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        // The reduction preserves variables; distinct off-diagonal pairs bound
+        // quadratic terms even when contributions cancel.
+        assert_eq!(
+            relations,
+            std::collections::BTreeMap::from([
+                ("num_vars", "exact"),
+                ("num_quadratic_terms", "upper_bound"),
+            ]),
+            "prediction relations for {target}"
+        );
+    }
+}
+
+#[test]
 fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([

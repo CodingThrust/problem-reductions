@@ -138,15 +138,15 @@ where
     })
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_edges",
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices + num_edges) * (1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i64>;
 
@@ -155,15 +155,15 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_edges",
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices + num_edges) * (1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<bool, f64>> for MaximumEdgeWeightedKClique<f64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<f64>;
 

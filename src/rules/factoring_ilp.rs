@@ -19,7 +19,7 @@
 //! 4. Binary bounds: p_i ≤ 1, q_j ≤ 1
 //! 5. Carry bounds: 0 ≤ c_k ≤ min(m, n)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -113,15 +113,11 @@ impl ReductionResult for ReductionFactoringToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionFactoringToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    num_nonzeros = "(num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits) * (3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1)",
+})]
 impl ReduceTo<ILP<i64>> for Factoring {
     type Result = ReductionFactoringToILP;
 
@@ -223,8 +219,15 @@ impl ReduceTo<ILP<i64>> for Factoring {
         // Objective: feasibility problem (minimize 0)
         let objective: Vec<(usize, i64)> = vec![];
 
-        let ilp = ILP::<i64>::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_p + num_q + num_z..].fill(
+            IntegerVariable::new(Some(0), Some(carry_upper))
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?,
+        );
+
+        let ilp =
+            ILP::<i64>::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 
         Ok(ReductionFactoringToILP { target: ilp, m, n })
     }

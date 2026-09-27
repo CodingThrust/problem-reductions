@@ -52,15 +52,15 @@ impl ReductionResult for ReductionRCSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRCSToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * deadline",
         num_constraints = "num_tasks + deadline + num_resources * deadline",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_resources * deadline)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 

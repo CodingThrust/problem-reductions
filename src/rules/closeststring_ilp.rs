@@ -21,7 +21,7 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ClosestString;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -125,8 +125,17 @@ impl ReduceTo<ILP<i64>> for ClosestString {
         // Objective: minimize R.
         let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        // Every center has Hamming distance at most the string length, so an optimum has R <= m.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[r_idx] = IntegerVariable::new(
+            Some(0),
+            Some(Self::exact_i64(m, "bounding the Hamming radius")?),
+        )
+        .map_err(Self::target_construction)?;
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestStringToILP {
             target,

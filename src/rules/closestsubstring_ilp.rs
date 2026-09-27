@@ -29,7 +29,7 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ClosestSubstring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -118,15 +118,15 @@ fn decode_one_hot(
     Ok(index)
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(alphabet_size * substring_length + total_num_windows + 1) * (substring_length + num_strings + total_num_windows + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for ClosestSubstring {
     type Result = ReductionClosestSubstringToILP;
 
@@ -200,8 +200,13 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         // Objective: minimize R.
         let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[r_idx] =
+            IntegerVariable::new(Some(0), Some(ell_i64)).map_err(Self::target_construction)?;
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestSubstringToILP {
             target,

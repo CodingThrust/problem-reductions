@@ -45,15 +45,11 @@ impl ReductionResult for ReductionCliqueToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices",
-        num_constraints = "num_vertices^2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices",
+    num_constraints = "num_vertices^2",
+    num_nonzeros = "num_vertices * (num_vertices^2)",
+})]
 impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
     type Result = ReductionCliqueToILP;
 

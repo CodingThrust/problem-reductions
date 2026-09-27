@@ -9,7 +9,7 @@
 //! - Objective: Minimize Σ w_a * y_a
 //! - Variable layout: first |A| are y_a, next |V| are o_v
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackArcSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -54,15 +54,15 @@ impl ReductionResult for ReductionFASToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "num_arcs + num_arcs + num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
     type Result = ReductionFASToILP;
 
@@ -109,8 +109,15 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
             .map(|(arc, &weight)| (arc, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m..].fill(
+            IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
+                .map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionFASToILP {
             target,

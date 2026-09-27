@@ -5,7 +5,7 @@
 //! path positions. Flow-balance constraints force a single directed `s-t` path,
 //! while MTZ-style ordering constraints eliminate detached cycles.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::LongestPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -48,15 +48,15 @@ impl ReductionResult for ReductionLongestPathToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "2 * num_edges + num_vertices",
         num_constraints = "5 * num_edges + 4 * num_vertices + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(2 * num_edges + num_vertices) * (5 * num_edges + 4 * num_vertices + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
     type Result = ReductionLongestPathToILP;
 
@@ -172,9 +172,19 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
             objective.push((ReductionLongestPathToILP::arc_var(edge_idx, 1), coeff));
         }
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[2 * num_edges..].fill(
+            IntegerVariable::new(Some(0), Some(max_order)).map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionLongestPathToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Maximize,
+            )
+            .map_err(Self::target_construction)?,
             num_edges,
         })
     }

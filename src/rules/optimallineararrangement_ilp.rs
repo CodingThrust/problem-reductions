@@ -7,7 +7,7 @@
 //! - abs_diff_le constraints: z_{u,v} >= p_u - p_v, z_{u,v} >= p_v - p_u
 //! - Minimize: sum z_{u,v}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::OptimalLinearArrangement;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -49,15 +49,15 @@ impl ReductionResult for ReductionOLAToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2 + num_vertices + num_edges",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices^2 + num_vertices + num_edges) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for OptimalLinearArrangement<SimpleGraph> {
     type Result = ReductionOLAToILP;
 
@@ -132,8 +132,15 @@ impl ReduceTo<ILP<i64>> for OptimalLinearArrangement<SimpleGraph> {
 
         // Objective: minimize sum z_e
         let objective: Vec<(usize, i64)> = (0..m).map(|e| (z_idx(e), 1)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_x..].fill(
+            IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 
         Ok(ReductionOLAToILP {
             target,

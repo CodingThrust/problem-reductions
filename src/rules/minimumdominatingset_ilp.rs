@@ -46,15 +46,15 @@ impl ReductionResult for ReductionDSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_vertices * num_vertices",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
     type Result = ReductionDSToILP;
 

@@ -34,15 +34,15 @@ impl ReductionResult for ReductionKnapsackToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_items",
         num_constraints = "1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_items * 1",
+    },
+})]
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;
 

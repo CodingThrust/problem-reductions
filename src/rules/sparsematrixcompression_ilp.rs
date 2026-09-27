@@ -45,15 +45,11 @@ impl ReductionResult for ReductionSMCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSMCToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_rows * bound_k",
-        num_constraints = "num_rows + num_rows^2 * num_cols^2 * bound_k",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_rows * bound_k",
+    num_constraints = "num_rows + num_rows^2 * num_cols^2 * bound_k",
+    num_nonzeros = "(num_rows * bound_k) * (num_rows + num_rows^2 * num_cols^2 * bound_k)",
+})]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;
 

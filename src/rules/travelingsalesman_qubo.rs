@@ -123,14 +123,14 @@ impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2",
     },
-    unavailable = {
-        num_quadratic_terms = "the nonzero products depend on graph edges and edge costs",
-    }
-)]
+    upper_bound {
+        num_quadratic_terms = "(num_vertices^2) * ((num_vertices^2) - 1) / 2",
+    },
+})]
 impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTravelingSalesmanToQUBO;
 

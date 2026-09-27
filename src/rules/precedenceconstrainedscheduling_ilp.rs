@@ -61,15 +61,15 @@ impl ReductionResult for ReductionPCSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPCSToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * deadline",
         num_constraints = "num_tasks + deadline + num_precedences",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_precedences)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
     type Result = ReductionPCSToILP;
 

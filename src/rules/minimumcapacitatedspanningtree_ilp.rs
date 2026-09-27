@@ -24,7 +24,7 @@
 //!
 //! Objective: minimize sum(w_e * y_e)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -62,15 +62,11 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "5 * num_edges",
-        num_constraints = "5 * num_edges + 2 * num_vertices + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "5 * num_edges",
+    num_constraints = "5 * num_edges + 2 * num_vertices + 1",
+    num_nonzeros = "(5 * num_edges) * (5 * num_edges + 2 * num_vertices + 1)",
+})]
 impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 
@@ -208,8 +204,19 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
             .map(|(edge_idx, weight)| (edge_var(edge_idx), weight.to_sum()))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m..3 * m].fill(
+            IntegerVariable::new(Some(0), Some(cap.min(total_req).max(0)))
+                .map_err(Self::target_construction)?,
+        );
+        variables[3 * m..].fill(
+            IntegerVariable::new(Some(0), Some(connectivity_total))
+                .map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMinimumCapacitatedSpanningTreeToILP {
             target,

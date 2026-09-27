@@ -26,7 +26,7 @@
 //!
 //! **Objective:** Minimize C.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OpenShopScheduling;
 use crate::models::Decision;
 use crate::reduction;
@@ -103,15 +103,15 @@ impl ReductionResult for ReductionOSSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
         num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for OpenShopScheduling {
     type Result = ReductionOSSToILP;
 
@@ -267,9 +267,20 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
         // Objective: minimize C
         let objective = vec![(c_var, 1)];
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        let time_domain =
+            IntegerVariable::new(Some(0), Some(total_p)).map_err(Self::target_construction)?;
+        variables[num_order_vars..num_order_vars + num_start_vars].fill(time_domain);
+        variables[c_var] = time_domain;
+
         Ok(ReductionOSSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,
             num_order_vars,
@@ -305,15 +316,15 @@ impl ReductionResult for ReductionDecisionOpenShopSchedulingToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedulingToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
         num_constraints = "3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2",
     },
-    unavailable = {
-        num_nonzeros = "depends on the generated scheduling constraints",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for Decision<OpenShopScheduling> {
     type Result = ReductionDecisionOpenShopSchedulingToILP;
 

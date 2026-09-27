@@ -57,15 +57,11 @@ impl ReductionResult for ReductionSubIsoToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSubIsoToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_pattern_vertices * num_host_vertices",
-        num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_pattern_vertices * num_host_vertices",
+    num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
+    num_nonzeros = "(num_pattern_vertices * num_host_vertices) * (num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2)",
+})]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
     type Result = ReductionSubIsoToILP;
 

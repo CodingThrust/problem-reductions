@@ -5,7 +5,7 @@
 //! within the length bound. Uses connectivity flow constraints on both
 //! forward and reverse directions.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -42,15 +42,11 @@ impl ReductionResult for ReductionMCPToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
-        num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
+    num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
+    num_nonzeros = "(num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1) * (num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2)",
+})]
 impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;
 
@@ -371,8 +367,18 @@ impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[q..q + l]
+            .fill(IntegerVariable::new(Some(0), Some(big_g)).map_err(Self::target_construction)?);
+        variables[s_idx..q + 2 * l + 3 * n + 1]
+            .fill(IntegerVariable::new(Some(0), Some(n_i64)).map_err(Self::target_construction)?);
+        variables[q + 2 * l + 3 * n + 1..].fill(
+            IntegerVariable::new(Some(0), Some(flow_big_m)).map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMCPToILP {
             target,

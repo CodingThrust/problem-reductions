@@ -21,7 +21,7 @@
 //! Note: `ILP<i64>` treats all variables as non-negative integers. Binary constraints
 //! on x_{t,u} are enforced by x_{t,u} ≤ 1.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PreemptiveScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -67,15 +67,15 @@ impl ReductionResult for ReductionPSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * d_max + 1",
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks * d_max + 1) * (num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;
 
@@ -149,9 +149,22 @@ impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
         // Objective: minimize M
         let objective = vec![(m_var, 1)];
 
+        // All task slots end by d; lowering the makespan to d preserves every feasible schedule.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m_var] = IntegerVariable::new(
+            Some(0),
+            Some(Self::exact_i64(d, "bounding the schedule makespan")?),
+        )
+        .map_err(Self::target_construction)?;
+
         Ok(ReductionPSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_tasks: n,
             d_max: d,
         })

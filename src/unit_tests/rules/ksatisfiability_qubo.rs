@@ -7,6 +7,51 @@ use crate::traits::Problem;
 use crate::variant::{K2, K3};
 
 #[test]
+fn mixed_parameter_predictions_match_constructed_qubo_paths() {
+    use crate::parameters::ParameterRelation;
+    use crate::rules::ReductionGraph;
+    let graph = ReductionGraph::new();
+    let path = graph
+        .find_all_paths(
+            KSatisfiability::<K2>::NAME,
+            &ReductionGraph::variant_to_map(&KSatisfiability::<K2>::variant()),
+            QUBO::<i64>::NAME,
+            &ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
+        )
+        .into_iter()
+        .find(|path| path.len() == 2)
+        .unwrap();
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        transform.relation("num_vars"),
+        Some(ParameterRelation::Exact)
+    );
+    assert_eq!(
+        transform.relation("num_quadratic_terms"),
+        Some(ParameterRelation::UpperBound)
+    );
+    for (n, clauses, expected_terms) in [
+        (0, vec![], 0),
+        (1, vec![], 0),
+        (3, vec![vec![1, 2], vec![1, 3], vec![2, 3]], 3),
+        (2, vec![vec![1, 2], vec![-1, 2]], 0),
+    ] {
+        let source =
+            KSatisfiability::<K2>::new(n, clauses.into_iter().map(CNFClause::new).collect());
+        let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
+        let final_reduction = ReduceTo::<QUBO<i64>>::reduce_to(reduction.target_problem()).unwrap();
+        let actual = final_reduction.target_problem().parameters();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        assert_eq!(actual.get("num_quadratic_terms"), Some(expected_terms));
+        assert_eq!(predicted.get("num_vars"), actual.get("num_vars"));
+        assert!(predicted.get("num_quadratic_terms").unwrap() >= expected_terms);
+    }
+}
+
+#[test]
 fn test_ksatisfiability_to_qubo_closed_loop() {
     // 3 vars, 4 clauses (matches ground truth):
     // (x1 ∨ x2), (¬x1 ∨ x3), (x2 ∨ ¬x3), (¬x2 ∨ ¬x3)

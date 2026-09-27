@@ -99,7 +99,7 @@ fn exact_rule_exposes_one_transform() {
         .unwrap()
         .unwrap();
     assert_eq!(
-        transform.relation(),
+        transform.relation("num_vertices").unwrap(),
         crate::parameters::ParameterRelation::Exact
     );
 }
@@ -1080,8 +1080,11 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
             parameter_contract: ReductionParameterContract::new(
                 "synthetic edge",
                 ReductionParameterDeclarations {
-                    relation: Some(crate::parameters::ParameterRelation::Exact),
-                    fields: vec![("n", Expr::variable("n"))],
+                    fields: vec![(
+                        "n",
+                        crate::parameters::ParameterRelation::Exact,
+                        Expr::variable("n"),
+                    )],
                     unavailable: vec![],
                 },
             ),

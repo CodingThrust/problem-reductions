@@ -64,15 +64,11 @@ impl ReductionResult for ReductionTDToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionTDToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_craftsmen * num_tasks * num_periods",
-        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_craftsmen * num_tasks * num_periods",
+    num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
+    num_nonzeros = "(num_craftsmen * num_tasks * num_periods) * (num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods)",
+})]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 

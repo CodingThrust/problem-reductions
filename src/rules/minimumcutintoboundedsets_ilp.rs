@@ -39,15 +39,15 @@ impl ReductionResult for ReductionMinCutBSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_edges",
         num_constraints = "2 + 2 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices + num_edges) * (2 + 2 + 2 * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {
     type Result = ReductionMinCutBSToILP;
 

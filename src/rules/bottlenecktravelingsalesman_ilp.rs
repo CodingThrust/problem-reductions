@@ -1,6 +1,6 @@
 //! Bottleneck TSP to ILP using cyclic positions and a selected maximum edge.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -79,15 +79,15 @@ impl ReductionBTSPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + num_edges",
         num_constraints = "num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1",
     },
-    unavailable = {
-        num_nonzeros = "threshold comparisons depend on the ordering of edge weights",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices^2 + 2 * num_edges * num_vertices + num_edges) * (num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
     type Result = ReductionBTSPToILP;
 
@@ -174,8 +174,11 @@ impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
             .enumerate()
             .map(|(edge, weight)| (q(edge), weight))
             .collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let variables = vec![IntegerVariable::binary(); num_vars];
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
         Ok(ReductionBTSPToILP {
             target,
             num_vertices: n,

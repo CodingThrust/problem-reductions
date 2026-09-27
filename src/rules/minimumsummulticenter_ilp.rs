@@ -117,15 +117,11 @@ fn weighted_distances_msmc(
     dist
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices + num_vertices^2",
-        num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices + num_vertices^2",
+    num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
+    num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + 2 * num_vertices + 1)",
+})]
 impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
     type Result = ReductionMSMCToILP;
 

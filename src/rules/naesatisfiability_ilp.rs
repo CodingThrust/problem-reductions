@@ -44,15 +44,15 @@ impl ReductionResult for ReductionNAESATToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionNAESATToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vars",
         num_constraints = "2 * num_clauses",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_vars * (2 * num_clauses)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for NAESatisfiability {
     type Result = ReductionNAESATToILP;
 

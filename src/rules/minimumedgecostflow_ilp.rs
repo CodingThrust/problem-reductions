@@ -18,7 +18,7 @@
 //! Objective: minimize Σ p(a) · y_a.
 //! Extraction: first m variables are the flow values.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumEdgeCostFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -53,15 +53,15 @@ impl ReductionResult for ReductionMECFToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "2 * num_edges",
         num_constraints = "2 * num_edges + num_vertices - 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(2 * num_edges) * (2 * num_edges + num_vertices - 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
     type Result = ReductionMECFToILP;
 
@@ -124,9 +124,22 @@ impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
         // Objective: minimize Σ p(a) · y_a
         let objective: Vec<(usize, i64)> = (0..m).map(|a| (y(a), self.prices()[a])).collect();
 
+        let mut variables = self
+            .capacities()
+            .iter()
+            .map(|&capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+        variables.resize(num_vars, IntegerVariable::binary());
+
         Ok(ReductionMECFToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_edges: m,
         })
     }

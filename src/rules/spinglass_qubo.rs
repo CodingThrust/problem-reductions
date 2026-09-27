@@ -120,14 +120,14 @@ where
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_spins",
     },
-    unavailable = {
-        num_quadratic_terms = "zero or cancelling couplings determine the nonzero quadratic terms",
-    }
-)]
+    upper_bound {
+        num_quadratic_terms = "num_spins * (num_spins - 1) / 2",
+    },
+})]
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     type Result = ReductionSGToQUBO<f64>;
 
@@ -167,14 +167,14 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_spins",
     },
-    unavailable = {
-        num_quadratic_terms = "zero or cancelling couplings determine the nonzero quadratic terms",
-    }
-)]
+    upper_bound {
+        num_quadratic_terms = "num_spins * (num_spins - 1) / 2",
+    },
+})]
 impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
     type Result = ReductionSGToQUBO<i64>;
 

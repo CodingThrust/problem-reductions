@@ -24,7 +24,7 @@
 //! Note: All-pairs shortest-path distances are computed using weighted shortest
 //! paths over `edge_lengths`. Unreachable assignment variables are forced to 0.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinMaxMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -121,15 +121,15 @@ fn weighted_distances_mmc(
     dist
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_vertices^2 + 1",
         num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices + num_vertices^2 + 1) * (2 * num_vertices^2 + 3 * num_vertices + 2)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;
 
@@ -232,8 +232,13 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
         // Objective: minimize z
         let objective = vec![(z_var, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[z_var] =
+            IntegerVariable::new(Some(0), Some(z_upper)).map_err(Self::target_construction)?;
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
         Ok(ReductionMMCToILP {
             target,
             num_vertices: n,

@@ -4,7 +4,7 @@
 //! the bundle-capacity inequalities, flow-conservation equalities at
 //! nonterminals, and the sink inflow lower bound from the source problem.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -41,15 +41,15 @@ impl ReductionResult for ReductionIFBToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionIFBToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_arcs",
         num_constraints = "num_bundles + num_vertices - 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_arcs * (num_bundles + num_vertices - 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
     type Result = ReductionIFBToILP;
 
@@ -90,14 +90,16 @@ impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
         }
         constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
+        let variables = self
+            .arc_upper_bounds()
+            .into_iter()
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionIFBToILP {
-            target: ILP::new(
-                self.num_arcs(),
-                constraints,
-                vec![],
-                ObjectiveSense::Minimize,
-            )
-            .map_err(Self::target_construction)?,
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
         })
     }
 }

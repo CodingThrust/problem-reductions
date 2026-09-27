@@ -5,7 +5,7 @@
 //! Machine-chain and big-M disjunctive constraints enforce a valid flow-shop
 //! schedule; the deadline becomes a makespan bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::FlowShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -71,15 +71,11 @@ impl ReductionResult for ReductionFSSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionFSSToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
     num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors) * (num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs)",
+})]
 impl ReduceTo<ILP<i64>> for FlowShopScheduling {
     type Result = ReductionFSSToILP;
 
@@ -191,8 +187,13 @@ impl ReduceTo<ILP<i64>> for FlowShopScheduling {
             }
         }
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_order_vars..].fill(
+            IntegerVariable::new(Some(0), Some(deadline)).map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionFSSToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,

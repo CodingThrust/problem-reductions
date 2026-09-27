@@ -4,7 +4,7 @@
 //! Permutation constraints, precedence constraints, and prefix cumulative-cost
 //! bounds at every position.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeMaximumCumulativeCost;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
@@ -45,14 +45,15 @@ impl ReductionResult for ReductionSTMMCCToILP {
     }
 }
 
-#[reduction(transform = exact {
-    num_vars = "num_tasks^2 + 1",
-    num_constraints = "num_tasks^2 + 3 * num_tasks + num_precedences + 1",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = {
+    exact {
+        num_vars = "num_tasks^2 + 1",
+        num_constraints = "num_tasks^2 + 3 * num_tasks + num_precedences + 1",
+    },
+    upper_bound {
+        num_nonzeros = "(num_tasks^2 + 1) * (num_tasks^2 + 3 * num_tasks + num_precedences + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeMaximumCumulativeCost {
     type Result = ReductionSTMMCCToILP;
 
@@ -130,9 +131,18 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeMaximumCumulativeCost {
         // Objective: minimize z (the maximum cumulative cost)
         let objective = vec![(z_var, 1)];
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[z_var] =
+            IntegerVariable::new(Some(0), Some(z_upper)).map_err(Self::target_construction)?;
+
         Ok(ReductionSTMMCCToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_tasks: n,
         })
     }

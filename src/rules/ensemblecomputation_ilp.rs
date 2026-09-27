@@ -1,6 +1,6 @@
 //! Polynomial-size circuit-slot reduction from EnsembleComputation to `ILP<i64>`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::EnsembleComputation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -80,15 +80,15 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget",
         num_constraints = "5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets",
     },
-    unavailable = {
-        num_nonzeros = "depends on the cardinalities and duplicate structure of the required subsets",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget) * (5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for EnsembleComputation {
     type Result = ReductionEnsembleComputationToILP;
 
@@ -279,8 +279,11 @@ impl ReduceTo<ILP<i64>> for EnsembleComputation {
         }
 
         let objective = (0..budget).map(|step| (activity_base + step, 1)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let variables = vec![IntegerVariable::binary(); num_vars];
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
         Ok(ReductionEnsembleComputationToILP {
             target,
             universe_size: u,

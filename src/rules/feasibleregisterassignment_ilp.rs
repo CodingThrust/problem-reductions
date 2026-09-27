@@ -10,7 +10,7 @@
 //! interval non-overlap: if `u` is before `v`, then `v` must be scheduled no
 //! earlier than the latest dependent of `u`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -135,8 +135,14 @@ impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
             ));
         }
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[..2 * n].fill(
+            IntegerVariable::new(Some(0), Some(last_position))
+                .map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionFeasibleRegisterAssignmentToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_vertices: n,
         })

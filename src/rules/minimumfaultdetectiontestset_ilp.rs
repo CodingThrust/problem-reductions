@@ -43,15 +43,15 @@ impl ReductionResult for ReductionMFDTSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_inputs * num_outputs",
         num_constraints = "num_vertices - num_inputs - num_outputs",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_inputs * num_outputs) * (num_vertices - num_inputs - num_outputs)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
     type Result = ReductionMFDTSToILP;
 

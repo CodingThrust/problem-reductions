@@ -7,7 +7,7 @@
 //! - For each edge (u,v): pos_u - pos_v <= B, pos_v - pos_u <= B
 //! - Objective: minimize B
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumGraphBandwidth;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -49,15 +49,15 @@ impl ReductionResult for ReductionMGBToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2 + num_vertices + 1",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices^2 + num_vertices + 1) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinimumGraphBandwidth<SimpleGraph> {
     type Result = ReductionMGBToILP;
 
@@ -131,8 +131,15 @@ impl ReduceTo<ILP<i64>> for MinimumGraphBandwidth<SimpleGraph> {
 
         // Objective: minimize B
         let objective = vec![(b_idx, 1)];
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_x..].fill(
+            IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
+                .map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMGBToILP {
             target,

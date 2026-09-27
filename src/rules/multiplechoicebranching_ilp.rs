@@ -1,6 +1,6 @@
 //! Reduction from MultipleChoiceBranching with integer weights to integer ILP.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MultipleChoiceBranching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -39,15 +39,15 @@ impl ReductionResult for ReductionMultipleChoiceBranchingToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionMultipleChoiceBranchingToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "2 * num_arcs + 2 * num_vertices + num_partition_groups + 1",
     },
-    unavailable = {
-        num_nonzeros = "zero weights and loop normalization determine the exact nonzero count",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_arcs + num_vertices) * (2 * num_arcs + 2 * num_vertices + num_partition_groups + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MultipleChoiceBranching<i64> {
     type Result = ReductionMultipleChoiceBranchingToILP;
 
@@ -101,13 +101,20 @@ impl ReduceTo<ILP<i64>> for MultipleChoiceBranching<i64> {
             *self.threshold(),
         ));
 
-        let target = ILP::new(
-            num_arcs + num_vertices,
-            constraints,
-            vec![],
-            ObjectiveSense::Minimize,
-        )
-        .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_arcs + num_vertices];
+        variables[num_arcs..].fill(
+            IntegerVariable::new(
+                Some(0),
+                Some(Self::exact_i64(
+                    num_vertices.saturating_sub(1),
+                    "bounding topological labels",
+                )?),
+            )
+            .map_err(Self::target_construction)?,
+        );
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
         Ok(ReductionMultipleChoiceBranchingToILP { target, num_arcs })
     }
 }

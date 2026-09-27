@@ -23,7 +23,7 @@
 //! Bang-Jensen and Gutin, *Digraphs: Theory, Algorithms and Applications*,
 //! 2nd ed., Springer (2009).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -147,15 +147,11 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionEulerianPathToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "3 * num_arcs + num_arcs * num_arcs",
-        num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "3 * num_arcs + num_arcs * num_arcs",
+    num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
+    num_nonzeros = "(3 * num_arcs + num_arcs * num_arcs) * (5 * num_arcs + 2 * num_arcs * num_arcs + 2)",
+})]
 impl ReduceTo<ILP<i64>> for EulerianPath {
     type Result = ReductionEulerianPathToILP;
 
@@ -239,8 +235,14 @@ impl ReduceTo<ILP<i64>> for EulerianPath {
         constraints.push(LinearConstraint::eq(start_sum, 1));
         constraints.push(LinearConstraint::eq(end_sum, 1));
 
-        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[p + 2 * m..].fill(
+            IntegerVariable::new(Some(0), Some(m_i64 - 1)).map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, Vec::new(), ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionEulerianPathToILP {
             target,

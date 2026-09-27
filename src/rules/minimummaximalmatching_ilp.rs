@@ -48,15 +48,15 @@ impl ReductionResult for ReductionMMMToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges",
         num_constraints = "num_vertices + num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_edges * (num_vertices + num_edges)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
     type Result = ReductionMMMToILP;
 

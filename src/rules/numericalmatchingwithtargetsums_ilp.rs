@@ -70,15 +70,11 @@ impl ReductionResult for ReductionNMTSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionNMTSToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_pairs * num_pairs * num_pairs",
-        num_constraints = "3 * num_pairs",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_pairs * num_pairs * num_pairs",
+    num_constraints = "3 * num_pairs",
+    num_nonzeros = "(num_pairs * num_pairs * num_pairs) * (3 * num_pairs)",
+})]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
     type Result = ReductionNMTSToILP;
 

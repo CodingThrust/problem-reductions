@@ -423,10 +423,10 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
 | `compose_path_parameter_transform(path)` | Symbolic composition | Compose each rule's exact or upper-bound parameter relation while preserving its promise |
 
-A rule has one relation for all of its formulas: either an exact equality or an upper
-bound. Composition keeps exact formulas exact only when every step is exact; every other
-combination is an upper bound. Concrete-instance measurement remains a separate execution
-API.
+Each formula has its own relation: exact equality or upper bound. Composition preserves
+exactness when the formula and its required inputs are exact. Bounded inputs require sound
+upper-bound substitution. Unavailable fields affect only formulas that depend on them;
+independent formulas survive. Concrete-instance measurement remains a separate execution API.
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i64}` to `VC{SimpleGraph, i64}`:
 
@@ -450,8 +450,10 @@ The returned `ReductionChain` stores each intermediate reduction and extracts th
 <details>
 <summary>Parameter contracts</summary>
 
-Each reduction declares one relation for all represented target-parameter fields and may mark
-other fields unavailable with a reason. The `#[reduction]` macro parses every formula into
+Each reduction classifies every target parameter exactly once as exact, upper bound, or
+unavailable with a reason. Every formula uses only registered source parameters on its RHS.
+Target structural relationships may justify a formula, but source expressions must be
+substituted before registration; there is no automatic model-level inference. The `#[reduction]` macro parses every formula into
 the canonical `Expr` DAG at compile time:
 
 ```rust,ignore
@@ -466,6 +468,28 @@ unavailable = {
 })]
 impl ReduceTo<Target> for Source { ... }
 ```
+
+Rules can mix accuracy explicitly while existing uniform declarations remain supported:
+
+```rust,ignore
+#[reduction(transform = {
+    exact { num_vars = "num_vars" },
+    upper_bound { num_quadratic_terms = "num_vars * (num_vars - 1) / 2" },
+})]
+impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> { ... }
+```
+
+Here both RHS expressions refer to the SAT source's `num_vars`.
+Likewise, an ILP's canonical constraint matrix has at most variables times constraints
+nonzeros. If a rule predicts those dimensions by source expressions `f` and `g`, it can
+explicitly declare `num_nonzeros <= f * g`. Such structural bounds remain valid when
+coefficients cancel; exact sparsity can still require additional source information.
+
+`ReductionParameterDeclarations::fields` stores `(name, relation, expression)` triples.
+Use `ParameterTransform::relation(field)` to inspect a formula's accuracy and
+`unavailable(field)` for a composition failure and its upstream cause. The uniform
+`ParameterTransform::new` constructor remains available; `from_fields` accepts mixed relations.
+CLI contract JSON stores `relation` within each formula entry in `fields`.
 
 `ParameterTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
 relations must evaluate to non-negative integers, while upper-bound results round rational
@@ -485,7 +509,7 @@ first fully expanded and like monomials are combined; terms with non-positive co
 are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
 produces the sound bound `k <= 10`, while
 `e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
-propagate symbolic upper bounds and reports an error. Projection to `Growth` is a separate descriptive terminal operation used for
+propagate symbolic upper bounds and makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
 Big-O display; it does not rank or filter paths.
 
 </details>

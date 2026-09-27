@@ -5,7 +5,7 @@
 //! ordering variables `y_{i,j}` for each task pair. Big-M constraints
 //! enforce that tasks sharing a processor do not overlap.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -62,15 +62,15 @@ impl ReductionResult for ReductionSMWCTToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2) * (num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;
 
@@ -190,9 +190,20 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
             .map(|(task, weight)| (result.c_var(task), weight))
             .collect();
 
-        Ok(ReductionSMWCTToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[n * m..n * m + n].fill(
+            IntegerVariable::new(Some(0), Some(total_processing_time))
                 .map_err(Self::target_construction)?,
+        );
+
+        Ok(ReductionSMWCTToILP {
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_tasks: n,
             num_processors: m,
         })

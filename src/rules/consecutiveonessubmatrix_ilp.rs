@@ -46,15 +46,11 @@ impl ReductionResult for ReductionCOSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionCOSToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
-        num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
+    num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
+    num_nonzeros = "(num_cols + num_cols * bound + 5 * num_rows * bound) * (2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound)",
+})]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     type Result = ReductionCOSToILP;
 

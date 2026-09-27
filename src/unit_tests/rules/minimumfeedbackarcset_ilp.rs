@@ -5,6 +5,29 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn feedback_arc_set_solves_through_integer_binary_ilp_and_qubo() {
+    use crate::models::algebraic::QUBO;
+
+    let source =
+        MinimumFeedbackArcSet::new(DirectedGraph::new(2, vec![(0, 1), (1, 0)]), vec![2_i64, 5]);
+    let integer = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let binary = ReduceTo::<ILP<bool>>::reduce_to(integer.target_problem()).unwrap();
+    let qubo = ReduceTo::<QUBO<i64>>::reduce_to(binary.target_problem()).unwrap();
+    let optimum = BruteForce::new()
+        .solve(qubo.target_problem())
+        .unwrap()
+        .unwrap();
+    let binary_solution = qubo.extract_solution(&optimum).unwrap();
+    let integer_solution = binary.extract_solution(&binary_solution).unwrap();
+    assert!(integer
+        .target_problem()
+        .is_feasible(&integer_solution)
+        .unwrap());
+    let solution = integer.extract_solution(&integer_solution).unwrap();
+    assert_eq!(source.evaluate(&solution).unwrap(), Min(Some(2)));
+}
+
+#[test]
 fn test_reduction_creates_valid_ilp() {
     // Simple 3-cycle: 0 -> 1 -> 2 -> 0
     // m=3 arcs, n=3 vertices → 6 variables, m+m+n = 9 constraints

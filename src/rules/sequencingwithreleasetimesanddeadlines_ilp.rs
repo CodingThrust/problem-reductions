@@ -58,15 +58,11 @@ impl ReductionResult for ReductionSWRTDToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSWRTDToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = upper_bound {
     num_vars = "num_tasks * time_horizon",
     num_constraints = "num_tasks * time_horizon + num_tasks + time_horizon",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    num_nonzeros = "(num_tasks * time_horizon) * (num_tasks * time_horizon + num_tasks + time_horizon)",
+})]
 impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSWRTDToILP;
 

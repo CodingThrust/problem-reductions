@@ -12,7 +12,7 @@
 //! Objective: Minimize 0 (feasibility).
 //! Extraction: Direct 2*|A| variables.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -55,15 +55,11 @@ impl ReductionResult for ReductionD2CIFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionD2CIFToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "2 * num_arcs",
-        num_constraints = "num_arcs + 2 * num_vertices + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "2 * num_arcs",
+    num_constraints = "num_arcs + 2 * num_vertices + 2",
+    num_nonzeros = "(2 * num_arcs) * (num_arcs + 2 * num_vertices + 2)",
+})]
 impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
     type Result = ReductionD2CIFToILP;
 
@@ -155,8 +151,18 @@ impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
 
+        let variables = self
+            .capacities()
+            .iter()
+            .copied()
+            .cycle()
+            .take(num_vars)
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionD2CIFToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_arcs: m,
         })

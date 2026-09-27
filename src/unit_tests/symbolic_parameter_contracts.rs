@@ -123,9 +123,6 @@ fn canonical_examples_satisfy_upper_bound_parameter_contracts() {
         let Some(transform) = contract.transform() else {
             continue;
         };
-        if transform.relation() != ParameterRelation::UpperBound {
-            continue;
-        }
         let source_size = ReductionGraph::compute_problem_parameters(
             &example.source.problem,
             &example.source.variant,
@@ -171,7 +168,15 @@ where
         .expect("direct reduction is registered");
     let contract = entry.parameter_contract().unwrap();
     let transform = contract.transform().expect("symbolic transform exists");
-    assert_eq!(transform.relation(), relation, "{} -> {}", S::NAME, T::NAME);
+    for (field, _) in transform.expressions() {
+        assert_eq!(
+            transform.relation(field),
+            Some(relation),
+            "{} -> {}: {field}",
+            S::NAME,
+            T::NAME
+        );
+    }
     let predicted = transform.evaluate(&source.parameters()).unwrap();
     if relation == ParameterRelation::Exact {
         for (field, _) in transform.expressions() {

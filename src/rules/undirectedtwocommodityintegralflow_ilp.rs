@@ -24,7 +24,7 @@
 //!
 //! Constraints per edge (7 per edge) + flow conservation (2 per non-terminal vertex) + net flow (2)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -69,15 +69,15 @@ impl ReductionResult for ReductionU2CIFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "6 * num_edges",
         num_constraints = "7 * num_edges + num_conservation_constraints + 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(6 * num_edges) * (7 * num_edges + num_conservation_constraints + 2)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
     type Result = ReductionU2CIFToILP;
 
@@ -200,8 +200,17 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
 
+        let mut variables = self
+            .capacities()
+            .iter()
+            .flat_map(|&capacity| std::iter::repeat_n(capacity, 4))
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+        variables.resize(num_vars, IntegerVariable::binary());
+
         Ok(ReductionU2CIFToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_edges: e,
         })

@@ -65,15 +65,15 @@ impl ReductionResult for ReductionTSPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
         num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices^2 + 2 * num_vertices * num_edges) * (num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTSPToILP;
 

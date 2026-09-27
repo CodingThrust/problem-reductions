@@ -43,15 +43,15 @@ impl ReductionResult for ReductionSteinerTreeToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
         num_constraints = "num_vertices * (num_vertices - 1) + 2 * num_edges * num_vertices + num_terminals + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)) * (num_vertices * (num_vertices - 1) + 2 * num_edges * num_vertices + num_terminals + 1)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
     type Result = ReductionSteinerTreeToILP;
 

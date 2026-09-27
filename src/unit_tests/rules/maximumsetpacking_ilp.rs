@@ -12,7 +12,8 @@ fn constraint_count_is_only_an_upper_bound() {
             .unwrap()
             .transform()
             .unwrap()
-            .relation(),
+            .relation("num_constraints")
+            .unwrap(),
         crate::parameters::ParameterRelation::UpperBound
     );
     let problem = MaximumSetPacking::new(vec![vec![0], vec![1]]);

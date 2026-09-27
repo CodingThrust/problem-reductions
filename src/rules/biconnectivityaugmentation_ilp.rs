@@ -75,15 +75,11 @@ impl ReductionResult for ReductionBiconnAugToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
-        num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
+    num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
+    num_nonzeros = "(num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)) * (1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices))",
+})]
 impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
     type Result = ReductionBiconnAugToILP;
 

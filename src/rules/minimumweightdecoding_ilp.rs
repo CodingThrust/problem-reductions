@@ -16,7 +16,7 @@
 //! Objective: minimize Σ x_j (Hamming weight).
 
 use crate::models::algebraic::MinimumWeightDecoding;
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
@@ -53,15 +53,15 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_cols + num_rows) * (num_rows + num_cols)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;
 
@@ -96,9 +96,23 @@ impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
         // Objective: minimize Σ x_j
         let objective: Vec<(usize, i64)> = (0..m).map(|j| (x(j), 1)).collect();
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m..].fill(
+            IntegerVariable::new(
+                Some(0),
+                Some(Self::exact_i64(m / 2, "bounding parity quotients")?),
+            )
+            .map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionMinimumWeightDecodingToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_cols: m,
         })
     }

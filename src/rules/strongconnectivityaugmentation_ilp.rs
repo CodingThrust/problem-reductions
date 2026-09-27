@@ -4,7 +4,7 @@
 //! sending flow both from a root to every vertex and back again.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -44,15 +44,11 @@ impl ReductionResult for ReductionSCAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
-        num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
+    num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
+    num_nonzeros = "(num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)) * (1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices)",
+})]
 impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
     type Result = ReductionSCAToILP;
 
@@ -181,7 +177,10 @@ impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+        // Each connectivity certificate can be a simple unit-flow path; cycles are unnecessary.
+        let variables = vec![IntegerVariable::binary(); num_vars];
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
         Ok(ReductionSCAToILP {
             target,

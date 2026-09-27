@@ -48,15 +48,15 @@ impl ReductionResult for ReductionMDToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices * (num_vertices - 1) / 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_vertices * (num_vertices * (num_vertices - 1) / 2)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
     type Result = ReductionMDToILP;
 

@@ -78,12 +78,13 @@ impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
     }
 }
 
-#[reduction(
-    transform = unavailable {
-        num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
-        num_quadratic_terms = "the nonzero products depend on generated penalty coefficients",
-    }
-)]
+// Each successfully computed positive i64 slack range needs at most 63 bits.
+// Distinct off-diagonal pairs bound the resulting quadratic terms, including
+// when penalty contributions cancel. Both bounds use only source parameters.
+#[reduction(transform = upper_bound {
+    num_vars = "num_vars + 63 * num_constraints",
+    num_quadratic_terms = "(num_vars + 63 * num_constraints) * (num_vars + 63 * num_constraints - 1) / 2",
+})]
 impl ReduceTo<QUBO<i64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 

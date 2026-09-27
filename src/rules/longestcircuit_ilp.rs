@@ -56,15 +56,15 @@ impl ReductionResult for ReductionLongestCircuitToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + 2 * num_vertices + 2 * num_edges * num_vertices",
         num_constraints = "2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
     type Result = ReductionLongestCircuitToILP;
 
@@ -209,15 +209,15 @@ impl ReductionResult for ReductionDecisionLongestCircuitToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + 2 * num_vertices + 2 * num_edges * num_vertices",
         num_constraints = "3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "depends on the graph and nonzero edge lengths",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
     type Result = ReductionDecisionLongestCircuitToILP;
 

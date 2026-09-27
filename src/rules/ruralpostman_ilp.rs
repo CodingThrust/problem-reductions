@@ -4,7 +4,7 @@
 //! connectivity flow constraints to encode an Eulerian connected subgraph
 //! covering all required edges within the length bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -40,15 +40,15 @@ impl ReductionResult for ReductionRPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges) * (2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
     type Result = ReductionRPToILP;
 
@@ -204,8 +204,22 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
         let objective: Vec<(usize, i64)> = (0..m)
             .map(|e| (t_idx(e), edge_lengths[e].to_sum()))
             .collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[..m]
+            .fill(IntegerVariable::new(Some(0), Some(2)).map_err(Self::target_construction)?);
+        variables[m..m + n].fill(
+            IntegerVariable::new(
+                Some(0),
+                Some(Self::exact_i64(m, "bounding half the traversal degree")?),
+            )
+            .map_err(Self::target_construction)?,
+        );
+        variables[2 * m + 2 * n..]
+            .fill(IntegerVariable::new(Some(0), Some(big_m)).map_err(Self::target_construction)?);
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionRPToILP {
             target,

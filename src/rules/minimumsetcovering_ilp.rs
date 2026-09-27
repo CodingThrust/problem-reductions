@@ -43,15 +43,15 @@ impl ReductionResult for ReductionSCToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_sets",
         num_constraints = "universe_size",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_sets * universe_size",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
     type Result = ReductionSCToILP;
 

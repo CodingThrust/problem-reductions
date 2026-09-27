@@ -31,15 +31,15 @@ impl ReductionResult for ReductionHSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "universe_size",
         num_constraints = "num_sets",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "universe_size * num_sets",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumHittingSet {
     type Result = ReductionHSToILP;
 

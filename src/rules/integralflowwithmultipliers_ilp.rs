@@ -3,7 +3,7 @@
 //! One integer flow variable per arc. Capacity bounds, multiplier-scaled
 //! conservation at non-terminals, and sink inflow requirement.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -40,21 +40,20 @@ impl ReductionResult for ReductionIFWMToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionIFWMToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_arcs",
         num_constraints = "num_arcs + num_vertices - 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "num_arcs * (num_arcs + num_vertices - 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for IntegralFlowWithMultipliers {
     type Result = ReductionIFWMToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
-        let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
         let mut constraints = Vec::new();
 
@@ -96,8 +95,16 @@ impl ReduceTo<ILP<i64>> for IntegralFlowWithMultipliers {
         }
         constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
+        let variables = self
+            .capacities()
+            .iter()
+            .copied()
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionIFWMToILP {
-            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
         })
     }

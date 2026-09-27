@@ -4,7 +4,7 @@
 //! a_{u,v}, transitive-closure helpers h_{u,v,w}, and per-subset gadgets
 //! (top/bottom selectors, pair selectors, endpoint depths, extension costs).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
@@ -90,15 +90,11 @@ impl ReductionResult for ReductionRTSAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRTSAToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
-        num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
+    num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
+    num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
+})]
 impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
     type Result = ReductionRTSAToILP;
 
@@ -391,7 +387,13 @@ impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
         let cost_terms: Vec<(usize, i64)> = (0..r).map(|s| (idx_c(n, r, s), 1)).collect();
         constraints.push(LinearConstraint::le(cost_terms, bound));
 
-        let target = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); nv];
+        let depth_domain =
+            IntegerVariable::new(Some(0), Some(big_m_depth)).map_err(Self::target_construction)?;
+        variables[n * n..n * n + n].fill(depth_domain);
+        variables[idx_big_t(n, r, 0)..].fill(depth_domain);
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
         Ok(ReductionRTSAToILP { target, n })
     }

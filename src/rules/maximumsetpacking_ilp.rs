@@ -39,15 +39,11 @@ impl ReductionResult for ReductionSPToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_sets",
-        num_constraints = "universe_size",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_sets",
+    num_constraints = "universe_size",
+    num_nonzeros = "num_sets * universe_size",
+})]
 impl ReduceTo<ILP<bool>> for MaximumSetPacking<i64> {
     type Result = ReductionSPToILP;
 

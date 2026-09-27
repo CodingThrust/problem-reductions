@@ -224,7 +224,7 @@ impl PathConstrainedNetworkFlow {
         Ok(())
     }
 
-    fn path_bottleneck(&self, path: &[usize]) -> i64 {
+    pub(crate) fn path_bottleneck(&self, path: &[usize]) -> i64 {
         path.iter()
             .map(|&arc_idx| self.capacities[arc_idx])
             .min()

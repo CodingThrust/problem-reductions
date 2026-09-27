@@ -53,15 +53,11 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionDirectedHamiltonianPathToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2",
-        num_constraints = "3 * num_vertices + num_vertices^3",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices^2",
+    num_constraints = "3 * num_vertices + num_vertices^3",
+    num_nonzeros = "(num_vertices^2) * (3 * num_vertices + num_vertices^3)",
+})]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;
 

@@ -56,15 +56,15 @@ impl ReductionResult for ReductionMSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionMSToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks * num_processors) * (num_tasks + num_processors)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;
 

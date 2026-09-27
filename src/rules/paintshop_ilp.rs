@@ -37,15 +37,11 @@ impl ReductionResult for ReductionPaintShopToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_cars + 2 * num_sequence",
-        num_constraints = "num_sequence + 2 * num_sequence",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_cars + 2 * num_sequence",
+    num_constraints = "num_sequence + 2 * num_sequence",
+    num_nonzeros = "(num_cars + 2 * num_sequence) * (num_sequence + 2 * num_sequence)",
+})]
 impl ReduceTo<ILP<bool>> for PaintShop {
     type Result = ReductionPaintShopToILP;
 

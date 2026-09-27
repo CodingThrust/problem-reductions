@@ -202,7 +202,8 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// # Attributes
 ///
 /// - `transform = exact { field = expression, ... }` — exact target-parameter equalities
-/// - `transform = upper_bound { field = expression, ... }` — one rule-level upper bound
+/// - `transform = upper_bound { field = expression, ... }` — uniform upper bounds
+/// - `transform = { exact { ... }, upper_bound { ... }, unavailable { ... } }` — per-field relations
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 ///
@@ -350,17 +351,10 @@ fn generate_aggregate_entry(result: &Type) -> TokenStream2 {
     }
 }
 
-#[derive(Clone)]
-struct ParsedExpressionField {
-    name: String,
-    expression: problemreductions_expr::Expr,
-}
-
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
     transform_declared: bool,
-    relation: Option<ParameterRelationAttr>,
-    fields: Option<Vec<(String, String)>>,
+    fields: Vec<(String, ParameterRelationAttr, String)>,
     unavailable: Option<Vec<(String, String)>>,
 }
 
@@ -374,8 +368,7 @@ impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = ReductionAttrs {
             transform_declared: false,
-            relation: None,
-            fields: None,
+            fields: Vec::new(),
             unavailable: None,
         };
 
@@ -392,27 +385,17 @@ impl syn::parse::Parse for ReductionAttrs {
                         ));
                     }
                     attrs.transform_declared = true;
-                    let relation: syn::Ident = input.parse()?;
-                    let content;
-                    syn::braced!(content in input);
-                    match relation.to_string().as_str() {
-                        "exact" => {
-                            attrs.relation = Some(ParameterRelationAttr::Exact);
-                            attrs.fields = Some(parse_expression_fields(&content)?);
+                    if input.peek(syn::token::Brace) {
+                        let groups;
+                        syn::braced!(groups in input);
+                        while !groups.is_empty() {
+                            attrs.parse_group(&groups)?;
+                            if groups.peek(syn::Token![,]) {
+                                groups.parse::<syn::Token![,]>()?;
+                            }
                         }
-                        "upper_bound" => {
-                            attrs.relation = Some(ParameterRelationAttr::UpperBound);
-                            attrs.fields = Some(parse_expression_fields(&content)?);
-                        }
-                        "unavailable" => {
-                            attrs.unavailable = Some(parse_unavailable_fields(&content)?);
-                        }
-                        _ => {
-                            return Err(syn::Error::new(
-                                relation.span(),
-                                "expected `exact`, `upper_bound`, or `unavailable`",
-                            ));
-                        }
+                    } else {
+                        attrs.parse_group(input)?;
                     }
                 }
                 "unavailable" => {
@@ -447,6 +430,40 @@ impl syn::parse::Parse for ReductionAttrs {
         }
 
         Ok(attrs)
+    }
+}
+
+impl ReductionAttrs {
+    fn parse_group(&mut self, input: syn::parse::ParseStream) -> syn::Result<()> {
+        let relation: syn::Ident = input.parse()?;
+        let content;
+        syn::braced!(content in input);
+        let kind = match relation.to_string().as_str() {
+            "exact" => ParameterRelationAttr::Exact,
+            "upper_bound" => ParameterRelationAttr::UpperBound,
+            "unavailable" => {
+                if self.unavailable.is_some() {
+                    return Err(syn::Error::new(
+                        relation.span(),
+                        "duplicate `unavailable` declaration",
+                    ));
+                }
+                self.unavailable = Some(parse_unavailable_fields(&content)?);
+                return Ok(());
+            }
+            _ => {
+                return Err(syn::Error::new(
+                    relation.span(),
+                    "expected `exact`, `upper_bound`, or `unavailable`",
+                ))
+            }
+        };
+        self.fields.extend(
+            parse_expression_fields(&content)?
+                .into_iter()
+                .map(|(name, expression)| (name, kind, expression)),
+        );
+        Ok(())
     }
 }
 
@@ -576,37 +593,6 @@ fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Resu
     Ok(quote! { <#ty as crate::traits::Problem>::variant() })
 }
 
-/// Parse one explicit exact or bound field declaration into the canonical expression DAG.
-fn parse_expression_fields_to_expr(
-    fields: &[(String, String)],
-) -> syn::Result<Vec<ParsedExpressionField>> {
-    fields
-        .iter()
-        .map(|(name, source)| {
-            let expression = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
-                syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("error parsing parameter expression \"{source}\": {error}"),
-                )
-            })?;
-            Ok(ParsedExpressionField {
-                name: name.clone(),
-                expression,
-            })
-        })
-        .collect()
-}
-
-fn generate_expression_fields(fields: &[ParsedExpressionField]) -> TokenStream2 {
-    let field_tokens = fields.iter().map(|field| {
-        let expression = expr_tokens(&field.expression);
-        let name = field.name.as_str();
-        quote! { (#name, #expression) }
-    });
-
-    quote! { vec![#(#field_tokens),*] }
-}
-
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -637,17 +623,28 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    let fields = parse_expression_fields_to_expr(attrs.fields.as_deref().unwrap_or_default())?;
-    let field_tokens = generate_expression_fields(&fields);
-    let relation_tokens = match attrs.relation {
-        Some(ParameterRelationAttr::Exact) => {
-            quote! { Some(crate::parameters::ParameterRelation::Exact) }
-        }
-        Some(ParameterRelationAttr::UpperBound) => {
-            quote! { Some(crate::parameters::ParameterRelation::UpperBound) }
-        }
-        None => quote! { None },
-    };
+    let field_tokens = attrs
+        .fields
+        .iter()
+        .map(|(name, relation, source)| {
+            let parsed = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
+                syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    format!("error parsing parameter expression {source:?}: {error}"),
+                )
+            })?;
+            let expression = expr_tokens(&parsed);
+            let relation = match relation {
+                ParameterRelationAttr::Exact => {
+                    quote! { crate::parameters::ParameterRelation::Exact }
+                }
+                ParameterRelationAttr::UpperBound => {
+                    quote! { crate::parameters::ParameterRelation::UpperBound }
+                }
+            };
+            Ok(quote! { (#name, #relation, #expression) })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
     let unavailable_tokens = attrs
         .unavailable
         .as_deref()
@@ -666,8 +663,7 @@ fn generate_reduction_entry(
                 source_variant_fn: || { #source_variant_body },
                 target_variant_fn: || { #target_variant_body },
                 parameter_declarations_fn: || crate::rules::registry::ReductionParameterDeclarations {
-                    relation: #relation_tokens,
-                    fields: #field_tokens,
+                    fields: vec![#(#field_tokens),*],
                     unavailable: vec![#(#unavailable_tokens),*],
                 },
                 module_path: module_path!(),
@@ -1097,10 +1093,10 @@ mod tests {
 
     #[test]
     fn parameters_report_expression_domain_errors() {
-        let fields = vec![("num_vertices".to_string(), "0 / 0".to_string())];
-        let Err(error) = parse_expression_fields_to_expr(&fields) else {
-            panic!("invalid parameter expression was accepted");
-        };
+        let attrs: ReductionAttrs =
+            syn::parse_quote! { transform = exact { num_vertices = "0 / 0" } };
+        let implementation: ItemImpl = syn::parse_quote! { impl ReduceTo<Target> for Source {} };
+        let error = generate_reduction_entry(&attrs, &implementation).unwrap_err();
         assert!(error.to_string().contains("division by zero"));
     }
 
@@ -1424,6 +1420,37 @@ mod tests {
     }
 
     #[test]
+    fn mixed_transform_accepts_independent_relations_and_unavailable_fields() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            transform = {
+                exact { n = "n" },
+                upper_bound { pairs = "n * (n - 1) / 2" },
+                unavailable { bits = "input magnitudes are not registered" },
+            }
+        };
+        assert_eq!(attrs.fields[0].1, ParameterRelationAttr::Exact);
+        assert_eq!(attrs.fields[1].1, ParameterRelationAttr::UpperBound);
+        assert_eq!(attrs.unavailable.unwrap()[0].0, "bits");
+    }
+
+    #[test]
+    fn mixed_transform_rejects_invalid_relations_and_duplicate_unavailable_groups() {
+        for declaration in [
+            quote! { transform = { approximate { n = "n" } } },
+            quote! { transform = {
+                unavailable { n = "not represented" },
+                unavailable { m = "not represented" },
+            } },
+            quote! {
+                unavailable = { n = "not represented" },
+                transform = unavailable { m = "not represented" },
+            },
+        ] {
+            assert!(syn::parse2::<ReductionAttrs>(declaration).is_err());
+        }
+    }
+
+    #[test]
     fn reduction_accepts_explicit_transform_attributes() {
         let attrs: ReductionAttrs = syn::parse_quote! {
             transform = upper_bound { n = n, squared = "n^2" },
@@ -1431,12 +1458,19 @@ mod tests {
         };
         assert_eq!(
             attrs.fields,
-            Some(vec![
-                ("n".to_string(), "n".to_string()),
-                ("squared".to_string(), "n^2".to_string()),
-            ])
+            vec![
+                (
+                    "n".to_string(),
+                    ParameterRelationAttr::UpperBound,
+                    "n".to_string()
+                ),
+                (
+                    "squared".to_string(),
+                    ParameterRelationAttr::UpperBound,
+                    "n^2".to_string()
+                ),
+            ]
         );
-        assert_eq!(attrs.relation, Some(ParameterRelationAttr::UpperBound));
         assert_eq!(
             attrs.unavailable,
             Some(vec![(

@@ -4,7 +4,7 @@
 //! connectivity inside each used component via flow.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -45,15 +45,15 @@ impl ReductionResult for ReductionBCSFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBCSFToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
         num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components) * (num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
     type Result = ReductionBCSFToILP;
 
@@ -188,7 +188,14 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[2 * n * k + k..3 * n * k + 2 * k]
+            .fill(IntegerVariable::new(Some(0), Some(n_i64)).map_err(Self::target_construction)?);
+        variables[3 * n * k + 2 * k..].fill(
+            IntegerVariable::new(Some(0), Some(cap.max(0))).map_err(Self::target_construction)?,
+        );
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
         Ok(ReductionBCSFToILP { target, n, k })
     }

@@ -4,6 +4,62 @@ use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
+fn parameter_bounds_cover_slack_boundaries_and_cancellation() {
+    use crate::parameters::ParameterRelation;
+    use crate::traits::Problem;
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == "ILP"
+                && entry.target_name == "QUBO"
+                && entry.source_variant() == ILP::<bool>::variant()
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract
+        .transform()
+        .expect("ILP must predict QUBO size bounds");
+    let mut cases = vec![
+        ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize).unwrap(),
+        ILP::<bool>::new(
+            2,
+            vec![
+                LinearConstraint::eq(vec![(0, 1), (1, 1)], 0),
+                LinearConstraint::eq(vec![(0, 1), (1, -1)], 0),
+            ],
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap(),
+    ];
+    for range in [0, 1, 2, 3, 4, 7, 8] {
+        for constraint in [
+            LinearConstraint::le(vec![(0, -1)], range - 1),
+            LinearConstraint::ge(vec![(0, 1)], 1 - range),
+        ] {
+            cases.push(
+                ILP::<bool>::new(1, vec![constraint], vec![], ObjectiveSense::Minimize).unwrap(),
+            );
+        }
+    }
+    for source in cases {
+        let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+        let actual = reduction.target_problem().parameters();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        for field in ["num_vars", "num_quadratic_terms"] {
+            assert_eq!(
+                transform.relation(field),
+                Some(ParameterRelation::UpperBound)
+            );
+            assert!(
+                predicted.get(field).unwrap() >= actual.get(field).unwrap(),
+                "{field}"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_ilp_to_qubo_closed_loop() {
     // Binary ILP: maximize x0 + 2*x1 + 3*x2
     // s.t. x0 + x1 <= 1, x1 + x2 <= 1

@@ -5,7 +5,7 @@
 //! For each unordered pair `{i, j}`, a pair of big-M constraints forces one
 //! task to finish before the other starts.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -51,15 +51,15 @@ impl ReductionResult for ReductionSTMWCTToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_tasks + num_tasks * (num_tasks - 1) / 2) * (2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 
@@ -132,9 +132,20 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
 
         let objective = weights.iter().copied().enumerate().collect();
 
-        Ok(Self::Result {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[..num_tasks].fill(
+            IntegerVariable::new(Some(0), Some(total_processing_time))
                 .map_err(Self::target_construction)?,
+        );
+
+        Ok(Self::Result {
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_tasks,
         })
     }

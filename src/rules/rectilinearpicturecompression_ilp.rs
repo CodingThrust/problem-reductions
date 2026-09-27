@@ -39,15 +39,11 @@ impl ReductionResult for ReductionRPCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRPCToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_rows^2 * num_cols^2",
-        num_constraints = "num_rows * num_cols + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_rows^2 * num_cols^2",
+    num_constraints = "num_rows * num_cols + 1",
+    num_nonzeros = "(num_rows^2 * num_cols^2) * (num_rows * num_cols + 1)",
+})]
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
     type Result = ReductionRPCToILP;
 

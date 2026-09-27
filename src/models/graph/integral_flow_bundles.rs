@@ -252,7 +252,7 @@ impl IntegralFlowBundles {
         Ok(self.evaluate_solution(config)?.0)
     }
 
-    fn arc_upper_bounds(&self) -> Vec<i64> {
+    pub(crate) fn arc_upper_bounds(&self) -> Vec<i64> {
         let mut upper_bounds = vec![i64::MAX; self.num_arcs()];
         for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
             for &arc_index in bundle {

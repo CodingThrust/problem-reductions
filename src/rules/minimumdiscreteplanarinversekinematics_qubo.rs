@@ -78,10 +78,13 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     }
 }
 
-#[reduction(transform = exact {
-    num_vars = "num_orientation_samples",
-}, unavailable = {
-    num_quadratic_terms = "the nonzero products depend on the sampled geometry",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_orientation_samples",
+    },
+    upper_bound {
+        num_quadratic_terms = "num_orientation_samples * (num_orientation_samples - 1) / 2",
+    },
 })]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
     type Result = ReductionMinimumDiscretePlanarInverseKinematicsToQUBO;

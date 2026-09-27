@@ -6,6 +6,32 @@ use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);
 
+#[test]
+fn matrix_targets_with_dimension_predictions_also_bound_entries() {
+    for entry in crate::rules::registry::reduction_entries() {
+        let (dimensions, count): (&[&str], &str) = match entry.target_name {
+            "ILP" => (&["num_vars", "num_constraints"], "num_nonzeros"),
+            "QUBO" | "DecisionQUBO" => (&["num_vars"], "num_quadratic_terms"),
+            _ => continue,
+        };
+        let contract = entry.parameter_contract().unwrap();
+        let Some(transform) = contract.transform() else {
+            continue;
+        };
+        if dimensions
+            .iter()
+            .all(|field| transform.get(field).is_some())
+        {
+            assert!(
+                transform.get(count).is_some(),
+                "{} -> {} has dimension predictions but no {count} bound",
+                entry.source_name,
+                entry.target_name
+            );
+        }
+    }
+}
+
 fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
     let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
     let db = crate::example_db::build_example_db().unwrap();
@@ -131,6 +157,43 @@ fn source_for(
 }
 
 #[test]
+fn integer_ilp_reductions_support_binary_encoding() {
+    use crate::models::algebraic::ILP;
+    use crate::rules::ReduceTo;
+    use crate::traits::Problem;
+
+    let sources = canonical_sources();
+    let mut failures = Vec::new();
+    let mut checked = 0;
+    for entry in crate::rules::registry::reduction_entries() {
+        if entry.target_name != "ILP" || entry.target_variant() != ILP::<i64>::variant() {
+            continue;
+        }
+        let result = (|| {
+            let source = source_for(entry, &sources)?;
+            let reduced =
+                entry.reduce_fn.unwrap()(source.as_any()).map_err(|error| error.to_string())?;
+            let integer = reduced
+                .target_problem_any()
+                .downcast_ref::<ILP<i64>>()
+                .unwrap();
+            ReduceTo::<ILP<bool>>::reduce_to(integer).map_err(|error| error.to_string())?;
+            Ok::<_, String>(())
+        })();
+        if let Err(error) = result {
+            failures.push(format!(
+                "{} {:?}: {error}",
+                entry.source_name,
+                entry.source_variant()
+            ));
+        }
+        checked += 1;
+    }
+    assert!(checked > 0);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
 fn every_parameter_formula_matches_a_constructed_target() {
     let sources = canonical_sources();
     let mut checked = 0;
@@ -157,7 +220,7 @@ fn every_parameter_formula_matches_a_constructed_target() {
                 .map_err(|error| error.to_string())?;
             for (field, _) in transform.expressions() {
                 let valid = match (predicted.get(field), actual.get(field)) {
-                    (Some(predicted), Some(actual)) => match transform.relation() {
+                    (Some(predicted), Some(actual)) => match transform.relation(field).unwrap() {
                         ParameterRelation::Exact => predicted == actual,
                         ParameterRelation::UpperBound => predicted >= actual,
                     },
@@ -166,7 +229,7 @@ fn every_parameter_formula_matches_a_constructed_target() {
                 if !valid {
                     return Err(format!(
                         "{field} ({:?}): predicted {:?}, measured {:?}; source {}",
-                        transform.relation(),
+                        transform.relation(field).unwrap(),
                         predicted.get(field),
                         actual.get(field),
                         source.serialize_json()

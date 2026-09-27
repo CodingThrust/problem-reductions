@@ -4,7 +4,7 @@
 //! crossing flags y_t, and partition labels used directly as a topological order.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::AcyclicPartition;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -43,15 +43,15 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionAcyclicPartitionToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices",
         num_constraints = "num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices) * (num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
     type Result = ReductionAcyclicPartitionToILP;
 
@@ -146,7 +146,9 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
             constraints.push(LinearConstraint::le(terms, 0));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+        let variables = vec![IntegerVariable::binary(); num_vars];
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
 
         Ok(ReductionAcyclicPartitionToILP { target, n })

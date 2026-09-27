@@ -67,15 +67,11 @@ impl ReductionResult for ReductionPIPL2ToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2 + num_edges * num_vertices",
-        num_constraints = "num_vertices^2 + num_edges * num_vertices + num_vertices",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_vertices^2 + num_edges * num_vertices",
+    num_constraints = "num_vertices^2 + num_edges * num_vertices + num_vertices",
+    num_nonzeros = "(num_vertices^2 + num_edges * num_vertices) * (num_vertices^2 + num_edges * num_vertices + num_vertices)",
+})]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;
 

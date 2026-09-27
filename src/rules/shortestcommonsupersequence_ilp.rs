@@ -45,15 +45,11 @@ impl ReductionResult for ReductionSCSToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
-        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
+    num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+    num_nonzeros = "(max_length * (alphabet_size + 1) + total_length * max_length) * (max_length + total_length + total_length * max_length + total_length + max_length)",
+})]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;
 

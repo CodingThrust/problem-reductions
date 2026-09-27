@@ -6,7 +6,7 @@
 //!   Plus binary bounds (x_i <= 1) and order bounds (o_i <= n-1)
 //! - Objective: Minimize the weighted sum of removed vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -51,15 +51,15 @@ impl ReductionResult for ReductionMFVSToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "2 * num_vertices",
         num_constraints = "num_arcs + 2 * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(2 * num_vertices) * (num_arcs + 2 * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionMFVSToILP;
 
@@ -106,8 +106,15 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
             .map(|(vertex, &weight)| (vertex, weight))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[n..].fill(
+            IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 
         Ok(ReductionMFVSToILP {
             target,

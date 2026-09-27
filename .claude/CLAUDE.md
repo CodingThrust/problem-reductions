@@ -179,7 +179,7 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
 ### Parameter Relations
-Each reduction declares one rule-level parameter relation using the `Expr` AST in `src/expr.rs`. The `transform` declaration is required:
+Each reduction declares explicit per-field parameter relations using the `Expr` AST in `src/expr.rs`. The `transform` declaration is required:
 ```rust
 #[reduction(transform = upper_bound {
     num_vertices = "num_vertices + num_clauses",
@@ -189,11 +189,12 @@ impl ReduceTo<Target> for Source { ... }
 ```
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
 - Variable names are validated against the source problem's canonical parameter schema
-- Use `transform = exact { ... }` when every formula is an equality and `transform = upper_bound { ... }` when every formula is only an upper bound. One expression block cannot mix relations.
+- Use `transform = exact { ... }` when every formula is an equality and `transform = upper_bound { ... }` when every formula is only an upper bound. For mixed accuracy, use `transform = { exact { ... }, upper_bound { ... }, unavailable { ... } }`. Every formula RHS uses only registered source parameters; derive target relationships and substitute source expressions before declaring them.
 - Use `transform = unavailable { ... }` when no formula is representable, or an auxiliary `unavailable = { ... }` block for omitted target parameters.
 - Every target parameter must appear exactly once as a formula or as unavailable with a non-empty reason.
-- `ParameterTransform` evaluates and composes formulas with exact rational and arbitrary-precision integer arithmetic. Unsafe upper-bound composition becomes unavailable; it never performs budget pruning or path ranking.
+- `ParameterTransform` evaluates and composes formulas with exact rational and arbitrary-precision integer arithmetic. Composition preserves independent fields and their accuracy. An unavailable dependency or unsafe upper-bound substitution makes only the affected field unavailable; it never performs budget pruning or path ranking.
 - Concrete instance parameters come from each endpoint instance's `Problem::parameters()` implementation; `ReductionEntry` stores only the symbolic parameter relation.
+- Rules producing `ILP<i64>` must declare known finite variable domains with `ILP::with_variables`; constraint rows alone do not supply bounds to binary encoding. Bounds on auxiliary variables must preserve feasibility and the optimum. Document genuinely unbounded variables rather than inventing a cutoff.
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
 - Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`, `factorial()`
 - Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
@@ -212,7 +213,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Same-name variant relations are explicit `#[reduction]` registrations
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
-- `#[reduction]` requires one `transform = exact`, `transform = upper_bound`, or `transform = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
+- `#[reduction]` requires one uniform or mixed `transform` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
 - `Decision<P> → P` supports both mappings: compare the exact optimum to the bound, and recover a witness only if it meets the bound. `P → Decision<P>` is a Turing edge (binary search over decision bound).
 
 ### Extension Points

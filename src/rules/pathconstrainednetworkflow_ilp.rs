@@ -3,7 +3,7 @@
 //! One integer variable per prescribed path. Arc capacity aggregation
 //! across paths and total flow requirement.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PathConstrainedNetworkFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -40,15 +40,11 @@ impl ReductionResult for ReductionPCNFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPCNFToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_paths",
-        num_constraints = "num_arcs + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_paths",
+    num_constraints = "num_arcs + 1",
+    num_nonzeros = "num_paths * (num_arcs + 1)",
+})]
 impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;
 
@@ -75,8 +71,15 @@ impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
         let total_terms: Vec<(usize, i64)> = (0..num_paths).map(|i| (i, 1)).collect();
         constraints.push(LinearConstraint::ge(total_terms, self.requirement()));
 
+        let variables = self
+            .paths()
+            .iter()
+            .map(|path| IntegerVariable::new(Some(0), Some(self.path_bottleneck(path))))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionPCNFToILP {
-            target: ILP::new(num_paths, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
         })
     }

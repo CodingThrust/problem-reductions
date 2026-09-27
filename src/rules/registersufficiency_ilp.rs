@@ -7,7 +7,7 @@
 //! - binary threshold/live indicators to count how many values are live after
 //!   each evaluation step
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::RegisterSufficiency;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -184,8 +184,16 @@ impl ReduceTo<ILP<i64>> for RegisterSufficiency {
             ));
         }
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[time_offset..latest_offset].fill(
+            IntegerVariable::new(Some(0), Some(maximum_time)).map_err(Self::target_construction)?,
+        );
+        variables[latest_offset..order_offset].fill(
+            IntegerVariable::new(Some(0), Some(latest_time)).map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionRegisterSufficiencyToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_vertices: n,
         })

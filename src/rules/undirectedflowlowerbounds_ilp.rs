@@ -23,7 +23,7 @@
 //!
 //! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -78,15 +78,11 @@ impl ReductionResult for ReductionUFLBToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "3 * num_edges",
+    num_constraints = "5 * num_edges + num_vertices + 1",
+    num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
+})]
 impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;
 
@@ -177,8 +173,17 @@ impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
         }
         constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
+        let mut variables = self
+            .capacities()
+            .iter()
+            .flat_map(|&capacity| std::iter::repeat_n(capacity, 2))
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+        variables.resize(num_vars, IntegerVariable::binary());
+
         Ok(ReductionUFLBToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_edges: e,
         })

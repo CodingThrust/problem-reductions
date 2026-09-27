@@ -46,15 +46,15 @@ impl ReductionResult for ReductionSetSplittingToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSetSplittingToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "universe_size",
         num_constraints = "2 * num_subsets",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "universe_size * (2 * num_subsets)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;
 
