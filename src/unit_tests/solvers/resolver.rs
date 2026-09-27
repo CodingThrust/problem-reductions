@@ -435,6 +435,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
         &BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -444,7 +445,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<i64, bool>".to_string()]
+            reduction_path: vec!["ILP<general, i64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -470,6 +471,7 @@ fn deterministic_solver_dispatch_ilp_infeasibility_does_not_fall_back() {
         &BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -494,12 +496,12 @@ fn deterministic_solver_execution_has_stable_tagged_json_contract() {
     );
     assert_eq!(
         serde_json::to_value(SolverExecution::Ilp {
-            reduction_path: vec!["Source".to_string(), "ILP<i64, bool>".to_string()]
+            reduction_path: vec!["Source".to_string(), "ILP<general, i64, bool>".to_string()]
         })
         .unwrap(),
         serde_json::json!({
             "kind": "ilp",
-            "reduction_path": ["Source", "ILP<i64, bool>"]
+            "reduction_path": ["Source", "ILP<general, i64, bool>"]
         })
     );
     assert_eq!(
@@ -560,7 +562,7 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, One>",
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
-            "ILP<i64, bool>",
+            "ILP<general, i64, bool>",
         ]
     );
 }

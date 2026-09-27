@@ -1,3 +1,4 @@
+use problemreductions::models::algebraic::Bounded;
 // # Chained Reduction: Factoring -> SpinGlass
 //
 // Mirrors Julia's examples/Ising.jl — reduces a Factoring problem
@@ -43,9 +44,10 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR_END: step2
 
     // ANCHOR: step3
-    // Factoring reduces to ILP<i64>, so we manually reduce, solve, and extract
+    // Factoring reduces to ILP<i64, i64, Bounded>, so we manually reduce, solve, and extract
     let solver = ILPSolver::new();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&factoring).expect("reduction should succeed");
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&factoring)
+        .expect("reduction should succeed");
     let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
     let solution = reduction.extract_solution(&ilp_solution).unwrap();
     // ANCHOR_END: step3

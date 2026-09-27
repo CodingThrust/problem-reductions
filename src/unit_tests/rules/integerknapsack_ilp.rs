@@ -1,6 +1,6 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, Comparison, ObjectiveSense, ILP};
 use crate::models::set::IntegerKnapsack;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
@@ -9,7 +9,8 @@ use crate::solvers::ILPSolver;
 #[test]
 fn test_integerknapsack_to_ilp_closed_loop() {
     let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&source, &reduction);
 
@@ -23,7 +24,8 @@ fn test_integerknapsack_to_ilp_closed_loop() {
 #[test]
 fn test_integerknapsack_to_ilp_structure() {
     let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 3);
@@ -59,7 +61,8 @@ fn test_integerknapsack_to_ilp_structure() {
 #[test]
 fn test_integerknapsack_to_ilp_zero_capacity() {
     let source = IntegerKnapsack::new(vec![1, 2], vec![10, 20], 0).unwrap();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())

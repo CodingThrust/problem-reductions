@@ -12,6 +12,31 @@ use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 #[test]
+fn integer_ilp_graph_requires_bounded_domains_for_binary_encoding() {
+    let graph = ReductionGraph::new();
+    let general = ReductionGraph::variant_to_map(&ILP::<i64>::variant());
+    let binary = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    assert!(graph
+        .find_all_paths("ILP", &general, "ILP", &binary)
+        .is_empty());
+    let bounded = ReductionGraph::variant_to_map(&[
+        ("variable", "i64"),
+        ("coefficient", "i64"),
+        ("bounds", "bounded"),
+    ]);
+    for (source, target) in [
+        (&bounded, &binary),
+        (&bounded, &general),
+        (&binary, &bounded),
+    ] {
+        assert!(graph
+            .find_all_paths("ILP", source, "ILP", target)
+            .iter()
+            .any(|path| path.len() == 1));
+    }
+}
+
+#[test]
 fn exact_transform_evaluates_without_path_ranking() {
     let graph = ReductionGraph::new();
     let source =

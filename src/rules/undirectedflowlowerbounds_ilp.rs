@@ -1,4 +1,4 @@
-//! Reduction from UndirectedFlowLowerBounds to `ILP<i64>`.
+//! Reduction from UndirectedFlowLowerBounds to `ILP<i64, i64, Bounded>`.
 //!
 //! For each undirected edge e = {u,v} (indexed by e), we introduce:
 //!   f_{uv} = 2*e      (flow in u→v direction, ≥ 0)
@@ -23,13 +23,13 @@
 //!
 //! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
-/// Result of reducing UndirectedFlowLowerBounds to `ILP<i64>`.
+/// Result of reducing UndirectedFlowLowerBounds to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `f_{uv}` at 2*e (flow u→v on edge e)
@@ -37,15 +37,15 @@ use crate::topology::Graph;
 /// - `z_e` at 2*|E| + e (orientation indicator: 1 = u→v direction)
 #[derive(Debug, Clone)]
 pub struct ReductionUFLBToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionUFLBToILP {
     type Source = UndirectedFlowLowerBounds;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -83,7 +83,7 @@ impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
     num_constraints = "5 * num_edges + num_vertices + 1",
     num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
 })]
-impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
+impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -207,7 +207,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

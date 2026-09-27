@@ -3,7 +3,7 @@
 //! One integer variable per prescribed path. Arc capacity aggregation
 //! across paths and total flow requirement.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PathConstrainedNetworkFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -11,14 +11,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing PathConstrainedNetworkFlow to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionPCNFToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionPCNFToILP {
     type Source = PathConstrainedNetworkFlow;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -45,7 +45,7 @@ impl crate::rules::AggregateReductionResult for ReductionPCNFToILP {}
     num_constraints = "num_arcs + 1",
     num_nonzeros = "num_paths * (num_arcs + 1)",
 })]
-impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
+impl ReduceTo<ILP<i64, i64, Bounded>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -102,7 +102,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![0, 1], vec![2]],
                 2,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

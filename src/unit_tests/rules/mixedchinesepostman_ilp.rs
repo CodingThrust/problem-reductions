@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -19,7 +20,8 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
         .expect("source instance should have an optimal solution");
     assert!(source.evaluate(&direct).unwrap().0.is_some());
 
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -41,7 +43,8 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
 
     let bf_value = source.evaluate(&bf_value_solution).unwrap();
 
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -67,7 +70,8 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
 
     let bf_value = source.evaluate(&bf_value_solution).unwrap();
 
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -91,7 +95,7 @@ fn test_mixedchinesepostman_to_ilp_with_isolated_vertices() {
         vec![4, 5, 1, 12, 9],
         vec![6, 1, 13, 7],
     );
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 

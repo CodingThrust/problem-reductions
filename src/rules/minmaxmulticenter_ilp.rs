@@ -1,7 +1,7 @@
 //! Reduction from MinMaxMulticenter to ILP (Integer Linear Programming).
 //!
 //! The vertex p-center optimization problem is formulated as a mixed ILP
-//! using `ILP<i64>` to accommodate both binary and integer variables.
+//! using `ILP<i64, i64, Bounded>` to accommodate both binary and integer variables.
 //!
 //! Variable layout:
 //! - `x_j` for each vertex j (binary: 1 if vertex j is selected as a center), indices `0..n`
@@ -14,7 +14,7 @@
 //! - Assignment: ∀i: Σ_j y_{i,j} = 1 (each vertex assigned to exactly one center)
 //! - Assignment link: ∀i,j: if j is reachable from i then y_{i,j} ≤ x_j,
 //!   otherwise y_{i,j} = 0
-//! - Binary bounds: x_j ≤ 1, y_{i,j} ≤ 1 (enforce binary within `ILP<i64>`)
+//! - Binary bounds: x_j ≤ 1, y_{i,j} ≤ 1 (enforce binary within `ILP<i64, i64, Bounded>`)
 //! - Minimax: ∀i: Σ_j w_i · d(i,j) · y_{i,j} ≤ z
 //!
 //! Objective: minimize z.
@@ -24,7 +24,7 @@
 //! Note: All-pairs shortest-path distances are computed using weighted shortest
 //! paths over `edge_lengths`. Unreachable assignment variables are forced to 0.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinMaxMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -33,15 +33,15 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing MinMaxMulticenter to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMMCToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionMMCToILP {
     type Source = MinMaxMulticenter<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -130,7 +130,7 @@ fn weighted_distances_mmc(
         num_nonzeros = "(num_vertices + num_vertices^2 + 1) * (2 * num_vertices^2 + 3 * num_vertices + 2)",
     },
 })]
-impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinMaxMulticenter<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -177,7 +177,7 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
             }
         }
 
-        // Binary bounds for x_j and y_{i,j} (enforce binary within `ILP<i64>`)
+        // Binary bounds for x_j and y_{i,j} (enforce binary within `ILP<i64, i64, Bounded>`)
         for j in 0..n {
             constraints.push(LinearConstraint::le(vec![(x_var(j), 1)], 1));
         }
@@ -200,7 +200,7 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
                                 vertex_weights[i].checked_mul(distance).ok_or_else(|| {
                                     crate::rules::ReductionError::integer_overflow::<
                                         MinMaxMulticenter<SimpleGraph, i64>,
-                                        ILP<i64>,
+                                        ILP<i64, i64, Bounded>,
                                     >(
                                         "multiplying a vertex weight by a shortest-path distance"
                                     )
@@ -259,7 +259,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1i64; 2],
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

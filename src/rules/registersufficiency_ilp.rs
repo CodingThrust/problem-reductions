@@ -1,4 +1,4 @@
-//! Reduction from RegisterSufficiency to `ILP<i64>`.
+//! Reduction from RegisterSufficiency to `ILP<i64, i64, Bounded>`.
 //!
 //! The formulation uses:
 //! - integer `t_v` variables for evaluation positions
@@ -7,22 +7,22 @@
 //! - binary threshold/live indicators to count how many values are live after
 //!   each evaluation step
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::RegisterSufficiency;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionRegisterSufficiencyToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionRegisterSufficiencyToILP {
     type Source = RegisterSufficiency;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -51,7 +51,7 @@ impl crate::rules::AggregateReductionResult for ReductionRegisterSufficiencyToIL
         num_nonzeros = "18 * num_vertices^2 + 2 * num_vertices + 7 * num_vertices * (num_vertices - 1) / 2 + 4 * num_arcs + num_sinks",
     },
 )]
-impl ReduceTo<ILP<i64>> for RegisterSufficiency {
+impl ReduceTo<ILP<i64, i64, Bounded>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -219,7 +219,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 3,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

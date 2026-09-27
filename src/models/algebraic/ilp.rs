@@ -21,6 +21,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("variable", "bool", &["bool", "i64"]),
             VariantDimension::new("coefficient", "i64", &["i64", "f64"]),
+            VariantDimension::new("bounds", "general", &["general", "bounded"]),
         ],
         category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
@@ -44,6 +45,46 @@ pub trait VariableDomain: 'static + Clone + Debug + Send + Sync {
 
     /// Validate that stored bounds satisfy this static certificate.
     fn validate_variables(variables: &[IntegerVariable]) -> Result<(), ConstructionError>;
+}
+
+/// Type-level requirement on the explicitly stored variable intervals.
+pub trait BoundsPolicy: 'static + Clone + Debug + Send + Sync {
+    /// Registered bounds dimension value.
+    const NAME: &'static str;
+    /// Validate the interval requirement independently of the variable domain.
+    fn validate_variables(variables: &[IntegerVariable]) -> Result<(), ConstructionError>;
+}
+
+/// Variable intervals may have infinite endpoints.
+#[derive(Debug, Clone, Copy)]
+pub struct General;
+
+impl BoundsPolicy for General {
+    const NAME: &'static str = "general";
+
+    fn validate_variables(_variables: &[IntegerVariable]) -> Result<(), ConstructionError> {
+        Ok(())
+    }
+}
+
+/// Every variable has explicit finite lower and upper bounds.
+#[derive(Debug, Clone, Copy)]
+pub struct Bounded;
+
+impl BoundsPolicy for Bounded {
+    const NAME: &'static str = "bounded";
+
+    fn validate_variables(variables: &[IntegerVariable]) -> Result<(), ConstructionError> {
+        if variables
+            .iter()
+            .any(|variable| variable.lower_bound().is_none() || variable.upper_bound().is_none())
+        {
+            return Err(ConstructionError::Conversion(
+                "bounded ILP requires finite lower and upper bounds for every variable".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Numeric domain shared by an ILP's constraints, right-hand sides, and objective.
@@ -318,13 +359,13 @@ pub enum ObjectiveSense {
 
 /// Integer Linear Programming model.
 #[derive(Debug, Clone, Serialize)]
-pub struct ILP<V: VariableDomain = bool, C: ILPCoefficient = i64> {
+pub struct ILP<V: VariableDomain = bool, C: ILPCoefficient = i64, B: BoundsPolicy = General> {
     variables: Vec<IntegerVariable>,
     constraints: Vec<LinearConstraint<C>>,
     objective: Vec<(usize, C)>,
     sense: ObjectiveSense,
     #[serde(skip)]
-    marker: PhantomData<V>,
+    marker: PhantomData<(V, B)>,
 }
 
 #[derive(Deserialize)]
@@ -335,10 +376,11 @@ struct ILPData<C> {
     sense: ObjectiveSense,
 }
 
-impl<'de, V, C> Deserialize<'de> for ILP<V, C>
+impl<'de, V, C, B> Deserialize<'de> for ILP<V, C, B>
 where
     V: VariableDomain,
     C: ILPCoefficient + Deserialize<'de>,
+    B: BoundsPolicy,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -350,9 +392,10 @@ where
     }
 }
 
-impl<V: VariableDomain, C: ILPCoefficient> ILP<V, C> {
+impl<V: VariableDomain, C: ILPCoefficient, B: BoundsPolicy> ILP<V, C, B> {
     /// Construct a homogeneous model using the domain certificate's standard
     /// variable interval: binary `[0, 1]` or integer `[0, +∞)`.
+    /// Bounded integer models with variables must use [`Self::with_variables`].
     pub fn new(
         num_variables: usize,
         constraints: Vec<LinearConstraint<C>>,
@@ -375,6 +418,7 @@ impl<V: VariableDomain, C: ILPCoefficient> ILP<V, C> {
         sense: ObjectiveSense,
     ) -> Result<Self, ConstructionError> {
         V::validate_variables(&variables)?;
+        B::validate_variables(&variables)?;
         let num_variables = variables.len();
         let constraints = constraints
             .into_iter()
@@ -578,7 +622,7 @@ fn normalize_objective<C: ILPCoefficient>(
     Ok(normalized)
 }
 
-impl<V: VariableDomain, C: ILPCoefficient> Problem for ILP<V, C> {
+impl<V: VariableDomain, C: ILPCoefficient, B: BoundsPolicy> Problem for ILP<V, C, B> {
     const NAME: &'static str = "ILP";
     type Solution = Vec<i64>;
     type Value = Extremum<C>;
@@ -604,39 +648,60 @@ impl<V: VariableDomain, C: ILPCoefficient> Problem for ILP<V, C> {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("variable", V::NAME), ("coefficient", C::NAME)]
+        vec![
+            ("variable", V::NAME),
+            ("coefficient", C::NAME),
+            ("bounds", B::NAME),
+        ]
     }
 }
 
 crate::declare_variants! {
     default ILP<bool, i64> => "2^num_vars",
     ILP<i64, i64> => "num_vars^num_vars",
+    ILP<i64, i64, Bounded> => "num_vars^num_vars",
     ILP<bool, f64> => "2^num_vars",
     ILP<i64, f64> => "num_vars^num_vars",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "ilp",
-        instance: Box::new(
-            ILP::<i64, i64>::new(
-                2,
-                vec![
-                    LinearConstraint::le(vec![(0, 1), (1, 1)], 5),
-                    LinearConstraint::le(vec![(0, 4), (1, 7)], 28),
-                ],
-                vec![(0, -5), (1, -6)],
-                ObjectiveSense::Minimize,
-            )
-            .expect("canonical ILP construction must succeed"),
-        ),
-        optimal_config: serde_json::json!(vec![3, 2]),
-        optimal_value: serde_json::json!({
-            "sense": "Minimize",
-            "value": -27,
-        }),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "ilp",
+            instance: Box::new(
+                ILP::<i64, i64>::new(
+                    2,
+                    vec![
+                        LinearConstraint::le(vec![(0, 1), (1, 1)], 5),
+                        LinearConstraint::le(vec![(0, 4), (1, 7)], 28),
+                    ],
+                    vec![(0, -5), (1, -6)],
+                    ObjectiveSense::Minimize,
+                )
+                .expect("canonical ILP construction must succeed"),
+            ),
+            optimal_config: serde_json::json!(vec![3, 2]),
+            optimal_value: serde_json::json!({
+                "sense": "Minimize",
+                "value": -27,
+            }),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "bounded_ilp",
+            instance: Box::new(
+                ILP::<i64, i64, Bounded>::with_variables(
+                    vec![IntegerVariable::new(Some(-2), Some(3)).unwrap()],
+                    vec![LinearConstraint::le(vec![(0, 1)], 1)],
+                    vec![(0, 3)],
+                    ObjectiveSense::Maximize,
+                )
+                .unwrap(),
+            ),
+            optimal_config: serde_json::json!([1]),
+            optimal_value: serde_json::json!({"sense": "Maximize", "value": 3}),
+        },
+    ]
 }
 
 #[cfg(test)]

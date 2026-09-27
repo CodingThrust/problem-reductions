@@ -1,4 +1,4 @@
-//! Reduction from StrongConnectivityAugmentation to `ILP<i64>`.
+//! Reduction from StrongConnectivityAugmentation to `ILP<bool>`.
 //!
 //! Select candidate arcs under the budget and certify strong connectivity by
 //! sending flow both from a root to every vertex and back again.
@@ -11,15 +11,15 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionSCAToILP {
-    target: ILP<i64>,
+    target: ILP<bool>,
     num_candidates: usize,
 }
 
 impl ReductionResult for ReductionSCAToILP {
     type Source = StrongConnectivityAugmentation<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -49,7 +49,7 @@ impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
     num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
     num_nonzeros = "(num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)) * (1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices)",
 })]
-impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
+impl ReduceTo<ILP<bool>> for StrongConnectivityAugmentation<i64> {
     type Result = ReductionSCAToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -203,13 +203,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
             );
             let reduction: ReductionSCAToILP =
-                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                crate::rules::ReduceTo::<ILP<bool>>::reduce_to(&source)
                     .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(extracted),

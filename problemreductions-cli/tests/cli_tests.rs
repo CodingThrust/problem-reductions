@@ -3588,7 +3588,7 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
-fn test_solve_direct_ilp_i64_problem() {
+fn test_solve_direct_bounded_integer_ilp_problem() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i64_problem.json");
 
     let create_out = pred()
@@ -3599,7 +3599,7 @@ fn test_solve_direct_ilp_i64_problem() {
             "--example",
             "SequencingToMinimizeWeightedCompletionTime",
             "--to",
-            "ILP/variable=i64",
+            "ILP/variable=i64/bounds=bounded",
             "--example-side",
             "target",
         ])
@@ -9750,13 +9750,17 @@ fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible()
     use serde_json::json;
 
     let source = OpenShopScheduling::new(1, vec![vec![1]]);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction =
+        ReduceTo::<ILP<i64, i64, problemreductions::models::algebraic::Bounded>>::reduce_to(
+            &source,
+        )
+        .unwrap();
     let bundle = std::env::temp_dir().join(format!(
         "pred-extract-target-feasibility-{}.json",
         std::process::id()
     ));
     let source_key = json!({"name":"OpenShopScheduling","variant":{}});
-    let target_variant = json!({"variable":"i64","coefficient":"i64"});
+    let target_variant = json!({"variable":"i64","coefficient":"i64","bounds":"bounded"});
     std::fs::write(
         &bundle,
         json!({

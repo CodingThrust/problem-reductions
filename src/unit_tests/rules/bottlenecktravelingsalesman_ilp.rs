@@ -14,7 +14,7 @@ fn k4_btsp() -> BottleneckTravelingSalesman {
 fn test_reduction_creates_valid_ilp() {
     let problem = k4_btsp();
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=4, m=6: 16 position bits, 48 edge-use bits, 6 maximum selectors.
     assert_eq!(ilp.num_vars(), 70);
@@ -29,7 +29,7 @@ fn test_bottlenecktravelingsalesman_to_ilp_closed_loop() {
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -59,7 +59,7 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -75,7 +75,7 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
 fn test_solution_extraction() {
     let problem = k4_btsp();
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -93,7 +93,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
         vec![1, 1, 1],
     );
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
@@ -106,7 +106,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
 fn test_bottlenecktravelingsalesman_to_ilp_bf_vs_ilp() {
     let problem = k4_btsp();
     let reduction: ReductionBTSPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -169,7 +169,7 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
         ),
     ] {
         let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);
-        let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let result = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let witness = tour_witness(&source, &tour, &edge_order);
         let extracted = result.extract_solution(&witness).unwrap();
         let expected = source.evaluate(&extracted).unwrap().unwrap();
@@ -192,7 +192,7 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
 #[test]
 fn test_bottleneck_ilp_maximum_must_be_used_and_dominate() {
     let source = k4_btsp();
-    let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let result = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     let mut config = tour_witness(&source, &[0, 1, 2, 3], &[0, 3, 5, 2]);
     let selector = 4 * 4 + 2 * 6 * 4;
     config[selector..].fill(0);
@@ -208,7 +208,7 @@ fn test_bottleneck_ilp_maximum_must_be_used_and_dominate() {
 fn test_bottleneck_ilp_empty_and_single_edge_are_infeasible() {
     for (n, edges, weights) in [(0, vec![], vec![]), (2, vec![(0, 1)], vec![1])] {
         let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);
-        let result = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let result = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         assert!(matches!(
             ILPSolver::new().solve(result.target_problem()),
             Err(crate::solvers::ILPSolveError::Infeasible)

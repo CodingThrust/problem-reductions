@@ -157,8 +157,8 @@ fn source_for(
 }
 
 #[test]
-fn integer_ilp_reductions_support_binary_encoding() {
-    use crate::models::algebraic::ILP;
+fn bounded_ilp_reductions_support_binary_encoding() {
+    use crate::models::algebraic::{Bounded, ILP};
     use crate::rules::ReduceTo;
     use crate::traits::Problem;
 
@@ -166,7 +166,9 @@ fn integer_ilp_reductions_support_binary_encoding() {
     let mut failures = Vec::new();
     let mut checked = 0;
     for entry in crate::rules::registry::reduction_entries() {
-        if entry.target_name != "ILP" || entry.target_variant() != ILP::<i64>::variant() {
+        if entry.target_name != "ILP"
+            || entry.target_variant() != ILP::<i64, i64, Bounded>::variant()
+        {
             continue;
         }
         let result = (|| {
@@ -175,7 +177,7 @@ fn integer_ilp_reductions_support_binary_encoding() {
                 entry.reduce_fn.unwrap()(source.as_any()).map_err(|error| error.to_string())?;
             let integer = reduced
                 .target_problem_any()
-                .downcast_ref::<ILP<i64>>()
+                .downcast_ref::<ILP<i64, i64, Bounded>>()
                 .unwrap();
             ReduceTo::<ILP<bool>>::reduce_to(integer).map_err(|error| error.to_string())?;
             Ok::<_, String>(())

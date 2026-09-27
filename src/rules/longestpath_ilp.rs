@@ -5,7 +5,7 @@
 //! path positions. Flow-balance constraints force a single directed `s-t` path,
 //! while MTZ-style ordering constraints eliminate detached cycles.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::LongestPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -13,7 +13,7 @@ use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
 pub struct ReductionLongestPathToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
@@ -25,9 +25,9 @@ impl ReductionLongestPathToILP {
 
 impl ReductionResult for ReductionLongestPathToILP {
     type Source = LongestPath<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -57,7 +57,7 @@ impl ReductionResult for ReductionLongestPathToILP {
         num_nonzeros = "(2 * num_edges + num_vertices) * (5 * num_edges + 4 * num_vertices + 1)",
     },
 })]
-impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for LongestPath<SimpleGraph, i64> {
     type Result = ReductionLongestPathToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -89,7 +89,7 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
 
         let mut constraints = Vec::new();
 
-        // Directed arc variables are binary within `ILP<i64>`.
+        // Directed arc variables are binary within `ILP<i64, i64, Bounded>`.
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
                 vec![(ReductionLongestPathToILP::arc_var(edge_idx, 0), 1)],
@@ -197,7 +197,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source =
                 LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

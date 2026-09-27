@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -22,7 +23,8 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
         .expect("source instance should be satisfiable");
     assert!(source.evaluate(&direct).unwrap());
 
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -41,6 +43,7 @@ fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
         vec![vec![0, 1], vec![2]],
         2,
     );
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

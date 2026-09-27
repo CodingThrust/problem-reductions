@@ -1,4 +1,4 @@
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
@@ -20,7 +20,8 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
     let source_best = ILPSolver::new().solve(&source).unwrap();
     let source_obj = source.evaluate(&source_best).unwrap();
 
-    let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let result =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
     // Target should have same number of variables
@@ -37,7 +38,8 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
 #[test]
 fn test_ilp_bool_to_ilp_i64_empty() {
     let source = ILP::<bool>::empty();
-    let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let result =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
     assert_eq!(target.num_vars(), 0);
     assert!(target.constraints().is_empty());
@@ -58,7 +60,8 @@ fn test_ilp_bool_to_ilp_i64_preserves_constraints() {
     )
     .unwrap();
 
-    let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let result =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.constraints(), source.constraints());

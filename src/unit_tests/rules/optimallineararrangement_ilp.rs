@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -8,7 +9,7 @@ fn test_reduction_creates_valid_ilp() {
     // Path P4: 0-1-2-3
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionOLAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_x=16, p_v=4, z_e=3, total=23
     assert_eq!(ilp.num_vars(), 23);
@@ -29,7 +30,7 @@ fn test_optimallineararrangement_to_ilp_closed_loop() {
 
     // Solve via ILP
     let reduction: ReductionOLAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -59,7 +60,7 @@ fn test_optimallineararrangement_to_ilp_with_chords() {
 
     // Solve via ILP
     let reduction: ReductionOLAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -72,7 +73,7 @@ fn test_optimallineararrangement_to_ilp_with_chords() {
 fn test_solution_extraction() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionOLAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -85,6 +86,6 @@ fn test_solution_extraction() {
 fn test_optimallineararrangement_to_ilp_bf_vs_ilp() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionOLAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

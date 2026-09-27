@@ -3,6 +3,37 @@ use crate::solvers::{ILPSolveError, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Extremum;
 
+#[test]
+fn bounded_integer_ilp_loading_requires_finite_domains() {
+    assert!(ILP::<i64>::new(1, vec![], vec![], ObjectiveSense::Minimize).is_ok());
+    assert!(ILP::<i64, i64, Bounded>::new(1, vec![], vec![], ObjectiveSense::Minimize).is_err());
+    assert_eq!(ILP::<i64, i64, Bounded>::empty().num_vars(), 0);
+    let variant = crate::rules::ReductionGraph::variant_to_map(&[
+        ("variable", "i64"),
+        ("coefficient", "i64"),
+        ("bounds", "bounded"),
+    ]);
+    let instance = serde_json::json!({
+        "variables": [{"lower_bound": -2, "upper_bound": 3}],
+        "constraints": [], "objective": [[0, 1]], "sense": "Maximize"
+    });
+    let loaded = crate::registry::load_dyn("ILP", &variant, instance.clone())
+        .expect("bounded integer ILP must be registered");
+    assert_eq!(loaded.serialize_json(), instance);
+    for (lower, upper) in [(None, Some(3)), (Some(-2), None), (None, None)] {
+        let mut invalid = instance.clone();
+        invalid["variables"] = serde_json::json!([{"lower_bound": lower, "upper_bound": upper}]);
+        assert!(crate::registry::load_dyn("ILP", &variant, invalid).is_err());
+        assert!(ILP::<i64, i64, Bounded>::with_variables(
+            vec![IntegerVariable::new(lower, upper).unwrap()],
+            vec![],
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .is_err());
+    }
+}
+
 fn binary_ilp(
     num_vars: usize,
     constraints: Vec<LinearConstraint>,
@@ -16,7 +47,11 @@ fn binary_ilp(
 fn ilp_variant_identifies_variable_domain() {
     assert_eq!(
         <ILP<bool> as Problem>::variant(),
-        vec![("variable", "bool"), ("coefficient", "i64")]
+        vec![
+            ("variable", "bool"),
+            ("coefficient", "i64"),
+            ("bounds", "general")
+        ]
     );
 }
 
@@ -24,7 +59,11 @@ fn ilp_variant_identifies_variable_domain() {
 fn ilp_variant_identifies_float_coefficients() {
     assert_eq!(
         <ILP<bool, f64> as Problem>::variant(),
-        vec![("variable", "bool"), ("coefficient", "f64")]
+        vec![
+            ("variable", "bool"),
+            ("coefficient", "f64"),
+            ("bounds", "general")
+        ]
     );
 }
 

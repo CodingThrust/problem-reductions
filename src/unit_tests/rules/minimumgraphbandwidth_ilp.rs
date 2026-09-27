@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -8,7 +9,7 @@ fn test_reduction_creates_valid_ilp() {
     // Star S4: 4 vertices, 3 edges
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction: ReductionMGBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_x=16, pos_v=4, B=1, total=21
     assert_eq!(ilp.num_vars(), 21);
@@ -30,7 +31,7 @@ fn test_minimumgraphbandwidth_to_ilp_closed_loop() {
 
     // Solve via ILP
     let reduction: ReductionMGBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -56,7 +57,7 @@ fn test_minimumgraphbandwidth_to_ilp_path() {
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
 
     let reduction: ReductionMGBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
@@ -75,7 +76,7 @@ fn test_minimumgraphbandwidth_to_ilp_bf_vs_ilp() {
     // Star S4
     let problem = MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction: ReductionMGBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -85,6 +86,6 @@ fn test_minimumgraphbandwidth_to_ilp_cycle() {
     let problem =
         MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
     let reduction: ReductionMGBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

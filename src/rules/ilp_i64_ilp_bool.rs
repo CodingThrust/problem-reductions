@@ -1,6 +1,6 @@
 //! Encode finitely bounded integer ILP variables as binary variables.
 
-use crate::models::algebraic::{Comparison, LinearConstraint, ILP};
+use crate::models::algebraic::{Bounded, Comparison, LinearConstraint, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::ReductionError;
@@ -13,7 +13,7 @@ struct VarEncoding {
 }
 
 fn overflow(operation: impl Into<String>) -> ReductionError {
-    ReductionError::integer_overflow::<ILP<i64>, ILP<bool>>(operation)
+    ReductionError::integer_overflow::<ILP<i64, i64, Bounded>, ILP<bool>>(operation)
 }
 
 fn binary_weights(width: i64) -> Vec<i64> {
@@ -73,7 +73,7 @@ pub struct ReductionIntILPToBinaryILP {
 }
 
 impl ReductionResult for ReductionIntILPToBinaryILP {
-    type Source = ILP<i64>;
+    type Source = ILP<i64, i64, Bounded>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -119,23 +119,15 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
         num_nonzeros = "binary expansion depends on concrete variable bounds and row sparsity",
     },
 )]
-impl ReduceTo<ILP<bool>> for ILP<i64> {
+impl ReduceTo<ILP<bool>> for ILP<i64, i64, Bounded> {
     type Result = ReductionIntILPToBinaryILP;
 
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
         let mut encodings = Vec::with_capacity(self.num_vars());
         let mut num_binary_variables = 0_usize;
         for variable in self.variables() {
-            let lower_bound = variable.lower_bound().ok_or_else(|| {
-                ReductionError::invalid_target::<ILP<i64>, ILP<bool>>(
-                    "binary encoding requires a finite lower bound for every integer variable",
-                )
-            })?;
-            let upper_bound = variable.upper_bound().ok_or_else(|| {
-                ReductionError::invalid_target::<ILP<i64>, ILP<bool>>(
-                    "binary encoding requires a finite upper bound for every integer variable",
-                )
-            })?;
+            let lower_bound = variable.lower_bound().expect("bounded ILP lower bound");
+            let upper_bound = variable.upper_bound().expect("bounded ILP upper bound");
             let width = upper_bound
                 .checked_sub(lower_bound)
                 .ok_or_else(|| overflow("computing an integer variable interval width"))?;

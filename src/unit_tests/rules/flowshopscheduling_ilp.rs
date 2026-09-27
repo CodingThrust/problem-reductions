@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -7,7 +8,7 @@ use crate::types::Or;
 #[test]
 fn zero_duration_jobs_preserve_the_common_machine_order() {
     let source = FlowShopScheduling::new(2, vec![vec![3, 0], vec![1, 10]], 11);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     // Job 1 precedes job 0, but both finish on machine 1 at time 11.
     let assignment = vec![0, 4, 11, 1, 11];
     assert!(reduction
@@ -21,7 +22,7 @@ fn zero_duration_jobs_preserve_the_common_machine_order() {
     assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));
 
     let no_machines = FlowShopScheduling::new(0, vec![vec![], vec![]], 0);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&no_machines).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&no_machines).unwrap();
     crate::rules::test_helpers::assert_bf_vs_ilp(&no_machines, &reduction);
 }
 
@@ -29,7 +30,8 @@ fn zero_duration_jobs_preserve_the_common_machine_order() {
 fn test_flowshopscheduling_to_ilp_closed_loop() {
     // 2 machines, 3 jobs, deadline 10
     let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
     let bf_witness = bf
@@ -53,7 +55,8 @@ fn test_flowshopscheduling_to_ilp_closed_loop() {
 fn test_flowshopscheduling_to_ilp_infeasible() {
     // 2 machines, 3 jobs with large processing times, very tight deadline
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible FSS should produce infeasible ILP"
@@ -64,7 +67,8 @@ fn test_flowshopscheduling_to_ilp_infeasible() {
 fn test_flowshopscheduling_to_ilp_single_job() {
     // 2 machines, 1 job, deadline 10
     let problem = FlowShopScheduling::new(2, vec![vec![3, 4]], 10);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("single-job ILP should be solvable");
@@ -75,7 +79,8 @@ fn test_flowshopscheduling_to_ilp_single_job() {
 #[test]
 fn test_flowshopscheduling_to_ilp_bf_vs_ilp() {
     let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");

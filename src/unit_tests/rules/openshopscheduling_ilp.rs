@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::models::misc::OpenShopScheduling;
 use crate::solvers::ILPSolver;
@@ -14,12 +15,12 @@ fn small_instance() -> OpenShopScheduling {
 #[test]
 fn test_decision_openshopscheduling_to_ilp_bound_is_a_constraint() {
     let inner = small_instance();
-    let optimization = ReduceTo::<ILP<i64>>::reduce_to(&inner).unwrap();
+    let optimization = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&inner).unwrap();
     let solver = ILPSolver::new();
     let optimal = solver.solve(optimization.target_problem()).unwrap();
     for bound in [-1, 2, 3, 4] {
         let source = Decision::new(inner.clone(), bound);
-        let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         assert!(target.objective().is_empty());
         assert_eq!(target.num_vars(), optimization.target_problem().num_vars());
@@ -61,7 +62,7 @@ fn medium_instance() -> OpenShopScheduling {
 fn test_openshopscheduling_to_ilp_structure_small() {
     let p = small_instance();
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=2, m=2:
@@ -97,7 +98,7 @@ fn test_openshopscheduling_to_ilp_structure_small() {
 fn test_openshopscheduling_to_ilp_closed_loop_small() {
     let p = small_instance();
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -116,7 +117,7 @@ fn test_openshopscheduling_to_ilp_closed_loop_small() {
 fn test_openshopscheduling_to_ilp_closed_loop_medium() {
     let p = medium_instance();
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -139,7 +140,7 @@ fn test_openshopscheduling_to_ilp_closed_loop_medium() {
 fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
     let p = small_instance();
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let target_solution = vec![1, 0, 0, 1, 1, 0, 1, 0, 3];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 1, 0]);
@@ -153,7 +154,7 @@ fn test_openshopscheduling_to_ilp_single_job() {
     // 1 job, 2 machines: trivial, makespan = sum of processing times
     let p = OpenShopScheduling::new(2, vec![vec![3, 4]]);
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -168,7 +169,7 @@ fn test_openshopscheduling_to_ilp_single_machine() {
     // 3 jobs, 1 machine: serial schedule, makespan = sum of all processing times
     let p = OpenShopScheduling::new(1, vec![vec![2], vec![3], vec![1]]);
     let reduction: ReductionOSSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");

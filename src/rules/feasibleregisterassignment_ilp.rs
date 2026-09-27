@@ -10,22 +10,22 @@
 //! interval non-overlap: if `u` is before `v`, then `v` must be scheduled no
 //! earlier than the latest dependent of `u`.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionFeasibleRegisterAssignmentToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
     type Source = FeasibleRegisterAssignment;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -54,7 +54,7 @@ impl crate::rules::AggregateReductionResult for ReductionFeasibleRegisterAssignm
         num_nonzeros = "4 * num_vertices + 4 * num_arcs + 7 * num_vertices * (num_vertices - 1) / 2 + 6 * num_same_register_pairs",
     }
 )]
-impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
+impl ReduceTo<ILP<i64, i64, Bounded>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -160,7 +160,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![0, 1, 0, 0],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

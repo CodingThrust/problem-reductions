@@ -5,7 +5,7 @@
 //! ordering variables `y_{i,j}` for each task pair. Big-M constraints
 //! enforce that tasks sharing a processor do not overlap.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -22,7 +22,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total variables: n*m + n + n*(n-1)/2
 #[derive(Debug, Clone)]
 pub struct ReductionSMWCTToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
     num_processors: usize,
 }
@@ -45,9 +45,9 @@ impl ReductionSMWCTToILP {
 
 impl ReductionResult for ReductionSMWCTToILP {
     type Source = SchedulingToMinimizeWeightedCompletionTime;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -71,7 +71,7 @@ impl ReductionResult for ReductionSMWCTToILP {
         num_nonzeros = "(num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2) * (num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2)",
     },
 })]
-impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
+impl ReduceTo<ILP<i64, i64, Bounded>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -85,7 +85,7 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
             .ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     SchedulingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
+                    ILP<i64, i64, Bounded>,
                 >("summing task processing times")
             })?;
         let lengths = self.lengths();
@@ -94,13 +94,13 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
         let two_big_m = big_m.checked_mul(2).ok_or_else(|| {
             crate::rules::ReductionError::integer_overflow::<
                 SchedulingToMinimizeWeightedCompletionTime,
-                ILP<i64>,
+                ILP<i64, i64, Bounded>,
             >("doubling the disjunctive scheduling bound")
         })?;
         let three_big_m = big_m.checked_mul(3).ok_or_else(|| {
             crate::rules::ReductionError::integer_overflow::<
                 SchedulingToMinimizeWeightedCompletionTime,
-                ILP<i64>,
+                ILP<i64, i64, Bounded>,
             >("tripling the disjunctive scheduling bound")
         })?;
 
@@ -218,7 +218,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 tasks, 2 processors: simple instance for canonical example
             let source =
                 SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2, 3], vec![4, 2, 1], 2);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
@@ -25,7 +26,7 @@ fn test_preemptivescheduling_to_ilp_structure() {
     let p = small_instance();
     // n=2, D_max=2 → 2*2+1 = 5 variables
     let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars(), 5, "expected n*D_max+1 = 5 variables");
     assert_eq!(
@@ -45,7 +46,7 @@ fn test_preemptivescheduling_to_ilp_structure() {
 fn test_preemptivescheduling_to_ilp_closed_loop() {
     let p = small_instance();
     let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -62,7 +63,7 @@ fn test_solve_via_registered_integer_ilp_pipeline() {
     let problem = small_instance();
     let solution = ILPSolver::new()
         .solve(&problem)
-        .expect("direct ILP<i64> reduction should be solvable");
+        .expect("direct ILP<i64, i64, Bounded> reduction should be solvable");
 
     assert!(problem.evaluate(&solution).unwrap().0.is_some());
 }
@@ -71,7 +72,7 @@ fn test_solve_via_registered_integer_ilp_pipeline() {
 fn test_preemptivescheduling_to_ilp_medium_closed_loop() {
     let p = medium_instance();
     let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -98,7 +99,7 @@ fn test_preemptivescheduling_to_ilp_infeasible() {
     // Use a cycle-free precedence that is always schedulable.
     let p = PreemptiveScheduling::new(vec![1, 1], 1, vec![(0, 1)]).unwrap();
     let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let sol = ILPSolver::new().solve(reduction.target_problem());
     // 1 processor, t0 at slot 0, t1 at slot 1 → always feasible
     assert!(sol.is_ok(), "should be feasible");
@@ -112,7 +113,7 @@ fn test_preemptivescheduling_to_ilp_extract_solution() {
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1, M=2
     let p = small_instance();
     let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = vec![1, 0, 0, 1, 2]; // last element is M
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);

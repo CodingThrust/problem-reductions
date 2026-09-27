@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -8,7 +8,7 @@ use crate::types::Or;
 fn test_reduction_creates_valid_ilp() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
     let reduction: ReductionRTSAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3, r=2 (both subsets have size 2)
@@ -31,7 +31,7 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
         .unwrap_or(Or(false));
 
     let reduction: ReductionRTSAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
 
@@ -62,7 +62,7 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     let bf_witness = bf.solve(&problem).unwrap();
 
     let reduction: ReductionRTSAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
     assert!(bf_witness.is_none(), "source should be infeasible");
@@ -73,7 +73,7 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
 fn test_solution_extraction() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1, 2]], 0);
     let reduction: ReductionRTSAToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())

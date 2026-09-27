@@ -1,4 +1,5 @@
 use crate::models::algebraic::AlgebraicEquationsOverGF2;
+use crate::models::algebraic::Bounded;
 use crate::models::graph::{MaximumClique, MaximumIndependentSet};
 use crate::models::set::ExactCoverBy3Sets;
 use crate::parameters::ParameterRelation;
@@ -237,7 +238,7 @@ fn newly_exact_parameters_match_reduced_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64>>(
+    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         ClosestString::new(2, vec![vec![0, 1], vec![1, 0]]),
         &["num_nonzeros"],
         exact,
@@ -257,12 +258,12 @@ fn newly_exact_parameters_match_reduced_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64>>(
+    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]),
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64>>(
+    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         IntegerKnapsack::new(vec![3, 4], vec![5, 6], 7).unwrap(),
         &["num_nonzeros"],
         exact,
@@ -287,7 +288,7 @@ fn newly_exact_parameters_match_reduced_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64>>(
+    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2),
         &["num_nonzeros"],
         exact,
@@ -318,7 +319,7 @@ fn newly_exact_parameters_match_reduced_instances() {
         exact,
     );
     check_reduced_parameters::<_, ILP<bool>>(
-        ILP::<i64>::with_variables(
+        ILP::<i64, i64, Bounded>::with_variables(
             vec![IntegerVariable::new(Some(0), Some(3)).unwrap()],
             vec![LinearConstraint::le(vec![(0, 1)], 2)],
             vec![],
@@ -382,7 +383,7 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64>>(
+    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         RegisterSufficiency::new(0, vec![], 0),
         &["num_nonzeros"],
         exact,

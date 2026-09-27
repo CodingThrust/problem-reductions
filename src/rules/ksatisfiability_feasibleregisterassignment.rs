@@ -231,7 +231,7 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-    use crate::models::algebraic::ILP;
+    use crate::models::algebraic::{Bounded, ILP};
     use crate::models::formula::CNFClause;
     use crate::solvers::ILPSolver;
 
@@ -248,10 +248,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let to_fra =
                 <KSatisfiability<K3> as ReduceTo<FeasibleRegisterAssignment>>::reduce_to(&source)
                     .expect("reduction should succeed");
-            let to_ilp = <FeasibleRegisterAssignment as ReduceTo<ILP<i64>>>::reduce_to(
-                to_fra.target_problem(),
-            )
-            .expect("reduction should succeed");
+            let to_ilp =
+                <FeasibleRegisterAssignment as ReduceTo<ILP<i64, i64, Bounded>>>::reduce_to(
+                    to_fra.target_problem(),
+                )
+                .expect("reduction should succeed");
             let ilp_solution = ILPSolver::new()
                 .solve(to_ilp.target_problem())
                 .expect("canonical FRA example must reduce to a feasible ILP");

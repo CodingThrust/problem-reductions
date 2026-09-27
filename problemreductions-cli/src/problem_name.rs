@@ -156,19 +156,21 @@ fn resolve_variant_updates(
 
     let problem = problemreductions::registry::find_problem_type(&spec.name)
         .expect("registered problem has a schema");
-    if spec.variant_values.len() == problem.dimensions.len()
+    if spec.variant_values.len() <= problem.dimensions.len()
         && problem
             .dimensions
             .iter()
             .zip(&spec.variant_values)
             .all(|(dimension, value)| dimension.allowed_values.contains(&value.as_str()))
     {
-        let resolved = problem
-            .dimensions
-            .iter()
-            .zip(&spec.variant_values)
-            .map(|(dimension, value)| (dimension.key.to_string(), value.clone()))
-            .collect();
+        let mut resolved = default_variant.clone();
+        resolved.extend(
+            problem
+                .dimensions
+                .iter()
+                .zip(&spec.variant_values)
+                .map(|(dimension, value)| (dimension.key.to_string(), value.clone())),
+        );
         anyhow::ensure!(
             known_variants.contains(&resolved),
             "Resolved variant {} is not declared for {}",
@@ -406,10 +408,29 @@ mod tests {
         let resolved = resolve_problem_ref("ILP/bool/i64", &graph).unwrap();
         assert_eq!(resolved.variant["variable"], "bool");
         assert_eq!(resolved.variant["coefficient"], "i64");
+        assert_eq!(resolved.variant["bounds"], "general");
         assert_eq!(
             crate::commands::graph::variant_to_full_slash("ILP", &resolved.variant),
-            "/bool/i64"
+            "/bool/i64/general"
         );
+    }
+
+    #[test]
+    fn ilp_bounds_default_to_general_without_registering_unused_combinations() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        for spec in ["ILP/i64", "ILP/i64/i64", "ILP/variable=i64"] {
+            let resolved = resolve_problem_ref(spec, &graph).unwrap();
+            assert_eq!(resolved.variant["variable"], "i64");
+            assert_eq!(resolved.variant["bounds"], "general");
+        }
+        assert_eq!(
+            resolve_problem_ref("ILP/i64/i64/bounded", &graph)
+                .unwrap()
+                .variant["bounds"],
+            "bounded"
+        );
+        assert!(resolve_problem_ref("ILP/i64/f64/bounded", &graph).is_err());
+        assert!(resolve_problem_ref("ILP/bool/i64/bounded", &graph).is_err());
     }
 
     #[test]

@@ -1,18 +1,18 @@
 //! Reduction from SequencingToMinimizeWeightedCompletionTime to ILP.
 //!
 //! The reduction uses integer completion-time variables `C_j` and integer
-//! order variables `y_{i,j}` constrained to `{0, 1}` within `ILP<i64>`.
+//! order variables `y_{i,j}` constrained to `{0, 1}` within `ILP<i64, i64, Bounded>`.
 //! For each unordered pair `{i, j}`, a pair of big-M constraints forces one
 //! task to finish before the other starts.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionSTMWCTToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
 }
 
@@ -31,9 +31,9 @@ impl ReductionSTMWCTToILP {
 
 impl ReductionResult for ReductionSTMWCTToILP {
     type Source = SequencingToMinimizeWeightedCompletionTime;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -60,7 +60,7 @@ impl ReductionResult for ReductionSTMWCTToILP {
         num_nonzeros = "(num_tasks + num_tasks * (num_tasks - 1) / 2) * (2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences)",
     },
 })]
-impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
+impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -70,7 +70,7 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedCompletionTime {
             total.checked_add(length).ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     SequencingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
+                    ILP<i64, i64, Bounded>,
                 >("summing task processing times")
             })
         })?;
@@ -158,7 +158,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source =
                 SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

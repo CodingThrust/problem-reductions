@@ -1,4 +1,4 @@
-//! Reduction from BiconnectivityAugmentation to `ILP<i64>`.
+//! Reduction from BiconnectivityAugmentation to `ILP<bool>`.
 //!
 //! Select candidate edges under budget and, both before deletion and for every deleted vertex q,
 //! certify that the remaining augmented graph stays connected via unit-flow
@@ -12,7 +12,7 @@ use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
 pub struct ReductionBiconnAugToILP {
-    target: ILP<i64>,
+    target: ILP<bool>,
     num_candidates: usize,
 }
 
@@ -25,7 +25,7 @@ impl ReductionBiconnAugToILP {
         let overflow = || {
             crate::rules::ReductionError::integer_overflow::<
                 BiconnectivityAugmentation<SimpleGraph, i64>,
-                ILP<i64>,
+                ILP<bool>,
             >("computing connectivity flow variable counts")
         };
         let commodities = n
@@ -48,9 +48,9 @@ impl ReductionBiconnAugToILP {
 
 impl ReductionResult for ReductionBiconnAugToILP {
     type Source = BiconnectivityAugmentation<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -80,7 +80,7 @@ impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
     num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
     num_nonzeros = "(num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)) * (1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices))",
 })]
-impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
+impl ReduceTo<ILP<bool>> for BiconnectivityAugmentation<SimpleGraph, i64> {
     type Result = ReductionBiconnAugToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -242,13 +242,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
             );
             let reduction: ReductionBiconnAugToILP =
-                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                crate::rules::ReduceTo::<ILP<bool>>::reduce_to(&source)
                     .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(extracted),

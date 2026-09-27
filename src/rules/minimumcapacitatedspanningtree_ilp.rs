@@ -5,7 +5,7 @@
 //! - Flow on each edge is bounded by the capacity constraint
 //! - Flow-edge linking ensures flow only travels on selected edges
 //!
-//! Variable layout (all non-negative integers, `ILP<i64>`):
+//! Variable layout (all non-negative integers, `ILP<i64, i64, Bounded>`):
 //! - `y_e` for each undirected edge `e` (indices `0..m`): edge selector (binary)
 //! - `f_{2e}`, `f_{2e+1}` for each edge `e=(u,v)` (indices `m..3m`):
 //!   directed requirement flow from u to v and v to u respectively
@@ -24,7 +24,7 @@
 //!
 //! Objective: minimize sum(w_e * y_e)
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -34,15 +34,15 @@ use crate::types::WeightElement;
 /// Result of reducing MinimumCapacitatedSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumCapacitatedSpanningTreeToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -67,7 +67,7 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     num_constraints = "5 * num_edges + 2 * num_vertices + 1",
     num_nonzeros = "(5 * num_edges) * (5 * num_edges + 2 * num_vertices + 1)",
 })]
-impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -94,7 +94,7 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 total.checked_add(requirement.to_sum()).ok_or_else(|| {
                     crate::rules::ReductionError::integer_overflow::<
                         MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
-                        ILP<i64>,
+                        ILP<i64, i64, Bounded>,
                     >("summing vertex requirements")
                 })
             })?;
@@ -237,7 +237,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![0, 1, 1, 1],    // requirements
                 2,                   // capacity
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

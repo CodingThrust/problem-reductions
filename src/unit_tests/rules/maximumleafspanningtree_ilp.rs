@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -35,7 +35,7 @@ fn canonical_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
 fn test_reduction_creates_expected_ilp_shape() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 3*4 + 4 = 16
@@ -49,7 +49,7 @@ fn test_reduction_creates_expected_ilp_shape() {
 fn test_maximumleafspanningtree_to_ilp_closed_loop() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -69,7 +69,7 @@ fn test_maximumleafspanningtree_to_ilp_closed_loop() {
 fn test_maximumleafspanningtree_to_ilp_canonical_closed_loop() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -87,7 +87,7 @@ fn test_maximumleafspanningtree_to_ilp_canonical_closed_loop() {
 fn test_solution_extraction_reads_edge_selector_prefix() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // 16 variables total, first 4 are edge selectors
     let mut target_solution = vec![0; 16];
@@ -105,7 +105,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_reduce_and_solve_via_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
@@ -118,7 +118,7 @@ fn test_reduce_and_solve_via_ilp() {
 fn test_maximumleafspanningtree_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -127,7 +127,7 @@ fn test_maximumleafspanningtree_to_ilp_path_graph() {
     // Path P4: 0-1-2-3, only spanning tree is the path itself => 2 leaves
     let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -140,7 +140,7 @@ fn test_maximumleafspanningtree_to_ilp_star_graph() {
     // Star K1,3: center 0, leaves 1,2,3 => 3 leaves
     let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -161,7 +161,7 @@ fn test_maximumleafspanningtree_to_ilp_complete_graph() {
     let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();

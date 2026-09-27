@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::solvers::ILPSolver;
 use crate::topology::DirectedGraph;
@@ -15,7 +15,8 @@ fn issue_instance() -> EulerianPath {
 #[test]
 fn test_eulerianpath_to_ilp_issue_structure() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // m = 4 arcs. Compatible pairs: head(a) = tail(b), a != b:
@@ -44,7 +45,8 @@ fn test_eulerianpath_to_ilp_issue_structure() {
 fn test_eulerianpath_to_ilp_empty_instance() {
     // m = 0: empty ILP, vacuously feasible.
     let source = EulerianPath::new(DirectedGraph::empty(3));
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars(), 0);
     assert_eq!(ilp.constraints().len(), 0);
@@ -62,7 +64,8 @@ fn test_eulerianpath_to_ilp_closed_loop() {
     // Solve the ILP on the canonical instance and verify the extracted ordering
     // is a valid directed Eulerian trail in the source.
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for a YES instance");
@@ -83,7 +86,8 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
     // degree-balance criterion: vertex 0 has out-degree 2 / in-degree 0, so
     // no Eulerian trail exists.
     let source = EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 2)]));
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     // The ILP must report infeasibility for a NO instance.
     let solution = ILPSolver::new().solve(reduction.target_problem());
@@ -99,7 +103,8 @@ fn test_eulerianpath_to_ilp_closed_circuit_with_loop() {
     // Loop + closed trail: arcs (0,0), (0,1), (1,0).
     // Trail (0,0) -> (0,1) -> (1,0) is a valid closed Eulerian trail.
     let source = EulerianPath::new(DirectedGraph::new(2, vec![(0, 0), (0, 1), (1, 0)]));
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())

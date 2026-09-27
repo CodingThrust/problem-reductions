@@ -1,16 +1,16 @@
-//! Reduction from FlowShopScheduling to `ILP<i64>`.
+//! Reduction from FlowShopScheduling to `ILP<i64, i64, Bounded>`.
 //!
 //! Binary order variables y_{i,j} with y_{i,j}=1 iff job i precedes job j,
 //! integer completion-time variables C_{j,q} for each job j and machine q.
 //! Machine-chain and big-M disjunctive constraints enforce a valid flow-shop
 //! schedule; the deadline becomes a makespan bound.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::FlowShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing FlowShopScheduling to `ILP<i64>`.
+/// Result of reducing FlowShopScheduling to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `y_{i,j}` for each ordered pair (i,j) with i<j: index `i*n + j - (i+1)*(i+2)/2`
@@ -20,7 +20,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n*(n-1)/2 + n*m variables.
 #[derive(Debug, Clone)]
 pub struct ReductionFSSToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_jobs: usize,
     num_machines: usize,
     num_order_vars: usize,
@@ -28,9 +28,9 @@ pub struct ReductionFSSToILP {
 
 impl ReductionResult for ReductionFSSToILP {
     type Source = FlowShopScheduling;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -76,7 +76,7 @@ impl crate::rules::AggregateReductionResult for ReductionFSSToILP {}
     num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
     num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors) * (num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs)",
 })]
-impl ReduceTo<ILP<i64>> for FlowShopScheduling {
+impl ReduceTo<ILP<i64, i64, Bounded>> for FlowShopScheduling {
     type Result = ReductionFSSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -107,9 +107,10 @@ impl ReduceTo<ILP<i64>> for FlowShopScheduling {
             .max()
             .unwrap_or(0);
         let big_m = d.checked_add(max_p).ok_or_else(|| {
-            crate::rules::ReductionError::integer_overflow::<FlowShopScheduling, ILP<i64>>(
-                "computing the flow-shop big-M bound",
-            )
+            crate::rules::ReductionError::integer_overflow::<
+                FlowShopScheduling,
+                ILP<i64, i64, Bounded>,
+            >("computing the flow-shop big-M bound")
         })?;
         let mut constraints = Vec::new();
 
@@ -209,7 +210,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 2 machines, 3 jobs, deadline 10
             let source = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

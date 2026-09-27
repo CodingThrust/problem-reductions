@@ -9,14 +9,14 @@
 //! - Objective: Minimize Σ w_a * y_a
 //! - Variable layout: first |A| are y_a, next |V| are o_v
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackArcSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing MinimumFeedbackArcSet to ILP.
 ///
-/// The ILP uses integer variables (`ILP<i64>`) because it needs both
+/// The ILP uses integer variables (`ILP<i64, i64, Bounded>`) because it needs both
 /// binary arc-removal variables (y_a) and integer ordering variables (o_v).
 ///
 /// Variable layout:
@@ -24,16 +24,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `o_v` at index `m + v` for `v in 0..n`: integer in {0, ..., n-1}, topological order
 #[derive(Debug, Clone)]
 pub struct ReductionFASToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     /// Number of arcs in the source graph (needed for solution extraction).
     num_arcs: usize,
 }
 
 impl ReductionResult for ReductionFASToILP {
     type Source = MinimumFeedbackArcSet<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -63,7 +63,7 @@ impl ReductionResult for ReductionFASToILP {
         num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
     },
 })]
-impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
     type Result = ReductionFASToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -139,7 +139,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

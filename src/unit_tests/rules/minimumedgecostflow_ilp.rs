@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -47,7 +47,7 @@ fn infeasible_instance() -> MinimumEdgeCostFlow {
 fn test_minimumedgecostflow_to_ilp_structure() {
     let problem = issue_instance();
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 6 arcs → 2*6 = 12 variables
@@ -74,7 +74,7 @@ fn test_minimumedgecostflow_to_ilp_closed_loop() {
     assert_eq!(bf_value, Min(Some(3)));
 
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -96,7 +96,7 @@ fn test_minimumedgecostflow_to_ilp_small_closed_loop() {
     assert_eq!(bf_value, Min(Some(8)));
 
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -108,7 +108,7 @@ fn test_minimumedgecostflow_to_ilp_small_closed_loop() {
 fn test_minimumedgecostflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
@@ -119,7 +119,7 @@ fn test_minimumedgecostflow_to_ilp_infeasible() {
 fn test_minimumedgecostflow_to_ilp_bf_vs_ilp() {
     let problem = issue_instance();
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -127,7 +127,7 @@ fn test_minimumedgecostflow_to_ilp_bf_vs_ilp() {
 fn test_minimumedgecostflow_to_ilp_extract_solution() {
     let problem = issue_instance();
     let reduction: ReductionMECFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct a target solution: route 1 via v2, 2 via v3
     // f = [0, 1, 2, 0, 1, 2], y = [0, 1, 1, 0, 1, 1]

@@ -1,24 +1,24 @@
-//! Reduction from IntegerKnapsack to `ILP<i64>`.
+//! Reduction from IntegerKnapsack to `ILP<i64, i64, Bounded>`.
 //!
 //! Each item multiplicity becomes a non-negative integer ILP variable. The
 //! capacity inequality is kept directly, and explicit upper bounds
 //! `c_i <= floor(B / s_i)` preserve the exact witness domain of the source.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::IntegerKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionIntegerKnapsackToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionIntegerKnapsackToILP {
     type Source = IntegerKnapsack;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -39,7 +39,7 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
         num_nonzeros = "2 * num_items",
     }
 )]
-impl ReduceTo<ILP<i64>> for IntegerKnapsack {
+impl ReduceTo<ILP<i64, i64, Bounded>> for IntegerKnapsack {
     type Result = ReductionIntegerKnapsackToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -89,7 +89,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "integerknapsack_to_ilp",
         build: || {
             let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

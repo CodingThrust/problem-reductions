@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -35,7 +35,7 @@ fn infeasible_instance() -> MinimumWeightDecoding {
 fn test_minimumweightdecoding_to_ilp_structure() {
     let problem = issue_instance();
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 cols + 3 rows = 7 variables
@@ -61,7 +61,7 @@ fn test_minimumweightdecoding_to_ilp_closed_loop() {
     assert_eq!(bf_value, Min(Some(1)));
 
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -83,7 +83,7 @@ fn test_minimumweightdecoding_to_ilp_small_closed_loop() {
     assert_eq!(bf_value, Min(Some(1)));
 
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -95,7 +95,7 @@ fn test_minimumweightdecoding_to_ilp_small_closed_loop() {
 fn test_minimumweightdecoding_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
@@ -106,7 +106,7 @@ fn test_minimumweightdecoding_to_ilp_infeasible() {
 fn test_minimumweightdecoding_to_ilp_bf_vs_ilp() {
     let problem = issue_instance();
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -114,7 +114,7 @@ fn test_minimumweightdecoding_to_ilp_bf_vs_ilp() {
 fn test_minimumweightdecoding_to_ilp_extract_solution() {
     let problem = issue_instance();
     let reduction: ReductionMinimumWeightDecodingToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct a valid target solution: x=[0,0,1,0], k=[0,0,0]
     // (k_i values are the integer slack from mod-2)
