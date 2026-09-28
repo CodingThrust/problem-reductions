@@ -171,40 +171,28 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {
             }
         }
 
-        // Net flow into sinks ≥ requirements
-        // Commodity 1: net inflow at sink_1 ≥ requirement_1
-        let sink_1 = self.sink_1();
-        let mut sink1_terms: Vec<(usize, i64)> = Vec::new();
-        for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            if sink_1 == v {
-                sink1_terms.push((f1_uv(edge_idx), 1));
-                sink1_terms.push((f1_vu(edge_idx), -1));
+        // Net flow into each sink must meet its normalized requirement.
+        for (sink, requirement, flow_offset) in [
+            (self.sink_1(), self.requirement_1(), 0),
+            (self.sink_2(), self.requirement_2(), 2),
+        ] {
+            let mut terms = Vec::new();
+            for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                let uv = 4 * edge_idx + flow_offset;
+                let vu = uv + 1;
+                if sink == v {
+                    terms.push((uv, 1));
+                    terms.push((vu, -1));
+                }
+                if sink == u {
+                    terms.push((uv, -1));
+                    terms.push((vu, 1));
+                }
             }
-            if sink_1 == u {
-                sink1_terms.push((f1_uv(edge_idx), -1));
-                sink1_terms.push((f1_vu(edge_idx), 1));
-            }
+            let requirement =
+                bounded_flow_requirement(requirement, self.capacities().iter().copied());
+            constraints.push(LinearConstraint::ge(terms, requirement));
         }
-        let requirement_1 =
-            bounded_flow_requirement(self.requirement_1(), self.capacities().iter().copied());
-        constraints.push(LinearConstraint::ge(sink1_terms, requirement_1));
-
-        // Commodity 2: net inflow at sink_2 ≥ requirement_2
-        let sink_2 = self.sink_2();
-        let mut sink2_terms: Vec<(usize, i64)> = Vec::new();
-        for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            if sink_2 == v {
-                sink2_terms.push((f2_uv(edge_idx), 1));
-                sink2_terms.push((f2_vu(edge_idx), -1));
-            }
-            if sink_2 == u {
-                sink2_terms.push((f2_uv(edge_idx), -1));
-                sink2_terms.push((f2_vu(edge_idx), 1));
-            }
-        }
-        let requirement_2 =
-            bounded_flow_requirement(self.requirement_2(), self.capacities().iter().copied());
-        constraints.push(LinearConstraint::ge(sink2_terms, requirement_2));
 
         let mut variables = self
             .capacities()

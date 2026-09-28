@@ -102,8 +102,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
                 sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        let requirement =
-            bounded_flow_requirement(self.requirement(), self.capacities().iter().copied());
+        let requirement = bounded_flow_requirement(self.requirement(), [total_capacity]);
         constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
         let variables = self
