@@ -90,24 +90,32 @@ impl ReductionResult for ReductionRTSAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRTSAToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
-    num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
-    num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "universe_size * (num_subsets + 1) + 2",
+        num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
+        num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
+        num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for RootedTreeStorageAssignment {
     type Result = ReductionRTSAToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.universe_size();
         let subsets = self.subsets();
-        let bound = self.bound();
 
         // Nontrivial subsets (size >= 2)
         let nontrivial: Vec<usize> = (0..subsets.len())
             .filter(|&k| subsets[k].len() >= 2)
             .collect();
         let r = nontrivial.len();
+        // Each extension cost is between 0 and n-1; negative budgets are infeasible.
+        // Saturation is safe: the original i64 budget cannot exceed i64::MAX.
+        let max_cost = Self::exact_i64(r, "encoding the subset count")?.saturating_mul(
+            Self::exact_i64(n.saturating_sub(1), "encoding the maximum extension cost")?,
+        );
+        let bound = self.bound().clamp(-1, max_cost);
 
         if n == 0 {
             return Ok(ReductionRTSAToILP {

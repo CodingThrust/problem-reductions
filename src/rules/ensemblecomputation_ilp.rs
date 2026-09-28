@@ -86,6 +86,7 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
         num_constraints = "5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "universe_size + budget + 1",
         num_nonzeros = "(3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget) * (5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets)",
     },
 })]

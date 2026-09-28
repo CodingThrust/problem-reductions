@@ -62,3 +62,29 @@ fn test_cbm_to_ilp_trivial() {
     // x: 1, a: 1, b: 1 => 3
     assert_eq!(ilp.num_vars(), 3);
 }
+
+#[test]
+fn test_block_bound_normalization_preserves_feasibility() {
+    for matrix in [vec![], vec![vec![]], vec![vec![true]]] {
+        for bound in [i64::MIN, -1, 0, 1, i64::MAX] {
+            let source = ConsecutiveBlockMinimization::new(matrix.clone(), bound);
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+            assert_eq!(
+                reduction.target_problem().max_constraint_magnitude_bits(),
+                1
+            );
+            let solution = ILPSolver::new().solve(reduction.target_problem());
+            let minimum_blocks = i64::from(source.num_cols() != 0);
+            assert_eq!(solution.is_ok(), bound >= minimum_blocks);
+            if let Ok(solution) = solution {
+                let recovered = reduction.extract_solution(&solution).unwrap();
+                assert_eq!(source.evaluate(&recovered).unwrap(), Or(true));
+            } else {
+                assert_eq!(
+                    solution.unwrap_err(),
+                    crate::solvers::ILPSolveError::Infeasible
+                );
+            }
+        }
+    }
+}

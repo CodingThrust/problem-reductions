@@ -1,7 +1,7 @@
 //! Reduction from IntegerKnapsack to `ILP<i64, i64, Bounded>`.
 //!
 //! Each item multiplicity becomes a non-negative integer ILP variable. The
-//! capacity inequality is kept directly, and explicit upper bounds
+//! capacity inequality omits oversized items (whose multiplicities are zero), and explicit upper bounds
 //! `c_i <= floor(B / s_i)` preserve the exact witness domain of the source.
 
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
@@ -32,13 +32,16 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_items",
         num_constraints = "num_items + 1",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "capacity + 1",
         num_nonzeros = "2 * num_items",
-    }
-)]
+    },
+})]
 impl ReduceTo<ILP<i64, i64, Bounded>> for IntegerKnapsack {
     type Result = ReductionIntegerKnapsackToILP;
 
@@ -52,6 +55,8 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegerKnapsack {
             sizes
                 .iter()
                 .enumerate()
+                // Oversized items already have multiplicity fixed to zero by their bounds.
+                .filter(|&(_, &size)| size <= self.capacity())
                 .map(|(item, &size)| (item, size))
                 .collect(),
             self.capacity(),

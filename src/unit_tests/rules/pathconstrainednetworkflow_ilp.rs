@@ -47,3 +47,30 @@ fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
+
+#[test]
+fn test_flow_requirement_normalization_preserves_feasibility() {
+    for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
+        let source = PathConstrainedNetworkFlow::new(
+            DirectedGraph::new(2, vec![(0, 1)]),
+            vec![1],
+            0,
+            1,
+            vec![vec![0]],
+            requirement,
+        );
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(requirement <= 1);
+                let recovered = reduction.extract_solution(&solution).unwrap();
+                assert!(source.evaluate(&recovered).unwrap());
+            }
+            Err(error) => {
+                assert!(requirement > 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

@@ -41,6 +41,9 @@ impl ReductionResult for ReductionIFWMToILP {
 impl crate::rules::AggregateReductionResult for ReductionIFWMToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "vertex multipliers are not bounded by registered source parameters",
+    },
     exact {
         num_vars = "num_arcs",
         num_constraints = "num_arcs + num_vertices - 1",

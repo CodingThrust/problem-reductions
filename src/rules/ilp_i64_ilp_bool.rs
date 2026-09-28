@@ -110,13 +110,19 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
     }
 }
 
+// If all finite endpoints and row entries have magnitude below 2^h, widths
+// need at most h+1 bits. Encoded coefficients are below 2^(2h+1), and the
+// lower-bound shift gives |b'| < 2^h + n*2^(2h) < 2^(2h+n+1).
 #[reduction(
-    transform = exact {
-        num_constraints = "num_constraints",
-    },
-    unavailable = {
-        num_vars = "the binary width depends on concrete variable bounds, not registered problem parameters",
-        num_nonzeros = "binary expansion depends on concrete variable bounds and row sparsity",
+    transform = {
+        exact {
+            num_constraints = "num_constraints",
+        },
+        upper_bound {
+            num_vars = "num_vars * (max_constraint_magnitude_bits + 1)",
+            num_nonzeros = "num_nonzeros * (max_constraint_magnitude_bits + 1)",
+            max_constraint_magnitude_bits = "2 * max_constraint_magnitude_bits + num_vars + 1",
+        },
     },
 )]
 impl ReduceTo<ILP<bool>> for ILP<i64, i64, Bounded> {

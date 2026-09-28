@@ -116,6 +116,7 @@ impl ReductionResult for ReductionSTSCToILP {
 impl crate::rules::AggregateReductionResult for ReductionSTSCToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "(bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound",
     num_constraints = "4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound + 1",
     num_nonzeros = "((bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound) * (4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound + 1)",

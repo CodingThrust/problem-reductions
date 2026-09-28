@@ -50,6 +50,7 @@ impl crate::rules::AggregateReductionResult for ReductionNAESATToILP {}
         num_constraints = "2 * num_clauses",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_literals + 1",
         num_nonzeros = "num_vars * (2 * num_clauses)",
     },
 })]

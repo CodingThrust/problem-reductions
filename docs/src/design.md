@@ -485,6 +485,12 @@ nonzeros. If a rule predicts those dimensions by source expressions `f` and `g`,
 explicitly declare `num_nonzeros <= f * g`. Such structural bounds remain valid when
 coefficients cancel; exact sparsity can still require additional source information.
 
+Prefer coarse, sound bounds that use existing source parameters. Before adding a
+parameter, check whether an equivalent normalization can remove irrelevant input
+magnitudes. New parameters must describe intrinsic source data independently of
+any reduction, and their propagation must be audited on incoming rules. Keep
+model-specific definitions and rule-specific formulas beside their implementations.
+
 `ReductionParameterDeclarations::fields` stores `(name, relation, expression)` triples.
 Use `ParameterTransform::relation(field)` to inspect a formula's accuracy and
 `unavailable(field)` for a composition failure and its upstream cause. The uniform

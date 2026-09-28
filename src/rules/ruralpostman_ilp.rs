@@ -46,6 +46,7 @@ impl ReductionResult for ReductionRPToILP {
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + num_edges + 2",
         num_nonzeros = "(num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges) * (2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices)",
     },
 })]

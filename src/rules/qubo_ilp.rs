@@ -95,6 +95,7 @@ macro_rules! impl_qubo_to_ilp {
     ($coefficient:ty) => {
         #[reduction(
             transform = exact {
+                max_constraint_magnitude_bits = "1",
                 num_vars = "num_vars + num_quadratic_terms",
                 num_constraints = "3 * num_quadratic_terms",
                 num_nonzeros = "7 * num_quadratic_terms",

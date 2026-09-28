@@ -49,6 +49,7 @@ impl ReductionResult for ReductionGraphPartitioningToILP {
         num_constraints = "2 * num_edges + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 2",
         num_nonzeros = "(num_vertices + num_edges) * (2 * num_edges + 1)",
     },
 })]

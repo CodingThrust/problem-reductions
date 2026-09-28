@@ -43,6 +43,7 @@ impl ReductionResult for ReductionMCPToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "(num_arcs + num_edges + 1) * (num_vertices + 1) + 1",
     num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
     num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
     num_nonzeros = "(num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1) * (num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2)",

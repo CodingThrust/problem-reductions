@@ -484,6 +484,28 @@ impl<V: VariableDomain, C: ILPCoefficient, B: BoundsPolicy> ILP<V, C, B> {
             .sum()
     }
 
+    /// Smallest `h >= 1` for which every constraint coefficient, RHS and finite
+    /// variable endpoint has magnitude strictly below `2^h`.
+    ///
+    /// Measures normalized feasible-set data, excluding the objective. Infinite
+    /// endpoints are not numbers in this maximum; this parameter does not
+    /// certify boundedness. For floating coefficients it measures magnitude,
+    /// not mantissa precision.
+    pub fn max_constraint_magnitude_bits(&self) -> u64 {
+        let row_bits =
+            crate::types::max_numeric_magnitude_bits(self.constraints.iter().flat_map(|row| {
+                std::iter::once(row.rhs)
+                    .chain(row.terms.iter().map(|&(_, coefficient)| coefficient))
+            }));
+        let endpoint_bits = crate::types::max_numeric_magnitude_bits(
+            self.variables
+                .iter()
+                .flat_map(|variable| [variable.lower_bound, variable.upper_bound])
+                .flatten(),
+        );
+        row_bits.max(endpoint_bits)
+    }
+
     /// Evaluate the objective in the coefficient domain.
     pub fn evaluate_objective(&self, values: &[i64]) -> Result<C, EvaluationError> {
         self.objective
@@ -628,6 +650,10 @@ impl<V: VariableDomain, C: ILPCoefficient, B: BoundsPolicy> Problem for ILP<V, C
     type Value = Extremum<C>;
 
     crate::problem_parameters![
+        (
+            "max_constraint_magnitude_bits",
+            max_constraint_magnitude_bits
+        ),
         ("num_constraints", num_constraints),
         ("num_nonzeros", num_nonzeros),
         ("num_vars", num_vars),

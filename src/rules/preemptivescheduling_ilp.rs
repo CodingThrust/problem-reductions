@@ -73,6 +73,7 @@ impl ReductionResult for ReductionPSToILP {
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "d_max + num_processors + 1",
         num_nonzeros = "(num_tasks * d_max + 1) * (num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max)",
     },
 })]

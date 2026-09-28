@@ -122,6 +122,9 @@ fn weighted_distances_mmc(
 }
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "weighted graph distances are not bounded by registered source parameters",
+    },
     exact {
         num_vars = "num_vertices + num_vertices^2 + 1",
         num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",

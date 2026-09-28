@@ -67,6 +67,7 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
         num_constraints = "num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_nonzeros = "(num_vertices * num_edges + num_edges + num_edges * num_edges) * (num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges)",
     },
 })]

@@ -54,6 +54,7 @@ impl ReductionResult for ReductionMMMToILP {
         num_constraints = "num_vertices + num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_nonzeros = "num_edges * (num_vertices + num_edges)",
     },
 })]

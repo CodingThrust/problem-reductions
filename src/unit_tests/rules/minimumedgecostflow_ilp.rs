@@ -146,3 +146,33 @@ fn test_minimumedgecostflow_to_ilp_extract_solution() {
     assert_eq!(extracted, vec![0, 1, 2, 0, 1, 2]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
+
+#[test]
+fn test_flow_requirement_normalization_preserves_feasibility() {
+    for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
+        let source = MinimumEdgeCostFlow::new(
+            DirectedGraph::new(2, vec![(0, 1)]),
+            vec![3],
+            vec![1],
+            0,
+            1,
+            requirement,
+        );
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(requirement <= 1);
+                let recovered = reduction.extract_solution(&solution).unwrap();
+                assert_eq!(
+                    source.evaluate(&recovered).unwrap(),
+                    Min(Some(if requirement == 1 { 3 } else { 0 }))
+                );
+            }
+            Err(error) => {
+                assert!(requirement > 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

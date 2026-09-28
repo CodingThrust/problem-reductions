@@ -114,6 +114,7 @@ impl ReductionResult for ReductionFactoringToILP {
 impl crate::rules::AggregateReductionResult for ReductionFactoringToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_bits_first + num_bits_second + 2",
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
     num_nonzeros = "(num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits) * (3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1)",

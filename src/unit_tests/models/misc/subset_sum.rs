@@ -202,3 +202,22 @@ fn test_subsetsum_large_integer_input() {
         .evaluate(&vec![true, true, false, false, false, false])
         .unwrap()); // 3 + 7 = 10
 }
+
+#[test]
+fn numeric_magnitude_bits_include_arbitrary_precision_sizes_and_target() {
+    let huge = BigUint::from(1_u8) << 1000_usize;
+    for (sizes, target, expected) in [
+        (vec![], BigUint::from(0_u8), 1),
+        (vec![BigUint::from(7_u8)], BigUint::from(0_u8), 3),
+        (vec![BigUint::from(1_u8)], BigUint::from(8_u8), 4),
+        (vec![&huge - 1_u8], BigUint::from(0_u8), 1000),
+        (vec![huge.clone()], BigUint::from(0_u8), 1001),
+        (vec![BigUint::from(1_u8)], huge, 1001),
+    ] {
+        let source = SubsetSum::new(sizes, target);
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(expected)
+        );
+    }
+}

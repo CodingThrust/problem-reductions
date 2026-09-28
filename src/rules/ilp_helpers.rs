@@ -2,6 +2,18 @@
 
 use crate::models::algebraic::LinearConstraint;
 
+/// Normalize a lower threshold for flow in `[-sum(capacities), sum(capacities)]`.
+/// Capacities must be nonnegative. Requests above the range remain infeasible;
+/// those below it remain redundant. Saturation is safe because the input
+/// threshold is i64, so it cannot exceed a larger mathematical range.
+pub(crate) fn bounded_flow_requirement(
+    requirement: i64,
+    capacities: impl IntoIterator<Item = i64>,
+) -> i64 {
+    let magnitude = capacities.into_iter().fold(0_i64, i64::saturating_add);
+    requirement.clamp(-magnitude, magnitude.saturating_add(1))
+}
+
 /// Convert exact ILP integer values into a source model's `usize` representation.
 pub fn decode_usize_values(values: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
     values

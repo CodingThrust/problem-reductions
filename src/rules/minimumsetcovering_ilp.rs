@@ -49,6 +49,7 @@ impl ReductionResult for ReductionSCToILP {
         num_constraints = "universe_size",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_nonzeros = "num_sets * universe_size",
     },
 })]

@@ -59,6 +59,7 @@ impl ReductionResult for ReductionMECFToILP {
         num_constraints = "2 * num_edges + num_vertices - 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_edges + 1) + 2",
         num_nonzeros = "(2 * num_edges) * (2 * num_edges + num_vertices - 1)",
     },
 })]
@@ -119,7 +120,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumEdgeCostFlow {
                 sink_terms.push((f(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.required_flow()));
+        constraints.push(LinearConstraint::ge(
+            sink_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.required_flow(),
+                self.capacities().iter().copied(),
+            ),
+        ));
 
         // Objective: minimize Σ p(a) · y_a
         let objective: Vec<(usize, i64)> = (0..m).map(|a| (y(a), self.prices()[a])).collect();

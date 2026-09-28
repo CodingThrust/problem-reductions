@@ -77,6 +77,7 @@ impl ReductionResult for ReductionSWIToILP {
 impl crate::rules::AggregateReductionResult for ReductionSWIToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_start_slots",
     num_constraints = "num_start_slots^2 + num_tasks",
     num_nonzeros = "num_start_slots * (num_start_slots^2 + num_tasks)",

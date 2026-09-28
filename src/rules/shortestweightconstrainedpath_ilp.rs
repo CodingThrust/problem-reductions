@@ -58,6 +58,9 @@ impl ReductionResult for ReductionSWCPToILP {
 }
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "edge weights and the weight bound are not registered source parameters",
+    },
     exact {
         num_vars = "2 * num_edges + num_vertices",
         num_constraints = "5 * num_edges + 4 * num_vertices + 2",

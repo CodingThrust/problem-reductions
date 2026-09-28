@@ -55,11 +55,14 @@ impl ReductionResult for ReductionD2CIFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionD2CIFToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "2 * num_arcs",
-    num_constraints = "num_arcs + 2 * num_vertices + 2",
-    num_nonzeros = "(2 * num_arcs) * (num_arcs + 2 * num_vertices + 2)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
+        num_vars = "2 * num_arcs",
+        num_constraints = "num_arcs + 2 * num_vertices + 2",
+        num_nonzeros = "(2 * num_arcs) * (num_arcs + 2 * num_vertices + 2)",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for DirectedTwoCommodityIntegralFlow {
     type Result = ReductionD2CIFToILP;
 
@@ -136,7 +139,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for DirectedTwoCommodityIntegralFlow {
                 sink1_terms.push((f1(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1()));
+        constraints.push(LinearConstraint::ge(
+            sink1_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement_1(),
+                self.capacities().iter().copied(),
+            ),
+        ));
 
         // Net flow into sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
@@ -149,7 +158,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for DirectedTwoCommodityIntegralFlow {
                 sink2_terms.push((f2(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
+        constraints.push(LinearConstraint::ge(
+            sink2_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement_2(),
+                self.capacities().iter().copied(),
+            ),
+        ));
 
         let variables = self
             .capacities()

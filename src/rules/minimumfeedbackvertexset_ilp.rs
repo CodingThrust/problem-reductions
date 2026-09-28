@@ -57,6 +57,7 @@ impl ReductionResult for ReductionMFVSToILP {
         num_constraints = "num_arcs + 2 * num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2 * num_vertices + 1",
         num_nonzeros = "(2 * num_vertices) * (num_arcs + 2 * num_vertices)",
     },
 })]

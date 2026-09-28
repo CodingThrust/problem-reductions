@@ -62,6 +62,7 @@ impl ReductionResult for ReductionLongestCircuitToILP {
         num_constraints = "2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
     },
 })]
@@ -216,6 +217,9 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitT
     },
     upper_bound {
         num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+    },
+    unavailable {
+        max_constraint_magnitude_bits = "the decision threshold and edge lengths copied into the acceptance row are not registered source parameters",
     },
 })]
 impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {

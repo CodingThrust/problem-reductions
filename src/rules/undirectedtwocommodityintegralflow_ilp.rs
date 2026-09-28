@@ -70,6 +70,9 @@ impl ReductionResult for ReductionU2CIFToILP {
 impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "flow capacities and requirements are not registered source parameters",
+    },
     exact {
         num_vars = "6 * num_edges",
         num_constraints = "7 * num_edges + num_conservation_constraints + 2",

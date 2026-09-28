@@ -60,6 +60,7 @@ impl ReductionResult for ReductionFASToILP {
         num_constraints = "num_arcs + num_arcs + num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
     },
 })]

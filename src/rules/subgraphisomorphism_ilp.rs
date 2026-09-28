@@ -58,6 +58,7 @@ impl ReductionResult for ReductionSubIsoToILP {
 impl crate::rules::AggregateReductionResult for ReductionSubIsoToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
     num_vars = "num_pattern_vertices * num_host_vertices",
     num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
     num_nonzeros = "(num_pattern_vertices * num_host_vertices) * (num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2)",

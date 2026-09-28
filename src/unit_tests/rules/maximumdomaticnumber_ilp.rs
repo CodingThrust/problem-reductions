@@ -118,3 +118,18 @@ fn test_maximumdomaticnumber_to_ilp_solution_extraction() {
     let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Max(Some(2)));
 }
+
+#[test]
+fn test_domatic_normalization_ignores_parallel_edges_and_loops() {
+    let mut edges = vec![(0, 1); 8];
+    edges.extend([(0, 0), (1, 1)]);
+    let source = MaximumDomaticNumber::new(SimpleGraph::new(2, edges));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(
+        reduction.target_problem().max_constraint_magnitude_bits(),
+        1
+    );
+    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let recovered = reduction.extract_solution(&solution).unwrap();
+    assert_eq!(source.evaluate(&recovered).unwrap(), Max(Some(2)));
+}

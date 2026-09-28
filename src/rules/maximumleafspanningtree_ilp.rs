@@ -61,6 +61,7 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 2",
         num_nonzeros = "(3 * num_edges + num_vertices) * (3 * num_vertices + 2 * num_edges + 1)",
     },
 })]

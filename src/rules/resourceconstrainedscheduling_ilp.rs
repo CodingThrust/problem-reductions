@@ -53,6 +53,9 @@ impl ReductionResult for ReductionRCSToILP {
 impl crate::rules::AggregateReductionResult for ReductionRCSToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "processor capacity and resource requirements and bounds are not registered source parameters",
+    },
     exact {
         num_vars = "num_tasks * deadline",
         num_constraints = "num_tasks + deadline + num_resources * deadline",

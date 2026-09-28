@@ -78,13 +78,16 @@ impl ReductionResult for ReductionClosestStringToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
         num_nonzeros = "alphabet_size * string_length + num_strings * (string_length + 1)",
-    }
-)]
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "string_length + 1",
+    },
+})]
 impl ReduceTo<ILP<i64, i64, Bounded>> for ClosestString {
     type Result = ReductionClosestStringToILP;
 

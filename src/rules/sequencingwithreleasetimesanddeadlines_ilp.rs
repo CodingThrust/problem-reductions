@@ -59,6 +59,7 @@ impl ReductionResult for ReductionSWRTDToILP {
 impl crate::rules::AggregateReductionResult for ReductionSWRTDToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_tasks * time_horizon",
     num_constraints = "num_tasks * time_horizon + num_tasks + time_horizon",
     num_nonzeros = "(num_tasks * time_horizon) * (num_tasks * time_horizon + num_tasks + time_horizon)",

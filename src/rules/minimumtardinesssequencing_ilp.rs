@@ -105,6 +105,9 @@ fn build_common_constraints(
 
 // Unit-length variant
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "task deadlines and processing times are not bounded by registered source parameters",
+    },
     exact {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_precedences + num_tasks",
@@ -151,6 +154,9 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
 
 // Arbitrary-length variant
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "task deadlines and processing times are not bounded by registered source parameters",
+    },
     exact {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",

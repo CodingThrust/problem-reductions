@@ -44,6 +44,9 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
 impl crate::rules::AggregateReductionResult for ReductionAcyclicPartitionToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "vertex weights, arc costs and feasibility budgets are not registered source parameters",
+    },
     exact {
         num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices",
         num_constraints = "num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",

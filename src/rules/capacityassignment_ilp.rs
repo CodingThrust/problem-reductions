@@ -50,6 +50,9 @@ impl ReductionResult for ReductionCAToILP {
 }
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "delays and the delay budget are not registered source parameters",
+    },
     exact {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",

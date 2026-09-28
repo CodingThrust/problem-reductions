@@ -88,3 +88,34 @@ fn test_timetabledesign_to_ilp_identity_extraction() {
     );
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
+
+#[test]
+fn test_timetable_threshold_normalization() {
+    for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
+        let source = TimetableDesign::new(
+            1,
+            1,
+            1,
+            vec![vec![true]],
+            vec![vec![true]],
+            vec![vec![requirement]],
+        );
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!((0..=1).contains(&requirement));
+                assert_eq!(
+                    source
+                        .evaluate(&reduction.extract_solution(&solution).unwrap())
+                        .unwrap(),
+                    Or(true)
+                );
+            }
+            Err(error) => {
+                assert!(!(0..=1).contains(&requirement));
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

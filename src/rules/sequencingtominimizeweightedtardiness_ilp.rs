@@ -57,11 +57,16 @@ impl ReductionResult for ReductionSTMWTToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSTMWTToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_tasks^2 + 2 * num_tasks",
-    num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
-    num_nonzeros = "(num_tasks^2 + 2 * num_tasks) * (2 * num_tasks^2 + 3 * num_tasks + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        num_vars = "num_tasks^2 + 2 * num_tasks",
+        num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
+        num_nonzeros = "(num_tasks^2 + 2 * num_tasks) * (2 * num_tasks^2 + 3 * num_tasks + 1)",
+    },
+    unavailable = {
+        max_constraint_magnitude_bits = "processing times, deadlines, weights and the cost bound are not registered source parameters",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;
 

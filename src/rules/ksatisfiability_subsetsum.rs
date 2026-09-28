@@ -72,9 +72,12 @@ fn digits_to_integer(digits: &[u8]) -> BigUint {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for Reduction3SATToSubsetSum {}
 
-#[reduction(
-    transform = upper_bound { num_elements = "2 * num_vars + 2 * num_clauses" }
-)]
+// Every integer has at most n+m decimal digits, and 10 < 2^4. The extra 1
+// also covers the empty formula's zero target (whose magnitude parameter is 1).
+#[reduction(transform = upper_bound {
+    num_elements = "2 * num_vars + 2 * num_clauses",
+    max_numeric_magnitude_bits = "4 * (num_vars + num_clauses) + 1",
+})]
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;
 

@@ -109,6 +109,7 @@ impl ReductionResult for ReductionOSSToILP {
         num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "schedule_horizon + 1",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines)",
     },
 })]
@@ -323,6 +324,7 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedul
         num_constraints = "3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "schedule_horizon + 1",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2)",
     },
 })]
@@ -332,9 +334,14 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for Decision<OpenShopScheduling> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut inner = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(self.inner())?;
         let mut constraints = inner.target.constraints().to_vec();
+        // The makespan variable is already bounded by the total processing time.
+        let horizon = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            self.inner().schedule_horizon(),
+            "encoding the makespan bound",
+        )?;
         constraints.push(LinearConstraint::le(
             inner.target.objective().to_vec(),
-            *self.bound(),
+            (*self.bound()).clamp(-1, horizon),
         ));
         inner.target = ILP::with_variables(
             inner.target.variables().to_vec(),

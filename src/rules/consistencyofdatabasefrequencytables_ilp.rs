@@ -135,13 +135,16 @@ impl ReductionResult for ReductionCDFTToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionCDFTToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_objects * total_domain_size + num_objects * num_frequency_cells",
         num_constraints = "num_objects * num_attributes + num_known_values + num_frequency_cells + 3 * num_objects * num_frequency_cells",
         num_nonzeros = "num_objects * total_domain_size + num_known_values + 8 * num_objects * num_frequency_cells",
-    }
-)]
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "num_objects + 1",
+    },
+})]
 impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
     type Result = ReductionCDFTToILP;
 

@@ -78,11 +78,16 @@ impl ReductionResult for ReductionUFLBToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "3 * num_edges",
-    num_constraints = "5 * num_edges + num_vertices + 1",
-    num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        num_vars = "3 * num_edges",
+        num_constraints = "5 * num_edges + num_vertices + 1",
+        num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
+    },
+    unavailable = {
+        max_constraint_magnitude_bits = "flow capacities, lower bounds and the requirement are not registered source parameters",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;
 

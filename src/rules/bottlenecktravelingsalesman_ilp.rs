@@ -85,6 +85,7 @@ impl ReductionBTSPToILP {
         num_constraints = "num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_nonzeros = "(num_vertices^2 + 2 * num_edges * num_vertices + num_edges) * (num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1)",
     },
 })]

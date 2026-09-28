@@ -82,3 +82,30 @@ fn test_solution_extraction() {
     assert_eq!(extracted.len(), 3);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
+
+#[test]
+fn test_storage_threshold_normalization() {
+    for n in [0, 2] {
+        for bound in [i64::MIN, -1, 0, i64::MAX] {
+            let subsets = if n == 0 { vec![] } else { vec![vec![0, 1]] };
+            let source = RootedTreeStorageAssignment::new(n, subsets, bound);
+            let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+            assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+            match ILPSolver::new().solve(reduction.target_problem()) {
+                Ok(solution) => {
+                    assert!(bound >= 0);
+                    assert_eq!(
+                        source
+                            .evaluate(&reduction.extract_solution(&solution).unwrap())
+                            .unwrap(),
+                        Or(true)
+                    );
+                }
+                Err(error) => {
+                    assert!(bound < 0);
+                    assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+                }
+            }
+        }
+    }
+}

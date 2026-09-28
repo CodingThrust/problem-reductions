@@ -49,6 +49,7 @@ impl ReductionResult for ReductionSteinerTreeToILP {
         num_constraints = "num_vertices * (num_vertices - 1) + 2 * num_edges * num_vertices + num_terminals + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_nonzeros = "(num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)) * (num_vertices * (num_vertices - 1) + 2 * num_edges * num_vertices + num_terminals + 1)",
     },
 })]

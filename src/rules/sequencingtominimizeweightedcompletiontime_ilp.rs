@@ -52,6 +52,9 @@ impl ReductionResult for ReductionSTMWCTToILP {
 }
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "processing times are not bounded by registered source parameters",
+    },
     exact {
         num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",

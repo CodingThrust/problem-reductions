@@ -51,8 +51,10 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionPartitionToSubsetSum {}
 
+// The target is half the sum, bounded by n*2^h; odd sums use the constant NO instance.
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "max_numeric_magnitude_bits + num_elements",
         num_elements = "num_elements",
     })]
 impl ReduceTo<SubsetSum> for Partition {

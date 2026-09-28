@@ -54,6 +54,7 @@ impl ReductionResult for ReductionMDToILP {
         num_constraints = "num_vertices * (num_vertices - 1) / 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_nonzeros = "num_vertices * (num_vertices * (num_vertices - 1) / 2)",
     },
 })]

@@ -178,3 +178,30 @@ fn test_openshopscheduling_to_ilp_single_machine() {
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(6)));
 }
+
+#[test]
+fn test_decision_makespan_threshold_normalization() {
+    for bound in [i64::MIN, -1, 0, 1, i64::MAX] {
+        let source = crate::models::Decision::new(OpenShopScheduling::new(1, vec![vec![1]]), bound);
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert_eq!(
+            reduction.target_problem().max_constraint_magnitude_bits(),
+            1
+        );
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(bound >= 1);
+                assert!(
+                    source
+                        .evaluate(&reduction.extract_solution(&solution).unwrap())
+                        .unwrap()
+                        .0
+                );
+            }
+            Err(error) => {
+                assert!(bound < 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

@@ -44,13 +44,16 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRegisterSufficiencyToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
         num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
         num_nonzeros = "18 * num_vertices^2 + 2 * num_vertices + 7 * num_vertices * (num_vertices - 1) / 2 + 4 * num_arcs + num_sinks",
     },
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "2 * num_vertices + bound + 1",
+    },
+})]
 impl ReduceTo<ILP<i64, i64, Bounded>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;
 

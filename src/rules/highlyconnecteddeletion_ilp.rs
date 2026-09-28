@@ -155,6 +155,7 @@ fn enumerate_feasible_clusters(
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_constraints = "num_vertices",
     },
     unavailable = {

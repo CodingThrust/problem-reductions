@@ -32,6 +32,9 @@ impl ReductionResult for ReductionPOKToILP {
 }
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "item weights and capacity are not registered source parameters",
+    },
     exact {
         num_vars = "num_items",
         num_constraints = "num_precedences + 1",

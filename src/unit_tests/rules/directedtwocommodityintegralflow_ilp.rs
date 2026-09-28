@@ -188,3 +188,32 @@ fn test_directedtwocommodityintegralflow_to_ilp_preserves_large_exact_capacity()
     assert_eq!(capacity_constraint.terms(), vec![(0, 1), (1, 1)]);
     assert_eq!(capacity_constraint.rhs(), capacity);
 }
+
+#[test]
+fn test_flow_requirement_normalization_preserves_feasibility() {
+    for requirement in [0, 1, 2, i64::MAX] {
+        let source = DirectedTwoCommodityIntegralFlow::new(
+            DirectedGraph::new(4, vec![(0, 1), (2, 3)]),
+            vec![1, 1],
+            0,
+            1,
+            2,
+            3,
+            requirement,
+            requirement,
+        );
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(requirement <= 1);
+                let recovered = reduction.extract_solution(&solution).unwrap();
+                assert!(source.evaluate(&recovered).unwrap().0);
+            }
+            Err(error) => {
+                assert!(requirement > 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

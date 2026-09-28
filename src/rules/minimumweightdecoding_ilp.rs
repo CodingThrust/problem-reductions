@@ -59,6 +59,7 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
         num_constraints = "num_rows + num_cols",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_cols + 2",
         num_nonzeros = "(num_cols + num_rows) * (num_rows + num_cols)",
     },
 })]

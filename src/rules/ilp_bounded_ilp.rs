@@ -33,6 +33,7 @@ impl ReductionResult for ReductionBoundedILPToILP {
 impl crate::rules::AggregateReductionResult for ReductionBoundedILPToILP {}
 
 #[reduction(transform = exact {
+    max_constraint_magnitude_bits = "max_constraint_magnitude_bits",
     num_vars = "num_vars",
     num_constraints = "num_constraints",
     num_nonzeros = "num_nonzeros",

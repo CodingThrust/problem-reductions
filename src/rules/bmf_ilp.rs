@@ -52,6 +52,7 @@ impl ReductionResult for ReductionBMFToILP {
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
         num_nonzeros = "10 * rows * rank * cols + 2 * rows * cols",

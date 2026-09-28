@@ -81,6 +81,11 @@ impl Partition {
         self.sizes.len()
     }
 
+    /// Smallest h >= 1 such that every input size is strictly below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.sizes.iter().copied())
+    }
+
     /// Returns the total sum of all sizes.
     pub fn total_sum(&self) -> i64 {
         self.sizes.iter().sum()
@@ -107,7 +112,10 @@ impl Problem for Partition {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_elements", num_elements),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_elements", num_elements),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

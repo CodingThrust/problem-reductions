@@ -44,17 +44,16 @@ where
 fn build_constraints(graph: &SimpleGraph, bound_k: usize) -> Result<Vec<LinearConstraint>, ()> {
     (0..graph.num_vertices())
         .map(|v| {
-            let degree = i64::try_from(graph.degree(v)).map_err(|_| ())?;
-            let bound_k = i64::try_from(bound_k).map_err(|_| ())?;
+            let degree = graph.degree(v);
+            let allowed_neighbors =
+                i64::try_from(bound_k.checked_sub(1).ok_or(())?.min(degree)).map_err(|_| ())?;
+            let degree = i64::try_from(degree).map_err(|_| ())?;
             let mut terms: Vec<(usize, i64)> =
                 graph.neighbors(v).into_iter().map(|u| (u, 1)).collect();
             if degree > 0 {
                 terms.push((v, degree));
             }
-            let rhs = degree
-                .checked_add(bound_k)
-                .and_then(|value| value.checked_sub(1))
-                .ok_or(())?;
+            let rhs = degree.checked_add(allowed_neighbors).ok_or(())?;
             Ok(LinearConstraint::le(terms, rhs))
         })
         .collect()
@@ -86,6 +85,7 @@ where
         num_constraints = "num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "4 * num_edges + 2",
         num_nonzeros = "num_vertices * num_vertices",
     },
 })]
@@ -115,6 +115,7 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i64, KN> {
         num_constraints = "num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "4 * num_edges + 2",
         num_nonzeros = "num_vertices * num_vertices",
     },
 })]

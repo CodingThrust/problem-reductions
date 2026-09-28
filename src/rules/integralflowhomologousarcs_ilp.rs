@@ -40,11 +40,14 @@ impl ReductionResult for ReductionIFHAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionIFHAToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_arcs",
-    num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
-    num_nonzeros = "num_arcs * (num_arcs^2 + num_arcs + num_vertices + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
+        num_vars = "num_arcs",
+        num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
+        num_nonzeros = "num_arcs * (num_arcs^2 + num_arcs + num_vertices + 1)",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowHomologousArcs {
     type Result = ReductionIFHAToILP;
 
@@ -91,7 +94,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowHomologousArcs {
                 sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        constraints.push(LinearConstraint::ge(
+            sink_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement(),
+                self.capacities().iter().copied(),
+            ),
+        ));
 
         let variables = self
             .capacities()

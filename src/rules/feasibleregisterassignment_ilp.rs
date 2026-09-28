@@ -47,13 +47,16 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionFeasibleRegisterAssignmentToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
         num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
         num_nonzeros = "4 * num_vertices + 4 * num_arcs + 7 * num_vertices * (num_vertices - 1) / 2 + 6 * num_same_register_pairs",
-    }
-)]
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
+    },
+})]
 impl ReduceTo<ILP<i64, i64, Bounded>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 

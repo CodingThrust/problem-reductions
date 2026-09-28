@@ -47,12 +47,14 @@ impl ReductionResult for ReductionBPToILP {
     }
 }
 
+// Rows copy item sizes and capacity (up to sign). Binary endpoints require only one bit.
 #[reduction(transform = {
     exact {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
         num_nonzeros = "(num_items * num_items + num_items) * (2 * num_items)",
     },
 })]

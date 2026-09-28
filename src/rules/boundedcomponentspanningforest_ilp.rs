@@ -46,6 +46,9 @@ impl ReductionResult for ReductionBCSFToILP {
 impl crate::rules::AggregateReductionResult for ReductionBCSFToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "component weight bounds and vertex weights are not registered source parameters",
+    },
     exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
         num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",

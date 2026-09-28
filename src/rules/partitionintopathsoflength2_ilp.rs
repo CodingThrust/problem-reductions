@@ -68,6 +68,7 @@ impl ReductionResult for ReductionPIPL2ToILP {
 impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
     num_vars = "num_vertices^2 + num_edges * num_vertices",
     num_constraints = "num_vertices^2 + num_edges * num_vertices + num_vertices",
     num_nonzeros = "(num_vertices^2 + num_edges * num_vertices) * (num_vertices^2 + num_edges * num_vertices + num_vertices)",

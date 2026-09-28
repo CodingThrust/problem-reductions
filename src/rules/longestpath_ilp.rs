@@ -54,6 +54,7 @@ impl ReductionResult for ReductionLongestPathToILP {
         num_constraints = "5 * num_edges + 4 * num_vertices + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(2 * num_edges + num_vertices) * (5 * num_edges + 4 * num_vertices + 1)",
     },
 })]

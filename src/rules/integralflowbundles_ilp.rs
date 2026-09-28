@@ -42,6 +42,9 @@ impl ReductionResult for ReductionIFBToILP {
 impl crate::rules::AggregateReductionResult for ReductionIFBToILP {}
 
 #[reduction(transform = {
+    unavailable {
+        max_constraint_magnitude_bits = "bundle capacities and the flow requirement are not registered source parameters",
+    },
     exact {
         num_vars = "num_arcs",
         num_constraints = "num_bundles + num_vertices - 1",

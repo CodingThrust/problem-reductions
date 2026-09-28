@@ -66,10 +66,15 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToBinPacking {
     }
 }
 
-#[reduction(
-    transform = exact {
+// Capacity is at most max(1, sum(sizes)/2); summing n entries adds at most n bits.
+#[reduction(transform = {
+    exact {
         num_items = "num_elements",
-    })]
+    },
+    upper_bound {
+        max_numeric_magnitude_bits = "max_numeric_magnitude_bits + num_elements",
+    },
+})]
 impl ReduceTo<BinPacking<i64>> for Partition {
     type Result = ReductionPartitionToBinPacking;
 

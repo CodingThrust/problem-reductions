@@ -160,6 +160,7 @@ impl ReductionResult for ReductionIMDCToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "string_len + string_len ^ 3",
     num_constraints = "string_len + 1",
     num_nonzeros = "(string_len + string_len ^ 3) * (string_len + 1)",

@@ -131,6 +131,14 @@ impl SubsetSum {
     pub fn num_elements(&self) -> usize {
         self.sizes.len()
     }
+
+    /// Smallest h >= 1 such that every input size and the target are below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        self.sizes
+            .iter()
+            .chain(std::iter::once(&self.target))
+            .fold(1, |bits, value| bits.max(value.bits()))
+    }
 }
 
 impl Problem for SubsetSum {
@@ -138,7 +146,10 @@ impl Problem for SubsetSum {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_elements", num_elements),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_elements", num_elements),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

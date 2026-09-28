@@ -38,6 +38,7 @@ impl ReductionResult for ReductionPaintShopToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_cars + 2 * num_sequence",
     num_constraints = "num_sequence + 2 * num_sequence",
     num_nonzeros = "(num_cars + 2 * num_sequence) * (num_sequence + 2 * num_sequence)",

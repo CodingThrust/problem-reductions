@@ -55,6 +55,7 @@ impl ReductionResult for ReductionMGBToILP {
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(num_vertices^2 + num_vertices + 1) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges)",
     },
 })]

@@ -124,6 +124,7 @@ fn decode_one_hot(
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "substring_length + 1",
         num_nonzeros = "(alphabet_size * substring_length + total_num_windows + 1) * (substring_length + num_strings + total_num_windows + 1)",
     },
 })]

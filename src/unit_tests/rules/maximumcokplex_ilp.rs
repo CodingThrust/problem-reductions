@@ -88,3 +88,19 @@ fn test_maximumcokplex_to_ilp_extract_solution_identity() {
     assert_eq!(extracted, vec![true, false, true, false, true]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(12)));
 }
+
+#[test]
+fn test_cokplex_threshold_normalization() {
+    for k in [1, 2, 1000] {
+        let source =
+            MaximumCoKPlex::<_, i64, KN>::with_k(SimpleGraph::new(2, vec![(0, 1)]), vec![2, 3], k);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+        let recovered = reduction.extract_solution(&solution).unwrap();
+        assert_eq!(
+            source.evaluate(&recovered).unwrap(),
+            Max(Some(if k == 1 { 3 } else { 5 }))
+        );
+    }
+}

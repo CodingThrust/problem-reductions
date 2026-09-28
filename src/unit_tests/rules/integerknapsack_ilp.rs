@@ -107,3 +107,29 @@ fn test_integerknapsack_to_ilp_canonical_example_spec() {
         serde_json::json!([0, 0, 2])
     );
 }
+
+#[test]
+fn test_integer_knapsack_normalization_excludes_oversized_items_through_qubo() {
+    use crate::models::algebraic::QUBO;
+    use crate::traits::Problem;
+    for capacity in [0, 2] {
+        let source = IntegerKnapsack::new(vec![1, i64::MAX], vec![3, 4], capacity).unwrap();
+        let ilp = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert!(ilp.target_problem().max_constraint_magnitude_bits() <= 2);
+        let binary = ReduceTo::<ILP<bool>>::reduce_to(ilp.target_problem()).unwrap();
+        let qubo = ReduceTo::<QUBO<i64>>::reduce_to(binary.target_problem()).unwrap();
+        let solution = crate::solvers::BruteForce::new()
+            .solve(qubo.target_problem())
+            .unwrap()
+            .unwrap();
+        let recovered = ilp
+            .extract_solution(
+                &binary
+                    .extract_solution(&qubo.extract_solution(&solution).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(recovered, vec![usize::try_from(capacity).unwrap(), 0]);
+        assert_eq!(source.evaluate(&recovered).unwrap().0, Some(3 * capacity));
+    }
+}

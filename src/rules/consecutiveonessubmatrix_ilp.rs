@@ -47,6 +47,7 @@ impl ReductionResult for ReductionCOSToILP {
 impl crate::rules::AggregateReductionResult for ReductionCOSToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "bound + num_cols + 1",
     num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
     num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
     num_nonzeros = "(num_cols + num_cols * bound + 5 * num_rows * bound) * (2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound)",

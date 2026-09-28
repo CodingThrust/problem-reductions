@@ -169,7 +169,23 @@ where
         .expect("direct reduction is registered");
     let contract = entry.parameter_contract().unwrap();
     let transform = contract.transform().expect("symbolic transform exists");
+    let predicted = transform.evaluate(&source.parameters()).unwrap();
+    // Auxiliary fields have their own relations (for example, ILP magnitude
+    // bounds alongside exact variable counts). Check each against the target.
     for (field, _) in transform.expressions() {
+        let predicted = predicted.get(field).unwrap();
+        let actual = actual.get(field).unwrap();
+        assert!(
+            match transform.relation(field).unwrap() {
+                ParameterRelation::Exact => predicted == actual,
+                ParameterRelation::UpperBound => predicted >= actual,
+            },
+            "{} -> {}: {field}: predicted {predicted}, measured {actual}",
+            S::NAME,
+            T::NAME
+        );
+    }
+    for &field in fields {
         assert_eq!(
             transform.relation(field),
             Some(relation),
@@ -177,23 +193,6 @@ where
             S::NAME,
             T::NAME
         );
-    }
-    let predicted = transform.evaluate(&source.parameters()).unwrap();
-    if relation == ParameterRelation::Exact {
-        for (field, _) in transform.expressions() {
-            if fields.contains(&field) {
-                continue;
-            }
-            assert_eq!(
-                predicted.get(field),
-                actual.get(field),
-                "{} -> {}: {field}",
-                S::NAME,
-                T::NAME
-            );
-        }
-    }
-    for &field in fields {
         assert_eq!(
             predicted.get(field),
             actual.get(field),
@@ -214,7 +213,7 @@ where
 }
 
 #[test]
-fn newly_exact_parameters_match_reduced_instances() {
+fn parameter_relations_match_reduced_instances() {
     use crate::models::algebraic::MinimumMatrixCover;
     use crate::models::algebraic::{
         IntegerVariable, LinearConstraint, ObjectiveSense, QuadraticAssignment, BMF, ILP,
@@ -266,7 +265,7 @@ fn newly_exact_parameters_match_reduced_instances() {
     check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         IntegerKnapsack::new(vec![3, 4], vec![5, 6], 7).unwrap(),
         &["num_nonzeros"],
-        exact,
+        ParameterRelation::UpperBound,
     );
     check_reduced_parameters::<_, ILP<bool>>(
         LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0, 1]]),

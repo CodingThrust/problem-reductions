@@ -148,6 +148,7 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 impl crate::rules::AggregateReductionResult for ReductionEulerianPathToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_arcs + 1",
     num_vars = "3 * num_arcs + num_arcs * num_arcs",
     num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
     num_nonzeros = "(3 * num_arcs + num_arcs * num_arcs) * (5 * num_arcs + 2 * num_arcs * num_arcs + 2)",

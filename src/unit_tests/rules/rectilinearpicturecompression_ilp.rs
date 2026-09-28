@@ -55,3 +55,30 @@ fn test_rectilinearpicturecompression_to_ilp_trivial() {
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars(), 0); // no maximal rects
 }
+
+#[test]
+fn test_rectangle_threshold_normalization() {
+    for bound in [i64::MIN, -1, 0, 1, i64::MAX] {
+        let source = RectilinearPictureCompression::new(vec![vec![true]], bound);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert_eq!(
+            reduction.target_problem().max_constraint_magnitude_bits(),
+            1
+        );
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(bound >= 1);
+                assert_eq!(
+                    source
+                        .evaluate(&reduction.extract_solution(&solution).unwrap())
+                        .unwrap(),
+                    Or(true)
+                );
+            }
+            Err(error) => {
+                assert!(bound < 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

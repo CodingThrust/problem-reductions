@@ -55,6 +55,7 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianPathToILP {}
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "num_vertices^2 + 2 * num_edges * num_consecutive_positions",
         num_constraints = "2 * num_vertices + 6 * num_edges * num_consecutive_positions + num_consecutive_positions",
         num_nonzeros = "2 * num_vertices^2 + 16 * num_edges * num_consecutive_positions",

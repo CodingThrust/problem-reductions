@@ -40,11 +40,14 @@ impl ReductionResult for ReductionPCNFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPCNFToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_paths",
-    num_constraints = "num_arcs + 1",
-    num_nonzeros = "num_paths * (num_arcs + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_paths + 1) + 2",
+        num_vars = "num_paths",
+        num_constraints = "num_arcs + 1",
+        num_nonzeros = "num_paths * (num_arcs + 1)",
+    },
+)]
 impl ReduceTo<ILP<i64, i64, Bounded>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;
 
@@ -69,7 +72,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for PathConstrainedNetworkFlow {
 
         // Total flow requirement: sum_i f_i >= R
         let total_terms: Vec<(usize, i64)> = (0..num_paths).map(|i| (i, 1)).collect();
-        constraints.push(LinearConstraint::ge(total_terms, self.requirement()));
+        constraints.push(LinearConstraint::ge(
+            total_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement(),
+                self.paths().iter().map(|path| self.path_bottleneck(path)),
+            ),
+        ));
 
         let variables = self
             .paths()

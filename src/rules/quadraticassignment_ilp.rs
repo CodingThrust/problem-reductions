@@ -49,13 +49,16 @@ impl ReductionResult for ReductionQAPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_facilities * num_locations + num_facilities * (num_facilities - 1) * num_locations^2",
         num_constraints = "num_facilities + num_locations + 3 * num_facilities * (num_facilities - 1) * num_locations^2",
         num_nonzeros = "2 * num_facilities * num_locations + 7 * num_facilities * (num_facilities - 1) * num_locations^2",
-    }
-)]
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+    },
+})]
 impl ReduceTo<ILP<bool>> for QuadraticAssignment {
     type Result = ReductionQAPToILP;
 

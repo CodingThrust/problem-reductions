@@ -45,6 +45,7 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
     num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
     num_constraints = "num_arcs + num_arcs + 4 * num_arcs * num_arcs * num_arcs",
     num_nonzeros = "(num_arcs * num_arcs + num_arcs * num_arcs * num_arcs) * (num_arcs + num_arcs + 4 * num_arcs * num_arcs * num_arcs)",

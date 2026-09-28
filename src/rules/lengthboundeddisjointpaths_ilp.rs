@@ -100,11 +100,14 @@ impl ReductionResult for ReductionLBDPToILP {
     }
 }
 
-#[reduction(transform = upper_bound {
-    num_vars = "max_paths * 2 * num_edges + max_paths",
-    num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
-    num_nonzeros = "(max_paths * 2 * num_edges + max_paths) * (max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
+        num_vars = "max_paths * 2 * num_edges + max_paths",
+        num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
+        num_nonzeros = "(max_paths * 2 * num_edges + max_paths) * (max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths)",
+    },
+)]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
     type Result = ReductionLBDPToILP;
 
@@ -115,7 +118,11 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
         let m = edges.len();
         let n = self.num_vertices();
         let j = self.max_paths();
-        let max_len = Self::exact_i64(self.max_length(), "encoding the path-length bound")?;
+        // A simple path uses at most n-1 edges; cycles never improve the path packing.
+        let max_len = Self::exact_i64(
+            self.max_length().min(n.saturating_sub(1)),
+            "encoding the path-length bound",
+        )?;
         let s = self.source();
         let t = self.sink();
 
