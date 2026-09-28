@@ -89,6 +89,11 @@ impl SequencingToMinimizeMaximumCumulativeCost {
         &self.precedences
     }
 
+    /// Smallest h >= 1 bounding every task cost in magnitude strictly by 2^h.
+    pub fn max_cost_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.costs.iter().copied())
+    }
+
     /// Return the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.costs.len()
@@ -153,6 +158,7 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     type Value = crate::types::Min<i64>;
 
     crate::problem_parameters![
+        ("max_cost_bits", max_cost_bits),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];

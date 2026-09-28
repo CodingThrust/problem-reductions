@@ -11488,6 +11488,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   This $O(n^2 m)$ reduction constructs an ILP with binary assignment variables $x_(t,p)$, integer completion-time variables $C_t$, and binary ordering variables $y_(i,j)$ for task pairs. Big-M disjunctive constraints enforce non-overlapping execution on shared processors.
 ][
+  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. With $L$ the total processing time, the disjunction rows have magnitudes at most $3L$, and variable endpoints at most $L$. Target `max_constraint_magnitude_bits` is at most $h+n+2$. Objective weights need no parameter.
+
   _Construction._ Let $n = |T|$ and $m$ be the number of processors. Create $n m$ binary assignment variables $x_(t,p) in {0, 1}$ (task $t$ on processor $p$), $n$ integer completion-time variables $C_t$, and $n(n-1)/2$ binary ordering variables $y_(i,j)$ for $i < j$. The constraints are:
   (1) Assignment: $sum_p x_(t,p) = 1$ for each $t$.
   (2) Completion bounds: $C_t >= ell(t)$ for each $t$.
@@ -11575,6 +11577,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   The radius-threshold relation between centers and dominating sets @hochbaumshmoys1985 is extended here to all signed source bounds using two mandatory isolated centers. This $O(n+m+1)$ construction preserves the existing endpoint variants.
 ][
+  _Numeric magnitude._ Unit vertex weights and edge lengths give target `max_numeric_magnitude_bits` exactly $1$.
+
   _Construction._ For source graph $G=(V,E)$ with $n$ vertices and integer bound $K$, set $q=max(-1,min(K,n))$. Add isolated vertices $a=n$ and $b=n+1$, leaving every original edge record unchanged. Give all vertices and edges unit weights and lengths, and require exactly $k=q+2$ centers. Then $1<=k<=n+2$ for every input, including an empty graph.
 
   _Correctness._ Every finite target placement must select both isolated vertices. If a source dominating set $D$ has $|D|<=K$, then $q>=0$ and $|D|<=q<=n$. Extend $D$ to $q$ original vertices and add $a,b$. This placement has $k$ centers and radius at most $1$, proving the forward direction. Conversely, a target placement of radius at most $1$ selects both isolates and exactly $q$ original vertices. Each original vertex is within one original edge of a selected vertex, so those $q<=K$ vertices dominate $G$. For $K<0$, $k=1$ cannot cover both isolates and the target has no finite placement. For $n=0,K>=0$, the two isolates form a radius-zero placement. Loops and repeated edges preserve this reasoning.
@@ -13258,6 +13262,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MultipleChoiceBranching", "ILP")[
   A topological-order formulation makes the branching acyclicity condition linear while retaining the source indegree, partition, and weight inequalities directly.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering signed arc weights and the threshold, and $n$ the vertex count. Order constraints introduce magnitudes at most $n$, so target `max_constraint_magnitude_bits` is at most $h+n$.
+
   _Construction._ For every arc $a$ introduce a nonnegative integer $x_a <= 1$, and for every vertex $v$ introduce an integer order $0 <= p_v <= n-1$. Add $sum_(a in A_i)x_a <= 1$ for each partition group, $sum_(a in delta^-(v))x_a <= 1$ for each vertex, and $sum_a w_a x_a >= K$. For every arc $a=(u,v)$ add $p_u-p_v+n x_a <= n-1$. The target has exactly $m+n$ variables and $2m+2n+g+1$ constraints for $g$ partition groups.
 
   _Correctness._ A source branching admits a topological order, which satisfies the order rows. Conversely, selecting $(u,v)$ forces $p_v >= p_u+1$, so selected arcs cannot contain a directed cycle. All remaining source conditions are represented verbatim by their corresponding rows.
@@ -13808,6 +13814,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   @lawler1978 This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
 ][
+  _Numeric magnitude._ Processing lengths are zero or one, so target `max_processing_time_bits` is exactly $1$.
+
   _Construction._ Let the source instance be an undirected graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and maximum degree $d_"max" = max_(v in V) deg(v)$. For each vertex $v in V$, create a job $J_v$ of length 1 and weight $d_"max" - deg(v)$. For each edge $e = {u, v} in E$, create a job $J_e$ of length 0 and weight 2. Add the precedence constraints $J_u prec.eq J_e$ and $J_v prec.eq J_e$ for every edge job $J_e$. There are no other precedences, so the target has $n + m$ jobs and $2m$ precedence arcs.
 
   _Correctness._ Write the source arrangement as a bijection $pi : V -> {0, dots, n - 1}$. Schedule the vertex jobs in increasing $pi$-order, so $J_v$ completes at time $C_v = pi(v) + 1$. Because $J_e$ has length 0 and must follow both endpoints, edge job $J_{ {u, v} }$ completes at time $max(pi(u), pi(v)) + 1$. The total weighted completion time is
@@ -13857,6 +13865,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
   Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
 ][
+  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. Constraint magnitudes and completion-variable bounds are at most the total processing time (or unit constants), giving target `max_constraint_magnitude_bits` at most $h+n$. Objective weights need no parameter.
+
   _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
 
   _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
@@ -14681,6 +14691,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
   Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering item weights and capacity. The capacity row and unit precedence rows give target `max_constraint_magnitude_bits` exactly $h$; item values occur only in the objective.
+
   _Construction._ Variables: $x_i in {0, 1}$ per item. The ILP is:
   $
     max quad & sum_i v_i x_i \
@@ -14713,6 +14725,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("ShortestWeightConstrainedPath", "ILP")[
   Find a minimum-length $s$-$t$ path subject to a weight budget, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering edge weights and the weight bound, and $n$ the vertex count. These numeric inputs and the order-variable bounds give target `max_constraint_magnitude_bits` at most $h+n$. Objective edge lengths require no additional parameter.
+
   _Construction._ Let $A$ contain both orientations of every undirected edge and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
   $
     "minimize" quad & sum_((u,v) in A) l_(u,v) a_(u,v) \
@@ -14768,6 +14782,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinMaxMulticenter", "ILP")[
   Select $k$ centers minimizing the maximum weighted distance from any vertex to its assigned center.
 ][
+  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering vertex weights and edge lengths, and $n$ the vertex count. A shortest simple path uses at most $n-1$ edges. Multiplying its length by a vertex weight gives a magnitude below $n 2^(2h)$, so target `max_constraint_magnitude_bits` is at most $2h+n$.
+
   _Construction._ Same assignment structure as MinimumSumMulticenter (binary $x_j$, $y_(i,j)$), plus an integer variable $z$. The ILP is:
   $
     "minimize" quad & z \
@@ -14796,12 +14812,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
 
+  _Numeric magnitude._ Let $h >= 1$ be the smallest integer such that every task length and the deadline are strictly below $2^h$. At least one processor is present, so the load rows copy all these numbers. All remaining coefficients, right-hand sides, and Boolean endpoints have magnitude at most one. Thus the target's `max_constraint_magnitude_bits` equals the source's `max_numeric_magnitude_bits`, including instances with no tasks.
+
   _Solution extraction._ Task $j$ goes to processor $arg max_p x_(j,p)$.
 ]
 
 #reduction-rule("CapacityAssignment", "ILP")[
   Assign a capacity level to each link to minimize total cost subject to a delay budget.
 ][
+  _Numeric magnitude._ Let $h$ be `max_delay_bits`, covering all delays and the delay budget with absolute values strictly below $2^h$. These values, together with unit assignment rows, give target `max_constraint_magnitude_bits` exactly $h$. Costs occur only in the objective.
+
   _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. The ILP is:
   $
     "minimize" quad & sum_(l,c) "cost"[l][c] x_(l,c) \
@@ -14889,6 +14909,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   This $O(n + m)$ parameter-setting reduction (Hadlock, 1974; Garey and Johnson @garey1979[ND10, p.~208]) constructs a Bounded Component Spanning Forest instance on the same graph with unit vertex weights, $K = |V| slash 3$ components, and weight bound $B = 3$.
 ][
+  _Numeric magnitude._ Unit vertex weights and component bound $3$ give target `max_weight_bits` exactly $2$, including the empty graph.
+
   _Construction._ Given a Partition into Paths of Length 2 instance on graph $G = (V, E)$ with $|V| = 3q$:
   - Graph: use $G$ unchanged.
   - Vertex weights: $w(v) = 1$ for all $v in V$.
@@ -15268,6 +15290,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("FlowShopScheduling", "ILP")[
   Order the jobs with pairwise precedence bits and completion-time variables on every machine; the deadline becomes a makespan bound.
 ][
+  _Numeric magnitude._ Let $h$ be `max_time_bits`, covering processing times and the deadline. The disjunction constant is the deadline plus the largest processing time, giving target `max_constraint_magnitude_bits` at most $h+1$.
+
   _Construction._ Let $q in {1, dots, m}$ index the machines, let $p_(j,q) = ell(t_q [j])$ be the processing time of job $j$ on machine $q$, and let $M = D + max_(j, q) p_(j,q)$. Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, and integer completion times $C_(j,q)$. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15328,36 +15352,46 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
-  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
+  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each task.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. The ILP is:
+  _Numeric magnitude._ For unit lengths, target `max_constraint_magnitude_bits` is at most $n+1$. For integer lengths let $h$ be `max_processing_time_bits`; then $L<n 2^h$ and every row magnitude is at most $2L$, giving the bound $h+n+1$. Deadline clipping makes a deadline-magnitude parameter unnecessary.
+
+  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. Replace each deadline by $d'_j = min(n,max(0,d_j))$. The ILP is:
   $
     min quad & sum_j u_j \
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
-    & sum_p (p + 1) x_(j,p) - d_j <= M u_j quad forall j \
+    & sum_p (p + 1) x_(j,p) - d'_j <= M u_j quad forall j \
     & x_(j,p), u_j in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and each $u_j$ is forced to record whether task $j$ misses its deadline.
+  For positive integer lengths, let $L = sum_j ell_j$, set $M=L$, and clip deadlines to $[0,L]$. Replace each tardiness row by the position-specific rows
+  $ L x_(j,p) + sum_(q<p) sum_i ell_i x_(i,q) - L u_j <= d'_j - ell_j + L. $
+  At the assigned position this enforces the completion-time comparison; at other positions it is redundant. Clipping preserves tardiness because every nonempty completion time lies in $[1,L]$.
 
-  _Solution extraction._ Decode the permutation from $x_(j,p)$ and encode it as Lehmer code.
+  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and a late task must have $u_j=1$. Minimization sets every other indicator to zero, so the optimum is the minimum number of tardy tasks.
+
+  _Solution extraction._ Decode the permutation directly from $x_(j,p)$.
 ]
 
 #reduction-rule("ResourceConstrainedScheduling", "ILP")[
   The source witness is already a time-slot assignment, so a standard time-indexed ILP suffices.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
+  _Numeric magnitude._ Let $h$ be `max_resource_bits`, covering all resource requirements and capacities. After capping the processor count by $n$, target `max_constraint_magnitude_bits` is at most $h+n$; neither deadline nor processor magnitude needs a new parameter.
+
+  _Construction._ Put $D'=min(D,n)$ and $m'=min(m,n)$, where $n$ is the task count. Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D' - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
   $
     "find" quad & bold(x) \
     "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
-    & sum_j x_(j,t) <= m quad forall t \
+    & sum_j x_(j,t) <= m' quad forall t \
     & sum_j r_(j,q) x_(j,t) <= B_q quad forall q, t \
     & x_(j,t) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any feasible schedule chooses one slot per task while respecting processor and resource capacities in every period. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+  _Correctness._ ($arrow.r.double$) A feasible schedule uses at most $n$ occupied slots. Renumber these in order from zero, preserving each group of simultaneous tasks. This respects the deadline and all capacities, so it yields a feasible assignment within $D'$ slots. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+
+  _Size bound._ There are at most $n^2$ variables, $n(r+2)$ constraints, and $n^3(r+2)$ nonzero coefficients for $r$ resources, independently of the numeric deadline.
 
   _Solution extraction._ Task $j$ is assigned to the unique slot $t$ with $x_(j,t) = 1$.
 ]
@@ -15365,24 +15399,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingToMinimizeMaximumCumulativeCost", "ILP")[
   Assign each task to one position in the permutation and bound the running cumulative cost at every prefix.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$. The ILP is:
+  _Numeric magnitude._ Let $h$ be `max_cost_bits` and $n$ the task count. Signed prefix magnitudes and the objective-variable endpoint are bounded by the sum of absolute costs; position coefficients are at most $n$. Target `max_constraint_magnitude_bits` is at most $h+n$.
+
+  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$, and integer $z$ with $0<=z<=sum_j abs(c_j)$. The lower bound includes the empty prefix. The ILP is:
   $
-    "find" quad & bold(x) \
+    min quad & z \
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
-    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= K quad forall q \
+    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= z quad forall q \
     & x_(j,p) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
+  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and sets $z$ to its maximum prefix cost, including zero for the empty prefix. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded. Minimizing $z$ therefore preserves the optimum.
 
-  _Solution extraction._ Decode the position assignment and convert the resulting permutation to Lehmer code.
+  _Solution extraction._ Decode the permutation directly from the position assignment.
 ]
 
 #reduction-rule("SequencingToMinimizeTardyTaskWeight", "ILP")[
   Use position assignments and exact tardiness indicators, with both implications of each deadline comparison. Prefix bounds supply valid constants for the bounded-disjunction construction @vielma2015, including the signed lengths, signed weights, and arbitrary deadlines accepted by the source model.
 ][
+  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. Prefix bounds have absolute value below $n 2^h$; the clipped comparisons and normalized coefficients require at most two additional bits. Target `max_constraint_magnitude_bits` is at most $h+n+2$. Neither deadlines nor objective weights need a size parameter.
+
   _Construction._ For $n$ tasks introduce binary $x_(j,p)$ (task $j$ occupies position $p$) and binary $u_j$ (task $j$ is tardy), with the two families of assignment equations. Let $P_p = sum_(q<p) sum_j ell_j x_(j,q)$. Define $L_p$ and $U_p$ as the sums of the $p$ smallest and $p$ largest lengths respectively; both are zero for $p=0$. Any permutation satisfies $L_p <= P_p <= U_p$.
 
   For each task and position put
@@ -15403,6 +15441,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingWithDeadlinesAndSetUpTimes", "ILP")[
   Assign tasks to positions with switch-detection auxiliaries that gate per-compiler setup costs into the deadline constraints.
 ][
+  _Numeric magnitude._ Let $h$ be `max_time_bits`, covering lengths, deadlines, and setup times, and $n$ the task count. The disjunction constant is bounded by the sum of lengths plus $(n-1)$ times the largest setup time. Including row right-hand sides gives target `max_constraint_magnitude_bits` at most $h+n+2$.
+
   _Construction._ Let $n$ be the number of tasks. Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ occupies position $p$; binary $"sw"_p$ for $p >= 1$ indicating a compiler switch before position $p$; binary $a_(j,p) = x_(j,p) dot "sw"_p$ (linearised product). Let $M = sum_j ell_j + max_c s(c) dot (n-1)$. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15423,6 +15463,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingToMinimizeWeightedTardiness", "ILP")[
   Encode the single-machine order with pairwise precedence bits and completion times, then linearize the weighted tardiness bound with nonnegative tardiness variables.
 ][
+  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering lengths, weights, deadlines, and the acceptance bound, and $n$ the task count. Completion and tardiness-variable endpoints are bounded by the total processing time, while the weighted acceptance row copies source weights. Target `max_constraint_magnitude_bits` is at most $h+n$.
+
   _Construction._ Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, integer completion times $C_j$, and nonnegative tardiness variables $T_j$, where $M = sum_j ell_j$ is a valid schedule-horizon bound. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15647,6 +15689,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   @garey1979 This $O(m)$ reduction copies the graph unchanged and assigns unit weight to every edge ($n$ target vertices, $m$ target edges). A Hamiltonian circuit exists iff the optimal circuit length equals $n$.
 ][
+  _Numeric magnitude._ Every edge has length one, so target `max_length_bits` is exactly $1$.
+
   _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, construct a DecisionLongestCircuit instance with bound $n$ on the same graph $G' = G$ with edge lengths $l(e) = 1$ for every $e in E$. Its decision condition is circuit length $>= n$.
 
   _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then this circuit uses $n$ edges each of length 1, giving total length $n$. Since a simple circuit on $n$ vertices can use at most $n$ edges, this is optimal. ($arrow.l.double$) If the longest circuit in $G'$ has length $n$, it uses $n$ unit-weight edges and therefore visits $n$ distinct vertices, i.e., every vertex exactly once. This circuit is therefore a Hamiltonian circuit in $G$.
@@ -15690,9 +15734,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Impose the decision bound on the selected circuit length. The optimization formulation gains one constraint and no variables.
 ][
-  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, add $sum_(e in E) l_e y_e >= B$, and replace the objective with zero.
+  _Numeric magnitude._ Let $h$ be `max_length_bits` and $m$ the edge count. The nonconstant acceptance row has bound at most $S<m 2^h$, while the original circuit constraints use magnitudes at most $2$. Target `max_constraint_magnitude_bits` is at most $h+m+1$. This needs no parameter for the generic decision threshold.
 
-  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. A graph with no circuit remains infeasible regardless of the bound.
+  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, let $S=sum_(e in E) l_e$. Add $0>=0$ if $B<=0$, $0>=1$ if $B>S$, and $sum_(e in E) l_e y_e >= B$ otherwise, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. Positive edge lengths make the two constant-row cases equivalent to the original threshold comparison. A graph with no circuit remains infeasible regardless of the bound.
 
   _Solution extraction._ Check target feasibility, then return the existing edge-selection vector. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
 ]
@@ -15775,6 +15821,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("AcyclicPartition", "ILP")[
   Assign every vertex to a topologically numbered partition class and directly require every arc to have nondecreasing class labels, following the upper-triangular formulation of @ozkayaCatalyurek2022.
 ][
+  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering vertex weights, arc costs, and both bounds, and $n$ the vertex count. Label coefficients and endpoints are at most $n$; normalized product rows can contain coefficient $2$. Target `max_constraint_magnitude_bits` is at most $h+n+1$.
+
   _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i64>` with variable order
   $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t$.
   The indices are
@@ -15853,6 +15901,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BoundedComponentSpanningForest", "ILP")[
   Assign every vertex to one of at most $K$ components, bound each component's total weight, and certify connectivity inside each used component by a flow witness.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering vertex weights and the component bound, and $n$ the vertex count. Weight rows, unit flow rows, and flow-variable endpoints give target `max_constraint_magnitude_bits` at most $h+n$.
+
   _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i64>` with variables ordered as
   $(x_(v,c))_(v,c), (u_c)_c, (r_(v,c))_(v,c), (s_c)_c, (b_(v,c))_(v,c), (f_(i,eta,c))_(i,eta,c)$.
   Their indices are
@@ -16943,6 +16993,8 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("MinimumCapacitatedSpanningTree", "ILP")[
   Binary edge selectors $y_e$, directed requirement-flow variables $f$, and directed unit-demand connectivity variables $g$. The first flow enforces subtree capacities; the second connects even zero-requirement vertices.
 ][
+  _Numeric magnitude._ Let $h$ be `max_requirement_bits`, covering requirements and capacity, and $n$ the vertex count. Flow bounds and balance rows involve at most the sum of $n$ requirements; target `max_constraint_magnitude_bits` is at most $h+n$. Edge costs occur only in the objective.
+
   _Construction._ $5m$ variables: $m$ edge selectors and two directed flows of $2m$ variables each. Requirement flow sends $r(v)$ units from each non-root vertex to the root and is bounded by capacity $c$. Connectivity flow sends one unit from every non-root vertex to the root and satisfies $g_(u v)+g_(v u) <= (n-1)y_e$. Also impose $sum_e y_e=n-1$ and minimize $sum_e w(e) dot y_e$. This combines the standard non-unit-demand flow model @gouveiaLopes2000 with the standard unit-demand spanning-tree flow.
 
   _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces both flows along its unique root paths. ($arrow.l.double$) Unit-demand flow makes every vertex reachable from the root; together with $n-1$ selected edges this gives a spanning tree. Requirement flow on that tree equals each rooted subtree's total requirement, so its capacity bounds are exactly the source constraints.
@@ -17097,6 +17149,8 @@ The following table shows concrete target-variable counts for example instances,
   Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
 ][
   _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
+
+  _Numeric magnitude._ If each source size is below $2^h$, then $S < n dot 2^h <= 2^(h+n)$. Both the copied lengths and $D$ are therefore below $2^(h+n)$, giving the local upper bound `max_numeric_magnitude_bits + num_elements` on the target's `max_numeric_magnitude_bits`.
 
   _Correctness._ ($arrow.r.double$) If $A' subset.eq A$ has $sum_(i in A') a_i = S/2$, assign tasks in $A'$ to processor 0 and the rest to processor 1; both loads equal $S/2 = D$. ($arrow.l.double$) If a feasible schedule exists with both loads $<= D = floor(S/2)$, since both loads sum to $S$ and each is at most $floor(S/2)$, equality holds, giving a balanced partition.
 
@@ -17780,6 +17834,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. All weights and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
 ][
+  _Numeric magnitude._ For $c$ clauses, incidence count $L$ is at most $5(c+1)^2$, the cluster parameter is $c+1$, and capacity is at most $(c+1)^2$. All constructed magnitudes are below $64(c+1)^4<=2^(4c+6)$. Thus target `max_numeric_magnitude_bits` is at most $4c+6$, including $c=0$.
+
   _Construction._ First obtain a clique instance $H=(V,E)$ with threshold $k$ from the formal 3-SAT-to-KClique rule, including its universal vertex and padding. Write $h=|V|$, $e=|E|$, and $L=h+e$. Here $1 <= k <= h$.
 
   1. Create one unit-weight item per vertex and edge of $H$. Set $c=k(k+1)/2$, $M=2L+1$, and $B=2(L+c)+1$.
@@ -18920,6 +18976,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(n)$ specialization of Karp's common-deadline sequencing construction @karp1972 maps each element $a_i$ to a task with processing time and tardy weight $a_i$. For total $S$, use common deadline $B = floor(S / 2)$. A balanced partition exists exactly when the minimum tardy weight is $B$; other optimum values map to false through the formal aggregate reduction.
 ][
+  _Numeric magnitude._ Task lengths copy the source integers, so target `max_processing_time_bits` equals source `max_numeric_magnitude_bits`.
+
   _Construction._ The source has $n >= 1$ positive sizes with checked total $S$. Create $n$ tasks in source order, each with length and weight $a_i$, and deadline $B = floor(S / 2)$. The construction is identical for odd and even totals. Karp's original paper gives Knapsack to Job Sequencing (p. 100), with equal processing times and penalties and a common deadline; the Partition specialization and its optimization certificate are proved here.
 
   _Correctness._ Let $E$ be the total size of tasks completing by $B$ in any valid permutation. Positive processing times make these tasks a prefix, so $E <= B$. Because weights equal processing times, tardy weight is $W = S - E >= S - B >= B$.
@@ -19080,6 +19138,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
 ][
+  _Numeric magnitude._ For universe size $q>=1$, the nonconstant gadget has partition bound $42949672960 q^4+964<2^36 q^4$. Since $q<=2^q$, target `max_numeric_magnitude_bits` is at most $4q+36$. The fixed feasible and infeasible outputs also satisfy this bound, including $q=0$.
+
   _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If $q=0$, the empty matching is a solution: return sizes $(1,1,1)$ with bound $3$, and recover the empty matching. Otherwise, if some coordinate of $W union X union Y$ is absent from all triples (including $t=0$), return the fixed infeasible instance $(6,6,6,6,7,9)$ with bound $20$. Including these constant cases, $24t^2-3t+6$ elements and $8t^2-t+2$ groups are upper bounds, not exact counts.
 
   Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
@@ -19227,6 +19287,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Each element becomes a unit-length task requiring $a_i$ units of a shared resource with bound $B$. With 3 processors and deadline $m$, every slot receives exactly 3 tasks summing to $B$.
 ][
+  _Numeric magnitude._ Resource requirements copy the element sizes and the resource capacity copies the partition bound. Target `max_resource_bits` therefore equals source `max_numeric_magnitude_bits`.
+
   _Construction._ Given $(S, B)$ with $|S| = 3m$ and $B/4 < a_i < B/2$. Create $3m$ unit-length tasks with resource requirement $r_i = a_i$, $p = 3$ processors, resource bound $B$, deadline $D = m$.
 
   _Correctness._ ($arrow.r.double$) A valid 3-partition assigns each triple to a time slot; each slot uses exactly $B$ resource units. ($arrow.l.double$) $3m$ tasks in $m$ slots with $p = 3$: every slot has exactly 3 tasks. Resource bound $B$ with total $m B$: each slot sums to exactly $B$. Size constraints prevent fewer or more than 3 elements per slot.

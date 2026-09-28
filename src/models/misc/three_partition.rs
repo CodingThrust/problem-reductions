@@ -88,6 +88,16 @@ impl ThreePartition {
         Ok(Self { sizes, bound })
     }
 
+    /// Smallest h >= 1 with every element size and the target sum strictly below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.sizes
+                .iter()
+                .copied()
+                .chain(std::iter::once(self.bound)),
+        )
+    }
+
     /// Create a new 3-Partition instance.
     ///
     /// # Panics
@@ -183,7 +193,11 @@ impl Problem for ThreePartition {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_elements", num_elements), ("num_groups", num_groups),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_elements", num_elements),
+        ("num_groups", num_groups),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

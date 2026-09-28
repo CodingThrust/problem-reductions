@@ -267,6 +267,16 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         !N::IS_UNIT
     }
 
+    /// Smallest h >= 1 with every edge weight and the weight limit strictly below 2^h.
+    pub fn max_weight_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.edge_weights
+                .iter()
+                .map(|weight| weight.to_sum())
+                .chain(std::iter::once(self.weight_bound.clone())),
+        )
+    }
+
     /// Get the number of vertices in the graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -341,7 +351,11 @@ where
     type Solution = Vec<bool>;
     type Value = Min<N::Sum>;
 
-    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_weight_bits", max_weight_bits),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, N]

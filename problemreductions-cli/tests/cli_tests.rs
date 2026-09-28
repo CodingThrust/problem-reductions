@@ -5601,14 +5601,7 @@ fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
 #[test]
 fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
-        .args([
-            "path",
-            "DecisionLongestCircuit",
-            "ILP/bool",
-            "--limit",
-            "1",
-            "--json",
-        ])
+        .args(["path", "BMF", "BicliqueCover", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5625,14 +5618,15 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["num_constraints"], "exact");
-    assert_eq!(relations["num_vars"], "exact");
-    assert_eq!(relations["max_constraint_magnitude_bits"], "unavailable");
+    for field in ["num_vertices", "left_size", "right_size", "rank"] {
+        assert_eq!(relations[field], "exact");
+    }
+    assert_eq!(relations["num_edges"], "unavailable");
     let unavailable = fields
         .iter()
         .find(|field| field["relation"] == "unavailable")
         .unwrap();
-    assert!(unavailable["reason"].as_str().unwrap().contains("length"));
+    assert!(!unavailable["reason"].as_str().unwrap().is_empty());
 }
 
 #[test]

@@ -37,30 +37,21 @@ fn domination_magnitude_predictions_account_for_parallel_edges() {
 }
 
 #[test]
-fn decision_ilp_contracts_distinguish_bounded_and_unrepresented_numeric_data() {
-    for (name, magnitude_available) in [
-        ("DecisionLongestCircuit", false),
-        ("DecisionOpenShopScheduling", true),
-    ] {
+fn decision_ilp_contracts_cover_numeric_bounds() {
+    for name in ["DecisionLongestCircuit", "DecisionOpenShopScheduling"] {
         let entry = crate::rules::registry::reduction_entries()
             .into_iter()
             .find(|entry| entry.source_name == name && entry.target_name == "ILP")
             .unwrap();
         let contract = entry.parameter_contract().unwrap();
         let transform = contract.transform().unwrap();
-        assert_eq!(
-            contract
-                .unavailable()
-                .iter()
-                .any(|field| field.field == "max_constraint_magnitude_bits"),
-            !magnitude_available,
-            "{name}"
-        );
-        assert_eq!(
-            transform.get("max_constraint_magnitude_bits").is_some(),
-            magnitude_available
-        );
-        for field in ["num_vars", "num_constraints", "num_nonzeros"] {
+        assert!(contract.unavailable().is_empty(), "{name}");
+        for field in [
+            "max_constraint_magnitude_bits",
+            "num_vars",
+            "num_constraints",
+            "num_nonzeros",
+        ] {
             assert!(transform.get(field).is_some(), "{name}: {field}");
         }
     }

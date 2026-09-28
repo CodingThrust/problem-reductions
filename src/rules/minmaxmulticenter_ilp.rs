@@ -66,7 +66,7 @@ fn weighted_distances_mmc(
     edge_lengths: &[i64],
     source: usize,
     n: usize,
-) -> Vec<Option<i64>> {
+) -> Result<Vec<Option<i64>>, crate::rules::ReductionError> {
     let mut adj: Vec<Vec<(usize, i64)>> = vec![Vec::new(); n];
     for (idx, &(u, v)) in graph.edges().iter().enumerate() {
         let len = edge_lengths[idx];
@@ -74,7 +74,7 @@ fn weighted_distances_mmc(
         adj[v].push((u, len));
     }
 
-    let mut dist = vec![None; n];
+    let mut dist = vec![None::<i64>; n];
     let mut visited = vec![false; n];
     dist[source] = Some(0);
 
@@ -107,7 +107,12 @@ fn weighted_distances_mmc(
             if visited[v] {
                 continue;
             }
-            let candidate = du + len;
+            let candidate = du.checked_add(len).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    MinMaxMulticenter<SimpleGraph, i64>,
+                    ILP<i64, i64, Bounded>,
+                >("adding shortest-path lengths")
+            })?;
             let should_update = match dist[v] {
                 None => true,
                 Some(current) => candidate < current,
@@ -118,18 +123,16 @@ fn weighted_distances_mmc(
         }
     }
 
-    dist
+    Ok(dist)
 }
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "weighted graph distances are not bounded by registered source parameters",
-    },
     exact {
         num_vars = "num_vertices + num_vertices^2 + 1",
         num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2 * max_numeric_magnitude_bits + num_vertices",
         num_nonzeros = "(num_vertices + num_vertices^2 + 1) * (2 * num_vertices^2 + 3 * num_vertices + 2)",
     },
 })]
@@ -145,7 +148,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinMaxMulticenter<SimpleGraph, i64> {
         // Precompute all-pairs weighted shortest-path distances.
         let all_dist: Vec<Vec<Option<i64>>> = (0..n)
             .map(|s| weighted_distances_mmc(self.graph(), edge_lengths, s, n))
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         // Index helpers.
         let x_var = |j: usize| j;

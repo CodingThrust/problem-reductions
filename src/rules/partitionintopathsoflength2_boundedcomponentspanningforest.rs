@@ -52,10 +52,13 @@ impl ReductionResult for ReductionPPL2ToBCSF {
 impl crate::rules::AggregateReductionResult for ReductionPPL2ToBCSF {}
 
 #[reduction(
-    transform = upper_bound {
-        num_vertices = "num_vertices",
-        num_edges = "num_edges",
-        max_components = "num_vertices / 3 + 1",
+    transform = {
+        exact { max_weight_bits = "2", },
+        upper_bound {
+            num_vertices = "num_vertices",
+            num_edges = "num_edges",
+            max_components = "num_vertices / 3 + 1",
+        },
     }
 )]
 impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i64>>

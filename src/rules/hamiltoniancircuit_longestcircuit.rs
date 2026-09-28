@@ -47,6 +47,7 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToLon
 
 #[reduction(
     transform = exact {
+        max_length_bits = "1",
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

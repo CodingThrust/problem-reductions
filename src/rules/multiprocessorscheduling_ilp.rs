@@ -57,10 +57,8 @@ impl ReductionResult for ReductionMSToILP {
 impl crate::rules::AggregateReductionResult for ReductionMSToILP {}
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "task lengths and the deadline are not registered source parameters",
-    },
     exact {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
     },

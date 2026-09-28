@@ -63,14 +63,12 @@ impl ReductionResult for ReductionSMWCTToILP {
 }
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "processing times are not bounded by registered source parameters",
-    },
     exact {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 2",
         num_nonzeros = "(num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2) * (num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2)",
     },
 })]

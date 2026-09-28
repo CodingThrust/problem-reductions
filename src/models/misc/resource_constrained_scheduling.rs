@@ -118,6 +118,17 @@ impl ResourceConstrainedScheduling {
         })
     }
 
+    /// Smallest h >= 1 with every resource requirement and bound strictly below 2^h.
+    pub fn max_resource_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.resource_requirements
+                .iter()
+                .flatten()
+                .copied()
+                .chain(self.resource_bounds.iter().copied()),
+        )
+    }
+
     /// Get the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.resource_requirements.len()
@@ -179,6 +190,7 @@ impl Problem for ResourceConstrainedScheduling {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_resource_bits", max_resource_bits),
         ("deadline", deadline),
         ("num_resources", num_resources),
         ("num_tasks", num_tasks),
@@ -211,8 +223,12 @@ impl Problem for ResourceConstrainedScheduling {
                     ));
                 }
 
-                // Check processor capacity and resource constraints at each time slot
-                for u in 0..d {
+                // Empty slots consume no resources. Keep ascending slot order and
+                // task order within each slot for checked accumulation.
+                let mut occupied = config.clone();
+                occupied.sort_unstable();
+                occupied.dedup();
+                for u in occupied {
                     // Collect tasks scheduled at time slot u
                     let mut task_count = 0usize;
                     let mut resource_usage = vec![0i64; r];

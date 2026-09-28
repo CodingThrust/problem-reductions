@@ -193,6 +193,16 @@ impl<W: WeightElement> MultipleChoiceBranching<W> {
         &self.threshold
     }
 
+    /// Smallest h >= 1 bounding arc weights and the threshold in magnitude strictly by 2^h.
+    pub fn max_weight_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.weights
+                .iter()
+                .map(|weight| weight.to_sum())
+                .chain(std::iter::once(self.threshold.clone())),
+        )
+    }
+
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -232,6 +242,7 @@ where
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_weight_bits", max_weight_bits),
         ("num_vertices", num_vertices),
         ("num_arcs", num_arcs),
         ("num_partition_groups", num_partition_groups),

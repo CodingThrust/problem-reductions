@@ -216,10 +216,8 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitT
         num_constraints = "3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_length_bits + num_edges + 1",
         num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
-    },
-    unavailable {
-        max_constraint_magnitude_bits = "the decision threshold and edge lengths copied into the acceptance row are not registered source parameters",
     },
 })]
 impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
@@ -228,10 +226,22 @@ impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut inner = ReduceTo::<ILP<bool>>::reduce_to(self.inner())?;
         let mut constraints = inner.target.constraints().to_vec();
-        constraints.push(LinearConstraint::ge(
-            inner.target.objective().to_vec(),
-            *self.bound(),
-        ));
+        // Positive edge lengths bound every circuit by their total. Normalize
+        // thresholds outside that range while retaining one acceptance row.
+        let total_length: i128 = self
+            .inner()
+            .edge_lengths()
+            .iter()
+            .map(|&length| i128::from(length))
+            .sum();
+        let acceptance = if *self.bound() <= 0 {
+            LinearConstraint::ge(vec![], 0)
+        } else if i128::from(*self.bound()) > total_length {
+            LinearConstraint::ge(vec![], 1)
+        } else {
+            LinearConstraint::ge(inner.target.objective().to_vec(), *self.bound())
+        };
+        constraints.push(acceptance);
         inner.target = ILP::with_variables(
             inner.target.variables().to_vec(),
             constraints,

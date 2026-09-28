@@ -223,6 +223,16 @@ impl PartiallyOrderedKnapsack {
         self.capacity
     }
 
+    /// Smallest h >= 1 with every item weight and the capacity strictly below 2^h.
+    pub fn max_weight_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.weights
+                .iter()
+                .copied()
+                .chain(std::iter::once(self.capacity)),
+        )
+    }
+
     /// Returns the number of items.
     pub fn num_items(&self) -> usize {
         self.weights.len()
@@ -257,6 +267,7 @@ impl Problem for PartiallyOrderedKnapsack {
     type Value = Max<i64>;
 
     crate::problem_parameters![
+        ("max_weight_bits", max_weight_bits),
         ("num_items", num_items),
         ("num_precedences", num_precedences),
     ];

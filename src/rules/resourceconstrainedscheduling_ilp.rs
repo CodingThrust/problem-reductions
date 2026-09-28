@@ -52,38 +52,37 @@ impl ReductionResult for ReductionRCSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRCSToILP {}
 
-#[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "processor capacity and resource requirements and bounds are not registered source parameters",
-    },
-    exact {
-        num_vars = "num_tasks * deadline",
-        num_constraints = "num_tasks + deadline + num_resources * deadline",
-    },
-    upper_bound {
-        num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_resources * deadline)",
-    },
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "max_resource_bits + num_tasks",
+    num_vars = "num_tasks^2",
+    num_constraints = "num_tasks * (num_resources + 2)",
+    num_nonzeros = "num_tasks^3 * (num_resources + 2)",
 })]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let d =
-            usize::try_from(self.deadline()).map_err(|_| {
+        // Unit tasks can pack occupied slots without gaps; at most n slots
+        // and n processors are needed, regardless of the numeric deadline.
+        let d = usize::try_from(self.deadline())
+            .map_err(|_| {
                 crate::rules::ReductionError::invalid_target::<
                     ResourceConstrainedScheduling,
                     ILP<bool>,
                 >("deadline does not fit the structural usize domain")
-            })?;
+            })?
+            .min(n);
         let r = self.num_resources();
         let resource_requirements = self.resource_requirements();
         let resource_bounds = self.resource_bounds();
         let num_vars = n * d;
 
         let var = |j: usize, t: usize| -> usize { j * d + t };
-        let processor_count =
-            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
+        let processor_count = Self::exact_i64(
+            self.num_processors().min(n),
+            "encoding the processor capacity",
+        )?;
 
         let mut constraints = Vec::new();
 

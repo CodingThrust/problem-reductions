@@ -118,6 +118,17 @@ impl CapacityAssignment {
         })
     }
 
+    /// Smallest h >= 1 bounding every delay and the delay budget in magnitude strictly by 2^h.
+    pub fn max_delay_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.delay
+                .iter()
+                .flatten()
+                .copied()
+                .chain(std::iter::once(self.delay_budget)),
+        )
+    }
+
     /// Number of communication links.
     pub fn num_links(&self) -> usize {
         self.cost.len()
@@ -189,7 +200,11 @@ impl Problem for CapacityAssignment {
     type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    crate::problem_parameters![("num_capacities", num_capacities), ("num_links", num_links),];
+    crate::problem_parameters![
+        ("max_delay_bits", max_delay_bits),
+        ("num_capacities", num_capacities),
+        ("num_links", num_links),
+    ];
 
     fn evaluate(
         &self,

@@ -46,14 +46,12 @@ impl ReductionResult for ReductionSTMMCCToILP {
 }
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "task costs are not bounded by registered source parameters",
-    },
     exact {
         num_vars = "num_tasks^2 + 1",
         num_constraints = "num_tasks^2 + 3 * num_tasks + num_precedences + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_cost_bits + num_tasks",
         num_nonzeros = "(num_tasks^2 + 1) * (num_tasks^2 + 3 * num_tasks + num_precedences + 1)",
     },
 })]

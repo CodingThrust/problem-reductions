@@ -40,14 +40,12 @@ impl ReductionResult for ReductionMultipleChoiceBranchingToILP {
 impl crate::rules::AggregateReductionResult for ReductionMultipleChoiceBranchingToILP {}
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "arc weights and the feasibility threshold are not registered source parameters",
-    },
     exact {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "2 * num_arcs + 2 * num_vertices + num_partition_groups + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
         num_nonzeros = "(num_arcs + num_vertices) * (2 * num_arcs + 2 * num_vertices + num_partition_groups + 1)",
     },
 })]

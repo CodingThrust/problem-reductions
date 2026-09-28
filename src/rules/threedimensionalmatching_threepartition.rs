@@ -345,6 +345,7 @@ impl crate::rules::AggregateReductionResult for ReductionThreeDimensionalMatchin
 
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "4 * universe_size + 36",
         num_elements = "24 * num_triples * num_triples - 3 * num_triples + 6",
         num_groups = "8 * num_triples * num_triples - num_triples + 2",
     })]

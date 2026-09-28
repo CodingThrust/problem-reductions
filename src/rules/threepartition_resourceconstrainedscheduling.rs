@@ -58,6 +58,7 @@ impl crate::rules::AggregateReductionResult for ReductionThreePartitionToRCS {}
 
 #[reduction(
     transform = exact {
+        max_resource_bits = "max_numeric_magnitude_bits",
         num_tasks = "num_elements",
         deadline = "num_groups",
         num_resources = "1",

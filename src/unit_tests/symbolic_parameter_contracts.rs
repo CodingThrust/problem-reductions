@@ -442,6 +442,42 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
 }
 
 #[test]
+fn multiprocessor_magnitude_predictions_cover_lengths_and_deadlines() {
+    use crate::models::algebraic::ILP;
+    use crate::models::misc::{MultiprocessorScheduling, Partition};
+
+    for (lengths, deadline, bits) in [
+        (vec![], 0, 1),
+        (vec![], 8, 4),
+        (vec![0], 0, 1),
+        (vec![7], 1, 3),
+        (vec![8], 1, 4),
+        (vec![1], 8, 4),
+        (vec![i64::MAX], 0, 63),
+        (vec![0], i64::MAX, 63),
+    ] {
+        let source = MultiprocessorScheduling::new(lengths, 2, deadline);
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(bits)
+        );
+        check_reduced_parameters::<_, ILP<bool>>(
+            source,
+            &["max_constraint_magnitude_bits"],
+            ParameterRelation::Exact,
+        );
+    }
+    // The deadline can require more bits than any individual input size.
+    for sizes in [vec![1], vec![3; 4], vec![1, 2], vec![i64::MAX]] {
+        check_reduced_parameters::<_, MultiprocessorScheduling>(
+            Partition::new(sizes).unwrap(),
+            &["num_tasks", "num_processors"],
+            ParameterRelation::Exact,
+        );
+    }
+}
+
+#[test]
 fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
     use crate::models::algebraic::ILP;
     use crate::models::graph::{BiconnectivityAugmentation, StrongConnectivityAugmentation};

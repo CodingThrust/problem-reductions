@@ -227,6 +227,16 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
         &self.capacity
     }
 
+    /// Smallest h >= 1 bounding vertex requirements and capacity in magnitude strictly by 2^h.
+    pub fn max_requirement_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.requirements
+                .iter()
+                .map(|value| value.to_sum())
+                .chain(std::iter::once(self.capacity.clone())),
+        )
+    }
+
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -381,7 +391,11 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_requirement_bits", max_requirement_bits),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
