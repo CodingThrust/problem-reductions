@@ -200,6 +200,7 @@ fn test_problem_parameters_biclique_cover() {
     let size = bc.parameters();
     assert_eq!(size.get("left_size"), Some(2));
     assert_eq!(size.get("right_size"), Some(3));
+    assert_eq!(size.get("num_vertices"), Some(5));
     assert_eq!(size.get("num_edges"), Some(3));
     assert_eq!(size.get("rank"), Some(2));
 }

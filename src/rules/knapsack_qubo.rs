@@ -44,9 +44,13 @@ impl ReductionResult for ReductionKnapsackToQUBO {
     }
 }
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_items + capacity + 1",
-    num_quadratic_terms = "(num_items + capacity + 1)^2",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_items + capacity_bits",
+    },
+    upper_bound {
+        num_quadratic_terms = "(num_items + capacity_bits)^2",
+    },
 })]
 impl ReduceTo<QUBO<i64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;

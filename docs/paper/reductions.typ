@@ -12371,6 +12371,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $ C = floor(S / 2). $
   Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
 
+  _Parameter propagation._ If each source size has at most $h$ bits, their sum has at most $h+n$ bits; halving cannot increase this. The target `capacity_bits` is therefore at most $h+n$, including zero capacity. Composing with the Knapsack-to-QUBO rule yields at most $2n+h$ variables and $(2n+h)^2$ quadratic terms. The raw capacity field remains unavailable because these predictions need only its bit length.
+
   _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
 
   _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
@@ -12504,7 +12506,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   where $bold(z) = (x_0, dots, x_(n-1), s_0, dots, s_(B-1))$ and $P = 1 + sum_i v_i$. Expanding the quadratic penalty using $z_k^2 = z_k$ (binary):
   $ Q_(k k) = P a_k^2 - 2 P C a_k - [k < n] v_k, quad Q_(i j) = 2 P a_i a_j quad (i < j) $
 
-  _Size bound._ For capacity $C >= 0$, the binary slack encoding uses at most $C+1$ bits, including the zero-capacity boundary. Thus $n+C+1$ bounds the number of QUBO variables, and its square bounds quadratic terms. This coarse bound needs only the existing item count and capacity parameters.
+  _Size bound._ Let $b$ be the source parameter `capacity_bits`, the binary digit count of $C$ with a minimum of one for zero. The encoding uses exactly $b$ slack bits, so the QUBO has exactly $n+b$ variables and at most $(n+b)^2$ quadratic terms.
 
   _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective. Since all values are nonnegative, every feasible assignment has objective in the range $[-sum_i v_i, 0]$, so that penalty exceeds the entire feasible value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
 
@@ -13647,7 +13649,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#fmt-values(ks_ilp_selected)\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
   ],
 )[
-  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
+  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and at most $n+1$ constraints after fixing oversized items to zero.
 ][
   _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. The ILP is:
   $
@@ -13655,7 +13657,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(i=0)^(n-1) w_i x_i <= C \
     & x_i in {0, 1} quad forall i in {0, dots, n - 1}.
   $
-  The target therefore has exactly $n$ variables and one linear constraint.
+  The implementation omits every weight greater than $C$ from the capacity row and adds $x_i=0$ for that item. This preserves feasibility and gives exactly $n$ variables and at most $n+1$ constraints. Every constraint coefficient and right-hand side has magnitude at most $max(C,1)$, so `capacity_bits` bounds the target `max_constraint_magnitude_bits`.
 
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
 
@@ -13715,6 +13717,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
 
   _Correctness._ ($arrow.r.double$) Any feasible Integer Knapsack multiplicity vector $bold(c)$ already satisfies $sum_i s_i c_i <= B$, and every source multiplicity also satisfies $c_i <= floor.l B / s_i floor.r$, so the same vector is feasible for the ILP and attains exactly the same objective value $sum_i v_i c_i$. ($arrow.l.double$) Any feasible ILP solution satisfies the same capacity inequality and the same per-item multiplicity bounds, so it is a valid Integer Knapsack witness with identical total value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Numeric magnitude._ Items with $s_i>B$ have multiplicity fixed to zero and are omitted from the capacity row. All constraint magnitudes and variable bounds are therefore at most $max(B,1)$. The source `capacity_bits`, defined as the binary digit count of $B$ with a minimum of one, bounds the target `max_constraint_magnitude_bits`.
 
   _Solution extraction._ Identity: return the ILP variable vector $bold(c)$ as the Integer Knapsack multiplicities.
 ]
@@ -15321,6 +15325,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("OpenShopScheduling", "ILP")[
   Binary ordering variables and integer start times encode the disjunctive non-overlap constraints for both machines and jobs; the makespan is the minimized objective.
 ][
+  _Numeric magnitude._ The source `schedule_horizon_bits` is the binary digit count of the total processing time $M$, with a minimum of one. Start times and makespan have explicit domains $[0,M]$. All constraint magnitudes are at most $max(M,1)$, so this parameter bounds the target `max_constraint_magnitude_bits`.
+
   _Construction._ Let $M = sum_(j,i) p(j,i)$ be the big-$M$ constant (an upper bound on the makespan). For each pair $j < k$ and each machine $i$, let $x_{j k i} in {0,1}$ with $x_{j k i} = 1$ iff job $j$ precedes job $k$ on machine $i$. For each job $j$ and pair of machines $i < i'$, let $y_{j i i'} in {0,1}$ with $y_{j i i'} = 1$ iff machine $i$ is processed before machine $i'$ for job $j$. Let $s_{j,i} in ZZ_{>=0}$ be the start time of job $j$ on machine $i$, and $C$ be the integer makespan variable. The ILP is:
   $
     min quad & C \
@@ -15354,7 +15360,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Impose the decision bound on the open-shop makespan variable. The optimization formulation gains one constraint and no variables.
 ][
-  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= B$, and replace the objective with zero.
+  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= min(M,max(-1,B))$, and replace the objective with zero. Clipping preserves feasibility because $0 <= C <= M$, and keeps the target `max_constraint_magnitude_bits` bounded by the source `schedule_horizon_bits` independently of $B$.
 
   _Correctness._ ($arrow.r.double$) A schedule of makespan at most $B$ gives feasible ordering variables and start times, with $C$ equal to its makespan. The existing horizon bounds can be met by removing unnecessary idle time. ($arrow.l.double$) Every feasible target assignment decodes to a schedule whose makespan is at most $C <= B$. Thus target feasibility is equivalent to the source YES answer; no optimum needs to be computed.
 
@@ -18329,6 +18335,8 @@ The following table shows concrete target-variable counts for example instances,
   $
   Set the knapsack capacity to $B$. The target therefore has the same number of items as the source has elements.
 
+  _Numeric magnitude._ The source `max_numeric_magnitude_bits` includes the target sum $B$ and therefore bounds the Integer Knapsack `capacity_bits`. Raw `capacity` remains unavailable in the symbolic contract; its bit-length bound suffices for the downstream ILP size predictions.
+
   _Correctness._ ($arrow.r.double$) If $I subset.eq {1, dots, n}$ satisfies $sum_(i in I) a_i = B$, define multiplicities $c_i = 1$ for $i in I$ and $c_i = 0$ otherwise. Then
   $
     sum_i c_i s_i = sum_(i in I) a_i = B <= B
@@ -19045,6 +19053,8 @@ The following table shows concrete target-variable counts for example instances,
   This $O(k)$ construction follows the special-job scheduling argument of Gonzalez and Sahni @gonzalez1976[Lemma 4.1]. Their published construction uses $3k+1$ jobs with one nonzero operation per element copy; the implemented construction instead groups each element's three operations into one job and uses $k+1$ jobs. The independent schedule below proves this grouping preserves the reduction. A balanced partition exists exactly when the target achieves the makespan certificate $3Q$, where $Q=floor(S/2)$ and $S$ is the sum of the input sizes.
 ][
   _Construction._ The source is a nonempty list of positive integers $a_1,...,a_k$, with $S=sum_j a_j$. Set $Q=floor(S/2)$. Use three machines, one job $(a_j,a_j,a_j)$ per element, and one special job $(Q,Q,Q)$. Let $D=3Q$.
+
+  _Numeric magnitude._ Let $h$ be the source `max_numeric_magnitude_bits`. The sum $S$ needs at most $h+k$ bits, and the target schedule horizon is $3S+3Q <= 6S$. Thus `schedule_horizon_bits` is at most $h+k+3$. Raw `schedule_horizon` remains unavailable; its bit-length bound is sufficient to compose polynomial size bounds through bounded ILP and QUBO.
 
   _Forward correctness._ Given a balanced partition into groups $A,B$, each group has total size $Q$ and $S=2Q$. Divide time into three phases $[r Q,(r+1)Q)$, $r=0,1,2$. In phase $r$, run the special job on machine $r$, all jobs of $A$ consecutively on machine $(r+1) mod 3$, and all jobs of $B$ consecutively on machine $(r+2) mod 3$. Each group exactly fills its phase, each element job has one operation per phase, and the machine rotation processes it once on every machine. This is a feasible nonpreemptive schedule of makespan $D$.
 

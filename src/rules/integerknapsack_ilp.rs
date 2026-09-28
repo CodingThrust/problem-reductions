@@ -38,7 +38,7 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
         num_constraints = "num_items + 1",
     },
     upper_bound {
-        max_constraint_magnitude_bits = "capacity + 1",
+        max_constraint_magnitude_bits = "capacity_bits",
         num_nonzeros = "2 * num_items",
     },
 })]

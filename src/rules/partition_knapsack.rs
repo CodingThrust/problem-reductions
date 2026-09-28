@@ -49,9 +49,12 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToKnapsack {
 }
 
 #[reduction(
-    transform = exact { num_items = "num_elements" },
+    transform = {
+        exact { num_items = "num_elements" },
+        upper_bound { capacity_bits = "max_numeric_magnitude_bits + num_elements" },
+    },
     unavailable = {
-        capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
+        capacity = "raw capacity requires numeric magnitude values; downstream predictions use capacity_bits",
     }
 )]
 impl ReduceTo<Knapsack> for Partition {

@@ -41,7 +41,7 @@ impl ReductionResult for ReductionKnapsackToILP {
         num_vars = "num_items",
     },
     upper_bound {
-        max_constraint_magnitude_bits = "capacity + 1",
+        max_constraint_magnitude_bits = "capacity_bits",
         num_constraints = "num_items + 1",
         num_nonzeros = "num_items * 1",
     },

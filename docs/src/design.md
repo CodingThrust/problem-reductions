@@ -491,6 +491,12 @@ magnitudes. New parameters must describe intrinsic source data independently of
 any reduction, and their propagation must be audited on incoming rules. Keep
 model-specific definitions and rule-specific formulas beside their implementations.
 
+Avoid registering synonymous aliases. Arithmetic dependence alone does not make a
+parameter redundant: keep a meaningful derived quantity when its name makes
+formulas clearer or enables useful, sound predictions. Substitute existing
+parameters when doing so preserves clarity. Lack of a current formula consumer
+alone is not a reason to remove a parameter.
+
 `ReductionParameterDeclarations::fields` stores `(name, relation, expression)` triples.
 Use `ParameterTransform::relation(field)` to inspect a formula's accuracy and
 `unavailable(field)` for a composition failure and its upstream cause. The uniform

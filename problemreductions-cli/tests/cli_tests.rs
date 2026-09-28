@@ -5536,12 +5536,31 @@ fn test_path_set_has_explicit_parameter_information() {
 #[test]
 fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
     let output = pred()
-        .args(["path", "Partition", "QUBO/i64", "--limit", "1", "--json"])
+        .args([
+            "path",
+            "ThreePartition",
+            "QUBO/i64",
+            "--limit",
+            "2",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let overall = &envelope["paths"][0]["overall_parameters"];
+    let path = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| {
+            path["path"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|step| step["from"]["name"] == "SequencingWithReleaseTimesAndDeadlines")
+        })
+        .expect("time-indexed scheduling path exists");
+    let overall = &path["overall_parameters"];
     let fields = overall["fields"].as_array().unwrap();
     assert!(!fields.is_empty());
     assert!(fields.iter().all(|field| {

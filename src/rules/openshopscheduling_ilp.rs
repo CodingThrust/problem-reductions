@@ -109,7 +109,7 @@ impl ReductionResult for ReductionOSSToILP {
         num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
     },
     upper_bound {
-        max_constraint_magnitude_bits = "schedule_horizon + 1",
+        max_constraint_magnitude_bits = "schedule_horizon_bits",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines)",
     },
 })]
@@ -324,7 +324,7 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedul
         num_constraints = "3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2",
     },
     upper_bound {
-        max_constraint_magnitude_bits = "schedule_horizon + 1",
+        max_constraint_magnitude_bits = "schedule_horizon_bits",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2)",
     },
 })]

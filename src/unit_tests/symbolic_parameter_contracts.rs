@@ -9,6 +9,39 @@ use crate::types::ProblemParameters;
 use crate::Problem;
 
 #[test]
+fn parameter_schemas_keep_distinct_counts_without_synonymous_aliases() {
+    let graph = ReductionGraph::new();
+    for (model, retained) in [
+        ("ExactCoverBy3Sets", &["num_subsets"][..]),
+        ("ClosestString", &["string_length", "total_length"]),
+        ("ClosestSubstring", &["total_length", "total_num_windows"]),
+        ("ThreePartition", &["num_elements", "num_groups"]),
+        ("PaintShop", &["num_cars", "num_sequence"]),
+        (
+            "MinimumCodeGenerationOneRegister",
+            &["num_vertices", "num_leaves", "num_internal"],
+        ),
+        (
+            "HamiltonianPath",
+            &["num_vertices", "num_consecutive_positions"],
+        ),
+        (
+            "LongestCommonSubsequence",
+            &["max_length", "num_transitions"],
+        ),
+    ] {
+        let fields = graph.parameter_names(model);
+        for field in retained {
+            assert!(fields.iter().any(|name| name == field), "{model}: {field}");
+        }
+    }
+    assert!(!graph
+        .parameter_names("ExactCoverBy3Sets")
+        .iter()
+        .any(|field| field == "num_sets"));
+}
+
+#[test]
 fn exact_rule_formula_matches_the_constructed_target() {
     let source = MaximumIndependentSet::<SimpleGraph, i64>::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
@@ -718,10 +751,91 @@ fn subset_lattice_dimensions_use_existing_numeric_magnitude() {
 #[test]
 fn knapsack_qubo_bounds_cover_capacity_boundaries() {
     use crate::models::{algebraic::QUBO, misc::Knapsack};
-    for capacity in [0, 1, 2, 3, 4, 7, 8] {
-        check_reduced_parameters::<_, QUBO<i64>>(
-            Knapsack::new(vec![0, 1, 2], vec![0, 2, 1], capacity),
-            &["num_vars", "num_quadratic_terms"],
+    for (capacity, bits) in [(0, 1), (1, 1), (2, 2), (3, 2), (4, 3), (7, 3), (8, 4)] {
+        let source = Knapsack::new(vec![0, 1, 2], vec![0, 2, 1], capacity);
+        assert_eq!(source.parameters().get("capacity_bits"), Some(bits));
+        check_reduced_parameters::<_, QUBO<i64>>(source, &["num_vars"], ParameterRelation::Exact);
+    }
+}
+
+#[test]
+fn knapsack_ilp_magnitude_uses_capacity_bits() {
+    use crate::models::{algebraic::ILP, misc::Knapsack};
+    for (capacity, bits) in [(0, 1), (7, 3), (8, 4), (i64::MAX, 63)] {
+        let source = Knapsack::new(vec![0, 1, i64::MAX], vec![1, 2, 3], capacity);
+        assert_eq!(source.parameters().get("capacity_bits"), Some(bits));
+        check_reduced_parameters::<_, ILP<bool>>(
+            source,
+            &["max_constraint_magnitude_bits"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn partition_propagates_capacity_bits_without_raw_capacity() {
+    use crate::models::misc::{Knapsack, Partition};
+    for sizes in [vec![1], vec![1, 2], vec![7, 8], vec![i64::MAX]] {
+        check_reduced_parameters::<_, Knapsack>(
+            Partition::new(sizes).unwrap(),
+            &["capacity_bits"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn integer_knapsack_capacity_bits_bound_ilp_magnitudes() {
+    use crate::models::{algebraic::ILP, set::IntegerKnapsack};
+    for (capacity, bits) in [(0, 1), (7, 3), (8, 4), (i64::MAX, 63)] {
+        let source = IntegerKnapsack::new(vec![1, i64::MAX], vec![1, 2], capacity).unwrap();
+        assert_eq!(source.parameters().get("capacity_bits"), Some(bits));
+        check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+            source,
+            &["max_constraint_magnitude_bits"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn open_shop_horizon_bits_cover_totals_and_decision_bounds() {
+    use crate::models::{algebraic::ILP, misc::OpenShopScheduling, Decision};
+    for (machines, times, bits) in [
+        (0, vec![vec![]], 1),
+        (2, vec![], 1),
+        (2, vec![vec![0, 0]], 1),
+        (2, vec![vec![3, 4]], 3),
+        (2, vec![vec![4, 4]], 4),
+        (1, vec![vec![i64::MAX]], 63),
+    ] {
+        let source = OpenShopScheduling::new(machines, times);
+        assert_eq!(source.parameters().get("schedule_horizon_bits"), Some(bits));
+        check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+            source.clone(),
+            &["max_constraint_magnitude_bits"],
+            ParameterRelation::UpperBound,
+        );
+        for bound in [i64::MIN, 0, i64::MAX] {
+            check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+                Decision::new(source.clone(), bound),
+                &["max_constraint_magnitude_bits"],
+                ParameterRelation::UpperBound,
+            );
+        }
+    }
+}
+
+#[test]
+fn partition_propagates_open_shop_horizon_bits() {
+    use crate::models::{
+        misc::{OpenShopScheduling, Partition},
+        Decision,
+    };
+    for sizes in [vec![1], vec![1, 1], vec![1, 2], vec![1 << 20; 2]] {
+        check_reduced_parameters::<_, Decision<OpenShopScheduling>>(
+            Partition::new(sizes).unwrap(),
+            &["schedule_horizon_bits"],
             ParameterRelation::UpperBound,
         );
     }

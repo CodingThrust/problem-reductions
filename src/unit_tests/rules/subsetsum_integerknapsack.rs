@@ -35,6 +35,52 @@ fn subset_sum_embedding(source: &SubsetSum) -> IntegerKnapsack {
 }
 
 #[test]
+fn test_subsetsum_integerknapsack_capacity_bits_propagate() {
+    use crate::models::algebraic::{Bounded, ILP};
+    use crate::rules::{ReduceTo, ReductionResult};
+    let entries = crate::rules::registry::reduction_entries();
+    let embedding = entries
+        .iter()
+        .find(|entry| {
+            entry.source_name == SubsetSum::NAME && entry.target_name == IntegerKnapsack::NAME
+        })
+        .unwrap()
+        .parameter_contract()
+        .unwrap();
+    let ilp = entries
+        .iter()
+        .find(|entry| entry.source_name == IntegerKnapsack::NAME && entry.target_name == "ILP")
+        .unwrap()
+        .parameter_contract()
+        .unwrap();
+    let composed = embedding
+        .transform()
+        .unwrap()
+        .compose(ilp.transform().unwrap(), "SubsetSum -> ILP")
+        .unwrap();
+    for (sizes, target, bits) in [(vec![1], 0, 1), (vec![1], 8, 4), (vec![8], 1, 4)] {
+        let source = SubsetSum::new(sizes, target);
+        let intermediate = subset_sum_embedding(&source);
+        let prediction = embedding
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        assert_eq!(prediction.get("capacity_bits"), Some(bits));
+        assert!(prediction.get("capacity").is_none());
+        assert!(
+            prediction.get("capacity_bits").unwrap()
+                >= intermediate.parameters().get("capacity_bits").unwrap()
+        );
+        let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&intermediate).unwrap();
+        let predicted = composed.evaluate(&source.parameters()).unwrap();
+        for (field, actual) in reduced.target_problem().parameters().iter() {
+            assert!(predicted.get(field).expect(field) >= actual);
+        }
+    }
+}
+
+#[test]
 fn test_subsetsum_to_integerknapsack_forward_example() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8, 5], 16u32);
     let target = subset_sum_embedding(&source);

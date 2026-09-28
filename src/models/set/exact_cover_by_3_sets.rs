@@ -202,7 +202,6 @@ impl Problem for ExactCoverBy3Sets {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
-        ("num_sets", num_sets),
         ("num_subsets", num_subsets),
         ("universe_size", universe_size),
     ];

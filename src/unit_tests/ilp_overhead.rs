@@ -14,6 +14,86 @@ use crate::{
 type BoundedILP = ILP<i64, i64, Bounded>;
 
 #[test]
+fn integer_knapsack_and_open_shop_bit_predictions_reach_qubo() {
+    use crate::models::{set::IntegerKnapsack, Decision};
+    for capacity in [0, 2, 5] {
+        check_qubo::<_, BoundedILP>(
+            IntegerKnapsack::new(vec![2, 3], vec![3, 5], capacity).unwrap(),
+        );
+    }
+    let source = OpenShopScheduling::new(1, vec![vec![2]]);
+    check_qubo::<_, BoundedILP>(source.clone());
+    for bound in [1, 2] {
+        check_qubo::<_, BoundedILP>(Decision::new(source.clone(), bound));
+    }
+}
+
+#[test]
+fn partition_open_shop_predictions_preserve_ilp_solution_recovery() {
+    use crate::models::Decision;
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: vec![
+            step::<Partition>(),
+            step::<Decision<OpenShopScheduling>>(),
+            step::<BoundedILP>(),
+        ],
+    };
+    for (sizes, feasible) in [(vec![1], false), (vec![1, 1], true), (vec![1, 3], false)] {
+        let source = Partition::new(sizes).unwrap();
+        let predicted = graph
+            .compose_path_parameter_transform(&path)
+            .unwrap()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<BoundedILP>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).expect(field) >= actual);
+        }
+        match ILPSolver::new().solve(target) {
+            Ok(solution) => {
+                assert!(feasible);
+                let recovered = chain.extract_solution::<Vec<bool>, _>(&solution).unwrap();
+                assert!(source.evaluate(&recovered).unwrap().0);
+            }
+            Err(crate::solvers::ILPSolveError::Infeasible) => assert!(!feasible),
+            Err(error) => panic!("{error}"),
+        }
+    }
+}
+
+#[test]
+fn partition_knapsack_qubo_predictions_and_solution_recovery() {
+    for sizes in [vec![1], vec![1, 1], vec![1, 2], vec![1, 3]] {
+        for through_ilp in [false, true] {
+            let mut steps = vec![step::<Partition>(), step::<Knapsack>()];
+            if through_ilp {
+                steps.push(step::<ILP<bool>>());
+            }
+            steps.push(step::<QUBO<i64>>());
+            check_path(
+                Partition::new(sizes.clone()).unwrap(),
+                ReductionPath { steps },
+            );
+        }
+    }
+    let path = ReductionPath {
+        steps: vec![step::<Partition>(), step::<Knapsack>(), step::<QUBO<i64>>()],
+    };
+    let source = Partition::new(vec![1 << 19; 10]).unwrap();
+    let predicted = ReductionGraph::new()
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap()
+        .evaluate(&source.parameters())
+        .unwrap();
+    assert!(predicted.get("num_vars").unwrap() <= 40);
+    assert!(predicted.get("num_quadratic_terms").unwrap() <= 1600);
+}
+
+#[test]
 fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
     use crate::models::{algebraic::ClosestVectorProblem, Decision};
     for (sizes, target) in [(vec![1], 1), (vec![2], 1)] {
