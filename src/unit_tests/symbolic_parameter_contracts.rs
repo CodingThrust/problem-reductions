@@ -193,13 +193,6 @@ where
             S::NAME,
             T::NAME
         );
-        assert_eq!(
-            predicted.get(field),
-            actual.get(field),
-            "{} -> {}: {field}",
-            S::NAME,
-            T::NAME
-        );
         assert!(
             !contract
                 .unavailable()
@@ -352,10 +345,8 @@ fn parameter_relations_match_reduced_instances() {
 
 #[test]
 fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
-    use crate::models::algebraic::{QuadraticAssignment, BMF, ILP};
-    use crate::models::graph::{
-        BicliqueCover, HamiltonianCircuit, HamiltonianPath, MinimumVertexCover,
-    };
+    use crate::models::algebraic::{QuadraticAssignment, ILP};
+    use crate::models::graph::{HamiltonianCircuit, HamiltonianPath, MinimumVertexCover};
     use crate::models::misc::{
         ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue, LongestCommonSubsequence,
         MaximumLikelihoodRanking, RegisterSufficiency,
@@ -422,23 +413,6 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
         &["sum_triangular_lengths"],
         exact,
     );
-
-    let source = BMF::new(vec![vec![true, false], vec![false, true]], 1);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
-    assert_eq!(
-        reduction.target_problem().parameters().get("num_edges"),
-        Some(2)
-    );
-    let entry = crate::rules::registry::reduction_entries()
-        .into_iter()
-        .find(|entry| entry.source_name == "BMF" && entry.target_name == "BicliqueCover")
-        .unwrap();
-    let contract = entry.parameter_contract().unwrap();
-    assert!(contract.transform().unwrap().get("num_edges").is_none());
-    assert!(contract
-        .unavailable()
-        .iter()
-        .any(|field| field.field == "num_edges"));
 }
 
 #[test]
@@ -529,6 +503,300 @@ fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
         check(
             StrongConnectivityAugmentation::<i64>::new(DirectedGraph::empty(0), vec![], budget),
             bits,
+        );
+    }
+}
+#[test]
+fn missing_structural_bounds_cover_sparse_and_normalized_instances() {
+    use crate::models::{
+        algebraic::BMF,
+        graph::{BalancedCompleteBipartiteSubgraph, BicliqueCover, KClique},
+        set::MaximumSetPacking,
+    };
+    use crate::types::One;
+    let upper = ParameterRelation::UpperBound;
+    for matrix in [
+        vec![],
+        vec![vec![]],
+        vec![vec![false; 3]; 2],
+        vec![vec![true, false], vec![false, true]],
+        vec![vec![true; 3]; 2],
+    ] {
+        check_reduced_parameters::<_, BicliqueCover>(BMF::new(matrix, 1), &["num_edges"], upper);
+    }
+    for subsets in [vec![], vec![[0, 1, 2]], vec![[0, 1, 2], [0, 1, 2]]] {
+        check_reduced_parameters::<_, MaximumSetPacking<One>>(
+            ExactCoverBy3Sets::new(6, subsets),
+            &["universe_size"],
+            upper,
+        );
+    }
+    for graph in [
+        SimpleGraph::empty(3),
+        SimpleGraph::new(3, vec![(0, 0), (0, 1), (0, 1)]),
+        SimpleGraph::complete(3),
+    ] {
+        check_reduced_parameters::<_, BalancedCompleteBipartiteSubgraph>(
+            KClique::new(graph, 2),
+            &["num_vertices"],
+            upper,
+        );
+    }
+}
+
+#[test]
+fn sat_bounds_cover_empty_short_and_repeated_clauses() {
+    use crate::models::{
+        formula::{CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, Satisfiability},
+        graph::IntegralFlowHomologousArcs,
+    };
+    use crate::variant::K3;
+    for clauses in [
+        vec![],
+        vec![CNFClause::new(vec![])],
+        vec![CNFClause::new(vec![1])],
+        vec![CNFClause::new(vec![1, -1, 2, 2, 3])],
+    ] {
+        let source = Satisfiability::new(4, clauses);
+        check_reduced_parameters::<_, KSatisfiability<K3>>(
+            source.clone(),
+            &["num_literals"],
+            ParameterRelation::UpperBound,
+        );
+        check_reduced_parameters::<_, NAESatisfiability>(
+            source.clone(),
+            &["num_literal_pairs"],
+            ParameterRelation::UpperBound,
+        );
+        check_reduced_parameters::<_, CircuitSAT>(
+            source.clone(),
+            &["num_expression_nodes", "num_assignment_outputs"],
+            ParameterRelation::UpperBound,
+        );
+        check_reduced_parameters::<_, IntegralFlowHomologousArcs>(
+            source,
+            &["max_capacity"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn circuit_bounds_cover_fanin_constants_and_multiple_outputs() {
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT, Satisfiability};
+    for expr in [
+        BooleanExpr::constant(true),
+        BooleanExpr::not(BooleanExpr::var("x")),
+        BooleanExpr::xor(vec![BooleanExpr::var("x"); 8]),
+        BooleanExpr::and(vec![
+            BooleanExpr::or(vec![
+                BooleanExpr::var("x"),
+                BooleanExpr::var("y")
+            ]);
+            4
+        ]),
+    ] {
+        for outputs in [vec![], vec!["a".into(), "b".into()]] {
+            let source =
+                CircuitSAT::new(Circuit::new(vec![Assignment::new(outputs, expr.clone())]));
+            check_reduced_parameters::<_, Satisfiability>(
+                source,
+                &["num_vars", "num_clauses", "num_literals"],
+                ParameterRelation::UpperBound,
+            );
+        }
+    }
+}
+
+#[test]
+fn factoring_circuit_bounds_cover_zero_width_and_overflow_sentinels() {
+    use crate::models::{formula::CircuitSAT, misc::Factoring};
+    for m in 0..=3 {
+        for n in m..=3 {
+            for target in [0u64, 1, 255] {
+                check_reduced_parameters::<_, CircuitSAT>(
+                    Factoring::with_factor_bits(target, m, n),
+                    &["num_assignment_outputs", "num_expression_nodes"],
+                    ParameterRelation::UpperBound,
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn sat_flow_and_scheduling_bounds_cover_fixed_outputs() {
+    use crate::models::{
+        formula::{CNFClause, KSatisfiability},
+        graph::DirectedTwoCommodityIntegralFlow,
+        misc::PreemptiveScheduling,
+    };
+    use crate::variant::K3;
+    for clauses in [
+        vec![],
+        vec![CNFClause::new(vec![])],
+        vec![CNFClause::new(vec![1, 1, -2])],
+    ] {
+        let source = KSatisfiability::<K3>::new_allow_less(2, clauses);
+        check_reduced_parameters::<_, DirectedTwoCommodityIntegralFlow>(
+            source.clone(),
+            &["max_capacity"],
+            ParameterRelation::Exact,
+        );
+        check_reduced_parameters::<_, PreemptiveScheduling>(
+            source,
+            &["num_precedences"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn set_splitting_bounds_cover_deduplication_and_large_subsets() {
+    use crate::models::{misc::Betweenness, set::SetSplitting};
+    for subsets in [
+        vec![],
+        vec![vec![0, 0]],
+        vec![vec![0, 1]],
+        vec![(0..8).collect()],
+        vec![vec![0; 20], (0..8).collect()],
+    ] {
+        check_reduced_parameters::<_, Betweenness>(
+            SetSplitting::new(8, subsets),
+            &["num_elements", "num_triples"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn decision_cover_bounds_do_not_depend_on_threshold_magnitude() {
+    use crate::models::{
+        graph::{HamiltonianCircuit, MinimumVertexCover},
+        Decision,
+    };
+    use crate::types::One;
+    for graph in [
+        SimpleGraph::empty(0),
+        SimpleGraph::path(3),
+        SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 2)]),
+    ] {
+        for threshold in [i64::MIN, 0, 1, 2, i64::MAX] {
+            check_reduced_parameters::<_, HamiltonianCircuit<SimpleGraph>>(
+                Decision::new(
+                    MinimumVertexCover::<_, One>::new(
+                        graph.clone(),
+                        vec![One; crate::topology::Graph::num_vertices(&graph)],
+                    ),
+                    threshold,
+                ),
+                &["num_vertices", "num_edges"],
+                ParameterRelation::UpperBound,
+            );
+        }
+    }
+}
+
+#[test]
+fn subset_lattice_dimensions_use_existing_numeric_magnitude() {
+    use crate::models::{algebraic::ClosestVectorProblem, misc::SubsetSum, Decision};
+    for (sizes, target) in [
+        (vec![], 0u64),
+        (vec![1], 0),
+        (vec![7], 8),
+        (vec![8], 7),
+        (vec![1, 3], 4),
+    ] {
+        check_reduced_parameters::<_, Decision<ClosestVectorProblem>>(
+            SubsetSum::new(sizes, target),
+            &["ambient_dimension", "num_basis_vectors"],
+            ParameterRelation::Exact,
+        );
+    }
+}
+
+#[test]
+fn knapsack_qubo_bounds_cover_capacity_boundaries() {
+    use crate::models::{algebraic::QUBO, misc::Knapsack};
+    for capacity in [0, 1, 2, 3, 4, 7, 8] {
+        check_reduced_parameters::<_, QUBO<i64>>(
+            Knapsack::new(vec![0, 1, 2], vec![0, 2, 1], capacity),
+            &["num_vars", "num_quadratic_terms"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn closest_vector_size_bounds_cover_numeric_and_rank_variation() {
+    use crate::models::algebraic::{ClosestVectorProblem, QUBO};
+    for (basis, target, bits) in [
+        (vec![], vec![], 1),
+        (vec![], vec![-8], 4),
+        (vec![vec![1]], vec![0], 1),
+        (vec![vec![-8]], vec![1], 4),
+        (vec![vec![1]], vec![8], 4),
+        (vec![vec![2, 0], vec![1, 2]], vec![3, 2], 2),
+        (vec![vec![1, 8], vec![0, 1]], vec![-1, 1], 4),
+    ] {
+        let source = ClosestVectorProblem::new(basis, target).unwrap();
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(bits)
+        );
+        check_reduced_parameters::<_, QUBO<i64>>(
+            source,
+            &["num_vars", "num_quadratic_terms"],
+            ParameterRelation::UpperBound,
+        );
+    }
+    for value in [i64::MIN, i64::MAX] {
+        let source = ClosestVectorProblem::new(vec![vec![value]], vec![value]).unwrap();
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(if value == i64::MIN { 64 } else { 63 })
+        );
+    }
+}
+
+#[test]
+fn incongruence_pair_bounds_cover_prime_growth_and_repeated_literals() {
+    use crate::models::{
+        algebraic::SimultaneousIncongruences,
+        formula::{CNFClause, KSatisfiability},
+    };
+    use crate::variant::K3;
+    for variables in 0..=12 {
+        let clauses = if variables == 0 {
+            vec![]
+        } else {
+            vec![CNFClause::new(vec![1, 1, -1])]
+        };
+        check_reduced_parameters::<_, SimultaneousIncongruences>(
+            KSatisfiability::<K3>::new(variables, clauses),
+            &["num_pairs"],
+            ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn vertex_cover_lcs_transition_bounds_cover_empty_strings() {
+    use crate::models::{graph::MinimumVertexCover, misc::LongestCommonSubsequence};
+    use crate::{
+        topology::{Graph, SimpleGraph},
+        types::One,
+    };
+    for graph in [
+        SimpleGraph::empty(0),
+        SimpleGraph::empty(1),
+        SimpleGraph::path(3),
+    ] {
+        let weights = vec![One; graph.num_vertices()];
+        check_reduced_parameters::<_, LongestCommonSubsequence>(
+            MinimumVertexCover::new(graph, weights),
+            &["num_transitions"],
+            ParameterRelation::UpperBound,
         );
     }
 }

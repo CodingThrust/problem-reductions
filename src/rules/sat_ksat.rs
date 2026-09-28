@@ -129,15 +129,11 @@ fn add_clause_to_ksat(
 macro_rules! impl_sat_to_ksat {
     ($ktype:ty, $k:expr) => {
         #[rustfmt::skip]
-        #[reduction(
-    transform = upper_bound {
-        num_clauses = "8 * num_clauses + num_literals",
-        num_vars = "num_vars + 7 * num_clauses + num_literals",
-    },
-    unavailable = {
-        num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+        #[reduction(transform = upper_bound {
+            num_clauses = "8 * num_clauses + num_literals",
+            num_vars = "num_vars + 7 * num_clauses + num_literals",
+            num_literals = "3 * (8 * num_clauses + num_literals)",
+        })]
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;
 

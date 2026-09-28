@@ -5536,7 +5536,7 @@ fn test_path_set_has_explicit_parameter_information() {
 #[test]
 fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
     let output = pred()
-        .args(["path", "Factoring", "SpinGlass", "--json"])
+        .args(["path", "Partition", "QUBO/i64", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5601,7 +5601,7 @@ fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
 #[test]
 fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
-        .args(["path", "BMF", "BicliqueCover", "--limit", "1", "--json"])
+        .args(["path", "Partition", "Knapsack", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5618,10 +5618,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
-    for field in ["num_vertices", "left_size", "right_size", "rank"] {
-        assert_eq!(relations[field], "exact");
-    }
-    assert_eq!(relations["num_edges"], "unavailable");
+    assert_eq!(relations["num_items"], "exact");
+    assert_eq!(relations["capacity"], "unavailable");
     let unavailable = fields
         .iter()
         .find(|field| field["relation"] == "unavailable")

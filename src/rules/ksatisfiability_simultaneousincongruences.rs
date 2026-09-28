@@ -181,8 +181,8 @@ fn ensure_prime_product_fits_target(
 impl crate::rules::AggregateReductionResult for Reduction3SATToSimultaneousIncongruences {}
 
 #[reduction(
-    transform = unavailable {
-        num_pairs = "the number of residue pairs depends on the first num_vars odd primes and is not expressible in the size-expression language",
+    transform = upper_bound {
+        num_pairs = "2 * num_vars * (num_vars + 1)^2 + num_clauses",
     }
 )]
 impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {

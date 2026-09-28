@@ -231,9 +231,11 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
         })
 }
 
-#[reduction(transform = unavailable {
-    num_vars = "the exact encoding size depends on the concrete basis and target values",
-    num_quadratic_terms = "the number of nonzero products depends on the concrete basis coefficients",
+// Cofactor bounds give at most r^2 + d + r*h + 3 bits per coefficient,
+// where r is the rank, d the ambient dimension, and h the input magnitude bits.
+#[reduction(transform = upper_bound {
+    num_vars = "num_basis_vectors * (num_basis_vectors^2 + ambient_dimension + num_basis_vectors * max_numeric_magnitude_bits + 3)",
+    num_quadratic_terms = "(num_basis_vectors * (num_basis_vectors^2 + ambient_dimension + num_basis_vectors * max_numeric_magnitude_bits + 3))^2",
 })]
 impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;

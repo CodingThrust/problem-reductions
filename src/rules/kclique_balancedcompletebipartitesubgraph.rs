@@ -56,16 +56,12 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {}
 
-#[reduction(
-    transform = upper_bound {
-        left_size = "num_vertices + k * (k - 1) / 2",
-        right_size = "num_edges + num_vertices - k",
-        k = "num_vertices + k * (k - 1) / 2 - k",
-    },
-    unavailable = {
-        num_vertices = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    left_size = "num_vertices + k * (k - 1) / 2",
+    right_size = "num_edges + num_vertices - k",
+    k = "num_vertices + k * (k - 1) / 2 - k",
+    num_vertices = "2 * num_vertices + num_edges + k * (k - 1) / 2 - k",
+})]
 impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToBCBS;
 

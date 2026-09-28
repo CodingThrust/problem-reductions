@@ -67,23 +67,21 @@ impl ReductionSubsetSumToClosestVectorProblem {
     }
 }
 
-#[reduction(
-    transform = unavailable {
-        ambient_dimension = "2n+b depends on input bit length b, which is not a registered SubsetSum parameter",
-        num_basis_vectors = "n+b-1 depends on input bit length b, which is not a registered SubsetSum parameter",
+#[reduction(transform = {
+    exact {
+        ambient_dimension = "2 * num_elements + max_numeric_magnitude_bits",
+        num_basis_vectors = "num_elements + max_numeric_magnitude_bits - 1",
     },
-)]
+    upper_bound {
+        max_numeric_magnitude_bits = "2",
+    }
+})]
 impl ReduceTo<Decision<ClosestVectorProblem>> for SubsetSum {
     type Result = ReductionSubsetSumToClosestVectorProblem;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_elements();
-        let bit_width = self
-            .sizes()
-            .iter()
-            .fold(self.target().bits().max(1), |bits, size| {
-                bits.max(size.bits())
-            });
+        let bit_width = self.max_numeric_magnitude_bits();
         let (bits, rows, columns) =
             ReductionSubsetSumToClosestVectorProblem::dimensions(n, bit_width)?;
         let mut basis = Vec::with_capacity(columns);

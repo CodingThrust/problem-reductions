@@ -52,16 +52,16 @@ impl ReductionResult for ReductionSATToNAESAT {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionSATToNAESAT {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vars + 1",
         num_clauses = "num_clauses",
-        num_literals = "num_literals + num_clauses",
     },
-    unavailable = {
-        num_literal_pairs = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_literals = "num_literals + 2 * num_clauses",
+        num_literal_pairs = "(num_literals + 2 * num_clauses)^2",
+    },
+})]
 impl ReduceTo<NAESatisfiability> for Satisfiability {
     type Result = ReductionSATToNAESAT;
 

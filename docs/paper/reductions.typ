@@ -12042,7 +12042,9 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
       Encode $x_i+M_i in [0,2M_i]$ with powers of two and one capped final weight. If $W$ maps the resulting bits to coefficient offsets, $G=B^top B$, $h=B^top bold(t)$, and $bold(ell)=-bold(M)$, then
       $ norm(B bold(x)-bold(t))_2^2 = bold(z)^top(W^top G W)bold(z) + 2 bold(z)^top W^top(G bold(ell)-h) + "const". $
-      The constant is dropped. The exact bit count depends on concrete entries, so its symbolic transform is unavailable.
+      The constant is dropped.
+
+      _Size bound._ Let $h >= 1$ be the maximum bit length of the absolute entries of $B$ and $bold(t)$. Each cofactor has magnitude at most $(n-1)! 2^(h(n-1))$, and $C_j < (m+1)2^h$. Thus $M_i < n! (m+1)2^(h n)$. Using $log_2(n!) <= n^2$ and $log_2(m+1) <= m$ for $m >= 1$, each coefficient needs at most $n^2+m+n h+3$ bits. The registered bounds are therefore $V=n(n^2+m+n h+3)$ QUBO variables and $V^2$ quadratic terms. A rank-zero basis gives zero variables. The magnitude parameter describes only the source entries, independently of this encoding.
 
       _Correctness._ ($arrow.r.double$) Every bit vector decodes inside the derived box and has QUBO value equal to its CVP squared distance minus one common constant, so a QUBO minimizer is best within the box. ($arrow.l.double$) The derived box contains a global CVP minimizer, and every point in the box has an exact-range encoding. Therefore the best encoded point is globally optimal for CVP.
 
@@ -12291,7 +12293,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
       _Solution extraction._ Validate the target configuration once and require squared distance exactly $n$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal squared distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. The existing source parameter `max_numeric_magnitude_bits` is exactly $b$, so both dimensions are predicted exactly. Target basis entries have magnitude at most two and target coordinates are Boolean, giving target `max_numeric_magnitude_bits` at most two; this supplies the numerical parameter needed by the subsequent CVP-to-QUBO rule. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -12305,7 +12307,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   Write the extended rows as $A' z=b$, where the first $n$ bits of $z$ are $x$ and the remaining bits are row-specific slack. Set $P=1+sum_i |d_i|+sum_k |b_k|$, $C=P sum_k b_k^2$, $L=sum_i min(d_i,0)$, and $U=sum_i max(d_i,0)$. The upper-triangular QUBO matrix has diagonal $Q_(i i)=d_i+P sum_k ((a'_(k i))^2-2 b_k a'_(k i))$ and off-diagonal $Q_(i j)=2P sum_k a'_(k i)a'_(k j)$ for $i<j$; extend $d$ by zeros on slack coordinates. Its energy satisfies
   $ E(z)+C=d^top x+P sum_k (a'_k z-b_k)^2. $
-  Store the energy interval $[L-C,U-C]$, the constant $C$, and the source sense in the reduction result. Dimensions, matrix arithmetic, constant and interval endpoints are checked before use. The target has $n+sum_k S_k$ variables; its registered overhead remains unavailable because the source parameter vector omits coefficient magnitudes and right-hand sides.
+  Store the energy interval $[L-C,U-C]$, the constant $C$, and the source sense in the reduction result. Dimensions, matrix arithmetic, constant and interval endpoints are checked before use. The target has $n+sum_k S_k$ variables. With $m$ source constraints and source parameter $h$ = `max_constraint_magnitude_bits`, the registered upper bounds are $V=n+m(n+h)$ variables and $V^2$ quadratic terms.
 
   _Forward direction._ Every feasible source assignment has a slack extension satisfying every row, with $E+C=d^top x$ in $[L,U]$. Hence its target energy lies in the stored interval. For positive slack range the powers-of-two encoding represents the exact required slack; for zero range no slack is needed.
 
@@ -12501,6 +12503,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $ f(bold(z)) = -sum_(i=0)^(n-1) v_i x_i + P (sum_k a_k z_k - C)^2 $
   where $bold(z) = (x_0, dots, x_(n-1), s_0, dots, s_(B-1))$ and $P = 1 + sum_i v_i$. Expanding the quadratic penalty using $z_k^2 = z_k$ (binary):
   $ Q_(k k) = P a_k^2 - 2 P C a_k - [k < n] v_k, quad Q_(i j) = 2 P a_i a_j quad (i < j) $
+
+  _Size bound._ For capacity $C >= 0$, the binary slack encoding uses at most $C+1$ bits, including the zero-capacity boundary. Thus $n+C+1$ bounds the number of QUBO variables, and its square bounds quadratic terms. This coarse bound needs only the existing item count and capacity parameters.
 
   _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective. Since all values are nonnegative, every feasible assignment has objective in the range $[-sum_i v_i, 0]$, so that penalty exceeds the entire feasible value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
 
@@ -12996,6 +13000,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ][
   _Construction._ Given a SAT instance $phi$ with $n$ variables and $m$ clauses, introduce a sentinel variable $s$ (variable index $n + 1$). For each clause $C_j = (ell_1 or dots or ell_k)$, construct the NAE clause $C'_j = (ell_1, dots, ell_k, s)$. The target NAE-SAT instance has $n + 1$ variables and $m$ clauses.
 
+  _Size bound._ An empty source clause is represented by the contradictory NAE clause $(s,s)$. If the source has $L$ literal occurrences and $m$ clauses, the target has at most $L+2m$ literals. The sum of within-clause literal-pair counts is bounded by $(L+2m)^2$.
+
   _Correctness._ ($arrow.r.double$) Given a satisfying assignment $bold(x)$ for $phi$, set $s = 0$. Each clause $C_j$ has at least one true literal $ell_i$ and the false sentinel $s = 0$, so $C'_j$ has both a true and a false literal, satisfying the NAE constraint. ($arrow.l.double$) Given a satisfying NAE assignment $(bold(x), s)$: if $s = 0$, each clause has at least one true literal (or else all literals in $C'_j$ would be false, including $s$, violating NAE); if $s = 1$, complement the entire assignment --- the complemented sentinel is $0$, and each complemented clause still has at least one true literal because the original NAE clause had at least one false non-sentinel literal.
 
   _Solution extraction._ If the sentinel $s = 0$, return the first $n$ variables. If $s = 1$, return the complement of the first $n$ variables.
@@ -13035,6 +13041,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     v_(a xor b) " iff " a xor b
   $
   using the 2-clause NOT gadget, the 3-clause AND/OR gadgets, and the 4-clause XOR gadget. If the simplified right-hand side becomes a variable or auxiliary variable $z_e$, add $(overline(o_i) or z_e)$ and $(o_i or overline(z_e))$ for every output $o_i$. If it simplifies to a constant, add the unit clause $o_i$ or $overline(o_i)$ accordingly. Repeat this independently for every assignment in the circuit.
+
+  _Size bound._ Let $N$ count all source expression nodes and $O$ all assignment outputs. Replacing multi-input gates by binary gates introduces at most $2N$ gates, each with at most four clauses of three literals. Output equalities add at most $2O$ clauses of two literals. Thus the target has at most $n+2N$ variables, $8N+2O$ clauses, and $24N+4O$ literals, including constant expressions and assignments without outputs.
 
   _Correctness._ ($arrow.r.double$) Let $sigma$ be a satisfying CircuitSAT assignment. Set every auxiliary variable $v_alpha$ to the truth value of the corresponding subexpression $alpha$ under $sigma$. Each Tseitin gadget is then satisfied because its output variable matches the gate semantics, and every output-equivalence or unit clause holds because $sigma$ already makes each circuit assignment $o_1, dots, o_t = e$ true. Hence the CNF is satisfiable. ($arrow.l.double$) Let $tau$ satisfy the constructed CNF. Every Tseitin gadget forces its auxiliary variable to equal the truth value of its subexpression, so the root variable $z_e$ equals the value of $e$. The output-equivalence clauses therefore force every output $o_i$ to equal $e$, and unit clauses force the required constants. Restricting $tau$ to the named circuit variables yields an assignment satisfying every original circuit equation.
 
@@ -13128,7 +13136,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ Evaluate the target certificate once and reject it unless all equations hold. Read off factor bits $p = sum_i p_i 2^(i-1)$ and $q = sum_j q_j 2^(j-1)$, then return $(min(p,q), max(p,q))$. The source requires $m <= n$. Sorting preserves the asymmetric bounds: if inputs are exchanged, the new smaller factor is below the old first factor, while both inputs fit the larger width.
 
-  _Size and arithmetic._ Product width and assignment capacity are checked before allocation. At most $6 m n + 2(m+n) + 2$ assignments and $6 m n + 2(m+n) + 1$ variables are generated. Factors and products use exact arbitrary-precision integers; the circuit enforces bit arithmetic without floating-point conversions. The cell and output assignments use only the existing Boolean expression API.
+  _Size and arithmetic._ Product width and assignment capacity are checked before allocation. At most $6 m n + 2(m+n) + 2$ assignments and $6 m n + 2(m+n) + 1$ variables are generated. Factors and products use exact arbitrary-precision integers; the circuit enforces bit arithmetic without floating-point conversions. Each assignment has one output and at most five expression nodes, so the assignment bound also bounds output count, and five times that bound covers expression nodes. The cell and output assignments use only the existing Boolean expression API.
 
 ]
 
@@ -14434,6 +14442,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Construction._ Given Set Splitting instance $(U, cal(C))$, first normalize every subset to size 2 or 3. For a subset $S = {s_1, dots, s_k}$ with $k >= 4$, introduce fresh elements $y^+, y^-$, replace $S$ by the size-3 subset ${s_1, s_2, y^+}$ and the complementarity subset ${y^+, y^-}$, and continue recursively on ${y^-, s_3, dots, s_k}$. Repeating this step yields an equivalent normalized instance $(U', cal(C)')$ in which every subset has size 2 or 3.
 
   Create one Betweenness element $a_u$ for each $u in U'$ and one distinguished pole $p$. For every size-2 subset ${u, v} in cal(C)'$, add triple $(a_u, p, a_v)$. For every size-3 subset ${u, v, w} in cal(C)'$, introduce a fresh auxiliary element $d_(u,v,w)$ and add triples $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$.
+
+  _Size bound._ Write $u$ for the source universe size and $s$ for its number of subsets. After deduplication, each subset has at most $u$ elements and undergoes at most $u$ decomposition steps, each adding two elements and two subsets. Hence the normalized universe has at most $u+2s u$ elements and at most $s(2u+1)$ subsets. Adding one pole and at most one auxiliary per normalized subset gives at most $u+1+s(4u+1)$ elements; at most two triples per subset gives $2s(2u+1)$ triples.
 
   _Correctness._ The normalization identity preserves splittability: a coloring splits ${s_1, dots, s_k}$ if and only if it can be extended to fresh elements $y^+, y^-$ so that ${s_1, s_2, y^+}$, ${y^+, y^-}$, and ${y^-, s_3, dots, s_k}$ are all non-monochromatic. Thus it suffices to reason about normalized subsets.
 
@@ -18896,9 +18906,11 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n^2 + m)$ reduction @stockmeyer1973 assigns each variable $x_i$ a distinct prime $p_i >= 5$, encoding TRUE as residue 1 and FALSE as residue 2 modulo $p_i$. All other residues are forbidden. Each clause is encoded via CRT as a single forbidden residue class modulo the product of its variables' primes. A satisfying assignment exists iff some integer avoids all forbidden classes.
+  This polynomial-time reduction @stockmeyer1973 assigns each variable $x_i$ a distinct prime $p_i >= 3$, encoding TRUE as residue 1 and FALSE as residue 2 modulo $p_i$. All other residues are forbidden. Each clause is encoded via CRT as a single forbidden residue class modulo the product of its variables' primes. A satisfying assignment exists iff some integer avoids all forbidden classes.
 ][
-  _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 5$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
+  _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 3$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
+
+  _Size bound._ There are $sum_(i=1)^n (p_i-2)+m$ forbidden pairs, where $p_i$ is the $i$th odd prime. For the ordinary $k$th prime $q_k$, the standard estimate $q_k < k(ln k+ln ln k)$ for $k >= 6$ @axler2019, together with the first five primes, implies $q_k <= 2k^2$ for every $k >= 1$. Consequently $p_i=q_(i+1) <= 2(n+1)^2$ and $2n(n+1)^2+m$ bounds the pair count.
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment $tau$ defines residues $r_i in {1,2}$ per variable. By CRT, some integer $x$ has these residues. It avoids all variable-forbidden classes and all clause-forbidden classes (since at least one literal is true, the residue triple differs from the falsifying triple). ($arrow.l.double$) Any feasible $x$ has $x mod p_i in {1,2}$ for all $i$. Define $tau(x_i) = "TRUE"$ if residue 1, FALSE if 2. If a clause were false, $x$ would match its forbidden CRT class -- contradiction.
 

@@ -214,16 +214,12 @@ fn build_multiplier_cell(
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionFactoringToCircuit {}
 
-#[reduction(
-    transform = upper_bound {
-        num_variables = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 1",
-        num_assignments = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 2",
-    },
-    unavailable = {
-        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
-        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_variables = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 1",
+    num_assignments = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 2",
+    num_assignment_outputs = "6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 2",
+    num_expression_nodes = "5 * (6 * num_bits_first * num_bits_second + 2 * (num_bits_first + num_bits_second) + 2)",
+})]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 

@@ -51,12 +51,10 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionSetSplittingToBetweenness {}
 
-#[reduction(
-    transform = unavailable {
-        num_elements = "the exact target parameters depend on normalization statistics specific to this reduction",
-        num_triples = "the exact target parameters depend on normalization statistics specific to this reduction",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_elements = "universe_size + 1 + num_subsets * (4 * universe_size + 1)",
+    num_triples = "2 * num_subsets * (2 * universe_size + 1)",
+})]
 impl ReduceTo<Betweenness> for SetSplitting {
     type Result = ReductionSetSplittingToBetweenness;
 

@@ -13,6 +13,44 @@ use crate::{
 
 type BoundedILP = ILP<i64, i64, Bounded>;
 
+#[test]
+fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
+    use crate::models::{algebraic::ClosestVectorProblem, Decision};
+    for (sizes, target) in [(vec![1], 1), (vec![2], 1)] {
+        check_path(
+            SubsetSum::new(sizes, target),
+            ReductionPath {
+                steps: vec![
+                    step::<SubsetSum>(),
+                    step::<Decision<ClosestVectorProblem>>(),
+                    step::<ClosestVectorProblem>(),
+                    step::<QUBO<i64>>(),
+                ],
+            },
+        );
+    }
+}
+
+#[test]
+fn factoring_circuit_sat_qubo_predictions_and_solution_recovery() {
+    use crate::models::formula::{CircuitSAT, NAESatisfiability, Satisfiability};
+    for target in [1u32, 3] {
+        check_path(
+            Factoring::with_factor_bits(target, 1, 1),
+            ReductionPath {
+                steps: vec![
+                    step::<Factoring>(),
+                    step::<CircuitSAT>(),
+                    step::<Satisfiability>(),
+                    step::<NAESatisfiability>(),
+                    step::<ILP<bool>>(),
+                    step::<QUBO<i64>>(),
+                ],
+            },
+        );
+    }
+}
+
 fn check_contract<S: Problem + ReduceTo<T>, T: Problem>(source: &S) {
     let target = source.reduce_to().unwrap();
     let entry = crate::rules::registry::reduction_entries()
