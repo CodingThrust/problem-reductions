@@ -522,34 +522,6 @@ Big-O display; it does not rank or filter paths.
 
 ## Solvers
 
-### ILP bounds variants
-
-`ILP<V, C, B>` separates the variable domain, coefficient type, and bounds
-requirement. `B` defaults to `General`: omitted bounds in a user problem
-reference resolve to `bounds=general`. General ILP accepts finite and infinite
-variable intervals. Binary variables still have `[0, 1]` domains independently
-of this dimension.
-
-`ILP<i64, i64, Bounded>` requires explicit finite endpoints for every variable,
-validated by both construction and deserialization. Use `with_variables` to
-supply them; no bounds are inferred from constraint rows. It is the only
-additional concrete registration. There is no bounded-binary or bounded-float
-registration.
-
-Binary ILP embeds into bounded integer ILP, which embeds into general integer
-ILP without removing any stored bounds or changing the objective. Binary
-encoding starts only from bounded integer ILP. Incoming rules target binary ILP
-when all variables are binary and bounded integer ILP when finite integer
-domains are part of their construction. Their bounds must preserve source
-feasibility and optima.
-
-These are mathematical graph edges. Arithmetic overflow remains an execution
-error, and backend availability belongs to the separate solver capability
-registry. Fixed solver pipelines stop directly at the registered bounded ILP
-terminal; they do not need the embedding into general ILP.
-
-### Solver execution
-
 The reference solver exposes a direct typed operation:
 
 ```rust,ignore
