@@ -1589,3 +1589,68 @@ fn incoming_flow_predictions_compose_to_qubo_and_recover_witnesses() {
         );
     }
 }
+
+fn check_augmentation_predictions_through_qubo<A: Problem>() {
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: [
+            (
+                HamiltonianCircuit::<SimpleGraph>::NAME,
+                HamiltonianCircuit::<SimpleGraph>::variant(),
+            ),
+            (A::NAME, A::variant()),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+            (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for source_graph in [
+        SimpleGraph::empty(0),
+        SimpleGraph::empty(1),
+        SimpleGraph::path(2),
+        SimpleGraph::cycle(3),
+        SimpleGraph::path(3),
+    ] {
+        let source = HamiltonianCircuit::new(source_graph);
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<QUBO<i64>>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).expect("composed augmentation bound") >= actual);
+        }
+        let expected = BruteForce::new().solve(&source).unwrap().is_some();
+        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        let recovered = chain.extract_solution::<Vec<usize>, _>(&solution);
+        if expected {
+            assert!(source.evaluate(&recovered.unwrap()).unwrap().0);
+        } else {
+            assert!(
+                recovered.is_err(),
+                "infeasible augmentation cannot certify a circuit"
+            );
+        }
+    }
+}
+
+#[test]
+fn biconnectivity_augmentation_predictions_compose_and_recover_through_qubo() {
+    check_augmentation_predictions_through_qubo::<
+        crate::models::graph::BiconnectivityAugmentation<SimpleGraph, i64>,
+    >();
+}
+
+#[test]
+fn strong_connectivity_augmentation_predictions_compose_and_recover_through_qubo() {
+    check_augmentation_predictions_through_qubo::<
+        crate::models::graph::StrongConnectivityAugmentation<i64>,
+    >();
+}

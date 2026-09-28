@@ -44,16 +44,16 @@ impl ReductionResult for ReductionSCAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
+    },
+    upper_bound {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
         num_nonzeros = "(num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)) * (1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices)",
     },
-    unavailable = {
-        max_constraint_magnitude_bits = "candidate arc weights and the budget are not registered source parameters",
-    },
-)]
+})]
 impl ReduceTo<ILP<bool>> for StrongConnectivityAugmentation<i64> {
     type Result = ReductionSCAToILP;
 

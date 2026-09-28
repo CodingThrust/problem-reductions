@@ -15832,7 +15832,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BiconnectivityAugmentation", "ILP")[
   Select candidate edges under the total budget and certify connectivity of both the original augmented graph and every vertex-deleted graph using bounded integral flow witnesses.
 ][
-  _Construction._ Let $n$ be the vertex count, $m$ the number of base edges, and $p$ the number of candidate edges. Candidate $j$ has cost $w_j$, and the budget is $B$. Use `ILP<i64>` with an empty minimization objective and every variable bounded to $[0,1]$ through `IntegerVariable::binary()`.
+  _Construction._ Let $n$ be the vertex count, $m$ the number of base edges, and $p$ the number of candidate edges. Candidate $j$ has cost $w_j$, and the budget is $B$. Use `ILP<bool>` with an empty minimization objective and every variable bounded to $[0,1]$ through `IntegerVariable::binary()`.
 
   Selection variable $y_j$ has index $j$. Connectivity scenarios are $q in {0, dots, n}$: $q<n$ deletes vertex $q$, whereas $q=n$ deletes nothing. For each scenario and destination $t in {0, dots, n-1}$, reserve two directed flow variables per base edge and per candidate edge. Orientation $eta=0$ follows the stored endpoint order, and $eta=1$ reverses it. The indices are
   $"idx"_f(q,t,i,eta)=p+2((q n+t)m+i)+eta$ and
@@ -15846,6 +15846,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Signed costs and arithmetic._ Costs need not be nonnegative. The source checks the final selected total against $B$, rather than rejecting a temporary excess that later negative costs may cancel. The budget row retains candidate order, so source and target perform the same checked i64 accumulation. Overflow remains an evaluation error; the implementation does not widen or reinterpret it as infeasibility. Connectivity coefficients and right-hand sides are in ${-1,0,1}$, and flow variables are bounded to $[0,1]$. Variable-layout arithmetic is checked before allocation.
 
   _Solution extraction._ Validate the target assignment once and require a finite feasible objective value; then decode its first $p$ binary integers as candidate-selection bits. The empty objective equals zero on every feasible target. The constraint count is at most $1+n(n+1)(2m+4p+n)$.
+
+  _Numeric magnitude._ Let $h >= 1$ be the smallest integer such that $abs(w_j) < 2^h$ for every candidate and $abs(B) < 2^h$. The source parameter `max_numeric_magnitude_bits` equals $h$. The budget row copies these values, and all other constraint and variable-bound magnitudes are at most one. Thus the target's `max_constraint_magnitude_bits` equals $h$, including signed budgets and empty candidate lists.
 ]
 
 #reduction-rule("BoundedComponentSpanningForest", "ILP")[
@@ -15922,7 +15924,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("StrongConnectivityAugmentation", "ILP")[
   Select candidate arcs under the budget and certify strong connectivity by sending flow both from a root to every vertex and back again.
 ][
-  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i64>` with variables ordered as
+  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. Retain the budget constraint even when $n <= 1$. Use `ILP<bool>` with variables ordered as
   $(y_j)_j, (f^t_i)_(t,i), (bar(f)^t_j)_(t,j), (g^t_i)_(t,i), (bar(g)^t_j)_(t,j)$,
   where $f^t$ is the forward root-to-$t$ flow on base arcs, $bar(f)^t$ is the forward flow on candidate arcs, $g^t$ is the backward $t$-to-root flow on base arcs, and $bar(g)^t$ is the backward flow on candidate arcs.
   The indices are
@@ -15964,6 +15966,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A strongly connected augmentation provides both directions of reachability between the root and every other vertex, hence all required flows. ($arrow.l.double$) If those flows exist for every vertex, then every vertex is reachable from the root and can reach the root, so the augmented digraph is strongly connected.
 
   _Solution extraction._ Output the binary candidate-arc selection vector $(y_a)$.
+
+  _Numeric magnitude._ The source parameter `max_numeric_magnitude_bits` is the smallest $h >= 1$ for which every candidate weight and the budget are strictly below $2^h$. The budget row copies these values and the remaining constraint and variable-bound magnitudes are at most one, so the target's `max_constraint_magnitude_bits` equals $h$.
 ]
 
 // Matrix/encoding
@@ -17828,6 +17832,8 @@ The following table shows concrete target-variable counts for example instances,
   _Correctness._ For $n < 3$, both instances are infeasible. For $n >= 3$, a source Hamiltonian circuit selects $n$ weight-1 edges forming a biconnected cycle of cost $n$. Conversely, a feasible target is connected and every vertex has degree at least two: a degree-zero vertex contradicts connectivity, and a degree-one vertex would be separated from the other surviving vertices by deleting its neighbor. The degree sum therefore forces at least $n$ selected edges. Positive costs and budget $n$ force exactly $n$ edges, all of cost 1. Every degree is exactly two, so connectivity makes these edges a single spanning cycle of the source. All partial selected-weight sums are at most the final sum for feasible targets; evaluation therefore preserves the budget test with exact integer arithmetic.
 
   _Solution extraction._ Validate the target certificate and require its evaluation to be `Or(true)` before decoding. Walk the selected cycle from vertex 0 to recover the circuit order. The negative sentinel has no feasible certificate. The target has at most $n+3$ vertices, no initial edges, and at most $n(n-1)/2$ candidates.
+
+  _Numeric magnitude._ Candidate costs are at most two and the budget is $n$; for $n<3$, the fixed target has budget zero and no candidates. Thus the target's `max_numeric_magnitude_bits` is at most $n+1$, using only the source vertex count.
 ]
 
 #let hc_sca = load-example("HamiltonianCircuit", "StrongConnectivityAugmentation")
@@ -17859,11 +17865,13 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Start with the empty digraph on $n$ vertices. Weight-1 candidate arcs correspond to edges of $G$; weight-2 arcs for non-edges. A budget-$n$ augmentation that achieves strong connectivity must select exactly $n$ weight-1 arcs forming a directed Hamiltonian cycle.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. If $n<3$, output two isolated vertices, no candidate arcs, and budget zero; both source and target are infeasible. Otherwise build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
 
   _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives $n$ directed arcs of weight 1 forming a strongly-connected cycle. ($arrow.l.double$) Strong connectivity needs $>= n$ arcs; budget $n$ forces all weight 1, hence all from $E$, forming a single $n$-cycle.
 
   _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
+
+  _Numeric magnitude._ Candidate costs are at most two and the budget is $n$; the fixed target for $n<3$ has budget zero and no candidates. The target's `max_numeric_magnitude_bits` is therefore at most $n+1$.
 ]
 
 #let hc_sc = load-example("HamiltonianCircuit", "DecisionStackerCrane")

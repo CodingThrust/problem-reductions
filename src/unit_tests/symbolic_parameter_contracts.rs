@@ -440,3 +440,59 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
         .iter()
         .any(|field| field.field == "num_edges"));
 }
+
+#[test]
+fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
+    use crate::models::algebraic::ILP;
+    use crate::models::graph::{BiconnectivityAugmentation, StrongConnectivityAugmentation};
+    use crate::topology::DirectedGraph;
+
+    fn check<S: Problem + ReduceTo<ILP<bool>>>(source: S, bits: u64) {
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(bits)
+        );
+        check_reduced_parameters::<_, ILP<bool>>(
+            source,
+            &["max_constraint_magnitude_bits"],
+            ParameterRelation::Exact,
+        );
+    }
+    for (weight, budget, bits) in [
+        (0, 0, 1),
+        (1, 8, 4),
+        (8, 1, 4),
+        (7, 1, 3),
+        (-8, 1, 4),
+        (1, -8, 4),
+        (i64::MIN, 0, 64),
+        (0, i64::MIN, 64),
+        (i64::MAX, 0, 63),
+        (1, i64::MAX, 63),
+    ] {
+        check(
+            BiconnectivityAugmentation::new(SimpleGraph::empty(2), vec![(0, 1, weight)], budget),
+            bits,
+        );
+        if weight > 0 && budget >= 0 {
+            check(
+                StrongConnectivityAugmentation::new(
+                    DirectedGraph::empty(2),
+                    vec![(0, 1, weight)],
+                    budget,
+                ),
+                bits,
+            );
+        }
+    }
+    for (budget, bits) in [(0, 1), (8, 4), (i64::MAX, 63)] {
+        check(
+            BiconnectivityAugmentation::<_, i64>::new(SimpleGraph::empty(0), vec![], budget),
+            bits,
+        );
+        check(
+            StrongConnectivityAugmentation::<i64>::new(DirectedGraph::empty(0), vec![], budget),
+            bits,
+        );
+    }
+}

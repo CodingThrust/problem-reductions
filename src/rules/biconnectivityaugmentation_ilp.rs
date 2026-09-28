@@ -75,16 +75,16 @@ impl ReductionResult for ReductionBiconnAugToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
 
-#[reduction(
-    transform = upper_bound {
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
+    },
+    upper_bound {
         num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
         num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
         num_nonzeros = "(num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)) * (1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices))",
     },
-    unavailable = {
-        max_constraint_magnitude_bits = "candidate edge weights and the budget are not registered source parameters",
-    },
-)]
+})]
 impl ReduceTo<ILP<bool>> for BiconnectivityAugmentation<SimpleGraph, i64> {
     type Result = ReductionBiconnAugToILP;
 
