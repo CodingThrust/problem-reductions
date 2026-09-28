@@ -15525,18 +15525,24 @@ The following reductions to Integer Linear Programming are straightforward formu
     Source deletion witness $(#fmt-values(hcd_ilp_sol.source_config))$, target ILP witness $(#fmt-values(hcd_ilp_sol.target_config))$.
   ],
 )[
-  Enumerate the family of feasible clusters of $G$ and pick a partition of $V$ into feasible clusters maximizing the kept internal edge count; since $|E|$ is fixed, this is equivalent to minimizing deleted edges @HueffnerKomusiewiczLiebtrauNiedermeier2014.
+  Encode cluster membership with one binary variable per unordered vertex pair. Transitivity and minimum-degree constraints describe a partition into singletons and highly connected clusters, maximizing the number of retained edges.
 ][
-  _Construction._ Let the source instance be a simple undirected graph $G = (V, E)$. Call a vertex set $S subset.eq V$ a _feasible cluster_ when either $|S| = 1$, or $|S| >= 3$ and the induced subgraph $G[S]$ is _highly connected_, i.e. its edge connectivity satisfies $lambda(G[S]) > |S| / 2$ (strict). Let $cal(C)(G)$ be the family of all feasible clusters. Introduce binary variables $x_S in {0, 1}$ for each $S in cal(C)(G)$, where $x_S = 1$ iff $S$ is chosen as one block of the final partition. The ILP is:
-  $
-    max quad & sum_(S in cal(C)(G)) |E(G[S])| x_S \
-    "subject to" quad & sum_(S in cal(C)(G), v in S) x_S = 1 quad forall v in V \
-    & x_S in {0, 1}.
-  $
+  _Construction._ Let $G = (V, E)$ have $n$ vertices. Introduce symmetric binary variables $y_(u v) = y_(v u)$ for distinct vertices, meaning that $u$ and $v$ belong to the same cluster, and a binary non-singleton flag $a_v$ for each vertex. For every triple, impose all three inequalities of the form
+  $ y_(u v) + y_(v w) - y_(u w) <= 1. $
+  Together with reflexive membership, these constraints define an equivalence relation. Write
+  $ s_v = sum_(u != v) y_(u v), quad d_v = sum_(u in N(v)) y_(u v), $
+  where $N(v)$ contains distinct neighbors other than $v$. Impose
+  $ s_v <= (n-1) a_v, quad 2 d_v >= s_v + 2 a_v. $
+  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, counting duplicate edges with multiplicity. Self-loops are always retained and contribute only a constant to the retained-edge count.
 
-  _Correctness._ ($arrow.r.double$) Any feasible source partition $cal(P) = {B_1, dots, B_k}$ -- where every block $B_i$ is a singleton or a highly connected component on $>= 3$ vertices -- yields the feasible ILP assignment $x_(B_i) = 1$ for $i = 1, dots, k$ and $0$ elsewhere; the partition constraints hold because each vertex belongs to exactly one block, and the objective value is the number of edges kept by the partition. ($arrow.l.double$) Any feasible ILP solution selects a sub-family of $cal(C)(G)$ that, by the equality constraints, partitions $V$ into feasible clusters; the objective equals the number of intra-cluster edges. Since $|E|$ is constant, maximizing intra-cluster edges is equivalent to minimizing $|E| - sum_S |E(G[S])| x_S$, the number of deleted edges.
+  _Degree characterization._ A simple graph on $k >= 2$ vertices is highly connected exactly when its minimum degree $delta$ exceeds $k/2$. Necessity follows from $lambda <= delta$. For sufficiency, consider any cut with smaller side of size $b <= k/2$. At least $b(delta-b+1)$ edges cross it. Since $(b-1)(delta-b) >= 0$, this is at least $delta > k/2$.
 
-  _Solution extraction._ Decode the chosen clusters $C subset.eq cal(C)(G)$ from $x$. The source configuration is the binary edge-deletion vector: edge $e = {u, v}$ is kept (config bit $0$) iff some chosen cluster $S in C$ contains both $u$ and $v$, otherwise deleted (config bit $1$).
+  _Correctness._ For a singleton, $s_v = d_v = 0$ and the constraints force $a_v = 0$. In a larger cluster of size $k = s_v+1$, the first inequality forces $a_v = 1$, and the second requires $2 d_v >= k+1$. Thus every non-singleton cluster is highly connected by the degree characterization; clusters of size two are excluded automatically. Conversely, every partition into allowed clusters satisfies the constraints with these membership and flag values. Any feasible source deletion can restore all edges internal to its components without decreasing their connectivity or increasing the deletion cost. Hence some source optimum keeps every internal edge, and maximizing the target objective preserves that optimum.
+
+  _Solution extraction._ Delete precisely the non-loop source edges whose membership variable is zero. Keep every self-loop. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
+
+  _Size and running time._ The target has $n(n+1)/2$ binary variables, $3 binom(n,3)+2n$ constraints, and $O(n^3)$ nonzeros. Constraint coefficients have magnitude at most $max(n-1,2)$; objective coefficients count input edge multiplicities. Construction, encoding length, and extraction are polynomial in the source encoding size. All registered parameter bounds use only the source vertex count.
+
 ]
 
 #let ep_ilp = load-example(

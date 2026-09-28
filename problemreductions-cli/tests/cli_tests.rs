@@ -5603,8 +5603,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "HighlyConnectedDeletion",
-            "ILP/bool",
+            "IntegralFlowWithMultipliers",
+            "ILP/i64/i64/bounded",
             "--limit",
             "1",
             "--json",
@@ -5626,11 +5626,20 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         })
         .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(relations["num_constraints"], "exact");
-    assert_eq!(relations["num_vars"], "unavailable");
+    assert_eq!(relations["num_vars"], "exact");
+    assert_eq!(relations["max_constraint_magnitude_bits"], "unavailable");
+    let unavailable = fields
+        .iter()
+        .find(|field| field["relation"] == "unavailable")
+        .unwrap();
+    assert!(unavailable["reason"]
+        .as_str()
+        .unwrap()
+        .contains("multipliers"));
 }
 
 #[test]
-fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
+fn test_path_highly_connected_deletion_has_complete_polynomial_predictions() {
     let output = pred()
         .args(["path", "HighlyConnectedDeletion", "ILP/bool", "--json"])
         .output()
@@ -5644,11 +5653,15 @@ fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
         .map(|field| (field["field"].as_str().unwrap(), field))
         .collect::<std::collections::BTreeMap<_, _>>();
 
-    assert_eq!(fields["num_vars"]["relation"], "unavailable");
-    assert!(fields["num_vars"]["reason"]
-        .as_str()
-        .unwrap()
-        .contains("variable exponent unsupported"));
+    assert_eq!(fields.len(), 4);
+    assert_eq!(fields["num_vars"]["relation"], "exact");
+    for field in [
+        "num_constraints",
+        "num_nonzeros",
+        "max_constraint_magnitude_bits",
+    ] {
+        assert_eq!(fields[field]["relation"], "upper_bound");
+    }
 }
 
 #[test]

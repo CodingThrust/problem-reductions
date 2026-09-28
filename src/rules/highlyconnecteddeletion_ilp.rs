@@ -1,50 +1,34 @@
-//! Reduction from HighlyConnectedDeletion to ILP (Integer Linear Programming).
+//! Polynomial reduction from HighlyConnectedDeletion to binary ILP.
 //!
-//! Encodes the set-partitioning ILP of Hüffner, Komusiewicz, Liebtrau, and
-//! Niedermeier (IEEE/ACM TCBB 2014). Given a simple undirected graph
-//! `G = (V, E)`:
+//! One variable per unordered vertex pair records membership in the same cluster.
+//! Triangle inequalities make membership transitive. A binary flag per vertex
+//! distinguishes singleton clusters, and linear degree constraints enforce
+//! minimum degree strictly greater than half the cluster size otherwise.
 //!
-//! - Enumerate the family `C(G)` of *feasible clusters*: every singleton plus
-//!   every subset `S` with `|S| >= 3` whose induced subgraph `G[S]` is highly
-//!   connected (edge connectivity strictly greater than `|S| / 2`).
-//! - Introduce a binary variable `x_S` per feasible cluster (1 iff `S` is one
-//!   block of the chosen partition).
-//! - Partition constraints: for every vertex `v`,
-//!   `sum_{S in C(G), v in S} x_S = 1`.
-//! - Maximize the number of kept (intra-cluster) edges:
-//!   `max sum_{S in C(G)} |E(G[S])| * x_S`.
+//! This degree condition is equivalent to high edge connectivity: for minimum
+//! degree d > k/2, a cut with smaller side a <= k/2 has at least
+//! a*(d-a+1) >= d edges. Conversely, edge connectivity never exceeds minimum
+//! degree. See <https://hueffner.de/falk/highly-connected-subgraph-sofsem15.pdf>.
 //!
-//! Because `|E|` is fixed, maximizing kept internal edges minimizes deleted
-//! edges; the source value is recovered as
-//! `deleted_edges = |E| - ilp_objective`.
-//!
-//! Reference: Falk Hüffner, Christian Komusiewicz, Adrian Liebtrau, and Rolf
-//! Niedermeier, "Partitioning Biological Networks into Highly Connected
-//! Clusters with Maximum Edge Coverage," IEEE/ACM Transactions on
-//! Computational Biology and Bioinformatics 11(3):455–467, 2014.
-//! <https://doi.org/10.1109/TCBB.2013.177>
+//! Maximize the number of non-loop edges kept inside clusters. Any feasible
+//! deletion can restore all internal edges without losing connectivity, so an
+//! optimal source solution is represented. Self-loops are always kept.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::graph::highly_connected_deletion::{induced_edge_count, is_feasible_cluster};
 use crate::models::graph::HighlyConnectedDeletion;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing HighlyConnectedDeletion to ILP.
+/// Result of reducing HighlyConnectedDeletion to binary ILP.
 ///
-/// Variable layout (all binary):
-/// - `x_S` at index `c` is the indicator for the `c`-th feasible cluster
-///   stored in `clusters`. Indices follow the enumeration order produced by
-///   [`enumerate_feasible_clusters`], which always lists every singleton first
-///   followed by larger feasible clusters in subset-id order.
+/// Variables are unordered pairs in lexicographic order, followed by one
+/// non-singleton flag per vertex.
 #[derive(Debug, Clone)]
 pub struct ReductionHighlyConnectedDeletionToILP {
     target: ILP<bool>,
-    /// Feasible clusters in variable order; `clusters[c]` is sorted ascending.
-    clusters: Vec<Vec<usize>>,
-    /// Source graph edges in the same order as `source.graph().edges()`.
-    edges: Vec<(usize, usize)>,
+    /// Pair variable for each source edge; self-loops have no variable.
+    edge_variables: Vec<Option<usize>>,
 }
 
 impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
@@ -55,166 +39,110 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
         &self.target
     }
 
-    /// Decode a binary ILP assignment into the source's edge-deletion config.
-    ///
-    /// For every source edge `(u, v)`, the edge is *kept* iff some chosen
-    /// cluster `S` (i.e. with `x_S = 1`) contains both `u` and `v`; otherwise
-    /// it is deleted (`config[e] = 1`).
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
-        for (c, cluster) in self.clusters.iter().enumerate() {
-            if target_solution[c] == 1 {
-                for &v in cluster {
-                    if cluster_of[v].is_some() {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "vertex {v} belongs to multiple selected clusters"
-                        )));
-                    }
-                    cluster_of[v] = Some(c);
-                }
-            } else if target_solution[c] != 0 {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "cluster selection {c} is not binary"
-                )));
-            }
-        }
-
-        if let Some(vertex) = cluster_of.iter().position(Option::is_none) {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "vertex {vertex} has no selected cluster"
-            )));
-        }
-
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
         Ok(self
-            .edges
+            .edge_variables
             .iter()
-            .map(|&(u, v)| cluster_of[u] != cluster_of[v])
+            .map(|variable| variable.is_some_and(|index| target_solution[index] == 0))
             .collect())
     }
 }
 
-/// Number of source vertices, recovered from the clusters list.
-///
-/// The reduction always enumerates the `n` singletons first, so any vertex id
-/// occurring anywhere in `clusters` is `< n`. We read `n` off the singletons
-/// for clarity and robustness.
-fn vertex_count(clusters: &[Vec<usize>]) -> usize {
-    clusters
-        .iter()
-        .filter(|c| c.len() == 1)
-        .map(|c| c[0] + 1)
-        .max()
-        .unwrap_or(0)
-}
-
-/// Enumerate every feasible cluster of `graph` in deterministic order.
-///
-/// Order: all `n` singletons first (subset ids `1, 2, 4, ...`), then larger
-/// feasible clusters listed by ascending bitmask of their vertex set. This
-/// gives a stable variable layout; tests pin the singleton prefix.
-fn enumerate_feasible_clusters(
-    graph: &SimpleGraph,
-) -> Result<Vec<Vec<usize>>, crate::rules::ReductionError> {
-    let n = graph.num_vertices();
-    if n >= u64::BITS as usize {
-        return Err(crate::rules::ReductionError::integer_overflow::<
-            HighlyConnectedDeletion<SimpleGraph>,
-            ILP<bool>,
-        >("enumerating vertex subsets with a u64 mask"));
-    }
-    let mut clusters: Vec<Vec<usize>> = Vec::new();
-
-    // Singletons first.
-    for v in 0..n {
-        clusters.push(vec![v]);
-    }
-
-    if n < 3 {
-        return Ok(clusters);
-    }
-
-    // Larger feasible clusters by ascending subset bitmask.
-    for mask in 1u64..(1u64 << n) {
-        let popcount = mask.count_ones() as usize;
-        if popcount < 3 {
-            continue;
-        }
-        let subset: Vec<usize> = (0..n).filter(|v| (mask >> v) & 1 == 1).collect();
-        if is_feasible_cluster(graph, &subset) {
-            clusters.push(subset);
-        }
-    }
-
-    Ok(clusters)
-}
-
-#[reduction(
-    transform = exact {
-        max_constraint_magnitude_bits = "1",
-        num_constraints = "num_vertices",
+// Three rows per vertex triple and two per vertex. Triple rows have three
+// nonzeros; each vertex row has at most n. All row magnitudes are <= max(n-1, 2).
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices * (num_vertices + 1) / 2",
     },
-    unavailable = {
-        num_vars = "the feasible-cluster count depends on graph structure, and its 2^num_vertices upper bound requires a variable exponent unsupported by the size-transform evaluator",
-            num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-}
-)]
+    upper_bound {
+        num_constraints = "num_vertices^3 + 2 * num_vertices",
+        num_nonzeros = "3 * num_vertices^3 + 2 * num_vertices^2",
+        max_constraint_magnitude_bits = "num_vertices + 2",
+    },
+})]
 impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
     type Result = ReductionHighlyConnectedDeletionToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let n = graph.num_vertices();
-        let clusters = enumerate_feasible_clusters(graph)?;
-        let num_vars = clusters.len();
-
-        // Partition constraints: for every vertex v, sum_{S : v in S} x_S = 1.
-        // Each constraint is built by scanning the cluster list once per
-        // vertex; total work is O(n * sum |S|) which stays tractable for the
-        // small graphs we use in tests.
-        let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(n);
-        for v in 0..n {
-            let terms: Vec<(usize, i64)> = clusters
-                .iter()
-                .enumerate()
-                .filter_map(|(c, cluster)| {
-                    if cluster.binary_search(&v).is_ok() {
-                        Some((c, 1))
-                    } else {
-                        None
+        let num_pairs = n.checked_mul(n.saturating_sub(1)).map(|value| value / 2);
+        let num_vars = num_pairs
+            .and_then(|pairs| pairs.checked_add(n))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
+                    "counting pair and non-singleton variables",
+                )
+            })?;
+        let flag_offset = num_vars - n;
+        let max_companions =
+            Self::exact_i64(n.saturating_sub(1), "encoding the cluster-size bound")?;
+        // Lexicographic pair index: preceding row lengths, then the column offset.
+        // The checked n*(n-1) above also bounds these products for u < v < n.
+        let pair = |u: usize, v: usize| {
+            let (u, v) = (u.min(v), u.max(v));
+            u * n - u * (u + 1) / 2 + (v - u - 1)
+        };
+        let mut constraints = Vec::new();
+        for u in 0..n {
+            for v in u + 1..n {
+                for w in v + 1..n {
+                    let (a, b, c) = (pair(u, v), pair(u, w), pair(v, w));
+                    for (first, second, third) in [(a, b, c), (a, c, b), (b, c, a)] {
+                        constraints.push(LinearConstraint::le(
+                            vec![(first, 1), (second, 1), (third, -1)],
+                            1,
+                        ));
                     }
-                })
-                .collect();
-            constraints.push(LinearConstraint::eq(terms, 1));
+                }
+            }
         }
-
-        // Objective: maximize sum_S |E(G[S])| * x_S.
-        let objective: Vec<(usize, i64)> = clusters
+        for v in 0..n {
+            // s_v is the number of other vertices in v's cluster. The flag
+            // a_v is forced on for s_v > 0 by s_v <= (n-1)*a_v.
+            let mut size_terms = Vec::new();
+            let mut degree_terms = Vec::new();
+            for u in 0..n {
+                if u != v {
+                    let variable = pair(u, v);
+                    size_terms.push((variable, 1));
+                    // 2*d_v - s_v: count each distinct, non-loop neighbor once.
+                    degree_terms.push((variable, if graph.has_edge(u, v) { 1 } else { -1 }));
+                }
+            }
+            size_terms.push((flag_offset + v, -max_companions));
+            constraints.push(LinearConstraint::le(size_terms, 0));
+            // 2*d_v >= s_v + 2*a_v: singleton clusters pass, while other
+            // clusters require 2*d_v > s_v+1 and automatically exclude pairs.
+            degree_terms.push((flag_offset + v, -2));
+            constraints.push(LinearConstraint::ge(degree_terms, 0));
+        }
+        let edge_variables: Vec<_> = graph
+            .edges()
             .iter()
-            .enumerate()
-            .map(|(c, cluster)| {
-                i64::try_from(induced_edge_count(graph, cluster))
-                    .map(|count| (c, count))
-                    .map_err(|_| {
-                        crate::rules::ReductionError::integer_overflow::<
-                            HighlyConnectedDeletion<SimpleGraph>,
-                            ILP<bool>,
-                        >("encoding an induced edge count")
-                    })
-            })
-            .collect::<Result<_, _>>()?;
-
+            .map(|&(u, v)| (u != v).then(|| pair(u, v)))
+            .collect();
+        // Duplicate edges contribute their multiplicity to the objective;
+        // self-loops are constant and need no objective term.
+        let objective = edge_variables
+            .iter()
+            .flatten()
+            .map(|&variable| (variable, 1))
+            .collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(Self::target_construction)?;
-
         Ok(ReductionHighlyConnectedDeletionToILP {
             target,
-            clusters,
-            edges: graph.edges(),
+            edge_variables,
         })
     }
 }
@@ -224,7 +152,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "highlyconnecteddeletion_to_ilp",
         build: || {
-            // Canonical issue #1023 instance: triangle {0,1,2} + leaf vertex 3.
+            // Canonical example: triangle {0,1,2} + leaf vertex 3.
             // Optimum deletes only the leaf edge (2,3); ILP keeps the triangle
             // cluster and the {3} singleton.
             let source = HighlyConnectedDeletion::new(SimpleGraph::new(
