@@ -27,6 +27,7 @@
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -70,14 +71,12 @@ impl ReductionResult for ReductionU2CIFToILP {
 impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "flow capacities and requirements are not registered source parameters",
-    },
     exact {
         num_vars = "6 * num_edges",
         num_constraints = "7 * num_edges + num_conservation_constraints + 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
         num_nonzeros = "(6 * num_edges) * (7 * num_edges + num_conservation_constraints + 2)",
     },
 })]
@@ -186,7 +185,9 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {
                 sink1_terms.push((f1_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1()));
+        let requirement_1 =
+            bounded_flow_requirement(self.requirement_1(), self.capacities().iter().copied());
+        constraints.push(LinearConstraint::ge(sink1_terms, requirement_1));
 
         // Commodity 2: net inflow at sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
@@ -201,7 +202,9 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {
                 sink2_terms.push((f2_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
+        let requirement_2 =
+            bounded_flow_requirement(self.requirement_2(), self.capacities().iter().copied());
+        constraints.push(LinearConstraint::ge(sink2_terms, requirement_2));
 
         let mut variables = self
             .capacities()

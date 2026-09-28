@@ -7,6 +7,7 @@
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing IntegralFlowBundles to ILP.
@@ -42,14 +43,12 @@ impl ReductionResult for ReductionIFBToILP {
 impl crate::rules::AggregateReductionResult for ReductionIFBToILP {}
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "bundle capacities and the flow requirement are not registered source parameters",
-    },
     exact {
         num_vars = "num_arcs",
         num_constraints = "num_bundles + num_vertices - 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_arcs + 1",
         num_nonzeros = "num_arcs * (num_bundles + num_vertices - 1)",
     },
 })]
@@ -91,10 +90,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowBundles {
                 sink_terms.push((arc_index, 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        let upper_bounds = self.arc_upper_bounds();
+        let requirement =
+            bounded_flow_requirement(self.requirement(), upper_bounds.iter().copied());
+        constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
-        let variables = self
-            .arc_upper_bounds()
+        let variables = upper_bounds
             .into_iter()
             .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
             .collect::<Result<Vec<_>, _>>()

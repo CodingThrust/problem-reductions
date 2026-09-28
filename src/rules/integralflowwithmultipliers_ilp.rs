@@ -6,6 +6,7 @@
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing IntegralFlowWithMultipliers to ILP.
@@ -41,14 +42,12 @@ impl ReductionResult for ReductionIFWMToILP {
 impl crate::rules::AggregateReductionResult for ReductionIFWMToILP {}
 
 #[reduction(transform = {
-    unavailable {
-        max_constraint_magnitude_bits = "vertex multipliers are not bounded by registered source parameters",
-    },
     exact {
         num_vars = "num_arcs",
         num_constraints = "num_arcs + num_vertices - 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_arcs + 1",
         num_nonzeros = "num_arcs * (num_arcs + num_vertices - 1)",
     },
 })]
@@ -59,6 +58,11 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
         let arcs = self.graph().arcs();
         let num_vertices = self.num_vertices();
         let mut constraints = Vec::new();
+        let total_capacity = self
+            .capacities()
+            .iter()
+            .copied()
+            .fold(0_i64, i64::saturating_add);
 
         // Capacity: f_a <= c_a for each arc
         for (arc_idx, &capacity) in self.capacities().iter().enumerate() {
@@ -73,7 +77,9 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
             if vertex == self.source() || vertex == self.sink() {
                 continue;
             }
-            let multiplier = self.multipliers()[vertex];
+            // Outflow cannot exceed the total capacity S. A multiplier above
+            // S forces both integral inflow and outflow to zero, as does S+1.
+            let multiplier = self.multipliers()[vertex].min(total_capacity.saturating_add(1));
             let mut terms = Vec::new();
             for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
                 if u == vertex {
@@ -96,7 +102,9 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
                 sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        let requirement =
+            bounded_flow_requirement(self.requirement(), self.capacities().iter().copied());
+        constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
         let variables = self
             .capacities()

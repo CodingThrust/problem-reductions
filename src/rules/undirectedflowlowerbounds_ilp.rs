@@ -5,13 +5,13 @@
 //!   f_{vu} = 2*e + 1  (flow in v→u direction, ≥ 0)
 //!   z_e    = 2*|E| + e (binary orientation: 1 if u→v, 0 if v→u)
 //!
-//! Constraints per edge (4 constraints):
+//! Constraints per edge (up to 5 constraints):
 //!   z_e ≤ 1  (force binary)
 //!   f_{uv} ≤ cap[e] * z_e        (only if oriented u→v)
 //!   f_{vu} ≤ cap[e] * (1 - z_e)  (only if oriented v→u)
 //!   f_{uv} ≥ lower[e] * z_e      (must carry at least lower bound if oriented u→v)
 //!   f_{vu} ≥ lower[e] * (1 - z_e)(must carry at least lower bound if oriented v→u)
-//! Since we need all 4: linearized as:
+//! Linearized as:
 //!   z_e ≤ 1
 //!   f_{uv} - cap[e]*z_e ≤ 0
 //!   f_{vu} + cap[e]*z_e ≤ cap[e]
@@ -26,6 +26,7 @@
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -80,12 +81,10 @@ impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
 #[reduction(
     transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
         num_vars = "3 * num_edges",
         num_constraints = "5 * num_edges + num_vertices + 1",
         num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
-    },
-    unavailable = {
-        max_constraint_magnitude_bits = "flow capacities, lower bounds and the requirement are not registered source parameters",
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
@@ -176,7 +175,9 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
                 sink_terms.push((f_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        let requirement =
+            bounded_flow_requirement(self.requirement(), self.capacities().iter().copied());
+        constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
         let mut variables = self
             .capacities()

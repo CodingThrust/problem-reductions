@@ -5603,8 +5603,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "IntegralFlowWithMultipliers",
-            "ILP/i64/i64/bounded",
+            "DecisionLongestCircuit",
+            "ILP/bool",
             "--limit",
             "1",
             "--json",
@@ -5632,10 +5632,7 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         .iter()
         .find(|field| field["relation"] == "unavailable")
         .unwrap();
-    assert!(unavailable["reason"]
-        .as_str()
-        .unwrap()
-        .contains("multipliers"));
+    assert!(unavailable["reason"].as_str().unwrap().contains("length"));
 }
 
 #[test]
@@ -7021,7 +7018,8 @@ fn test_inspect_integral_flow_with_multipliers_reports_parameters() {
     assert!(parameters.contains(&"num_vertices"));
     assert!(parameters.contains(&"num_arcs"));
     assert!(parameters.contains(&"max_capacity"));
-    assert!(parameters.contains(&"requirement"));
+    assert!(parameters.contains(&"max_capacity_bits"));
+    assert_eq!(json["parameter_values"]["max_capacity_bits"], 3);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();

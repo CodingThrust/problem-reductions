@@ -1424,3 +1424,168 @@ fn numeric_magnitude_bits_cover_padding_and_empty_targets() {
     check::<_, ILP<bool>>(BinPacking::new(Vec::<i64>::new(), i64::MAX).unwrap());
     check::<_, ILP<bool>>(BinPacking::new(vec![8_i64], 1).unwrap());
 }
+
+#[test]
+fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
+    use crate::models::algebraic::Bounded;
+    use crate::models::graph::{
+        IntegralFlowBundles, IntegralFlowWithMultipliers, UndirectedFlowLowerBounds,
+        UndirectedTwoCommodityIntegralFlow,
+    };
+    use crate::topology::DirectedGraph;
+
+    fn check<S: Problem + ReduceTo<ILP<i64, i64, Bounded>>>(source: S, bits: u64) {
+        assert_eq!(
+            source.parameters().get("max_capacity_bits"),
+            Some(bits),
+            "{}",
+            S::NAME
+        );
+        let reduction = source.reduce_to().unwrap();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| entry.source_name == S::NAME && entry.target_name == "ILP")
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        for (field, actual) in reduction.target_problem().parameters().iter() {
+            assert!(
+                predicted.get(field).expect("complete flow bound") >= actual,
+                "{}: {field}",
+                S::NAME
+            );
+        }
+    }
+    for (capacity, bits) in [(0, 1), (1, 1), (7, 3), (8, 4), (i64::MAX, 63)] {
+        if capacity > 0 {
+            check(
+                IntegralFlowBundles::new(
+                    DirectedGraph::new(2, vec![(0, 1)]),
+                    0,
+                    1,
+                    vec![vec![0]],
+                    vec![capacity],
+                    i64::MAX,
+                ),
+                bits,
+            );
+        }
+        check(
+            IntegralFlowWithMultipliers::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                0,
+                2,
+                vec![1, i64::MAX, 1],
+                vec![capacity; 2],
+                i64::MAX,
+            ),
+            bits,
+        );
+        check(
+            UndirectedFlowLowerBounds::new(
+                SimpleGraph::new(2, vec![(0, 1)]),
+                vec![capacity],
+                vec![capacity],
+                0,
+                1,
+                i64::MAX,
+            ),
+            bits,
+        );
+        check(
+            UndirectedTwoCommodityIntegralFlow::new(
+                SimpleGraph::new(2, vec![(0, 1)]),
+                vec![capacity],
+                0,
+                1,
+                0,
+                1,
+                i64::MIN,
+                i64::MAX,
+            ),
+            bits,
+        );
+    }
+    check(
+        IntegralFlowBundles::new(
+            DirectedGraph::new(2, vec![]),
+            0,
+            1,
+            vec![],
+            vec![],
+            i64::MAX,
+        ),
+        1,
+    );
+}
+
+#[test]
+fn incoming_flow_predictions_compose_to_qubo_and_recover_witnesses() {
+    use crate::models::algebraic::Bounded;
+    use crate::models::graph::{IntegralFlowBundles, IntegralFlowWithMultipliers};
+    use crate::models::misc::Partition;
+
+    fn check<S, F>(source: S, expected: bool)
+    where
+        S: Problem<Value = crate::types::Or> + 'static,
+        S::Solution: 'static,
+        F: Problem,
+    {
+        let path = ReductionPath {
+            steps: [
+                (S::NAME, S::variant()),
+                (F::NAME, F::variant()),
+                (
+                    ILP::<i64, i64, Bounded>::NAME,
+                    ILP::<i64, i64, Bounded>::variant(),
+                ),
+                (ILP::<bool>::NAME, ILP::<bool>::variant()),
+                (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+            ]
+            .into_iter()
+            .map(|(name, variant)| ReductionStep {
+                name: name.into(),
+                variant: ReductionGraph::variant_to_map(&variant),
+            })
+            .collect(),
+        };
+        let graph = ReductionGraph::new();
+        let predicted = graph
+            .compose_path_parameter_transform(&path)
+            .unwrap()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<QUBO<i64>>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).expect("composed flow bound") >= actual);
+        }
+        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        let recovered = chain.extract_solution::<S::Solution, _>(&solution);
+        if expected {
+            assert!(source.evaluate(&recovered.unwrap()).unwrap().0);
+        } else {
+            assert!(
+                recovered.is_err(),
+                "infeasible flow must not decode a witness"
+            );
+        }
+    }
+    for (sizes, feasible) in [(vec![1, 1], true), (vec![1, 2], false), (vec![2], false)] {
+        check::<_, IntegralFlowWithMultipliers>(Partition::new(sizes).unwrap(), feasible);
+    }
+    for bound in [0, 1, 2] {
+        check::<_, IntegralFlowBundles>(
+            Decision::new(
+                MaximumIndependentSet::new(SimpleGraph::new(1, vec![]), vec![One]),
+                bound,
+            ),
+            bound <= 1,
+        );
+    }
+}

@@ -80,6 +80,7 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionMISToIFB {}
 
 #[reduction(
     transform = exact {
+        max_capacity_bits = "2",
         num_vertices = "num_vertices + 3",
         num_arcs = "2 * num_vertices + 2",
         num_bundles = "num_edges + num_vertices + 1",

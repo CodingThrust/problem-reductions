@@ -2429,7 +2429,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let witness = (2, 1, 1, 1, 1, 2, 1)
   [
     #problem-def("UndirectedFlowLowerBounds")[
-      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ^+$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
+      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ_(>= 0)$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
     ][
       Undirected Flow with Lower Bounds appears as ND37 in Garey and Johnson's catalog @garey1979. Itai proved that even this single-commodity undirected feasibility problem is NP-complete, contrasting sharply with the directed lower-bounded case, which reduces to ordinary max-flow machinery @itai1978.
 
@@ -13787,6 +13787,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
 
   _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
+
+  _Numeric bounds._ Give each arc the explicit domain $0 <= x_i <= u_i$, where $u_i$ is the minimum capacity of a bundle containing it. With $S = sum_i u_i$, replace $R$ by $min(R, S+1)$: a requirement above $S$ remains infeasible. If $h$ is the maximum bundle-capacity bit length (at least one), all target constraint and domain magnitudes have at most $h + |A| + 1$ bits. No separate requirement parameter is needed.
 ]
 
 #let ola_seqmwct = load-example("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")
@@ -15018,6 +15020,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Direction indicators linearize the capacity-sharing constraint. Per-commodity conservation prevents flow from being created or destroyed at another commodity's terminals, as required by the standard multicommodity-flow formulation @garey1979.
 
   _Solution extraction._ Flow variables (first $4|E|$ variables).
+
+  _Numeric bounds._ Bound each flow variable explicitly by its edge capacity. With $S = sum_e "cap"_e$, each sink's net inflow lies in $[-S, S]$, so replace each requirement $R_k$ by $max(-S, min(R_k, S+1))$. This preserves feasibility, including impossible demands. If $h$ is the maximum capacity bit length (at least one), $h + |E| + 1$ bounds the target constraint and domain magnitude bits.
 ]
 
 #reduction-rule("DirectedTwoCommodityIntegralFlow", "ILP")[
@@ -15055,6 +15059,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
 
   _Solution extraction._ Edge orientations: $z_e$ values.
+
+  _Numeric bounds._ Require $0 <= "lower"_e <= "cap"_e$ and give each directional flow the explicit domain $[0, "cap"_e]$. With $S = sum_e "cap"_e$, replace the positive requirement $R$ by $min(R, S+1)$; demands above $S$ remain infeasible. The capacity bit length $h >= 1$ therefore gives the bound $h + |E| + 1$ on target constraint and domain magnitude bits, without a separate lower-bound or requirement parameter.
 ]
 
 // Flow-based
@@ -15092,6 +15098,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid multiplier flow satisfies these linear equalities and inequalities by definition. ($arrow.l.double$) Any feasible ILP solution gives an integral arc flow whose non-terminal outflow equals the prescribed multiple of its inflow and whose sink inflow meets the requirement.
 
   _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$.
+
+  _Numeric bounds._ Give each arc the explicit domain $[0, c_a]$ and let $S = sum_a c_a$. Replace $h(v)$ by $min(h(v), S+1)$. If $h(v)>S$, any positive integral inflow would require outflow above $S$, so both the original and replacement equation force zero inflow and outflow. Replace $R$ by $max(-S, min(R, S+1))$. If $b >= 1$ is the maximum capacity bit length, all target constraint and domain magnitudes have at most $b + |A| + 1$ bits. Thus the prediction needs no multiplier or requirement parameter.
 ]
 
 #reduction-rule("PathConstrainedNetworkFlow", "ILP")[

@@ -12,6 +12,8 @@ fn test_undirected_flow_lower_bounds_invalid_inputs() {
         ("requirement", serde_json::json!(0)),
         ("requirement", serde_json::json!(-1)),
         ("lower_bounds", serde_json::json!([3, 1, 0, 0, 1, 0, 1])),
+        ("lower_bounds", serde_json::json!([-1, 1, 0, 0, 1, 0, 1])),
+        ("capacities", serde_json::json!([-1, 2, 2, 2, 1, 3, 2])),
     ] {
         let mut invalid = valid.clone();
         invalid[field] = value;
