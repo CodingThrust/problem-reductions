@@ -452,6 +452,10 @@ The returned `ReductionChain` stores each intermediate reduction and extracts th
 
 Each reduction classifies every target parameter exactly once as exact, upper bound, or
 unavailable with a reason. Every formula uses only registered source parameters on its RHS.
+The guarantee describes the target built by the registered implementation. Derive it by
+counting construction blocks, including early returns, skipped rows, repeated terms, and
+normalization. Prefer a simple algorithmic upper bound; use `exact` only when equality holds
+for every accepted input. Existing examples check the derivation but do not prove it.
 Target structural relationships may justify a formula, but source expressions must be
 substituted before registration; there is no automatic model-level inference. The `#[reduction]` macro parses every formula into
 the canonical `Expr` DAG at compile time:
@@ -489,7 +493,11 @@ coefficients cancel; exact sparsity can still require additional source informat
 Use `ParameterTransform::relation(field)` to inspect a formula's accuracy and
 `unavailable(field)` for a composition failure and its upstream cause. The uniform
 `ParameterTransform::new` constructor remains available; `from_fields` accepts mixed relations.
-CLI contract JSON stores `relation` within each formula entry in `fields`.
+CLI contract JSON stores `relation` within each formula entry in `fields`, replacing the
+former contract-level property. Callers of the former argument-free `relation()` must now
+request a field. `ParameterContractError::EmptyTransform` and `MissingRelation` have been
+removed. `path_parameter_transforms` retains unavailable fields within the transform
+instead of returning `PathParameterError::Unavailable` for the entire path.
 
 `ParameterTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
 relations must evaluate to non-negative integers, while upper-bound results round rational

@@ -40,14 +40,14 @@ impl ReductionResult for ReductionRPToILP {
     }
 }
 
-#[reduction(transform = {
-    exact {
-        num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
-        num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
-    },
-    upper_bound {
-        num_nonzeros = "(num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges) * (2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices)",
-    },
+// The nonempty-required-set branch allocates 4m+2n variables and 8m+4n+r rows;
+// the empty branch allocates none. Coefficients by block are bounded by:
+// linking 4m, required r, parity 2m+n, edge activation 4m, vertex activation
+// 2m+n, flow capacity 4m, conservation 4m+2n, and upper bounds 2m+n.
+#[reduction(transform = upper_bound {
+    num_vars = "4 * num_edges + 2 * num_vertices",
+    num_constraints = "8 * num_edges + 4 * num_vertices + num_required_edges",
+    num_nonzeros = "22 * num_edges + 5 * num_vertices + num_required_edges",
 })]
 impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
     type Result = ReductionRPToILP;

@@ -40,7 +40,7 @@ impl ReductionResult for ReductionKnapsackToILP {
         num_constraints = "1",
     },
     upper_bound {
-        num_nonzeros = "num_items * 1",
+        num_nonzeros = "num_items",
     },
 })]
 impl ReduceTo<ILP<bool>> for Knapsack {

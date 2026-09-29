@@ -49,6 +49,7 @@ fn test_minimumedgecostflow_to_ilp_structure() {
     let reduction: ReductionMECFToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
+    crate::rules::test_helpers::assert_parameter_predictions(&problem, &reduction);
 
     // 6 arcs → 2*6 = 12 variables
     assert_eq!(ilp.num_vars(), 12);

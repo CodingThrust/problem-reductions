@@ -46,13 +46,15 @@ impl ReductionResult for ReductionDSToILP {
     }
 }
 
+// Each vertex contributes its own variable plus its neighbor incidences;
+// merging repeated coefficients can only reduce the n+2m nonzero bound.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
     },
     upper_bound {
-        num_nonzeros = "num_vertices * num_vertices",
+        num_nonzeros = "2 * num_edges + num_vertices",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {

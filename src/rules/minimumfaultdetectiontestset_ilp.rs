@@ -43,13 +43,17 @@ impl ReductionResult for ReductionMFDTSToILP {
     }
 }
 
+// One variable per input/output list pair and one row per non-boundary vertex.
+// Boundary membership is a union, so list lengths cannot be subtracted from n.
+// Nonempty terminal lists guarantee at least one boundary vertex; each remaining
+// vertex contributes at most one coefficient per pair, including repeated inputs.
 #[reduction(transform = {
     exact {
         num_vars = "num_inputs * num_outputs",
-        num_constraints = "num_vertices - num_inputs - num_outputs",
     },
     upper_bound {
-        num_nonzeros = "(num_inputs * num_outputs) * (num_vertices - num_inputs - num_outputs)",
+        num_constraints = "num_vertices - 1",
+        num_nonzeros = "num_inputs * num_outputs * (num_vertices - 1)",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {

@@ -5,15 +5,12 @@
 //!   y_a  (a = m..2m-1) — binary indicator: y_a = 1 iff f_a > 0
 //!
 //! Constraints:
-//!   f_a ≤ c(a)          — capacity (m constraints)
 //!   f_a ≤ c(a) · y_a    — linking: forces y_a = 1 when f_a > 0 (m constraints)
 //!   y_a ≤ 1             — binary bound on indicators (m constraints)
-//!   conservation at non-terminal vertices (|V|-2 equality constraints)
+//!   conservation at non-isolated non-terminal vertices (at most |V|-2 rows)
 //!   net flow into sink ≥ R (1 constraint)
 //!
-//! Total: 3m + |V| - 1 constraints (but we omit redundant capacity since
-//! linking already implies f_a ≤ c(a) when y_a ≤ 1).
-//! Actually we keep all for clarity: 2m + |V| - 1 constraints.
+//! Total: at most 2m + |V| - 1 constraints. Capacity is also a variable bound.
 //!
 //! Objective: minimize Σ p(a) · y_a.
 //! Extraction: first m variables are the flow values.
@@ -53,13 +50,15 @@ impl ReductionResult for ReductionMECFToILP {
     }
 }
 
+// Linking and indicator rows contribute at most 3m nonzeros. Conservation
+// and the sink row together use each arc at most once per endpoint: at most 2m.
 #[reduction(transform = {
     exact {
         num_vars = "2 * num_edges",
-        num_constraints = "2 * num_edges + num_vertices - 1",
     },
     upper_bound {
-        num_nonzeros = "(2 * num_edges) * (2 * num_edges + num_vertices - 1)",
+        num_constraints = "2 * num_edges + num_vertices - 1",
+        num_nonzeros = "5 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {

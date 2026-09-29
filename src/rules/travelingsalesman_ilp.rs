@@ -65,13 +65,18 @@ impl ReductionResult for ReductionTSPToILP {
     }
 }
 
+// Assignment contributes 2n rows and 2n² coefficients. Absent ordered pairs
+// contribute at most n²(n-1) rows with two coefficients each. The 2nm products
+// each contribute three rows and at most seven normalized coefficients.
+// Edge occurrences cannot be subtracted from absent pairs: duplicates and
+// loops increase m without removing distinct non-loop pairs.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
-        num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",
     },
     upper_bound {
-        num_nonzeros = "(num_vertices^2 + 2 * num_vertices * num_edges) * (num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges)",
+        num_constraints = "num_vertices^2 * (num_vertices - 1) + 2 * num_vertices + 6 * num_vertices * num_edges",
+        num_nonzeros = "2 * num_vertices^3 + 14 * num_vertices * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
