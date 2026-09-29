@@ -21,7 +21,6 @@ inventory::submit! {
         source_variant_fn: <MinimumVertexCover<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <MinimumMaximalMatching<SimpleGraph> as Problem>::variant,
         parameter_declarations_fn: || ReductionParameterDeclarations {
-
             fields: vec![
                 ("num_vertices", crate::parameters::ParameterRelation::Exact, crate::expr::Expr::variable("num_vertices")),
                 ("num_edges", crate::parameters::ParameterRelation::Exact, crate::expr::Expr::variable("num_edges")),

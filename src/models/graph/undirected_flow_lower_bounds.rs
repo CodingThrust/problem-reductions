@@ -109,6 +109,9 @@ impl UndirectedFlowLowerBounds {
         }
 
         let num_vertices = graph.num_vertices();
+        if capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
+        }
         if source >= num_vertices {
             return Err(format!("source must be less than num_vertices ({num_vertices})").into());
         }

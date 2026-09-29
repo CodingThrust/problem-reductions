@@ -32,7 +32,6 @@ inventory::submit! {
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
         parameter_declarations_fn: || ReductionParameterDeclarations {
-
             fields: vec![("num_items", crate::parameters::ParameterRelation::Exact, Expr::variable("num_elements"))],
             unavailable: vec![crate::rules::registry::UnavailableParameterField {
                 field: "capacity",

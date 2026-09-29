@@ -73,37 +73,15 @@ fn target_parameters(
             reduced.target_problem_any(),
         ));
     }
-    let source_json = source.serialize_json();
-    let target_json = if entry.turing {
-        json!({"inner": source_json, "bound": 2})
-    } else if entry.source_name == "MinimumVertexCover"
-        && entry.target_name == "MinimumMaximalMatching"
-    {
-        json!({"graph": source_json["graph"]})
-    } else if entry.source_name == "SubsetSum" && entry.target_name == "IntegerKnapsack" {
-        let sizes: Vec<i64> = source_json["sizes"]
-            .as_array()
-            .ok_or("SubsetSum sizes are not an array")?
-            .iter()
-            .map(|item| {
-                item.as_str()
-                    .ok_or("size is not a string")?
-                    .parse()
-                    .map_err(|error| format!("{error}"))
-            })
-            .collect::<Result<_, String>>()?;
-        let capacity: i64 = source_json["target"]
-            .as_str()
-            .ok_or("target is not a string")?
-            .parse()
-            .map_err(|error| format!("{error}"))?;
-        json!({"sizes": sizes, "values": sizes, "capacity": capacity})
-    } else {
-        return Err("no executable reduction or test construction".into());
-    };
-    let target = crate::registry::load_dyn(entry.target_name, &variant, target_json)
-        .map_err(|error| error.to_string())?;
-    Ok(target.parameters_dyn())
+    if let Some(reduce) = entry.reduce_aggregate_fn {
+        let reduced = reduce(source.as_any()).map_err(|error| error.to_string())?;
+        return Ok(ReductionGraph::compute_problem_parameters(
+            entry.target_name,
+            &variant,
+            reduced.target_problem_any(),
+        ));
+    }
+    Err("no executable reduction".into())
 }
 
 fn source_for(
@@ -134,26 +112,29 @@ fn source_for(
             .unwrap(),
         ));
     }
+    // Reuse existing examples with the same model name when a compatible variant
+    // has no dedicated example; its factory still enforces the concrete type.
+    for ((name, _), examples) in sources {
+        if name != entry.source_name {
+            continue;
+        }
+        for example in examples {
+            if let Ok(source) = (registered.factory)(example.clone()) {
+                if target_parameters(entry, source.as_ref()).is_ok() {
+                    return Ok(source);
+                }
+            }
+        }
+    }
+    // Geometric variants without canonical instances use the existing seeded
+    // graph generators. Do not guess values for arbitrary new generator inputs:
+    // a new contract should supply a usable example or explicit generator data.
     let random = registered
         .random
         .ok_or_else(|| format!("no usable canonical source for {key:?}"))?;
-    let mut args = serde_json::Map::new();
-    for input in (random.inputs)() {
-        let value = match input.name {
-            "num_vertices" => json!(5),
-            "seed" => json!(42),
-            "k" => json!(if variant.get("k").is_some_and(|v| v == "K3") {
-                3
-            } else {
-                2
-            }),
-            "bound" => json!(2),
-            _ if !input.required => continue,
-            name => return Err(format!("unsupported random input {name}")),
-        };
-        args.insert(input.name.to_string(), value);
-    }
-    (random.generate)(Value::Object(args)).map_err(|error| error.to_string())
+    (random.generate)(json!({"num_vertices": 5, "seed": 42})).map_err(|error| {
+        format!("no usable canonical source for {key:?}; graph generator: {error}")
+    })
 }
 
 #[test]
@@ -196,12 +177,22 @@ fn bounded_ilp_reductions_support_binary_encoding() {
 }
 
 #[test]
-fn every_parameter_formula_matches_a_constructed_target() {
+fn every_executable_parameter_formula_matches_a_constructed_target() {
     let sources = canonical_sources();
     let mut checked = 0;
     let mut expected = 0;
     let mut failures = Vec::new();
     for entry in crate::rules::registry::reduction_entries() {
+        // Metadata-only and Turing edges have no single target constructor.
+        // Their declarations are checked by symbolic_parameter_contracts; do not
+        // manufacture a target here and claim it verifies a real executor.
+        if entry.reduce_fn.is_none() && entry.reduce_aggregate_fn.is_none() {
+            eprintln!(
+                "no executable size check: {} -> {}",
+                entry.source_name, entry.target_name
+            );
+            continue;
+        }
         let contract = entry.parameter_contract().unwrap();
         let Some(transform) = contract.transform() else {
             continue;
