@@ -93,6 +93,7 @@ fn test_kcoloring_to_qubo_all_small_graphs_and_configurations() {
             for k in 0..=3 {
                 let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges.clone()), k);
                 let reduction = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
+                crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
                 let target = AggregateReductionResult::target_problem(&reduction).inner();
                 assert_eq!(target.num_vars(), n * k);
                 let mut minimum = i64::MAX;

@@ -62,16 +62,19 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
+// Five edge variables per edge; all row blocks are unconditional. Nonzeros:
+// cardinality m, binary m, two conservation blocks 8m, linking 6m, capacity 2m.
+#[reduction(transform = {
+    exact {
         num_vars = "5 * num_edges",
         num_constraints = "5 * num_edges + 2 * num_vertices + 1",
-        num_nonzeros = "(5 * num_edges) * (5 * num_edges + 2 * num_vertices + 1)",
     },
-    unavailable = {
-        max_constraint_magnitude_bits = "capacity and vertex requirements are not registered source parameters",
+    upper_bound {
+        num_nonzeros = "18 * num_edges",
     },
-)]
+}, unavailable = {
+    max_constraint_magnitude_bits = "capacity and vertex requirements are not registered source parameters",
+})]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 

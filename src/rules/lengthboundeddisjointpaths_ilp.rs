@@ -100,14 +100,16 @@ impl ReductionResult for ReductionLBDPToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "num_vertices + 1",
+#[reduction(transform = {
+    exact {
         num_vars = "max_paths * 2 * num_edges + max_paths",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
         num_nonzeros = "(max_paths * 2 * num_edges + max_paths) * (max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths)",
     },
-)]
+})]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
     type Result = ReductionLBDPToILP;
 

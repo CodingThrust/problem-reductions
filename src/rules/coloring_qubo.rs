@@ -179,10 +179,16 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 }
 
 // Register only the KN variant in the reduction graph
+// There are n * binomial(k, 2) within-vertex interactions and at most m*k
+// edge interactions: parallel edges share coefficients and loops are diagonal.
 #[reduction(
-    transform = exact {
-        num_vars = "num_vertices * num_colors",
-        num_quadratic_terms = "num_vertices * num_colors * (num_colors - 1) / 2 + num_edges * num_colors",
+    transform = {
+        exact {
+            num_vars = "num_vertices * num_colors",
+        },
+        upper_bound {
+            num_quadratic_terms = "num_vertices * num_colors * (num_colors - 1) / 2 + num_edges * num_colors",
+        },
     }
 )]
 impl ReduceTo<Decision<QUBO<i64>>> for KColoring<KN, SimpleGraph> {

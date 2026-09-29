@@ -1,198 +1,87 @@
 ---
 name: find-problem
-description: Reverse of find-solver — given a solver for a model, discover what other problems it can handle via incoming reductions, ranked by effective complexity
+description: Use when someone has (or plans) a solver for one model and wants to know which other problems it can handle through incoming reductions — ranks those problems by effective complexity against their best-known bounds and writes a solution doc
 ---
 
 # Find Problem
 
-Given a solver for a specific model, discover what other problems it can handle by exploring the reduction graph in the incoming direction. Produces a solution doc ranking all reachable problems by effective complexity.
+Reverse of `find-solver`: given a solver for model `M` with complexity `T(M's parameters)`,
+find the problems that reduce to `M`, compute what the solver costs on each, and document the
+worthwhile ones in `docs/solutions/`.
 
-## Invocation
-
-```
-/find-problem               — start from Step 1 (identify solver)
-/find-problem <ModelName>   — skip model identification, ask for complexity
-```
+Invocation: `/find-problem` or `/find-problem <Model>`.
 
 <HARD-GATE>
-Do NOT modify project source files, write Rust code, or create PRs.
-Only outputs: `pred` CLI commands executed live, web searches, conversational commentary, and one solution doc in `docs/solutions/`.
-If the user asks about contributing code, point them to `/add-model`, `/add-rule`, or `/propose`.
+No source edits, no Rust, no PRs. The only file written is the solution doc, after the user
+confirms its filename. For contributions, point to `/propose`.
 </HARD-GATE>
 
-## Audience
+**Output visibility:** Bash output is hidden from the user. For every `pred` / `pred-sym`
+command, say why, paste the full output in a fenced block, then interpret briefly. Never invent
+output. Ask one question at a time and mark a recommendation.
 
-Users who have built or have access to a solver for a specific problem model and want to understand the full scope of problems their solver can handle through reductions.
+`make cli` installs both `pred` and `pred-sym`; run it only if they are missing.
 
-## Flow Overview
+## 1. Solver and complexity
 
-```
-Step 1: Identify Solver (user provides model + complexity)
-Step 2: Discover Reachable Problems (pred from --hops 3, compute effective complexity)
-Step 3: Rank and Present (table ranked by effective complexity, web search for applications)
-Step 4: Generate Solution Doc (docs/solutions/<name>.md)
-```
+Validate the model with `pred show <Model>` and show its `parameters`. Get the solver's time
+complexity written in those parameter names (e.g. `1.1996^num_vertices`); help formalize
+informal answers ("exponential in n").
 
-## Prerequisites
-
-Build the CLI tools before starting: `make cli` (builds `pred` and `pred-sym`). All commands below assume `pred` and `pred-sym` are available via `cargo run -p problemreductions-cli --bin pred --` and `cargo run -p problemreductions-cli --bin pred-sym --` respectively.
-
-## CRITICAL: Output Visibility
-
-Bash tool results are hidden from the user in the Claude Code UI. **After every `pred` / `pred-sym` command, you MUST copy-paste the full stdout/stderr into your response as text.** The pattern for every command is:
-
-1. Announce the command and why: "Let me run `pred to MIS --hops 3` to discover all problems that can reduce to MIS:"
-2. Run the command via the Bash tool
-3. Copy the COMPLETE output into your text response inside a fenced code block
-4. Then add your brief explanation
-
-Never skip step 1 or 3.
-
----
-
-## Step 1: Identify Solver
-
-**Goal:** Get the user's model name and solver complexity.
-
-**If invoked as `/find-problem <ModelName>`:** validate with `pred show <ModelName>`. If it exists, show the output (including parameters), then ask for solver complexity.
-
-**If invoked as `/find-problem`:** ask using `AskUserQuestion`: "Which problem model does your solver handle?" Validate the answer with `pred show`.
-
-**Ask for complexity** using `AskUserQuestion`: "What is your solver's time complexity? Use the size field names from the output above (e.g., `O(1.1996^num_vertices)`, `O(2^(num_variables/3))`)."
-
-- Variable names should match the model's parameters shown in `pred show` output
-- If the user gives informal notation (e.g., "exponential in n"), help them formalize it using the model's actual size field names
-
-**Exit condition:** Validated model name + complexity expression with variables matching the model's parameters. Proceed to Step 2.
-
----
-
-## Step 2: Discover Reachable Problems
-
-**Goal:** Find all problems that can reduce to the user's model and compute effective complexity for each.
-
-**Actions:**
-
-1. **Run `pred to <model> --hops 3`** to find all problems that can reduce to the user's model within 3 hops (incoming direction). Copy-paste the full output.
-
-2. **For each discovered problem**, run:
-   - `pred path <source> <model>` — get the cheapest witness-capable reduction path
-   - **IMPORTANT:** Use the exact variant-qualified name from `pred to` output (e.g., `SpinGlass/SimpleGraph/f64`, not bare `SpinGlass`). Bare names resolve to the default variant, which may differ from the reachable variant and cause false "no path" errors.
-   - `pred show <source>` — get best-known brute-force complexity
-
-3. **Compute effective complexity** for each source problem:
-   - Take the user's solver complexity expression (e.g., `O(1.1996^num_vertices)`)
-   - Substitute the overhead expressions from the reduction path into the solver's variables
-   - Example: if MVC→MIS has overhead `num_vertices = num_vertices`, then solving MVC via MIS costs `O(1.1996^num_vertices)` — same as MIS
-   - Example: if overhead is `num_vertices = num_clauses * 3`, then effective complexity is `O(1.1996^(3 * num_clauses))`
-   - **Use `pred-sym` to verify:** after manual substitution, run `pred-sym big-o "<effective_expr>"` to normalize the expression. Use `pred-sym eval --vars <bindings> "<expr>"` at a concrete size (e.g., n=20) to numerically verify the simplification.
-
-4. **Compare to best-known**: for each source, compare effective complexity to the source's own best-known complexity from `pred show`. Classify as:
-   - **Better** — effective complexity has a smaller base or exponent than best-known
-   - **Similar** — comparable asymptotic behavior
-   - **Worse** — effective complexity exceeds best-known (reduction overhead makes it impractical)
-   - **When effective and best-known use different variables** (e.g., `O(1.5^num_subsets)` vs `O(2^universe_size)`): this happens when a problem has multiple independent parameters and the best-known algorithm's dominant variable differs from the reduction overhead's. In this case, use `pred-sym eval` at representative concrete values to determine the comparison. State the result conditionally: "Better when num_subsets ≤ c·universe_size" with the crossover ratio.
-
-5. **Web search** only the **Better** and **Similar** candidates for real-world applications (not the Worse ones). Use `WebSearch` tool with query "<problem name> real-world applications".
-
-**If `--hops 3` returns more than 15 results:** present only the top 10 by effective complexity and mention the rest are available if the user wants to see them.
-
-**Proceed to Step 3.**
-
----
-
-## Step 3: Rank and Present
-
-**Goal:** Show all discovered problems ranked by practical usefulness.
-
-Present a ranked table (most practical first). **Mark a recommendation** — highlight the "Better" entries as the most valuable discoveries:
-
-| # | Problem | Hops | Overhead | Effective Complexity | vs Best-Known | Applications |
-|---|---------|------|----------|---------------------|---------------|--------------|
-| 1 | **MinimumVertexCover** | 1 | same size | O(1.1996^n) | **Better** | Network monitoring |
-| 2 | **MaximumClique** | 2 | complement graph | O(1.1996^n) | **Better** | Social network cliques |
-| 3 | GraphColoring | 3 | n^2 vars | O(1.1996^(n^2)) | Worse | Register allocation |
-
-Ask using `AskUserQuestion`: "Which problems would you like included in the solution doc? Pick numbers, or 'all practical' for only the Better/Similar ones."
-
-**Proceed to Step 4 with the selected problems.**
-
----
-
-## Step 4: Generate Solution Doc
-
-**Goal:** Write a static reference document listing all selected problems and how to solve them via the user's model.
-
-**File path:** `docs/solutions/problems-solvable-via-<Model>-<solver>.md`
-
-Where:
-- `<Model>` is the library model name (e.g., `MIS`, `QUBO`)
-- `<solver>` is a short label for the user's solver (e.g., `custom-1.1996`, `ILP`)
-
-Ask the user to confirm the filename before writing.
-
-**Before writing the doc**, run `pred create <Source> --help` for each selected problem to verify the correct CLI flag names. Use the flags exactly as shown in the help output.
-
-**Doc template — write all sections:**
-
-```markdown
-# Problems Solvable via <Model> (<Solver Complexity>)
-
-## Overview
-
-<One paragraph: your solver for X can handle these Y problems via reductions. Brief explanation of the ranking methodology.>
-
-## Summary Table
-
-| Problem | Hops | Overhead | Effective Complexity | vs Best-Known | Applications |
-|---------|------|----------|---------------------|---------------|--------------|
-| ... | ... | ... | ... | ... | ... |
-
-## <Problem 1> -> <Model>
-
-- **What it is:** <brief description + real-world applications from web search>
-- **Reduction path:** <Source> -> ... -> <Model>
-- **Overhead:** <field-by-field>
-- **Effective complexity:** <composed expression>
-- **vs best-known:** <Better/Similar/Worse — with the source's brute-force complexity for comparison>
-
-### CLI Commands
+## 2. Discover and score sources
 
 ```bash
-# Create a source problem instance
+pred to <Model> --hops 3                    # incoming neighbors (default is 1 hop)
+pred path <Source> <Model> --limit 5        # candidate paths with per-step and Overall: formulas
+pred show <Source>                          # the source's own best-known complexity
+```
+
+- Use the exact variant-qualified names from `pred to` (e.g. `SpinGlass/SimpleGraph/f64`); bare
+  names resolve to the default variant and can give false "no path" results.
+- `pred path` returns a set of paths, not a single cheapest one; pick the path with the best
+  composed overhead and say which. `unavailable` overhead formulas mean the effective
+  complexity cannot be computed symbolically; report that rather than guess.
+- **Effective complexity** = the solver's expression with each `M` parameter replaced by the
+  path's `Overall:` formula in source parameters. Check every substitution:
+
+```bash
+pred-sym big-o "1.1996^(3 * num_clauses)"            # normal form
+pred-sym eval --vars num_clauses=20 "1.1996^(3 * num_clauses)"
+pred-sym compare "<effective>" "<best-known>"        # exits 1 when not Big-O equal
+```
+
+- Classify against the source's best-known bound: **Better**, **Similar**, or **Worse**. When
+  the two bounds use different variables (e.g. `1.5^num_subsets` vs `2^universe_size`), evaluate
+  both with `pred-sym eval` at representative sizes and state the crossover condition
+  ("better when num_subsets ≤ c·universe_size").
+- WebSearch real-world applications only for Better and Similar sources.
+
+If more than ~15 sources come back, show the top 10 by effective complexity and offer the rest.
+
+## 3. Rank and choose
+
+Present one table (problem, hops, overhead, effective complexity, vs best-known, applications),
+Better entries bolded. The user picks which go into the doc.
+
+## 4. Solution doc
+
+Propose `docs/solutions/problems-solvable-via-<Model>-<solver>.md` (`<solver>` a short label such
+as `custom-1.1996` or `ILP`) and write it only after confirmation. Contents: overview and ranking
+method, summary table, then per problem: what it is and where it appears, path, overhead,
+effective complexity, comparison, and commands. Run `pred create <Source> --help` for each
+selected source and use its real flags. Command pattern, verified against the current CLI:
+
+```bash
 pred create <Source> <flags> -o input.json
-
-# Reduce to your solver's model
-pred reduce input.json --to <Model> -o bundle.json
-
-# Solve (built-in ILP or your external solver)
-pred solve bundle.json --solver ilp --timeout 60
+pred path <Source> <Model> --json | jq '.paths[0]' > route.json   # the entry you chose
+pred reduce input.json --via route.json -o bundle.json            # bundle.target is the M instance
+pred solve bundle.json --timeout 30                               # built-in solver, mapped back
 ```
 
-## <Problem 2> -> <Model>
+For an external solver, feed it `bundle.target` and map its answer back with
+`pred extract bundle.json --config '<target solution>'`. Whether a built-in solver exists for
+`M` is shown by `pred inspect` on an instance (`solver_capabilities`); reachability alone does
+not imply one.
 
-...
-```
-
-**After writing the doc:**
-
-1. Show the user the generated filename and a brief summary of what's in it.
-2. **If a built-in solver covers the model** (brute-force or ILP), offer to run a live demo with one of the "Better" problems: "Want me to run an example end-to-end so you can see it in action?"
-3. Ask if they want to make any changes before finishing.
-
----
-
-## Key Behaviors
-
-- **One question at a time.** Never ask multiple questions in one message. Use `AskUserQuestion` for every decision point.
-- **Web search only Better/Similar candidates.** In Step 2, web search only the problems classified as Better or Similar for real-world use cases. Skip Worse ones unless the user asks for all. Never guess applications from internal knowledge alone.
-- **Show full output.** After every Bash tool call, copy-paste the COMPLETE output into your text response as a fenced code block. Bash tool results are hidden in the UI.
-- **Announce every command.** Before running, say what command you're using and why.
-- **Always use variant-qualified names in `pred path`.** When `pred to` returns names like `SpinGlass/SimpleGraph/f64`, use that exact string in subsequent `pred path` calls. Bare names (e.g., `SpinGlass`) resolve to the default variant, which may differ from the reachable variant and cause false "no path" errors.
-- **Recommend, don't just list.** When presenting the ranked table in Step 3, bold the "Better" entries as the most valuable discoveries. The user can still pick freely.
-- **Compact formatting.** Write explanations as plain paragraphs. Do not use blockquote `>` syntax for explanations. Keep tight: command announcement, code block output, 1-3 sentence explanation.
-- **Conversational tone.** Guided consultation, not a lecture.
-- **Live execution.** Every `pred` command runs for real. No fake output.
-- **Graceful fallbacks.** If `pred to` returns no results (no incoming reductions), suggest trying with more hops or a different model. If `pred path` fails for a specific source, skip it and note it in the table.
-- **Help with complexity notation.** If the user gives informal complexity, show `pred show <model>` parameters and help them write a formal expression.
-- **Cap results at 10.** If discovery returns many problems, show top 10 by effective complexity and offer to show more.
+After writing, summarize the doc, offer a live demo on one Better source when a built-in solver
+applies (`--timeout 30`), and ask for changes.

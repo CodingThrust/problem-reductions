@@ -4,6 +4,34 @@ use crate::traits::Problem;
 use crate::types::SolutionAggregate;
 use std::collections::HashSet;
 
+pub(crate) fn assert_parameter_predictions<R: ReductionResult>(source: &R::Source, reduction: &R) {
+    use crate::parameters::ParameterRelation;
+
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == R::Source::NAME
+                && entry.source_variant() == R::Source::variant()
+                && entry.target_name == R::Target::NAME
+                && entry.target_variant() == R::Target::variant()
+        })
+        .expect("registered reduction");
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    let predicted = transform.evaluate(&source.parameters()).unwrap();
+    let actual = reduction.target_problem().parameters();
+    for (field, _) in transform.expressions() {
+        let predicted = predicted.get(field).unwrap();
+        let actual = actual.get(field).unwrap();
+        match transform.relation(field).unwrap() {
+            ParameterRelation::Exact => assert_eq!(predicted, actual, "{field}"),
+            ParameterRelation::UpperBound => {
+                assert!(predicted >= actual, "{field}: {predicted} < {actual}")
+            }
+        }
+    }
+}
+
 fn verify_optimization_round_trip<Source, TargetSolution, Extract>(
     source: &Source,
     target_solutions: Vec<TargetSolution>,
