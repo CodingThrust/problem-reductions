@@ -316,25 +316,15 @@ fn test_json_export() {
 }
 
 #[test]
-fn test_subsetsum_to_integerknapsack_is_proof_only() {
-    let graph = ReductionGraph::new();
+fn subset_sum_embedding_does_not_define_a_catalog_reduction() {
+    let source = SubsetSum::new(vec![3u32], 6u32);
+    let target = IntegerKnapsack::new(vec![3], vec![3], 6).unwrap();
+    let solver = BruteForce::new();
 
-    assert!(graph.has_direct_reduction_by_name("SubsetSum", "IntegerKnapsack"));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "SubsetSum",
-        "IntegerKnapsack",
-        ReductionMode::Witness,
-    ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "SubsetSum",
-        "IntegerKnapsack",
-        ReductionMode::Aggregate,
-    ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "SubsetSum",
-        "IntegerKnapsack",
-        ReductionMode::Turing,
-    ));
+    assert!(solver.solve(&source).unwrap().is_none());
+    let witness = solver.solve(&target).unwrap().unwrap();
+    assert_eq!(target.evaluate(&witness).unwrap(), Max(Some(6)));
+    assert!(!ReductionGraph::new().has_direct_reduction_by_name("SubsetSum", "IntegerKnapsack"));
 }
 
 #[test]
@@ -800,25 +790,19 @@ fn test_has_direct_reduction_by_name_mode() {
 }
 
 #[test]
-fn test_minimumvertexcover_to_minimummaximalmatching_is_proof_only_direct_edge() {
-    let graph = ReductionGraph::new();
+fn vertex_cover_identity_does_not_define_a_matching_reduction() {
+    use crate::models::graph::MinimumMaximalMatching;
+    let graph = SimpleGraph::cycle(5);
+    let source = MinimumVertexCover::new(graph.clone(), vec![One; 5]);
+    let target = MinimumMaximalMatching::new(graph);
+    let solver = BruteForce::new();
 
-    assert!(graph.has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "MinimumVertexCover",
-        "MinimumMaximalMatching",
-        ReductionMode::Witness,
-    ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "MinimumVertexCover",
-        "MinimumMaximalMatching",
-        ReductionMode::Aggregate,
-    ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
-        "MinimumVertexCover",
-        "MinimumMaximalMatching",
-        ReductionMode::Turing,
-    ));
+    let source_witness = solver.solve(&source).unwrap().unwrap();
+    let target_witness = solver.solve(&target).unwrap().unwrap();
+    assert_eq!(source.evaluate(&source_witness).unwrap(), Min(Some(3)));
+    assert_eq!(target.evaluate(&target_witness).unwrap(), Min(Some(2)));
+    assert!(!ReductionGraph::new()
+        .has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",));
 }
 
 #[test]
