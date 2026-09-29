@@ -1,6 +1,6 @@
 //! Bottleneck TSP to ILP using cyclic positions and a selected maximum edge.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -175,11 +175,8 @@ impl ReduceTo<ILP<bool>> for BottleneckTravelingSalesman {
             .enumerate()
             .map(|(edge, weight)| (q(edge), weight))
             .collect();
-        let variables = vec![IntegerVariable::binary(); num_vars];
-
-        let target =
-            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionBTSPToILP {
             target,
             num_vertices: n,

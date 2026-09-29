@@ -4,7 +4,7 @@
 //! crossing flags y_t, and partition labels used directly as a topological order.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::AcyclicPartition;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -147,9 +147,7 @@ impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
             constraints.push(LinearConstraint::le(terms, 0));
         }
 
-        let variables = vec![IntegerVariable::binary(); num_vars];
-
-        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
 
         Ok(ReductionAcyclicPartitionToILP { target, n })

@@ -26,15 +26,23 @@ fn test_maximumedgeweightedkclique_to_ilp_closed_loop() {
 
 #[test]
 fn test_maximumedgeweightedkclique_to_ilp_structure() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+    let graph = SimpleGraph::new(2, vec![(0, 1), (0, 1)]);
+    let source = MaximumEdgeWeightedKClique::new(graph.clone(), vec![1, 1], 2).unwrap();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     let ilp = reduction.target_problem();
 
-    // 4 vertex variables + 5 edge variables = 9.
-    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.num_vars(), 4);
+    // One cardinality row, no missing pairs, three product rows per stored edge.
+    assert_eq!(ilp.num_constraints(), 7);
     assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
-    // Objective is on the edge variables (indices 4..9).
-    assert_eq!(ilp.objective(), vec![(4, 5), (5, 4), (6, -1), (7, 1)]);
+    assert_eq!(ilp.objective(), vec![(2, 1), (3, 1)]);
+    crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
+    assert_bf_vs_ilp(&source, &reduction);
+
+    let source = MaximumEdgeWeightedKClique::new(graph, vec![1.0, 1.0], 2).unwrap();
+    let reduction = ReduceTo::<ILP<bool, f64>>::reduce_to(&source).unwrap();
+    crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]

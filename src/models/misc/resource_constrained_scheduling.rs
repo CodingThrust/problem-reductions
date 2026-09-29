@@ -225,33 +225,25 @@ impl Problem for ResourceConstrainedScheduling {
 
                 // Empty slots consume no resources. Keep ascending slot order and
                 // task order within each slot for checked accumulation.
-                let mut occupied = config.clone();
-                occupied.sort_unstable();
-                occupied.dedup();
-                for u in occupied {
-                    // Collect tasks scheduled at time slot u
-                    let mut task_count = 0usize;
+                let mut tasks: Vec<_> = (0..n).collect();
+                tasks.sort_unstable_by_key(|&task| (config[task], task));
+                for slot_tasks in tasks.chunk_by(|&a, &b| config[a] == config[b]) {
                     let mut resource_usage = vec![0i64; r];
-
-                    for (t, &slot) in config.iter().enumerate() {
-                        if slot == u {
-                            task_count += 1;
-                            // Accumulate resource usage
-                            for (usage, &req) in resource_usage
-                                .iter_mut()
-                                .zip(self.resource_requirements[t].iter())
-                            {
-                                *usage = usage.checked_add(req).ok_or_else(|| {
-                                    crate::traits::EvaluationError::IntegerOverflow(
-                                        "summing scheduled resource usage".to_string(),
-                                    )
-                                })?;
-                            }
+                    for &task in slot_tasks {
+                        for (usage, &req) in resource_usage
+                            .iter_mut()
+                            .zip(self.resource_requirements[task].iter())
+                        {
+                            *usage = usage.checked_add(req).ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "summing scheduled resource usage".to_string(),
+                                )
+                            })?;
                         }
                     }
 
                     // Check processor capacity
-                    if task_count > self.num_processors {
+                    if slot_tasks.len() > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
 

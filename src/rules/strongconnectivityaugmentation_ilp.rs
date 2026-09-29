@@ -4,7 +4,7 @@
 //! sending flow both from a root to every vertex and back again.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -183,9 +183,7 @@ impl ReduceTo<ILP<bool>> for StrongConnectivityAugmentation<i64> {
         }
 
         // Each connectivity certificate can be a simple unit-flow path; cycles are unnecessary.
-        let variables = vec![IntegerVariable::binary(); num_vars];
-
-        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
         Ok(ReductionSCAToILP {
             target,

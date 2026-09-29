@@ -112,14 +112,15 @@ impl<K: KValue, G: Graph + crate::variant::VariantParam> crate::rules::Aggregate
 {
 }
 
-// Register only the KN variant in the reduction graph
+// Register only the KN variant in the reduction graph. Each edge row has at most
+// two nonzeros: a self-loop merges both endpoint terms into one coefficient.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices * num_colors",
         num_constraints = "num_vertices + num_edges * num_colors",
-        num_nonzeros = "num_colors * (num_vertices + 2 * num_edges)",
     },
     upper_bound {
+        num_nonzeros = "num_colors * (num_vertices + 2 * num_edges)",
         max_constraint_magnitude_bits = "2",
     },
 })]

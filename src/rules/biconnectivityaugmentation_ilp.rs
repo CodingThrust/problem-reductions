@@ -4,7 +4,7 @@
 //! certify that the remaining augmented graph stays connected via unit-flow
 //! commodities from a surviving root to every other surviving vertex.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BiconnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -220,13 +220,8 @@ impl ReduceTo<ILP<bool>> for BiconnectivityAugmentation<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::with_variables(
-            vec![IntegerVariable::binary(); num_vars],
-            constraints,
-            vec![],
-            ObjectiveSense::Minimize,
-        )
-        .map_err(Self::target_construction)?;
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionBiconnAugToILP {
             target,
             num_candidates: p,

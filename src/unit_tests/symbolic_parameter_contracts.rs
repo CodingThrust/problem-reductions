@@ -128,6 +128,7 @@ fn every_registered_rule_has_one_valid_parameter_contract() {
 #[cfg(feature = "example-db")]
 #[test]
 fn canonical_examples_satisfy_upper_bound_parameter_contracts() {
+    let graph = ReductionGraph::new();
     for spec in crate::rules::canonical_rule_example_specs() {
         let example = (spec.build)();
         let source = crate::registry::load_dyn(
@@ -142,7 +143,6 @@ fn canonical_examples_satisfy_upper_bound_parameter_contracts() {
             example.target.instance.clone(),
         )
         .unwrap();
-        let graph = ReductionGraph::new();
         let entry = graph
             .find_entry(
                 &example.source.problem,

@@ -13224,6 +13224,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
+  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. A self-loop merges two endpoint terms, so this is an upper bound rather than an equality.
+
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
@@ -13623,6 +13625,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
 
   _Correctness._ ($arrow.r.double$) Any $k$-clique $S subset.eq V$ yields a feasible solution by setting $x_v = 1$ iff $v in S$ and $y_(u v) = 1$ iff $u, v in S$; the non-edge constraints are satisfied because $G[S]$ is a clique, and the McCormick triple enforces $y_(u v) = x_u and x_v$. The objective equals $sum_({u, v} in E(S)) w_(u v)$. ($arrow.l.double$) Any feasible solution with cardinality $k$ selects $k$ vertices forming a clique (the non-edge constraints rule out non-adjacent pairs), and the McCormick lower bound $y_(u v) >= x_u + x_v - 1$ forces $y_(u v) = 1$ whenever both endpoints are selected, even when $w_(u v) < 0$.
+
+  _Parameter bounds._ For $n$ vertices and $m$ stored edge occurrences, there is one cardinality row, at most $n(n-1)/2$ missing-pair rows, and $3m$ product rows. The nonzero count is at most $n+n(n-1)+7m=n^2+7m$. These bounds cover both coefficient variants, including repeated edges and loops; normalization can only reduce the nonzero count.
 
   _Solution extraction._ Take the first $|V|$ entries of the ILP solution as the source selection vector.
 ]
@@ -14706,6 +14710,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Given an edge-clique cover $C_0, dots, C_(t-1)$ with $t <= m$, map clique $C_k$ to slot $k$: set $z_k = 1$, set $x_(v,k) = 1$ exactly for $v in C_k$, and set $y_(e,k) = 1$ exactly for the edges $e$ whose endpoints both lie in $C_k$. Because each $C_k$ is a clique, no non-edge constraint is violated. Every covered edge satisfies at least one coverage inequality, so the ILP objective is at most $t$.
 
   ($arrow.l.double$) Conversely, let $(x, z, y)$ be any feasible ILP solution. For each slot $k$, the vertices with $x_(v,k) = 1$ form a clique because every non-edge pair is forbidden from appearing together in that slot. If $y_({u,v},k) = 1$, the McCormick constraints force both endpoints $u$ and $v$ into slot $k$, so the edge is indeed contained in that clique. The coverage inequalities therefore certify that every source edge lies in at least one clique slot, giving a valid edge-clique cover. Since the objective counts active slots, minimizing it yields a minimum cover.
+
+  _Parameter bounds._ With $n$ vertices and $m$ stored edge occurrences, the four construction blocks contribute $n m$ activation rows, at most $n(n-1)m/2$ missing-pair rows, $3m^2$ product rows, and $m$ coverage rows. Their nonzeros are bounded respectively by $2n m$, $n(n-1)m$, $7m^2$, and $m^2$, giving at most $2n m+n(n-1)m+8m^2$. Repeated edges and loops are retained as occurrences; subtracting $m$ from the number of distinct vertex pairs would not count missing pairs correctly.
 
   _Solution extraction._ For each source edge $e$, choose any slot $k$ with $y_(e,k) = 1$ and output the label $k$. The extracted edge-to-slot labeling is valid because every slot induces a clique and every edge is assigned to at least one covering slot.
 ]

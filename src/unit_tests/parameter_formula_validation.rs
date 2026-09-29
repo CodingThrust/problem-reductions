@@ -100,18 +100,6 @@ fn source_for(
             }
         }
     }
-    if entry.source_name == "ILP" && variant.get("variable").is_some_and(|v| v == "i64") {
-        use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
-        return Ok(Box::new(
-            ILP::<i64>::with_variables(
-                vec![IntegerVariable::new(Some(0), Some(3)).unwrap()],
-                vec![LinearConstraint::le(vec![(0, 1)], 3)],
-                vec![(0, 1)],
-                ObjectiveSense::Minimize,
-            )
-            .unwrap(),
-        ));
-    }
     // Reuse existing examples with the same model name when a compatible variant
     // has no dedicated example; its factory still enforces the concrete type.
     for ((name, _), examples) in sources {

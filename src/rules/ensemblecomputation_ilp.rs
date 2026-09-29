@@ -1,6 +1,6 @@
 //! Polynomial-size circuit-slot reduction from EnsembleComputation to `ILP<bool>`.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::EnsembleComputation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -280,11 +280,8 @@ impl ReduceTo<ILP<bool>> for EnsembleComputation {
         }
 
         let objective = (0..budget).map(|step| (activity_base + step, 1)).collect();
-        let variables = vec![IntegerVariable::binary(); num_vars];
-
-        let target =
-            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionEnsembleComputationToILP {
             target,
             universe_size: u,
