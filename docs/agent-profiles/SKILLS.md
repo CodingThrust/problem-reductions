@@ -14,20 +14,22 @@ Post-refactor extension points:
 - new model load/serialize/brute-force dispatch comes from `declare_variants!` in the model file, with an optional `default`
 - alias resolution lives in `problemreductions-cli/src/problem_name.rs`
 - `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
-- model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
+- model examples live beside each model in `canonical_model_example_specs()` (collected by `src/example_db/model_builders.rs`); rule examples live beside their rules and are collected by `src/rules/mod.rs`
 
-- [issue-to-pr] — Convert a GitHub issue into a PR with an implementation plan
-- [add-model] — Add a new problem model to the codebase
-- [add-rule] — Add a new reduction rule to the codebase
-- [review-implementation] — Review implementation completeness via parallel subagents
-- [fix-pr] — Resolve PR review comments, CI failures, and coverage gaps
-- [check-issue] — Quality gate for Rule and Model GitHub issues
-- [topology-sanity-check] — Run sanity checks on the reduction graph: detect orphan problems and redundant rules
-- [project-pipeline] — Pick the next ready issue, implement it, and move it through the project workflow
-- [review-pipeline] — Process PRs in Review pool: fix comments, fix CI, run agentic review, move to Final review
-- [propose] — Interactive brainstorming that turns a new model or rule idea into a GitHub issue
-- [final-review] — Interactive maintainer review for PRs in the Final review column
-- [dev-setup] — Install and configure the maintainer development environment
-- [write-model-in-paper] — Write or improve a problem-def entry in the Typst paper
-- [write-rule-in-paper] — Write or improve a reduction-rule entry in the Typst paper
-- [release] — Create a new crate release with version bump
+Guides (auto-invoked while working):
+
+- [how-to-code] — Implement or modify a problem model or reduction rule
+- [how-to-verify] — Certify a reduction and check reduction-graph topology
+- [how-to-write-manual] — Write or audit Typst manual entries and mdBook docs
+- [how-to-review] — Fresh-context PR review with a `pred` feature test
+- [how-to-triage-issue] — Quality-check and fix Model and Rule GitHub issues
+- [how-to-ship] — Take an issue to a merge-ready pull request
+
+Tools (invoked on request):
+
+- [propose] — Turn a new model or rule idea into a GitHub issue
+- [find-solver] — Match a real-world problem to a model, route, and solver
+- [find-problem] — Find source problems a given solver handles
+- [dev-setup] — Install and configure the development environment
+- [release] — Guarded crate release with version bump
+- [update-papers] — Refresh the research paper collection
