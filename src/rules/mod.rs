@@ -103,7 +103,6 @@ pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumfeedbackarcset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
-pub(crate) mod minimumvertexcover_minimummaximalmatching;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod minimumvertexcover_minimumweightandorgraph;
 pub(crate) mod naesatisfiability_maxcut;
@@ -144,7 +143,6 @@ pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
 pub(crate) mod subsetsum_closestvectorproblem;
 pub(crate) mod subsetsum_integerexpressionmembership;
-pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
@@ -414,7 +412,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimummaximalmatching_maximumachromaticnumber::canonical_rule_example_specs());
     specs.extend(minimummaximalmatching_minimummatrixdomination::canonical_rule_example_specs());
-    specs.extend(minimumvertexcover_minimummaximalmatching::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumhittingset::canonical_rule_example_specs());
@@ -443,7 +440,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
-    specs.extend(subsetsum_integerknapsack::canonical_rule_example_specs());
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
     specs.extend(subsetsum_partition::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());

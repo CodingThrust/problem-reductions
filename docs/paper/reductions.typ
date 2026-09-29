@@ -725,7 +725,7 @@
   #block(width: 85%, inset: (x: 1em, y: 0.8em))[
     #set text(size: 9.5pt)
     #set par(justify: true)
-    *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
+    *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof.
   ]
 ]
 
@@ -11635,49 +11635,6 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Value and solution extraction._ The target is Decision Minimum Sum Multicenter with bound $B$ (or $-1$ for a negative source bound). Its predicate enforces the cost bound. Decode a YES witness by removing the auxiliary coordinates; completed YES and NO answers pass through unchanged.
 ]
 
-#let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
-#let mvc_mmm_sol = mvc_mmm.solutions.at(0)
-#reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",
-  example: true,
-  example-caption: [Cycle $C_5$: the forward implication is exact, but the backward gap is strict],
-  extra: [
-    #{
-      let target-edges = mvc_mmm.target.instance.graph.edges
-      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
-      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => target-edges.at(i))
-      let fmt-edge(e) = "(" + str(e.at(0)) + ", " + str(e.at(1)) + ")"
-      [
-        #pred-commands(
-          "pred create MinimumVertexCover --graph 0-1,1-2,2-3,3-4,4-0 --weights 1,1,1,1,1 -o mvc.json",
-          "pred solve mvc.json",
-          "pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-0 -o mmm.json",
-          "pred solve mmm.json",
-        )
-
-        *Step 1 -- Shared instance.* Both problems use the same 5-cycle, so $n = #graph-num-vertices(mvc_mmm.source.instance)$ and $|E| = #graph-num-edges(mvc_mmm.source.instance)$.
-
-        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#fmt-values(source-cover)}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
-
-        *Step 3 -- Target optimum.* The canonical minimum maximal matching is $M = {#matching.map(fmt-edge).join(", ")}$, so $"mmm"(C_5) = #matching.len() = 2$.
-
-        *Step 4 -- Backward gap.* The endpoint set of $M$ is ${0, 1, 2, 3}$, a valid vertex cover of size $4$. Pruning can recover an optimal cover of size $3$, but not one of size $2$, so the same-bound backward implication fails.
-
-        *Runtime note:* This catalog edge is proof-only. The CLI can solve the two instances separately, but runtime reduction search does not traverse this edge because there is no exact witness or aggregate extractor.
-      ]
-    }
-  ],
-)[
-  This size-preserving identity map records the forward implication used in the classical NP-hardness proof for Minimum Maximal Matching (equivalently, Minimum Edge Dominating Set) on bounded-degree graphs: every unit-weight vertex cover of $G$ can be greedily converted into a maximal matching of size at most the cover size. The converse loses a factor of two in general, so the edge is documented but intentionally disabled for runtime reduction search.
-][
-  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and parameters are unchanged.
-
-  _Correctness._ ($arrow.r.double$) Let $C subset.eq V$ be a vertex cover with $|C| lt.eq K$. Start with $M = emptyset$ and process the vertices of $C$ in arbitrary order. Whenever $v in C$ is unmatched, choose any edge $\{v, u\} in E$ whose other endpoint $u$ is also unmatched, add that edge to $M$, and mark both endpoints matched. Because only unmatched endpoints are paired, $M$ is a matching. If some edge $\{x, y\} in E$ were disjoint from every edge of $M$ at the end, then both $x$ and $y$ would still be unmatched. Since $C$ covers every edge, at least one endpoint, say $x$, lies in $C$, and when the algorithm processed $x$ it could have added $\{x, y\}$, a contradiction. Hence $M$ is maximal and $|M| lt.eq |C| lt.eq K$.
-
-  ($arrow.l.double$) Let $M$ be any maximal matching. The set of all endpoints of edges in $M$ is a vertex cover, so $"mvc"(G) lt.eq 2 dot |M|$. This yields the standard bound $"mmm"(G) lt.eq "mvc"(G) lt.eq 2 dot "mmm"(G)$, but it does not recover an exact same-bound inverse. On $C_5$, the target optimum is $2$ while the source optimum is $3$.
-
-  _Solution extraction._ No runtime extractor is registered. The endpoint map always returns a valid vertex cover and greedy pruning can shrink it, but neither approach guarantees an optimal cover from an optimal maximal matching witness, and the target optimum value does not determine the source optimum value exactly.
-]
-
 #let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
 #let mvc_lcs_sol = mvc_lcs.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "LongestCommonSubsequence",
@@ -18309,61 +18266,6 @@ The following table shows concrete target-variable counts for example instances,
   If $T > Sigma$, then $d > Sigma' \/ 2$, so a single element exceeds the half-sum and the Partition instance is infeasible.
 
   _Solution extraction._ Given a Partition solution $c in {0,1}^m$: if $d = 0$, return $c[0..n]$. If $Sigma > 2T$, the $S$-elements on the same side as the padding form the subset summing to $T$. If $Sigma < 2T$, the $S$-elements on the opposite side from the padding form the subset summing to $T$.
-]
-
-#let ss_ik = load-example("SubsetSum", "IntegerKnapsack")
-#let ss_ik_sol = ss_ik.solutions.at(0)
-#reduction-rule("SubsetSum", "IntegerKnapsack",
-  example: true,
-  example-caption: [#subsetsum-num-elements(ss_ik.source.instance) elements, target $B = #ss_ik.source.instance.target$: exact forward witness, but multiplicities create a backward gap],
-  extra: [
-    #{
-      let sizes = ss_ik.source.instance.sizes.map(s => int(s))
-      let B = int(ss_ik.source.instance.target)
-      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
-      let chosen_sum = chosen.map(i => sizes.at(i)).sum()
-      [
-        #pred-commands(
-          "pred create --example " + rule-spec(ss_ik) + " -o subsetsum.json",
-          "pred solve subsetsum.json",
-          "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
-          "pred solve integer-knapsack.json",
-        )
-
-        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#fmt-values(sizes))$ and target $B = #B$. The stored witness $(#fmt-values(ss_ik_sol.source_config))$ selects elements ${#fmt-values(chosen)}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
-
-        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#fmt-values(ss_ik.target.instance.sizes))$, values $(#fmt-values(ss_ik.target.instance.values))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
-
-        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#fmt-values(ss_ik_sol.target_config))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
-
-        *Step 4 -- Backward gap.* For the source instance $A = {3}$ with target $B = 6$, Subset Sum is NO, but Integer Knapsack can set multiplicity $c_0 = 2$ and achieve total size/value $6$. This is why the catalog records the edge for proof topology only and disables all runtime reduction modes.
-      ]
-    }
-  ],
-)[
-  This size-preserving embedding from Garey and Johnson's Integer Knapsack entry @garey1979[MP10] copies each Subset Sum number into both the size and value of a knapsack item and sets the capacity to the target sum. Any exact subset-sum witness becomes a feasible Integer Knapsack witness of value $B$. The converse fails for the implemented unbounded model because target witnesses may use multiplicities greater than $1$, so the edge is documented but intentionally proof-only.
-][
-  _Construction._ Given Subset Sum instance $(S = {a_1, dots, a_n}, B)$, create $n$ Integer Knapsack items. For each $i$, set the item size and value to the same number:
-  $
-    s_i = a_i, quad v_i = a_i.
-  $
-  Set the knapsack capacity to $B$. The target therefore has the same number of items as the source has elements.
-
-  _Numeric magnitude._ The source `max_numeric_magnitude_bits` includes the target sum $B$ and therefore bounds the Integer Knapsack `capacity_bits`. Raw `capacity` remains unavailable in the symbolic contract; its bit-length bound suffices for the downstream ILP size predictions.
-
-  _Correctness._ ($arrow.r.double$) If $I subset.eq {1, dots, n}$ satisfies $sum_(i in I) a_i = B$, define multiplicities $c_i = 1$ for $i in I$ and $c_i = 0$ otherwise. Then
-  $
-    sum_i c_i s_i = sum_(i in I) a_i = B <= B
-  $
-  and, because $v_i = s_i$, also
-  $
-    sum_i c_i v_i = B.
-  $
-  So every YES instance of Subset Sum maps to an Integer Knapsack witness achieving value $B$.
-
-  ($arrow.l.double$) The backward implication is false for the implemented target model. Integer Knapsack allows arbitrary non-negative multiplicities, while Subset Sum is 0-1. For example, with $S = {3}$ and $B = 6$, the target witness $c_0 = 2$ is feasible and attains value $6$, but the source has no subset summing to $6$. Hence neither exact witness recovery nor exact optimum-value recovery is available from the target side.
-
-  _Solution extraction._ No runtime extractor is registered. The forward map is enough for the NP-hardness proof, but unbounded multiplicities prevent an exact inverse map back to Subset Sum.
 ]
 
 // 2. Satisfiability → NonTautology (#868)
