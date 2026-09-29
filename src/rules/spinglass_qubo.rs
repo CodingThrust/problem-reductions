@@ -120,12 +120,13 @@ where
     }
 }
 
+// Each source interaction contributes to at most one quadratic coefficient.
 #[reduction(transform = {
     exact {
         num_vars = "num_spins",
     },
     upper_bound {
-        num_quadratic_terms = "num_spins * (num_spins - 1) / 2",
+        num_quadratic_terms = "num_interactions",
     },
 })]
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
@@ -172,7 +173,7 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
         num_vars = "num_spins",
     },
     upper_bound {
-        num_quadratic_terms = "num_spins * (num_spins - 1) / 2",
+        num_quadratic_terms = "num_interactions",
     },
 })]
 impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
