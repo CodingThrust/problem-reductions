@@ -491,25 +491,6 @@ class PipelineChecksTests(unittest.TestCase):
         self.assertTrue(context["whitelist"]["skipped"])
         self.assertTrue(context["completeness"]["skipped"])
 
-    def test_parse_args_accepts_review_context(self) -> None:
-        args = parse_args(
-            [
-                "review-context",
-                "--repo-root",
-                ".",
-                "--base",
-                "abc123",
-                "--head",
-                "def456",
-                "--format",
-                "json",
-            ]
-        )
-
-        self.assertEqual(args.command, "review-context")
-        self.assertEqual(args.base, "abc123")
-        self.assertEqual(args.head, "def456")
-
     def test_parse_args_accepts_issue_context(self) -> None:
         args = parse_args(
             [

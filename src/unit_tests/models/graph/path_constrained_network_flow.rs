@@ -180,6 +180,10 @@ fn test_path_constrained_network_flow_deserialization_rejects_invalid_instances(
     let restored: PathConstrainedNetworkFlow = serde_json::from_value(valid.clone()).unwrap();
     assert_eq!(serde_json::to_value(&restored).unwrap(), valid);
 
+    let mut negative = valid.clone();
+    negative["capacities"][0] = serde_json::json!(-1);
+    assert!(serde_json::from_value::<PathConstrainedNetworkFlow>(negative).is_err());
+
     let cases = [
         (
             "paths",

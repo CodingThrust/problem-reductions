@@ -79,7 +79,6 @@ macro_rules! register_decision_variant {
                 source_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
                 target_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 parameter_declarations_fn: || $crate::rules::registry::ReductionParameterDeclarations {
-
                     fields: <$inner as $crate::traits::Problem>::parameter_names()
                         .iter()
                         .map(|&name| (name, $crate::parameters::ParameterRelation::Exact, $crate::expr::Expr::variable(name)))
@@ -124,7 +123,6 @@ macro_rules! register_decision_variant {
                 source_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 target_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
                 parameter_declarations_fn: || $crate::rules::registry::ReductionParameterDeclarations {
-
                     fields: <$inner as $crate::traits::Problem>::parameter_names()
                         .iter()
                         .map(|&name| (name, $crate::parameters::ParameterRelation::Exact, $crate::expr::Expr::variable(name)))

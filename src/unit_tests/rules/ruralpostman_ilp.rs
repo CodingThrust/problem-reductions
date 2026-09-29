@@ -82,6 +82,7 @@ fn test_ruralpostman_empty_required_set_extracts_zero_multiplicities() {
         vec![],
     );
     let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     let extracted = reduction.extract_solution(&target).unwrap();
 

@@ -21,6 +21,7 @@ fn test_reduction_creates_valid_ilp_c4() {
     let reduction: ReductionTSPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
+    crate::rules::test_helpers::assert_parameter_predictions(&problem, &reduction);
 
     // n=4, m=4: num_vars = 16 + 2*4*4 = 48
     assert_eq!(ilp.num_vars(), 48);

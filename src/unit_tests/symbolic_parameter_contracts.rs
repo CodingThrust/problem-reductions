@@ -433,13 +433,13 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
     );
     check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
         HamiltonianCircuit::new(SimpleGraph::new(0, vec![])),
-        &["num_consecutive_positions"],
-        ParameterRelation::UpperBound,
+        &["num_vertices", "num_consecutive_positions"],
+        exact,
     );
     check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
         HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
-        &["num_consecutive_positions"],
-        ParameterRelation::UpperBound,
+        &["num_vertices", "num_consecutive_positions"],
+        exact,
     );
     check_reduced_parameters::<_, LongestCommonSubsequence>(
         MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![]),
