@@ -52,6 +52,7 @@ impl ReductionResult for ReductionSTMTTWToILP {
         num_constraints = "2 * num_tasks + 2 * num_tasks * num_tasks",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 2",
         num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + 2 * num_tasks * num_tasks)",
     },
 })]

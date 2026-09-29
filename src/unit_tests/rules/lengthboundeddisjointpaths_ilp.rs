@@ -116,3 +116,19 @@ fn test_lengthboundeddisjointpaths_to_ilp_rejects_invalid_target_solutions() {
         assert!(reduction.extract_solution(&solution).is_err());
     }
 }
+
+#[test]
+fn test_path_length_threshold_normalization() {
+    for bound in [1, 2, 1000] {
+        let source =
+            LengthBoundedDisjointPaths::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 0, 2, bound);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+        let recovered = reduction.extract_solution(&solution).unwrap();
+        assert_eq!(
+            source.evaluate(&recovered).unwrap(),
+            Max(Some(i64::from(bound >= 2)))
+        );
+    }
+}

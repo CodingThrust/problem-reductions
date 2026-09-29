@@ -32,10 +32,13 @@ inventory::submit! {
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
         parameter_declarations_fn: || ReductionParameterDeclarations {
-            fields: vec![("num_items", crate::parameters::ParameterRelation::Exact, Expr::variable("num_elements"))],
+            fields: vec![
+                ("num_items", crate::parameters::ParameterRelation::Exact, Expr::variable("num_elements")),
+                ("capacity_bits", crate::parameters::ParameterRelation::UpperBound, Expr::variable("max_numeric_magnitude_bits")),
+            ],
             unavailable: vec![crate::rules::registry::UnavailableParameterField {
                 field: "capacity",
-                reason: "the target capacity equals the SubsetSum target, which is not a registered source parameter",
+                reason: "raw capacity requires numeric magnitude values; downstream predictions use capacity_bits",
             }],
         },
         module_path: module_path!(),

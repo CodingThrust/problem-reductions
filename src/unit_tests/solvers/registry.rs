@@ -1,8 +1,16 @@
 use super::*;
 use std::collections::BTreeMap;
 
-const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "f64")];
-const FLOAT_I64_VARIANT: &[(&str, &str)] = &[("variable", "i64"), ("coefficient", "f64")];
+const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[
+    ("variable", "bool"),
+    ("coefficient", "f64"),
+    ("bounds", "general"),
+];
+const FLOAT_I64_VARIANT: &[(&str, &str)] = &[
+    ("variable", "i64"),
+    ("coefficient", "f64"),
+    ("bounds", "general"),
+];
 const NO_VARIANT: &[(&str, &str)] = &[];
 
 #[test]
@@ -264,6 +272,7 @@ fn solver_capability_registry_duplicate_ilp_registration_is_rejected_independent
         BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "f64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     )]);
     for pipelines in [
@@ -316,6 +325,7 @@ fn solver_capability_registry_unknown_pipeline_variant_is_rejected() {
         BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     )]);
     let error = build_registry(
@@ -365,6 +375,7 @@ fn solver_capability_registry_pipeline_with_missing_exact_edge_is_rejected() {
             BTreeMap::from([
                 ("variable".to_string(), "bool".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
     ]);
@@ -390,6 +401,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
             BTreeMap::from([
                 ("variable".to_string(), "bool".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
         ExactProblemKey::new(
@@ -397,6 +409,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
             BTreeMap::from([
                 ("variable".to_string(), "i64".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
     ]);
@@ -455,7 +468,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<general, i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -478,9 +491,19 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(brute_force_only.customized.is_none());
     assert!(brute_force_only.ilp.is_none());
 
-    let ilp_itself =
-        solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
+    let ilp_itself = solver_capabilities(&key(
+        "ILP",
+        &[
+            ("variable", "bool"),
+            ("coefficient", "i64"),
+            ("bounds", "general"),
+        ],
+    ))
+    .unwrap();
+    assert_eq!(
+        ilp_itself.ilp.unwrap().path_labels(),
+        ["ILP<general, i64, bool>"]
+    );
 }
 
 #[test]

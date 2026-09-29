@@ -1,6 +1,6 @@
 //! Encode finitely bounded integer ILP variables as binary variables.
 
-use crate::models::algebraic::{Comparison, LinearConstraint, ILP};
+use crate::models::algebraic::{Bounded, Comparison, LinearConstraint, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::ReductionError;
@@ -13,7 +13,7 @@ struct VarEncoding {
 }
 
 fn overflow(operation: impl Into<String>) -> ReductionError {
-    ReductionError::integer_overflow::<ILP<i64>, ILP<bool>>(operation)
+    ReductionError::integer_overflow::<ILP<i64, i64, Bounded>, ILP<bool>>(operation)
 }
 
 fn binary_weights(width: i64) -> Vec<i64> {
@@ -73,7 +73,7 @@ pub struct ReductionIntILPToBinaryILP {
 }
 
 impl ReductionResult for ReductionIntILPToBinaryILP {
-    type Source = ILP<i64>;
+    type Source = ILP<i64, i64, Bounded>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -110,32 +110,30 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
     }
 }
 
+// If all finite endpoints and row entries have magnitude below 2^h, widths
+// need at most h+1 bits. Encoded coefficients are below 2^(2h+1), and the
+// lower-bound shift gives |b'| < 2^h + n*2^(2h) < 2^(2h+n+1).
 #[reduction(
-    transform = exact {
-        num_constraints = "num_constraints",
-    },
-    unavailable = {
-        num_vars = "the binary width depends on concrete variable bounds, not registered problem parameters",
-        num_nonzeros = "binary expansion depends on concrete variable bounds and row sparsity",
+    transform = {
+        exact {
+            num_constraints = "num_constraints",
+        },
+        upper_bound {
+            num_vars = "num_vars * (max_constraint_magnitude_bits + 1)",
+            num_nonzeros = "num_nonzeros * (max_constraint_magnitude_bits + 1)",
+            max_constraint_magnitude_bits = "2 * max_constraint_magnitude_bits + num_vars + 1",
+        },
     },
 )]
-impl ReduceTo<ILP<bool>> for ILP<i64> {
+impl ReduceTo<ILP<bool>> for ILP<i64, i64, Bounded> {
     type Result = ReductionIntILPToBinaryILP;
 
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
         let mut encodings = Vec::with_capacity(self.num_vars());
         let mut num_binary_variables = 0_usize;
         for variable in self.variables() {
-            let lower_bound = variable.lower_bound().ok_or_else(|| {
-                ReductionError::invalid_target::<ILP<i64>, ILP<bool>>(
-                    "binary encoding requires a finite lower bound for every integer variable",
-                )
-            })?;
-            let upper_bound = variable.upper_bound().ok_or_else(|| {
-                ReductionError::invalid_target::<ILP<i64>, ILP<bool>>(
-                    "binary encoding requires a finite upper bound for every integer variable",
-                )
-            })?;
+            let lower_bound = variable.lower_bound().expect("bounded ILP lower bound");
+            let upper_bound = variable.upper_bound().expect("bounded ILP upper bound");
             let width = upper_bound
                 .checked_sub(lower_bound)
                 .ok_or_else(|| overflow("computing an integer variable interval width"))?;

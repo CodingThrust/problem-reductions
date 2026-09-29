@@ -39,13 +39,16 @@ impl ReductionResult for ReductionX3CToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionX3CToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_subsets",
         num_constraints = "universe_size + 1",
         num_nonzeros = "4 * num_subsets",
-    }
-)]
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "universe_size + 1",
+    },
+})]
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToILP;
 

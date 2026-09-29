@@ -1,19 +1,19 @@
 //! Reduction from MultipleChoiceBranching with integer weights to integer ILP.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MultipleChoiceBranching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionMultipleChoiceBranchingToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_arcs: usize,
 }
 
 impl ReductionResult for ReductionMultipleChoiceBranchingToILP {
     type Source = MultipleChoiceBranching<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -45,10 +45,11 @@ impl crate::rules::AggregateReductionResult for ReductionMultipleChoiceBranching
         num_constraints = "2 * num_arcs + 2 * num_vertices + num_partition_groups + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
         num_nonzeros = "(num_arcs + num_vertices) * (2 * num_arcs + 2 * num_vertices + num_partition_groups + 1)",
     },
 })]
-impl ReduceTo<ILP<i64>> for MultipleChoiceBranching<i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {
     type Result = ReductionMultipleChoiceBranchingToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -61,7 +62,7 @@ impl ReduceTo<ILP<i64>> for MultipleChoiceBranching<i64> {
             constraints.push(LinearConstraint::le(vec![(arc, 1)], 1));
         }
         if num_vertices > 0 {
-            let big_m = <Self as ReduceTo<ILP<i64>>>::exact_i64(
+            let big_m = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
                 num_vertices,
                 "encoding topological-order constraints",
             )?;
@@ -114,7 +115,7 @@ impl ReduceTo<ILP<i64>> for MultipleChoiceBranching<i64> {
         );
 
         let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
         Ok(ReductionMultipleChoiceBranchingToILP { target, num_arcs })
     }
 }
@@ -132,7 +133,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![0], vec![1]],
                 5,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

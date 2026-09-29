@@ -44,9 +44,13 @@ impl ReductionResult for ReductionKnapsackToQUBO {
     }
 }
 
-#[reduction(transform = unavailable {
-    num_vars = "the exact piecewise slack-bit count is not representable in the parameter-expression language",
-    num_quadratic_terms = "the nonzero products depend on item sizes and values",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_items + capacity_bits",
+    },
+    upper_bound {
+        num_quadratic_terms = "(num_items + capacity_bits)^2",
+    },
 })]
 impl ReduceTo<QUBO<i64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;

@@ -118,6 +118,7 @@ fn weighted_distances_msmc(
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_vertices + 1",
     num_vars = "num_vertices + num_vertices^2",
     num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
     num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + 2 * num_vertices + 1)",

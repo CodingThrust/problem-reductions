@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -21,7 +21,7 @@ fn simple_path_problem() -> ShortestWeightConstrainedPath<SimpleGraph, i64> {
 fn test_reduction_creates_valid_ilp() {
     let problem = simple_path_problem();
     let reduction: ReductionSWCPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 edges => 4 arc vars + 3 order vars = 7
@@ -50,7 +50,7 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
     let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     let reduction: ReductionSWCPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
 
@@ -72,7 +72,7 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
 fn test_solution_extraction() {
     let problem = simple_path_problem();
     let reduction: ReductionSWCPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Handcrafted ILP solution: path 0->1->2
     // a_{0,fwd}=1, a_{0,rev}=0, a_{1,fwd}=1, a_{1,rev}=0, o_0=0, o_1=1, o_2=2
@@ -96,7 +96,7 @@ fn test_shortestweightconstrainedpath_to_ilp_trivial() {
         4, // weight_bound
     );
     let reduction: ReductionSWCPToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())

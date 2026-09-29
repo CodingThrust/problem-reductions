@@ -88,6 +88,11 @@ impl IntegerKnapsack {
         self.capacity
     }
 
+    /// Binary digit count of the capacity, with a minimum of one for zero.
+    pub fn capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.capacity])
+    }
+
     /// Returns the number of items.
     pub fn num_items(&self) -> usize {
         self.sizes.len()
@@ -99,7 +104,11 @@ impl Problem for IntegerKnapsack {
     type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    crate::problem_parameters![("capacity", capacity), ("num_items", num_items),];
+    crate::problem_parameters![
+        ("capacity", capacity),
+        ("capacity_bits", capacity_bits),
+        ("num_items", num_items),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

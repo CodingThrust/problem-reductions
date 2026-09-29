@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::graph::MinMaxMulticenter;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
@@ -16,7 +16,7 @@ fn test_reduction_creates_valid_ilp() {
         1,
     );
     let reduction: ReductionMMCToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 + 1 = 3 + 9 + 1 = 13
     assert_eq!(ilp.num_vars(), 13, "n + n^2 + 1 variables");
@@ -43,7 +43,7 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
         1,
     );
     let reduction: ReductionMMCToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -72,7 +72,7 @@ fn test_solution_extraction() {
         1,
     );
     let reduction: ReductionMMCToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct a valid ILP solution:
     // x = [0, 1, 0]; each vertex assigned to center 1; z = 1
@@ -104,7 +104,7 @@ fn test_minmaxmulticenter_to_ilp_weighted() {
     assert_eq!(bf_value, Min(Some(100)));
 
     let reduction: ReductionMMCToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
@@ -117,7 +117,7 @@ fn test_minmaxmulticenter_to_ilp_trivial() {
     // Single vertex, K=1: the only vertex is the center, distance = 0
     let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i64], vec![], 1);
     let reduction: ReductionMMCToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 + 1 = 3
     assert_eq!(ilp.num_vars(), 3);

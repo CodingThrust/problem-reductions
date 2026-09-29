@@ -125,15 +125,11 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionSATToIntegralFlowHomologousArcs {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
-        num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
-    },
-    unavailable = {
-        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
+    num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
+    max_capacity = "num_literals + 1",
+})]
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;
 

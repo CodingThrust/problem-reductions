@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -28,7 +28,7 @@ fn sink_self_loop_cannot_supply_net_flow() {
         1,
     );
     assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     let assignment = vec![1, 0, 1];
     assert!(reduction
         .target_problem()
@@ -60,7 +60,7 @@ fn infeasible_instance() -> UndirectedFlowLowerBounds {
 fn test_undirectedflowlowerbounds_to_ilp_structure() {
     let problem = feasible_instance();
     let reduction: ReductionUFLBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 edges → 3*2 = 6 variables
@@ -83,7 +83,7 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     );
 
     let reduction: ReductionUFLBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -101,7 +101,7 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
 fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionUFLBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
@@ -112,7 +112,7 @@ fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
 fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     let problem = feasible_instance();
     let reduction: ReductionUFLBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // f_{01}=1, f_{10}=0, f_{12}=1, f_{21}=0, z_0=1, z_1=1
     // z_e=1 means u→v direction; model expects config[e]=0 for u→v → extract returns 1-z_e
@@ -130,6 +130,6 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
 fn test_undirectedflowlowerbounds_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
     let reduction: ReductionUFLBToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

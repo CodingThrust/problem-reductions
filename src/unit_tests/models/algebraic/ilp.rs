@@ -3,6 +3,135 @@ use crate::solvers::{ILPSolveError, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Extremum;
 
+#[test]
+fn constraint_magnitude_bits_measure_normalized_integer_data() {
+    for (value, expected) in [
+        (0, 1),
+        (1, 1),
+        (-1, 1),
+        (2, 2),
+        (-2, 2),
+        (7, 3),
+        (8, 4),
+        ((1_i64 << 54) - 1, 54),
+        (i64::MAX, 63),
+        (i64::MIN, 64),
+    ] {
+        for row in [
+            LinearConstraint::le(vec![(0, value)], 0),
+            LinearConstraint::ge(vec![], value),
+        ] {
+            let source = binary_ilp(1, vec![row], vec![(0, i64::MAX)], ObjectiveSense::Minimize);
+            assert_eq!(
+                source.parameters().get("max_constraint_magnitude_bits"),
+                Some(expected),
+                "{value}"
+            );
+        }
+    }
+    let source = binary_ilp(
+        1,
+        vec![LinearConstraint::le(
+            vec![(0, 100), (0, -100), (0, 3), (0, 5)],
+            0,
+        )],
+        vec![],
+        ObjectiveSense::Minimize,
+    );
+    assert_eq!(
+        source.parameters().get("max_constraint_magnitude_bits"),
+        Some(4)
+    );
+}
+
+#[test]
+fn constraint_magnitude_bits_include_finite_endpoints_without_requiring_boundedness() {
+    for (lower, upper, expected) in [
+        (None, None, 1),
+        (Some(-8), None, 4),
+        (None, Some(16), 5),
+        (Some(i64::MIN), Some(i64::MAX), 64),
+    ] {
+        let source = ILP::<i64>::with_variables(
+            vec![IntegerVariable::new(lower, upper).unwrap()],
+            vec![],
+            vec![(0, i64::MAX)],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap();
+        assert_eq!(
+            source.parameters().get("max_constraint_magnitude_bits"),
+            Some(expected)
+        );
+    }
+    assert_eq!(
+        ILP::<i64, i64, Bounded>::empty()
+            .parameters()
+            .get("max_constraint_magnitude_bits"),
+        Some(1)
+    );
+}
+
+#[test]
+fn constraint_magnitude_bits_cover_float_exponents_without_rounding_boundaries() {
+    for (value, expected) in [
+        (0.0, 1),
+        (-0.0, 1),
+        (f64::from_bits(1), 1),
+        (0.5, 1),
+        (f64::from_bits(8.0_f64.to_bits() - 1), 3),
+        (8.0, 4),
+        (-8.0, 4),
+        (f64::MAX, 1024),
+        (-f64::MAX, 1024),
+    ] {
+        for row in [
+            LinearConstraint::le(vec![(0, value)], 0.0),
+            LinearConstraint::ge(vec![], value),
+        ] {
+            let source =
+                ILP::<bool, f64>::new(1, vec![row], vec![(0, f64::MAX)], ObjectiveSense::Minimize)
+                    .unwrap();
+            assert_eq!(
+                source.parameters().get("max_constraint_magnitude_bits"),
+                Some(expected),
+                "{value}"
+            );
+        }
+    }
+}
+
+#[test]
+fn bounded_integer_ilp_loading_requires_finite_domains() {
+    assert!(ILP::<i64>::new(1, vec![], vec![], ObjectiveSense::Minimize).is_ok());
+    assert!(ILP::<i64, i64, Bounded>::new(1, vec![], vec![], ObjectiveSense::Minimize).is_err());
+    assert_eq!(ILP::<i64, i64, Bounded>::empty().num_vars(), 0);
+    let variant = crate::rules::ReductionGraph::variant_to_map(&[
+        ("variable", "i64"),
+        ("coefficient", "i64"),
+        ("bounds", "bounded"),
+    ]);
+    let instance = serde_json::json!({
+        "variables": [{"lower_bound": -2, "upper_bound": 3}],
+        "constraints": [], "objective": [[0, 1]], "sense": "Maximize"
+    });
+    let loaded = crate::registry::load_dyn("ILP", &variant, instance.clone())
+        .expect("bounded integer ILP must be registered");
+    assert_eq!(loaded.serialize_json(), instance);
+    for (lower, upper) in [(None, Some(3)), (Some(-2), None), (None, None)] {
+        let mut invalid = instance.clone();
+        invalid["variables"] = serde_json::json!([{"lower_bound": lower, "upper_bound": upper}]);
+        assert!(crate::registry::load_dyn("ILP", &variant, invalid).is_err());
+        assert!(ILP::<i64, i64, Bounded>::with_variables(
+            vec![IntegerVariable::new(lower, upper).unwrap()],
+            vec![],
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .is_err());
+    }
+}
+
 fn binary_ilp(
     num_vars: usize,
     constraints: Vec<LinearConstraint>,
@@ -16,7 +145,11 @@ fn binary_ilp(
 fn ilp_variant_identifies_variable_domain() {
     assert_eq!(
         <ILP<bool> as Problem>::variant(),
-        vec![("variable", "bool"), ("coefficient", "i64")]
+        vec![
+            ("variable", "bool"),
+            ("coefficient", "i64"),
+            ("bounds", "general")
+        ]
     );
 }
 
@@ -24,7 +157,11 @@ fn ilp_variant_identifies_variable_domain() {
 fn ilp_variant_identifies_float_coefficients() {
     assert_eq!(
         <ILP<bool, f64> as Problem>::variant(),
-        vec![("variable", "bool"), ("coefficient", "f64")]
+        vec![
+            ("variable", "bool"),
+            ("coefficient", "f64"),
+            ("bounds", "general")
+        ]
     );
 }
 

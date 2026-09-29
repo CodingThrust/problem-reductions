@@ -46,6 +46,7 @@ impl ReductionResult for ReductionBCBSToILP {
 impl crate::rules::AggregateReductionResult for ReductionBCBSToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "k + 1",
     num_vars = "num_vertices",
     num_constraints = "num_vertices^2 + 2",
     num_nonzeros = "num_vertices * (num_vertices^2 + 2)",

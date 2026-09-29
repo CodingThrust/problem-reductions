@@ -1,3 +1,4 @@
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::MinimumWeightDecoding;
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::graph::{
@@ -141,7 +142,7 @@ fn empty_tree_storage_still_obeys_the_budget() {
     for n in 0..=2 {
         for bound in [-1, 0] {
             let source = RootedTreeStorageAssignment::new(n, vec![], bound);
-            let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+            let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
             let expected = bound >= 0;
             assert_eq!(
                 BruteForce::new().solve(&source).unwrap().is_some(),

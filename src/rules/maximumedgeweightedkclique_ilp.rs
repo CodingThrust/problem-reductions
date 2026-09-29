@@ -144,6 +144,7 @@ where
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(num_vertices + num_edges) * (1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges)",
     },
 })]
@@ -161,6 +162,7 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(num_vertices + num_edges) * (1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges)",
     },
 })]

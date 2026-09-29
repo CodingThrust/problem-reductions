@@ -73,3 +73,22 @@ fn test_coma_to_ilp_trivial() {
     // x: 1, a+l+u+h+f: 5*1=5 => 6
     assert_eq!(ilp.num_vars(), 6);
 }
+
+#[test]
+fn test_augmentation_threshold_normalization() {
+    for bound in [0, 1, i64::MAX] {
+        let source = ConsecutiveOnesMatrixAugmentation::new(vec![vec![true]], bound);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert_eq!(
+            reduction.target_problem().max_constraint_magnitude_bits(),
+            1
+        );
+        let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+        assert_eq!(
+            source
+                .evaluate(&reduction.extract_solution(&solution).unwrap())
+                .unwrap(),
+            Or(true)
+        );
+    }
+}

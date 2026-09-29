@@ -55,6 +55,41 @@ pub trait NumericSize:
     fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
 }
 
+/// Smallest h >= 1 for which every finite input has magnitude below 2^h.
+/// Halving preserves integer and floating power-of-two boundaries without
+/// taking an absolute value (which would overflow for i64::MIN).
+pub(crate) fn max_numeric_magnitude_bits<C: NumericSize>(
+    values: impl IntoIterator<Item = C>,
+) -> u64 {
+    fn bits<C: NumericSize>(mut value: C) -> u64 {
+        let one = C::one();
+        let two = one.clone() + one.clone();
+        let negative = value < C::zero();
+        let unit = if negative { C::zero() - one } else { one };
+        let mut bits = 0;
+        while if negative {
+            value <= unit
+        } else {
+            value >= unit
+        } {
+            value = value / two.clone();
+            bits += 1;
+        }
+        bits.max(1)
+    }
+
+    // Only the extrema need bit counting; scanning all entries is linear.
+    let (mut minimum, mut maximum) = (C::zero(), C::zero());
+    for value in values {
+        if value < minimum {
+            minimum = value;
+        } else if value > maximum {
+            maximum = value;
+        }
+    }
+    bits(minimum).max(bits(maximum))
+}
+
 macro_rules! impl_integer_numeric_size {
     ($($type:ty),* $(,)?) => {
         $(

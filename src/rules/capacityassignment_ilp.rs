@@ -51,6 +51,7 @@ impl ReductionResult for ReductionCAToILP {
 
 #[reduction(transform = {
     exact {
+        max_constraint_magnitude_bits = "max_delay_bits",
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
     },

@@ -44,6 +44,7 @@ impl ReductionResult for ReductionPaintShopToILP {
         num_vars = "num_cars + 2 * num_sequence",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_constraints = "3 * num_sequence",
         num_nonzeros = "8 * num_sequence",
     },

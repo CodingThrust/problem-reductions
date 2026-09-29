@@ -1,6 +1,7 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 #[cfg(feature = "example-db")]
@@ -39,7 +40,8 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<bool>> {
 fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     problem.evaluate(&extracted).unwrap().0.then_some(extracted)

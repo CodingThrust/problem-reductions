@@ -117,3 +117,27 @@ fn test_schedulingwithindividualdeadlines_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
+
+#[test]
+fn test_individual_deadline_threshold_normalization() {
+    for processors in [1, 2, 1000] {
+        let source = SchedulingWithIndividualDeadlines::new(2, processors, vec![1, 1], vec![]);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(processors >= 2);
+                assert!(
+                    source
+                        .evaluate(&reduction.extract_solution(&solution).unwrap())
+                        .unwrap()
+                        .0
+                );
+            }
+            Err(error) => {
+                assert_eq!(processors, 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

@@ -53,6 +53,7 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToAcyclicPartition 
 
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "4 * num_clauses + 6",
         num_vertices = "(9 * num_clauses^2 + 3 * num_clauses + 6) / 2",
         num_arcs = "18 * num_clauses^2 + 2",
     }

@@ -64,11 +64,14 @@ impl ReductionResult for ReductionTDToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionTDToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_craftsmen * num_tasks * num_periods",
-    num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
-    num_nonzeros = "(num_craftsmen * num_tasks * num_periods) * (num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "num_periods + 2",
+        num_vars = "num_craftsmen * num_tasks * num_periods",
+        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
+        num_nonzeros = "(num_craftsmen * num_tasks * num_periods) * (num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods)",
+    },
+)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 
@@ -77,6 +80,8 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         let nt = self.num_tasks();
         let nh = self.num_periods();
         let requirements = self.requirements();
+        // A pair can work at most nh periods. Keep out-of-range requirements infeasible.
+        let max_requirement = Self::exact_i64(nh, "encoding the period count")?.saturating_add(1);
         let num_vars = nc * nt * nh;
 
         let var = |c: usize, t: usize, h: usize| -> usize { ((c * nt) + t) * nh + h };
@@ -114,7 +119,10 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         for (c, row) in requirements.iter().enumerate() {
             for (t, &requirement) in row.iter().enumerate() {
                 let terms: Vec<(usize, i64)> = (0..nh).map(|h| (var(c, t, h), 1)).collect();
-                constraints.push(LinearConstraint::eq(terms, requirement));
+                constraints.push(LinearConstraint::eq(
+                    terms,
+                    requirement.clamp(-1, max_requirement),
+                ));
             }
         }
 

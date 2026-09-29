@@ -39,11 +39,14 @@ impl ReductionResult for ReductionRPCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRPCToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_rows^2 * num_cols^2",
-    num_constraints = "num_rows * num_cols + 1",
-    num_nonzeros = "(num_rows^2 * num_cols^2) * (num_rows * num_cols + 1)",
-})]
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "num_rows^2 * num_cols^2 + 1",
+        num_vars = "num_rows^2 * num_cols^2",
+        num_constraints = "num_rows * num_cols + 1",
+        num_nonzeros = "(num_rows^2 * num_cols^2) * (num_rows * num_cols + 1)",
+    },
+)]
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
     type Result = ReductionRPCToILP;
 
@@ -69,7 +72,11 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
 
         // Bound constraint: Σ x_r ≤ bound
         let bound_terms: Vec<(usize, i64)> = (0..num_vars).map(|i| (i, 1)).collect();
-        constraints.push(LinearConstraint::le(bound_terms, self.bound()));
+        let max_rectangles = Self::exact_i64(num_vars, "encoding the rectangle-count bound")?;
+        constraints.push(LinearConstraint::le(
+            bound_terms,
+            self.bound().clamp(-1, max_rectangles),
+        ));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

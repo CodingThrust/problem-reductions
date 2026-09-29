@@ -121,3 +121,20 @@ fn test_partition_rejects_zero_size() {
 fn test_partition_rejects_empty_input() {
     assert!(Partition::new(vec![]).is_err());
 }
+
+#[test]
+fn numeric_magnitude_bits_measure_elements_without_summing_them() {
+    for (sizes, expected) in [
+        (vec![1, 1], 1),
+        (vec![7, 1], 3),
+        (vec![8, 1], 4),
+        (vec![(1_i64 << 54) - 1], 54),
+        (vec![i64::MAX], 63),
+    ] {
+        let source = Partition::new(sizes).unwrap();
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(expected)
+        );
+    }
+}

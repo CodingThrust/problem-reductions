@@ -44,6 +44,7 @@ impl ReductionResult for ReductionSPToILP {
         num_vars = "num_sets",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_constraints = "universe_size",
         num_nonzeros = "num_sets * universe_size",
     },
@@ -61,6 +62,10 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i64> {
             for &e in set {
                 elem_to_sets[e].push(i);
             }
+        }
+        // Each set contributes once per element, irrespective of repeated input entries.
+        for sets in &mut elem_to_sets {
+            sets.dedup();
         }
 
         let constraints: Vec<LinearConstraint> = elem_to_sets

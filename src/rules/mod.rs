@@ -191,6 +191,7 @@ pub(crate) mod graphpartitioning_ilp;
 pub(crate) mod hamiltonianpath_ilp;
 pub(crate) mod highlyconnecteddeletion_ilp;
 mod ilp_bool_ilp_i64;
+mod ilp_bounded_ilp;
 pub(crate) mod ilp_helpers;
 pub(crate) mod ilp_qubo;
 pub(crate) mod integralflowbundles_ilp;

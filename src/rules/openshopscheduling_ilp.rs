@@ -1,4 +1,4 @@
-//! Reduction from OpenShopScheduling to `ILP<i64>`.
+//! Reduction from OpenShopScheduling to `ILP<i64, i64, Bounded>`.
 //!
 //! Disjunctive formulation with binary ordering variables and integer start times:
 //!
@@ -26,13 +26,13 @@
 //!
 //! **Objective:** Minimize C.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OpenShopScheduling;
 use crate::models::Decision;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing OpenShopScheduling to `ILP<i64>`.
+/// Result of reducing OpenShopScheduling to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `x_{j,k,i}` at index `pair_idx(j,k) * m + i`    (num_pairs * m vars)
@@ -42,7 +42,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `C`: at index `num_order_vars + n * m + n * m*(m-1)/2` (1 var)
 #[derive(Debug, Clone)]
 pub struct ReductionOSSToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_jobs: usize,
     num_machines: usize,
     /// n*(n-1)/2 * m — start index of s_{j,i} variables
@@ -87,9 +87,9 @@ impl ReductionOSSToILP {
 
 impl ReductionResult for ReductionOSSToILP {
     type Source = OpenShopScheduling;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -109,10 +109,11 @@ impl ReductionResult for ReductionOSSToILP {
         num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "schedule_horizon_bits",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines)",
     },
 })]
-impl ReduceTo<ILP<i64>> for OpenShopScheduling {
+impl ReduceTo<ILP<i64, i64, Bounded>> for OpenShopScheduling {
     type Result = ReductionOSSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -143,9 +144,10 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
             .flat_map(|row| row.iter())
             .try_fold(0_i64, |total, &time| total.checked_add(time))
             .ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<OpenShopScheduling, ILP<i64>>(
-                    "summing open-shop processing times",
-                )
+                crate::rules::ReductionError::integer_overflow::<
+                    OpenShopScheduling,
+                    ILP<i64, i64, Bounded>,
+                >("summing open-shop processing times")
             })?;
         let big_m = total_p;
         let processing_times = p;
@@ -296,7 +298,7 @@ pub struct ReductionDecisionOpenShopSchedulingToILP {
 
 impl ReductionResult for ReductionDecisionOpenShopSchedulingToILP {
     type Source = Decision<OpenShopScheduling>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
     fn target_problem(&self) -> &Self::Target {
         self.inner.target_problem()
@@ -322,18 +324,24 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionOpenShopSchedul
         num_constraints = "3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "schedule_horizon_bits",
         num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1) * (3 * num_jobs * (num_jobs - 1) / 2 * num_machines + 2 * num_jobs * num_machines + 3 * num_jobs * num_machines * (num_machines - 1) / 2 + 2)",
     },
 })]
-impl ReduceTo<ILP<i64>> for Decision<OpenShopScheduling> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for Decision<OpenShopScheduling> {
     type Result = ReductionDecisionOpenShopSchedulingToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let mut inner = ReduceTo::<ILP<i64>>::reduce_to(self.inner())?;
+        let mut inner = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(self.inner())?;
         let mut constraints = inner.target.constraints().to_vec();
+        // The makespan variable is already bounded by the total processing time.
+        let horizon = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            self.inner().schedule_horizon(),
+            "encoding the makespan bound",
+        )?;
         constraints.push(LinearConstraint::le(
             inner.target.objective().to_vec(),
-            *self.bound(),
+            (*self.bound()).clamp(-1, horizon),
         ));
         inner.target = ILP::with_variables(
             inner.target.variables().to_vec(),
@@ -341,7 +349,7 @@ impl ReduceTo<ILP<i64>> for Decision<OpenShopScheduling> {
             vec![],
             ObjectiveSense::Minimize,
         )
-        .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
         Ok(ReductionDecisionOpenShopSchedulingToILP { inner })
     }
 }
@@ -354,7 +362,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 let source =
                     Decision::new(OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]), 3);
-                crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+                crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
             },
         },
         crate::example_db::specs::RuleExampleSpec {
@@ -362,7 +370,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 // Small 2x2 instance for canonical example
                 let source = OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]);
-                crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+                crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
             },
         },
     ]

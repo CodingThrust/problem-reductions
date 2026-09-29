@@ -126,6 +126,16 @@ impl MultiprocessorScheduling {
         self.lengths.len()
     }
 
+    /// Smallest h >= 1 such that every task length and the deadline are below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.lengths
+                .iter()
+                .copied()
+                .chain(std::iter::once(self.deadline)),
+        )
+    }
+
     /// Returns the total processing time of all tasks.
     pub fn total_length(&self) -> i64 {
         self.lengths.iter().sum()
@@ -137,7 +147,11 @@ impl Problem for MultiprocessorScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_processors", num_processors), ("num_tasks", num_tasks),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_processors", num_processors),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

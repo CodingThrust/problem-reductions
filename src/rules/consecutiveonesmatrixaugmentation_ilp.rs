@@ -49,6 +49,7 @@ impl crate::rules::AggregateReductionResult for ReductionCOMAToILP {}
         num_constraints = "num_cols + num_cols + num_rows * num_cols + 2 * num_rows + num_rows + 3 * num_rows * num_cols + 4 * num_rows * num_cols + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_rows * num_cols + num_cols + 1",
         num_nonzeros = "(num_cols * num_cols + 5 * num_rows * num_cols) * (num_cols + num_cols + num_rows * num_cols + 2 * num_rows + num_rows + 3 * num_rows * num_cols + 4 * num_rows * num_cols + 1)",
     },
 })]
@@ -181,7 +182,12 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
                 budget_terms.push((f_off + r * n + p, 1));
             }
         }
-        constraints.push(LinearConstraint::le(budget_terms, self.bound()));
+        let max_augmentations =
+            Self::exact_i64(budget_terms.len(), "encoding the augmentation budget")?;
+        constraints.push(LinearConstraint::le(
+            budget_terms,
+            self.bound().min(max_augmentations),
+        ));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

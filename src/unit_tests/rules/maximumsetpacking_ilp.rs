@@ -163,3 +163,18 @@ fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
+
+#[test]
+fn test_set_packing_normalization_preserves_repeated_membership() {
+    let source =
+        MaximumSetPacking::with_weights(vec![vec![0, 0], vec![0], vec![1, 1]], vec![3, 2, 4])
+            .unwrap();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let recovered = reduction.extract_solution(&solution).unwrap();
+    assert_eq!(source.evaluate(&recovered).unwrap(), Max(Some(7)));
+    assert_eq!(
+        reduction.target_problem().max_constraint_magnitude_bits(),
+        1
+    );
+}

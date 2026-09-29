@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::models::decision::Decision;
 use crate::models::misc::{OpenShopScheduling, Partition};
@@ -6,7 +7,8 @@ use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 
 fn solve_target(target: &OpenShopScheduling) -> Vec<usize> {
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(target).expect("ILP reduction should succeed");
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(target)
+        .expect("ILP reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("open-shop target should be feasible");

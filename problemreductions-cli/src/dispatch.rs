@@ -853,7 +853,7 @@ mod tests {
         let route = crate::commands::reduce::parse_path_json(
             r#"{"path":[{
                 "from":{"name":"ExpectedRetrievalCost","variant":{}},
-                "to":{"name":"ILP","variant":{"coefficient":"f64","variable":"bool"}}
+                "to":{"name":"ILP","variant":{"coefficient":"f64","variable":"bool","bounds":"general"}}
             }]}"#,
         )
         .unwrap();

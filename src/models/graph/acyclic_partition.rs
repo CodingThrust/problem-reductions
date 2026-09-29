@@ -219,6 +219,17 @@ impl<W: WeightElement> AcyclicPartition<W> {
         !W::IS_UNIT
     }
 
+    /// Smallest h >= 1 bounding vertex weights, arc costs, and both budgets in magnitude by 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.vertex_weights
+                .iter()
+                .chain(&self.arc_costs)
+                .map(|value| value.to_sum())
+                .chain([self.weight_bound.clone(), self.cost_bound.clone()]),
+        )
+    }
+
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -253,7 +264,11 @@ where
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_arcs", num_arcs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]

@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -14,7 +15,7 @@ fn test_multiplechoicebranching_to_ilp_closed_loop() {
             threshold,
         );
         let expected = BruteForce::new().solve(&problem).unwrap();
-        let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).unwrap();
         match expected {
             Some(_) => {
                 let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
@@ -34,7 +35,7 @@ fn test_multiplechoicebranching_to_ilp_rejects_forced_cycle() {
         vec![vec![0], vec![1]],
         2,
     );
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).unwrap();
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
@@ -46,7 +47,7 @@ fn test_multiplechoicebranching_to_ilp_size() {
         vec![vec![0, 1], vec![2, 3]],
         3,
     );
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).unwrap();
     assert_eq!(reduction.target_problem().num_vars(), 7);
     assert_eq!(reduction.target_problem().num_constraints(), 17);
 }
@@ -54,7 +55,7 @@ fn test_multiplechoicebranching_to_ilp_size() {
 #[test]
 fn test_multiplechoicebranching_to_ilp_empty_graph() {
     let problem = MultipleChoiceBranching::new(DirectedGraph::new(0, vec![]), vec![], vec![], 0);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).unwrap();
     let target = ILPSolver::new().solve(reduction.target_problem()).unwrap();
     assert_eq!(
         reduction.extract_solution(&target).unwrap(),

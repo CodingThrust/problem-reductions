@@ -124,6 +124,16 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
         &self.bound
     }
 
+    /// Smallest h >= 1 bounding candidate-weight and budget magnitudes strictly by 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.candidate_arcs
+                .iter()
+                .map(|(_, _, weight)| weight.to_sum())
+                .chain(std::iter::once(self.bound.clone())),
+        )
+    }
+
     /// Get the number of vertices in the base graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -187,6 +197,7 @@ where
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
         ("num_arcs", num_arcs),
         ("num_potential_arcs", num_potential_arcs),
         ("num_vertices", num_vertices),

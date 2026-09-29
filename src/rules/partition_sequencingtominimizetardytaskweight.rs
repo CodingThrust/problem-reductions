@@ -60,6 +60,7 @@ impl crate::rules::AggregateReductionResult
 
 #[reduction(
     transform = exact {
+        max_processing_time_bits = "max_numeric_magnitude_bits",
         num_tasks = "num_elements",
     })]
 impl ReduceTo<Decision<SequencingToMinimizeTardyTaskWeight>> for Partition {

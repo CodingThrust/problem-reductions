@@ -181,6 +181,16 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
         &self.budget
     }
 
+    /// Smallest h >= 1 bounding candidate-weight and budget magnitudes strictly by 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.potential_weights
+                .iter()
+                .map(|(_, _, weight)| weight.to_sum())
+                .chain(std::iter::once(self.budget.clone())),
+        )
+    }
+
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -251,6 +261,7 @@ where
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
         ("num_edges", num_edges),
         ("num_potential_edges", num_potential_edges),
         ("num_vertices", num_vertices),

@@ -110,6 +110,7 @@ fn build_common_constraints(
         num_constraints = "2 * num_tasks + num_precedences + num_tasks",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_tasks + 1",
         num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks)",
     },
 })]
@@ -135,7 +136,8 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
             let mut terms: Vec<(usize, i64)> =
                 (0..n).map(|p| (x_var(j, p), positions[p] + 1)).collect();
             terms.push((u_var(j), -big_m));
-            let deadline = self.deadlines()[j];
+            // Completion times lie in [1, n]; outside deadlines have the same tardy status.
+            let deadline = self.deadlines()[j].clamp(0, big_m);
             constraints.push(LinearConstraint::le(terms, deadline));
         }
 
@@ -156,6 +158,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
         num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 1",
         num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks * num_tasks)",
     },
 })]
@@ -187,6 +190,17 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
         // Tardy indicator for arbitrary lengths.
         let lengths = self.lengths();
         for j in 0..n {
+            // Positive lengths bound all completion times by total_length.
+            let rhs = self.deadlines()[j]
+                .clamp(0, total_length)
+                .checked_sub(lengths[j])
+                .and_then(|value| value.checked_add(total_length))
+                .ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        MinimumTardinessSequencing<i64>,
+                        ILP<bool>,
+                    >("computing a tardiness constraint bound")
+                })?;
             for p in 0..n {
                 let mut terms: Vec<(usize, i64)> = Vec::new();
                 terms.push((x_var(j, p), big_m));
@@ -196,15 +210,6 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
                     }
                 }
                 terms.push((u_var(j), -big_m));
-                let rhs = self.deadlines()[j]
-                    .checked_sub(lengths[j])
-                    .and_then(|value| value.checked_add(total_length))
-                    .ok_or_else(|| {
-                        crate::rules::ReductionError::integer_overflow::<
-                            MinimumTardinessSequencing<i64>,
-                            ILP<bool>,
-                        >("computing a tardiness constraint bound")
-                    })?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }

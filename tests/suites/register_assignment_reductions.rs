@@ -1,4 +1,4 @@
-use problemreductions::models::algebraic::ILP;
+use problemreductions::models::algebraic::{Bounded, ILP};
 use problemreductions::models::formula::{CNFClause, KSatisfiability};
 use problemreductions::models::misc::FeasibleRegisterAssignment;
 use problemreductions::prelude::*;
@@ -21,7 +21,7 @@ fn ksat_to_fra_path() -> ReductionPath {
 fn fra_to_ilp_path() -> ReductionPath {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&FeasibleRegisterAssignment::variant());
-    let dst = ReductionGraph::variant_to_map(&ILP::<i64>::variant());
+    let dst = ReductionGraph::variant_to_map(&ILP::<i64, i64, Bounded>::variant());
     graph
         .find_all_paths("FeasibleRegisterAssignment", &src, "ILP", &dst)
         .into_iter()
@@ -64,7 +64,7 @@ fn test_ksat_to_fra_structure_and_closed_loop_via_ilp() {
         .reduce_along_path(&fra_path, fra as &dyn std::any::Any)
         .expect("FRA -> ILP reduction should not fail")
         .expect("FRA -> ILP reduction should execute");
-    let ilp = fra_chain.target_problem::<ILP<i64>>();
+    let ilp = fra_chain.target_problem::<ILP<i64, i64, Bounded>>();
 
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
@@ -99,7 +99,7 @@ fn test_unsatisfiable_ksat_stays_infeasible_through_fra_to_ilp() {
 
     assert!(
         ILPSolver::new()
-            .solve(fra_chain.target_problem::<ILP<i64>>())
+            .solve(fra_chain.target_problem::<ILP<i64, i64, Bounded>>())
             .is_err(),
         "unsatisfiable source instance should yield an infeasible ILP"
     );

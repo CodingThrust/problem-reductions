@@ -1,17 +1,17 @@
-//! Reduction from UndirectedFlowLowerBounds to `ILP<i64>`.
+//! Reduction from UndirectedFlowLowerBounds to `ILP<i64, i64, Bounded>`.
 //!
 //! For each undirected edge e = {u,v} (indexed by e), we introduce:
 //!   f_{uv} = 2*e      (flow in u→v direction, ≥ 0)
 //!   f_{vu} = 2*e + 1  (flow in v→u direction, ≥ 0)
 //!   z_e    = 2*|E| + e (binary orientation: 1 if u→v, 0 if v→u)
 //!
-//! Constraints per edge (4 constraints):
+//! Constraints per edge (up to 5 constraints):
 //!   z_e ≤ 1  (force binary)
 //!   f_{uv} ≤ cap[e] * z_e        (only if oriented u→v)
 //!   f_{vu} ≤ cap[e] * (1 - z_e)  (only if oriented v→u)
 //!   f_{uv} ≥ lower[e] * z_e      (must carry at least lower bound if oriented u→v)
 //!   f_{vu} ≥ lower[e] * (1 - z_e)(must carry at least lower bound if oriented v→u)
-//! Since we need all 4: linearized as:
+//! Linearized as:
 //!   z_e ≤ 1
 //!   f_{uv} - cap[e]*z_e ≤ 0
 //!   f_{vu} + cap[e]*z_e ≤ cap[e]
@@ -23,13 +23,14 @@
 //!
 //! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
-/// Result of reducing UndirectedFlowLowerBounds to `ILP<i64>`.
+/// Result of reducing UndirectedFlowLowerBounds to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `f_{uv}` at 2*e (flow u→v on edge e)
@@ -37,15 +38,15 @@ use crate::topology::Graph;
 /// - `z_e` at 2*|E| + e (orientation indicator: 1 = u→v direction)
 #[derive(Debug, Clone)]
 pub struct ReductionUFLBToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionUFLBToILP {
     type Source = UndirectedFlowLowerBounds;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -78,12 +79,15 @@ impl ReductionResult for ReductionUFLBToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "3 * num_edges",
-    num_constraints = "5 * num_edges + num_vertices + 1",
-    num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
-})]
-impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
+        num_vars = "3 * num_edges",
+        num_constraints = "5 * num_edges + num_vertices + 1",
+        num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
+    },
+)]
+impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -171,7 +175,9 @@ impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
                 sink_terms.push((f_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        let requirement =
+            bounded_flow_requirement(self.requirement(), self.capacities().iter().copied());
+        constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
         let mut variables = self
             .capacities()
@@ -207,7 +213,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

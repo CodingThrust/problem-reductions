@@ -181,6 +181,13 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
         self.edge_lengths.clone()
     }
 
+    /// Smallest h >= 1 with every edge length strictly below 2^h.
+    pub fn max_length_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.edge_lengths.iter().map(|length| length.to_sum()),
+        )
+    }
+
     /// Get the number of vertices in the graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -211,7 +218,11 @@ where
     type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
 
-    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_length_bits", max_length_bits),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]

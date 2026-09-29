@@ -56,6 +56,7 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
 
 #[reduction(
     transform = exact {
+        max_processing_time_bits = "1",
         num_tasks = "num_vertices + num_edges",
         num_precedences = "2 * num_edges",
     }

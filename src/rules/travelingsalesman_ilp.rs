@@ -75,6 +75,7 @@ impl ReductionResult for ReductionTSPToILP {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_constraints = "num_vertices^2 * (num_vertices - 1) + 2 * num_vertices + 6 * num_vertices * num_edges",
         num_nonzeros = "2 * num_vertices^3 + 14 * num_vertices * num_edges",
     },

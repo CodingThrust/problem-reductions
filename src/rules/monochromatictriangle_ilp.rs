@@ -44,6 +44,7 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 impl crate::rules::AggregateReductionResult for ReductionMonochromaticTriangleToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
     num_vars = "num_edges",
     num_constraints = "2 * num_triangles + num_vertices^5 / 8",
     num_nonzeros = "num_edges * (2 * num_triangles + num_vertices^5 / 8)",

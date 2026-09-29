@@ -4,22 +4,23 @@
 //! the bundle-capacity inequalities, flow-conservation equalities at
 //! nonterminals, and the sink inflow lower bound from the source problem.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing IntegralFlowBundles to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionIFBToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionIFBToILP {
     type Source = IntegralFlowBundles;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -47,10 +48,11 @@ impl crate::rules::AggregateReductionResult for ReductionIFBToILP {}
         num_constraints = "num_bundles + num_vertices - 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_arcs + 1",
         num_nonzeros = "num_arcs * (num_bundles + num_vertices - 1)",
     },
 })]
-impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
+impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowBundles {
     type Result = ReductionIFBToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -88,10 +90,12 @@ impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
                 sink_terms.push((arc_index, 1));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        let upper_bounds = self.arc_upper_bounds();
+        let requirement =
+            bounded_flow_requirement(self.requirement(), upper_bounds.iter().copied());
+        constraints.push(LinearConstraint::ge(sink_terms, requirement));
 
-        let variables = self
-            .arc_upper_bounds()
+        let variables = upper_bounds
             .into_iter()
             .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
             .collect::<Result<Vec<_>, _>>()
@@ -119,7 +123,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 1, 1],
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

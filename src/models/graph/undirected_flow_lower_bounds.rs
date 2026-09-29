@@ -126,9 +126,9 @@ impl UndirectedFlowLowerBounds {
         }
 
         for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
-            if lower > upper {
+            if lower < 0 || lower > upper {
                 return Err(format!(
-                    "lower bound at edge {edge_index} must be at most its capacity"
+                    "lower bound at edge {edge_index} must be nonnegative and at most its capacity"
                 )
                 .into());
             }
@@ -166,6 +166,11 @@ impl UndirectedFlowLowerBounds {
 
     pub fn requirement(&self) -> i64 {
         self.requirement
+    }
+
+    /// Maximum bit length of the edge capacities, with a minimum of one.
+    pub fn max_capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.capacities.iter().copied())
     }
 
     pub fn num_vertices(&self) -> usize {
@@ -278,7 +283,11 @@ impl Problem for UndirectedFlowLowerBounds {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_capacity_bits", max_capacity_bits),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

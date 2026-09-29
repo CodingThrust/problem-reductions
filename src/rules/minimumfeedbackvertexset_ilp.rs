@@ -6,14 +6,14 @@
 //!   Plus binary bounds (x_i <= 1) and order bounds (o_i <= n-1)
 //! - Objective: Minimize the weighted sum of removed vertices
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing MinimumFeedbackVertexSet to ILP.
 ///
-/// The ILP uses integer variables (`ILP<i64>`) because it needs both
+/// The ILP uses integer variables (`ILP<i64, i64, Bounded>`) because it needs both
 /// binary selection variables (x_i) and integer ordering variables (o_i).
 ///
 /// Variable layout:
@@ -21,16 +21,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `o_i` at index `n + i` for `i in 0..n`: integer in {0, ..., n-1}, topological order
 #[derive(Debug, Clone)]
 pub struct ReductionMFVSToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     /// Number of vertices in the source graph (needed for solution extraction).
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionMFVSToILP {
     type Source = MinimumFeedbackVertexSet<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -57,10 +57,11 @@ impl ReductionResult for ReductionMFVSToILP {
         num_constraints = "num_arcs + 2 * num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2 * num_vertices + 1",
         num_nonzeros = "(2 * num_vertices) * (num_arcs + 2 * num_vertices)",
     },
 })]
-impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionMFVSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -73,7 +74,10 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
         // o_i = n + i     (integer: topological order of vertex i)
 
         let mut constraints = Vec::new();
-        let n_i64 = <Self as ReduceTo<ILP<i64>>>::exact_i64(n, "encoding the topological order")?;
+        let n_i64 = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            n,
+            "encoding the topological order",
+        )?;
 
         // Binary bounds: x_i <= 1 for i in 0..n
         for i in 0..n {
@@ -109,12 +113,12 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
         let mut variables = vec![IntegerVariable::binary(); num_vars];
         variables[n..].fill(
             IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
-                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
         );
 
         let target =
             ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
 
         Ok(ReductionMFVSToILP {
             target,
@@ -133,7 +137,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Simple cycle: 0 -> 1 -> 2 -> 0 (FVS = 1 vertex)
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -1,4 +1,4 @@
-//! Reduction from PreemptiveScheduling to `ILP<i64>`.
+//! Reduction from PreemptiveScheduling to `ILP<i64, i64, Bounded>`.
 //!
 //! Time-indexed formulation with an auxiliary integer makespan variable:
 //! - Variables: binary x_{t,u} for t in 0..n, u in 0..D_max (task t processed at slot u),
@@ -15,18 +15,18 @@
 //!   4. Makespan lower bound: M ≥ (u+1) when x_{t,u}=1:
 //!      `M - (u+1)*x_{t,u} ≥ 0` for all t,u
 //!   5. Binary bounds: x_{t,u} ≤ 1 for each t,u
-//!      (since `ILP<i64>` uses non-negative integer domain)
+//!      (since `ILP<i64, i64, Bounded>` uses non-negative integer domain)
 //! - Objective: Minimize M.
 //!
-//! Note: `ILP<i64>` treats all variables as non-negative integers. Binary constraints
+//! Note: `ILP<i64, i64, Bounded>` treats all variables as non-negative integers. Binary constraints
 //! on x_{t,u} are enforced by x_{t,u} ≤ 1.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PreemptiveScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing PreemptiveScheduling to `ILP<i64>`.
+/// Result of reducing PreemptiveScheduling to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - x_{t,u} at index t * D_max + u for t in 0..n, u in 0..D_max  (n*D_max vars)
@@ -35,16 +35,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n * D_max + 1 variables.
 #[derive(Debug, Clone)]
 pub struct ReductionPSToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
     d_max: usize,
 }
 
 impl ReductionResult for ReductionPSToILP {
     type Source = PreemptiveScheduling;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -73,10 +73,11 @@ impl ReductionResult for ReductionPSToILP {
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "d_max + num_processors + 1",
         num_nonzeros = "(num_tasks * d_max + 1) * (num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max)",
     },
 })]
-impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
+impl ReduceTo<ILP<i64, i64, Bounded>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -178,7 +179,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 3 tasks, lengths [2,1,2], 2 processors, precedence (0,2)
             let source = PreemptiveScheduling::new(vec![2, 1, 2], 2, vec![(0, 2)]).unwrap();
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

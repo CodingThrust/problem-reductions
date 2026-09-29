@@ -1,4 +1,4 @@
-//! Reduction from UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
+//! Reduction from UndirectedTwoCommodityIntegralFlow to `ILP<i64, i64, Bounded>`.
 //!
 //! For each undirected edge {u,v} (indexed by e), we introduce 4 flow variables:
 //!   f1_{uv} = 4*e + 0  (commodity 1 flow u→v)
@@ -13,7 +13,7 @@
 //! For each edge e with capacity c_e, the joint capacity constraint is:
 //!   max(f1_{uv}, f1_{vu}) + max(f2_{uv}, f2_{vu}) ≤ c_e
 //!
-//! Since this is `ILP<i64>`, we use direction indicators d1_e, d2_e ∈ {0,1} to linearize:
+//! Since this is `ILP<i64, i64, Bounded>`, we use direction indicators d1_e, d2_e ∈ {0,1} to linearize:
 //!   f1_{uv} ≤ c_e * d1_e;  f1_{vu} ≤ c_e * (1 - d1_e)
 //!   f2_{uv} ≤ c_e * d2_e;  f2_{vu} ≤ c_e * (1 - d2_e)
 //!   f1_{uv} + f1_{vu} + f2_{uv} + f2_{vu} ≤ c_e  (joint capacity)
@@ -24,13 +24,14 @@
 //!
 //! Constraints per edge (7 per edge) + flow conservation (2 per non-terminal vertex) + net flow (2)
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
+use crate::rules::ilp_helpers::bounded_flow_requirement;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
-/// Result of reducing UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
+/// Result of reducing UndirectedTwoCommodityIntegralFlow to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `f1_{uv}` at 4*e + 0, `f1_{vu}` at 4*e + 1 (commodity 1 flows on edge e)
@@ -38,15 +39,15 @@ use crate::topology::Graph;
 /// - `d1_e` at 4*|E| + 2*e, `d2_e` at 4*|E| + 2*e + 1 (direction indicators)
 #[derive(Debug, Clone)]
 pub struct ReductionU2CIFToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionU2CIFToILP {
     type Source = UndirectedTwoCommodityIntegralFlow;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -75,10 +76,11 @@ impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
         num_constraints = "7 * num_edges + num_conservation_constraints + 2",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
         num_nonzeros = "(6 * num_edges) * (7 * num_edges + num_conservation_constraints + 2)",
     },
 })]
-impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
+impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {
     type Result = ReductionU2CIFToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -169,36 +171,28 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
             }
         }
 
-        // Net flow into sinks ≥ requirements
-        // Commodity 1: net inflow at sink_1 ≥ requirement_1
-        let sink_1 = self.sink_1();
-        let mut sink1_terms: Vec<(usize, i64)> = Vec::new();
-        for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            if sink_1 == v {
-                sink1_terms.push((f1_uv(edge_idx), 1));
-                sink1_terms.push((f1_vu(edge_idx), -1));
+        // Net flow into each sink must meet its normalized requirement.
+        for (sink, requirement, flow_offset) in [
+            (self.sink_1(), self.requirement_1(), 0),
+            (self.sink_2(), self.requirement_2(), 2),
+        ] {
+            let mut terms = Vec::new();
+            for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                let uv = 4 * edge_idx + flow_offset;
+                let vu = uv + 1;
+                if sink == v {
+                    terms.push((uv, 1));
+                    terms.push((vu, -1));
+                }
+                if sink == u {
+                    terms.push((uv, -1));
+                    terms.push((vu, 1));
+                }
             }
-            if sink_1 == u {
-                sink1_terms.push((f1_uv(edge_idx), -1));
-                sink1_terms.push((f1_vu(edge_idx), 1));
-            }
+            let requirement =
+                bounded_flow_requirement(requirement, self.capacities().iter().copied());
+            constraints.push(LinearConstraint::ge(terms, requirement));
         }
-        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1()));
-
-        // Commodity 2: net inflow at sink_2 ≥ requirement_2
-        let sink_2 = self.sink_2();
-        let mut sink2_terms: Vec<(usize, i64)> = Vec::new();
-        for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            if sink_2 == v {
-                sink2_terms.push((f2_uv(edge_idx), 1));
-                sink2_terms.push((f2_vu(edge_idx), -1));
-            }
-            if sink_2 == u {
-                sink2_terms.push((f2_uv(edge_idx), -1));
-                sink2_terms.push((f2_vu(edge_idx), 1));
-            }
-        }
-        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
 
         let mut variables = self
             .capacities()
@@ -239,13 +233,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
             );
             let reduction: ReductionU2CIFToILP =
-                ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+                ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
             let source_config = reduction.extract_solution(&target_config).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64, i64, Bounded>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::to_value(source_config)

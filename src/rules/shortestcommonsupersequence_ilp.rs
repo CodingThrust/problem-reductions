@@ -46,6 +46,7 @@ impl ReductionResult for ReductionSCSToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "max_length + 1",
     num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
     num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
     num_nonzeros = "(max_length * (alphabet_size + 1) + total_length * max_length) * (max_length + total_length + total_length * max_length + total_length + max_length)",

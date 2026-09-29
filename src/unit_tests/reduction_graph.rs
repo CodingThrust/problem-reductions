@@ -12,6 +12,162 @@ use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 #[test]
+fn domination_magnitude_predictions_account_for_parallel_edges() {
+    let source = MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1); 8]), vec![1_i64; 2]);
+    let target = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(
+        target
+            .target_problem()
+            .parameters()
+            .get("max_constraint_magnitude_bits"),
+        Some(4)
+    );
+    let entries = crate::rules::registry::reduction_entries();
+    let entry = entries
+        .iter()
+        .find(|entry| entry.source_name == "MinimumDominatingSet" && entry.target_name == "ILP")
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let predicted = contract
+        .transform()
+        .unwrap()
+        .evaluate(&source.parameters())
+        .unwrap();
+    assert!(predicted.get("max_constraint_magnitude_bits").unwrap() >= 4);
+}
+
+#[test]
+fn decision_ilp_contracts_cover_numeric_bounds() {
+    for name in ["DecisionLongestCircuit", "DecisionOpenShopScheduling"] {
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| entry.source_name == name && entry.target_name == "ILP")
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let transform = contract.transform().unwrap();
+        assert!(contract.unavailable().is_empty(), "{name}");
+        for field in [
+            "max_constraint_magnitude_bits",
+            "num_vars",
+            "num_constraints",
+            "num_nonzeros",
+        ] {
+            assert!(transform.get(field).is_some(), "{name}: {field}");
+        }
+    }
+}
+
+#[test]
+fn bounded_ilp_size_predictions_compose_through_translated_domains() {
+    use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense};
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: "ILP".into(),
+                variant: ReductionGraph::variant_to_map(&ILP::<i64, i64, Bounded>::variant()),
+            },
+            ReductionStep {
+                name: "ILP".into(),
+                variant: ReductionGraph::variant_to_map(&ILP::<bool>::variant()),
+            },
+            ReductionStep {
+                name: "QUBO".into(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
+            },
+        ],
+    };
+    let graph = ReductionGraph::new();
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for lower in [-1, -8] {
+        let source = ILP::<i64, i64, Bounded>::with_variables(
+            vec![IntegerVariable::new(Some(lower), Some(lower + 1)).unwrap()],
+            vec![LinearConstraint::le(vec![(0, 1)], 0)],
+            vec![(0, 1)],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap();
+        let binary = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let qubo = ReduceTo::<QUBO<i64>>::reduce_to(binary.target_problem()).unwrap();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        for (field, actual) in qubo.target_problem().parameters().iter() {
+            assert!(predicted.get(field).expect("composed size bound") >= actual);
+        }
+        let solution = BruteForce::new()
+            .solve(qubo.target_problem())
+            .unwrap()
+            .unwrap();
+        let recovered = binary
+            .extract_solution(&qubo.extract_solution(&solution).unwrap())
+            .unwrap();
+        assert_eq!(recovered, vec![lower]);
+    }
+}
+
+#[test]
+fn weighted_qubo_round_trip_size_prediction_uses_only_structural_parameters() {
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: "QUBO".into(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
+            },
+            ReductionStep {
+                name: "ILP".into(),
+                variant: ReductionGraph::variant_to_map(&ILP::<bool>::variant()),
+            },
+            ReductionStep {
+                name: "QUBO".into(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
+            },
+        ],
+    };
+    let transform = ReductionGraph::new()
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for weight in [1, 1000] {
+        let source = QUBO::from_matrix(vec![vec![-weight, 1], vec![0, -weight]]).unwrap();
+        let ilp = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let qubo = ReduceTo::<QUBO<i64>>::reduce_to(ilp.target_problem()).unwrap();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        // Three binary ILP variables and three unit-magnitude rows give U=15.
+        assert_eq!(predicted.get("num_vars"), Some(15));
+        assert_eq!(predicted.get("num_quadratic_terms"), Some(225));
+        for (field, actual) in qubo.target_problem().parameters().iter() {
+            assert!(predicted.get(field).unwrap() >= actual);
+        }
+    }
+}
+
+#[test]
+fn integer_ilp_graph_requires_bounded_domains_for_binary_encoding() {
+    let graph = ReductionGraph::new();
+    let general = ReductionGraph::variant_to_map(&ILP::<i64>::variant());
+    let binary = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    assert!(graph
+        .find_all_paths("ILP", &general, "ILP", &binary)
+        .is_empty());
+    let bounded = ReductionGraph::variant_to_map(&[
+        ("variable", "i64"),
+        ("coefficient", "i64"),
+        ("bounds", "bounded"),
+    ]);
+    for (source, target) in [
+        (&bounded, &binary),
+        (&bounded, &general),
+        (&binary, &bounded),
+    ] {
+        assert!(graph
+            .find_all_paths("ILP", source, "ILP", target)
+            .iter()
+            .any(|path| path.len() == 1));
+    }
+}
+
+#[test]
 fn exact_transform_evaluates_without_path_ranking() {
     let graph = ReductionGraph::new();
     let source =
@@ -1134,4 +1290,358 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
         "paths must be returned shortest-first, got lengths {lens:?}"
     );
     assert_eq!(lens, vec![1, 4]);
+}
+
+#[test]
+fn knapsack_normalization_restores_composed_qubo_predictions() {
+    use crate::models::misc::Knapsack;
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: Knapsack::NAME.into(),
+                variant: ReductionGraph::variant_to_map(&Knapsack::variant()),
+            },
+            ReductionStep {
+                name: ILP::<bool>::NAME.into(),
+                variant: ReductionGraph::variant_to_map(&ILP::<bool>::variant()),
+            },
+            ReductionStep {
+                name: QUBO::<i64>::NAME.into(),
+                variant: ReductionGraph::variant_to_map(&QUBO::<i64>::variant()),
+            },
+        ],
+    };
+    let transform = ReductionGraph::new()
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for capacity in [0, 1] {
+        let source = Knapsack::new(vec![0, 1, i64::MAX], vec![2, 3, 4], capacity);
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        let ilp = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let qubo = ReduceTo::<QUBO<i64>>::reduce_to(ilp.target_problem()).unwrap();
+        for (field, actual) in qubo.target_problem().parameters().iter() {
+            assert!(predicted.get(field).unwrap() >= actual);
+        }
+    }
+}
+
+#[test]
+fn numeric_magnitude_bits_propagate_from_sat_to_qubo() {
+    use crate::models::formula::CNFClause;
+    use crate::models::misc::{BinPacking, Partition, SubsetSum};
+    let path = ReductionPath {
+        steps: [
+            (
+                KSatisfiability::<K3>::NAME,
+                KSatisfiability::<K3>::variant(),
+            ),
+            (SubsetSum::NAME, SubsetSum::variant()),
+            (Partition::NAME, Partition::variant()),
+            (BinPacking::<i64>::NAME, BinPacking::<i64>::variant()),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+            (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let graph = ReductionGraph::new();
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for source in [
+        KSatisfiability::<K3>::new(1, vec![]),
+        KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]),
+    ] {
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<QUBO<i64>>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).unwrap() >= actual);
+        }
+        if source.num_vars() == 1 {
+            let solution = BruteForce::new().solve(target).unwrap().unwrap();
+            let recovered: Vec<bool> = chain.extract_solution(&solution).unwrap();
+            assert!(source.evaluate(&recovered).unwrap().0);
+        }
+    }
+}
+
+#[test]
+fn numeric_magnitude_bits_cover_padding_and_empty_targets() {
+    use crate::models::misc::{BinPacking, Partition, SubsetSum};
+    fn check<S, T>(source: S)
+    where
+        S: Problem + ReduceTo<T>,
+        T: Problem,
+    {
+        let reduction = source.reduce_to().unwrap();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| {
+                entry.source_name == S::NAME
+                    && entry.source_variant() == S::variant()
+                    && entry.target_name == T::NAME
+                    && entry.target_variant() == T::variant()
+            })
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        for (field, actual) in reduction.target_problem().parameters().iter() {
+            assert!(
+                predicted.get(field).unwrap() >= actual,
+                "{} -> {}: {field}",
+                S::NAME,
+                T::NAME
+            );
+        }
+    }
+    for target in [0_u32, 1, 2, 1000] {
+        check::<_, Partition>(SubsetSum::new(vec![1_u32, 1], target));
+    }
+    for sizes in [vec![1], vec![1, 1], vec![7, 1], vec![7, 7, 7, 7]] {
+        check::<_, SubsetSum>(Partition::new(sizes.clone()).unwrap());
+        check::<_, BinPacking<i64>>(Partition::new(sizes).unwrap());
+    }
+    check::<_, ILP<bool>>(BinPacking::new(Vec::<i64>::new(), i64::MAX).unwrap());
+    check::<_, ILP<bool>>(BinPacking::new(vec![8_i64], 1).unwrap());
+}
+
+#[test]
+fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
+    use crate::models::algebraic::Bounded;
+    use crate::models::graph::{
+        IntegralFlowBundles, IntegralFlowWithMultipliers, UndirectedFlowLowerBounds,
+        UndirectedTwoCommodityIntegralFlow,
+    };
+    use crate::topology::DirectedGraph;
+
+    fn check<S: Problem + ReduceTo<ILP<i64, i64, Bounded>>>(source: S, bits: u64) {
+        assert_eq!(
+            source.parameters().get("max_capacity_bits"),
+            Some(bits),
+            "{}",
+            S::NAME
+        );
+        let reduction = source.reduce_to().unwrap();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| entry.source_name == S::NAME && entry.target_name == "ILP")
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        for (field, actual) in reduction.target_problem().parameters().iter() {
+            assert!(
+                predicted.get(field).expect("complete flow bound") >= actual,
+                "{}: {field}",
+                S::NAME
+            );
+        }
+    }
+    for (capacity, bits) in [(0, 1), (1, 1), (7, 3), (8, 4), (i64::MAX, 63)] {
+        if capacity > 0 {
+            check(
+                IntegralFlowBundles::new(
+                    DirectedGraph::new(2, vec![(0, 1)]),
+                    0,
+                    1,
+                    vec![vec![0]],
+                    vec![capacity],
+                    i64::MAX,
+                ),
+                bits,
+            );
+        }
+        check(
+            IntegralFlowWithMultipliers::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                0,
+                2,
+                vec![1, i64::MAX, 1],
+                vec![capacity; 2],
+                i64::MAX,
+            ),
+            bits,
+        );
+        check(
+            UndirectedFlowLowerBounds::new(
+                SimpleGraph::new(2, vec![(0, 1)]),
+                vec![capacity],
+                vec![capacity],
+                0,
+                1,
+                i64::MAX,
+            ),
+            bits,
+        );
+        check(
+            UndirectedTwoCommodityIntegralFlow::new(
+                SimpleGraph::new(2, vec![(0, 1)]),
+                vec![capacity],
+                0,
+                1,
+                0,
+                1,
+                i64::MIN,
+                i64::MAX,
+            ),
+            bits,
+        );
+    }
+    check(
+        IntegralFlowBundles::new(
+            DirectedGraph::new(2, vec![]),
+            0,
+            1,
+            vec![],
+            vec![],
+            i64::MAX,
+        ),
+        1,
+    );
+}
+
+#[test]
+fn incoming_flow_predictions_compose_to_qubo_and_recover_witnesses() {
+    use crate::models::algebraic::Bounded;
+    use crate::models::graph::{IntegralFlowBundles, IntegralFlowWithMultipliers};
+    use crate::models::misc::Partition;
+
+    fn check<S, F>(source: S, expected: bool)
+    where
+        S: Problem<Value = crate::types::Or> + 'static,
+        S::Solution: 'static,
+        F: Problem,
+    {
+        let path = ReductionPath {
+            steps: [
+                (S::NAME, S::variant()),
+                (F::NAME, F::variant()),
+                (
+                    ILP::<i64, i64, Bounded>::NAME,
+                    ILP::<i64, i64, Bounded>::variant(),
+                ),
+                (ILP::<bool>::NAME, ILP::<bool>::variant()),
+                (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+            ]
+            .into_iter()
+            .map(|(name, variant)| ReductionStep {
+                name: name.into(),
+                variant: ReductionGraph::variant_to_map(&variant),
+            })
+            .collect(),
+        };
+        let graph = ReductionGraph::new();
+        let predicted = graph
+            .compose_path_parameter_transform(&path)
+            .unwrap()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<QUBO<i64>>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).expect("composed flow bound") >= actual);
+        }
+        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        let recovered = chain.extract_solution::<S::Solution, _>(&solution);
+        if expected {
+            assert!(source.evaluate(&recovered.unwrap()).unwrap().0);
+        } else {
+            assert!(
+                recovered.is_err(),
+                "infeasible flow must not decode a witness"
+            );
+        }
+    }
+    for (sizes, feasible) in [(vec![1, 1], true), (vec![1, 2], false), (vec![2], false)] {
+        check::<_, IntegralFlowWithMultipliers>(Partition::new(sizes).unwrap(), feasible);
+    }
+    for bound in [0, 1, 2] {
+        check::<_, IntegralFlowBundles>(
+            Decision::new(
+                MaximumIndependentSet::new(SimpleGraph::new(1, vec![]), vec![One]),
+                bound,
+            ),
+            bound <= 1,
+        );
+    }
+}
+
+fn check_augmentation_predictions_through_qubo<A: Problem>() {
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: [
+            (
+                HamiltonianCircuit::<SimpleGraph>::NAME,
+                HamiltonianCircuit::<SimpleGraph>::variant(),
+            ),
+            (A::NAME, A::variant()),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+            (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let transform = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap();
+    for source_graph in [
+        SimpleGraph::empty(0),
+        SimpleGraph::empty(1),
+        SimpleGraph::path(2),
+        SimpleGraph::cycle(3),
+        SimpleGraph::path(3),
+    ] {
+        let source = HamiltonianCircuit::new(source_graph);
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+        let target = chain.target_problem::<QUBO<i64>>();
+        for (field, actual) in target.parameters().iter() {
+            assert!(predicted.get(field).expect("composed augmentation bound") >= actual);
+        }
+        let expected = BruteForce::new().solve(&source).unwrap().is_some();
+        let solution = crate::solvers::ILPSolver::new().solve(target).unwrap();
+        let recovered = chain.extract_solution::<Vec<usize>, _>(&solution);
+        if expected {
+            assert!(source.evaluate(&recovered.unwrap()).unwrap().0);
+        } else {
+            assert!(
+                recovered.is_err(),
+                "infeasible augmentation cannot certify a circuit"
+            );
+        }
+    }
+}
+
+#[test]
+fn biconnectivity_augmentation_predictions_compose_and_recover_through_qubo() {
+    check_augmentation_predictions_through_qubo::<
+        crate::models::graph::BiconnectivityAugmentation<SimpleGraph, i64>,
+    >();
+}
+
+#[test]
+fn strong_connectivity_augmentation_predictions_compose_and_recover_through_qubo() {
+    check_augmentation_predictions_through_qubo::<
+        crate::models::graph::StrongConnectivityAugmentation<i64>,
+    >();
 }

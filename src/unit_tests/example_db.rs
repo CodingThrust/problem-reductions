@@ -285,6 +285,7 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
         variant: BTreeMap::from([
             ("variable".to_string(), "i64".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "bounded".to_string()),
         ]),
     };
 
@@ -315,6 +316,7 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
         variant: BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     };
 

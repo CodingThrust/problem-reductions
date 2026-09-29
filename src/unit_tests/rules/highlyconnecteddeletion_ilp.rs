@@ -1,142 +1,172 @@
 use super::*;
-
-#[test]
-fn two_vertices_reduce_to_singleton_clusters() {
-    let source = HighlyConnectedDeletion::new(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vars(), 2);
-    assert_bf_vs_ilp(&source, &reduction);
-}
-use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::models::graph::HighlyConnectedDeletion;
+use crate::models::algebraic::QUBO;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
-use crate::topology::SimpleGraph;
+use crate::rules::{ReductionGraph, ReductionPath, ReductionStep};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical issue #1023 instance: triangle {0,1,2} with leaf vertex 3
-/// attached at vertex 2. Optimum deletes only the leaf edge (2,3).
-fn issue_instance() -> HighlyConnectedDeletion<SimpleGraph> {
+fn triangle_with_leaf() -> HighlyConnectedDeletion<SimpleGraph> {
     HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]))
 }
 
 #[test]
-fn test_highlyconnecteddeletion_to_ilp_issue_structure() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    let ilp = reduction.target_problem();
+fn polynomial_encoding_preserves_small_graph_optima_and_witnesses() {
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == HighlyConnectedDeletion::<SimpleGraph>::NAME
+                && entry.target_name == ILP::<bool>::NAME
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    for n in 0..=4 {
+        let pairs: Vec<_> = (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect();
+        for graph_mask in 0..1_usize << pairs.len() {
+            let edges = pairs
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &edge)| (graph_mask & (1 << i) != 0).then_some(edge))
+                .collect();
+            let source = HighlyConnectedDeletion::new(SimpleGraph::new(n, edges));
+            let reduction = source.reduce_to().unwrap();
+            let target = reduction.target_problem();
+            let predicted = transform.evaluate(&source.parameters()).unwrap();
+            for (field, actual) in target.parameters().iter() {
+                assert!(predicted.get(field).expect("complete polynomial contract") >= actual);
+            }
+            let reference = BruteForce::new().solve(&source).unwrap().unwrap();
+            let expected = source.evaluate(&reference).unwrap();
+            let mut best_deleted = None;
+            for mask in 0..1_usize << target.num_vars() {
+                let solution: Vec<i64> = (0..target.num_vars())
+                    .map(|i| ((mask >> i) & 1) as i64)
+                    .collect();
+                if target.is_feasible(&solution).unwrap() {
+                    let recovered = reduction.extract_solution(&solution).unwrap();
+                    let deleted = source
+                        .evaluate(&recovered)
+                        .unwrap()
+                        .0
+                        .expect("decoded witness must be feasible");
+                    // For a loop-free graph the ILP objective counts every kept edge.
+                    assert_eq!(
+                        target.evaluate_objective(&solution).unwrap() + deleted,
+                        source.num_edges() as i64
+                    );
+                    best_deleted =
+                        Some(best_deleted.map_or(deleted, |best: i64| best.min(deleted)));
+                }
+            }
+            assert_eq!(Min(best_deleted), expected, "n={n}, graph={graph_mask}");
+        }
+    }
+}
 
-    // 4 singletons + the triangle cluster {0,1,2}: 5 variables in total.
-    assert_eq!(ilp.num_vars(), 5);
-    assert_eq!(ilp.constraints().len(), 4);
-    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
+#[test]
+fn polynomial_encoding_handles_more_than_a_word_of_vertices() {
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]));
+    let reduction = source.reduce_to().unwrap();
+    let target = reduction.target_problem();
+    assert!(target.num_vars() <= 64 * 64);
+    assert!(target.num_constraints() <= 64_usize.pow(3) + 2 * 64);
+    let recovered = reduction
+        .extract_solution(&vec![0; target.num_vars()])
+        .unwrap();
+    assert_eq!(source.evaluate(&recovered).unwrap(), Min(Some(0)));
+}
 
-    // The induced-edge counts: singletons contribute 0, triangle contributes 3.
-    let triangle_coeffs: Vec<i64> = ilp
-        .objective()
-        .iter()
-        .filter(|(_, w)| *w > 0)
-        .map(|(_, w)| *w)
-        .collect();
-    assert_eq!(triangle_coeffs, vec![3]);
+#[test]
+fn pair_encoding_decodes_clusters_and_rejects_invalid_assignments() {
+    let source = triangle_with_leaf();
+    let reduction = source.reduce_to().unwrap();
+    // Pair variables: 01, 02, 03, 12, 13, 23; then four non-singleton flags.
+    let valid = vec![1, 1, 0, 1, 0, 0, 1, 1, 1, 0];
+    assert_eq!(
+        reduction.extract_solution(&valid).unwrap(),
+        vec![false, false, false, true]
+    );
+    for invalid in [
+        vec![0; 9],
+        vec![2; 10],
+        vec![-1; 10],
+        vec![1; 10], // The leaf prevents the whole graph from being highly connected.
+        vec![1, 0, 0, 1, 0, 0, 1, 1, 1, 0], // Non-transitive membership.
+    ] {
+        assert!(reduction.extract_solution(&invalid).is_err());
+    }
+}
 
-    // Vertex 3 only appears in its own singleton, so its partition constraint
-    // is `x_{3} = 1` -- a single-term equality with rhs 1.
-    let v3_constraint = &ilp.constraints()[3];
-    assert_eq!(v3_constraint.terms().len(), 1);
-    assert_eq!(v3_constraint.rhs(), 1);
-
-    // Vertex 0 appears in two clusters (its singleton and the triangle).
-    let v0_constraint = &ilp.constraints()[0];
-    assert_eq!(v0_constraint.terms().len(), 2);
-    assert_eq!(v0_constraint.rhs(), 1);
+#[test]
+fn polynomial_encoding_preserves_parallel_edge_costs_and_self_loops() {
+    let source = HighlyConnectedDeletion::new(SimpleGraph::new(
+        4,
+        vec![
+            (0, 0),
+            (0, 1),
+            (0, 1),
+            (0, 2),
+            (1, 2),
+            (2, 3),
+            (2, 3),
+            (3, 3),
+        ],
+    ));
+    let reduction = source.reduce_to().unwrap();
+    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let recovered = reduction.extract_solution(&solution).unwrap();
+    assert_eq!(
+        recovered,
+        vec![false, false, false, false, false, true, true, false]
+    );
+    assert_eq!(source.evaluate(&recovered).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_closed_loop() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_bf_vs_ilp(&source, &reduction);
-}
-
-#[test]
-fn test_highlyconnecteddeletion_to_ilp_bf_vs_ilp() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_bf_vs_ilp(&source, &reduction);
-}
-
-#[test]
-fn test_highlyconnecteddeletion_to_ilp_extract_solution_decode() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-
-    // ILP solution: pick triangle cluster {0,1,2} and singleton {3}.
-    // The triangle cluster is the last variable (index 4); singleton {3} is
-    // index 3. Build the assignment directly.
-    let mut target_solution = vec![0; reduction.target_problem().num_vars()];
-    target_solution[3] = 1; // singleton {3}
-    target_solution[4] = 1; // triangle {0,1,2}
-
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
-
-    // Edges in input order: (0,1), (0,2), (1,2) all inside the triangle (kept);
-    // (2,3) crosses clusters and is deleted.
-    assert_eq!(extracted, vec![false, false, false, true]);
-    assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
-    assert!(source.is_valid_solution(&extracted));
-}
-
-#[test]
-fn test_highlyconnecteddeletion_to_ilp_rejects_unassigned_vertex() {
-    let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    let target_solution = vec![0; reduction.target_problem().num_vars()];
-
-    assert_eq!(
-        reduction
-            .extract_solution(&target_solution)
-            .unwrap_err()
-            .to_string(),
-        "vertex 0 has no selected cluster"
-    );
-}
-
-#[test]
-fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
-    // Two disjoint K3's stitched by a single bridge edge. The bridge is the
-    // only "bad" edge: removing it leaves two K3's, both highly connected.
     let source = HighlyConnectedDeletion::new(SimpleGraph::new(
         6,
-        vec![
-            // Triangle on {0,1,2}.
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            // Triangle on {3,4,5}.
-            (3, 4),
-            (3, 5),
-            (4, 5),
-            // Bridge edge.
-            (2, 3),
-        ],
+        vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (2, 3)],
     ));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    let ilp = reduction.target_problem();
-
-    // No cluster of size >= 3 may straddle the bridge (the only sets {2,3} or
-    // any 4+ subsets crossing it fail edge-connectivity). The two triangles
-    // are feasible; mixed 4-vertex sets are not.
-    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
-    let large_cluster_count = ilp.objective().iter().filter(|(_, w)| *w > 0).count();
-    assert_eq!(large_cluster_count, 2);
-
+    let reduction = source.reduce_to().unwrap();
     assert_bf_vs_ilp(&source, &reduction);
 }
+
 #[test]
-fn test_highly_connected_deletion_rejects_mask_overflow() {
-    let source = HighlyConnectedDeletion::new(SimpleGraph::new(64, vec![]));
-    assert!(
-        <HighlyConnectedDeletion<SimpleGraph> as ReduceTo<ILP<bool>>>::reduce_to(&source).is_err()
-    );
+fn polynomial_size_predictions_and_recovery_work_through_qubo() {
+    let source = triangle_with_leaf();
+    let graph = ReductionGraph::new();
+    let path = ReductionPath {
+        steps: [
+            (
+                HighlyConnectedDeletion::<SimpleGraph>::NAME,
+                HighlyConnectedDeletion::<SimpleGraph>::variant(),
+            ),
+            (ILP::<bool>::NAME, ILP::<bool>::variant()),
+            (QUBO::<i64>::NAME, QUBO::<i64>::variant()),
+        ]
+        .into_iter()
+        .map(|(name, variant)| ReductionStep {
+            name: name.into(),
+            variant: ReductionGraph::variant_to_map(&variant),
+        })
+        .collect(),
+    };
+    let predicted = graph
+        .compose_path_parameter_transform(&path)
+        .unwrap()
+        .unwrap()
+        .evaluate(&source.parameters())
+        .unwrap();
+    let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+    let qubo = chain.target_problem::<QUBO<i64>>();
+    for (field, actual) in qubo.parameters().iter() {
+        assert!(predicted.get(field).expect("composed polynomial bound") >= actual);
+    }
+    let solution = ILPSolver::new().solve(qubo).unwrap();
+    let recovered: Vec<bool> = chain.extract_solution(&solution).unwrap();
+    assert_eq!(source.evaluate(&recovered).unwrap(), Min(Some(1)));
 }

@@ -307,13 +307,11 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionCircuitSATToSAT {}
 
-#[reduction(
-    transform = unavailable {
-        num_vars = "the exact Tseitin variable count is specific to this reduction and is not a CircuitSAT parameter",
-        num_clauses = "the exact Tseitin clause count is specific to this reduction and is not a CircuitSAT parameter",
-            num_literals = "the exact target parameter is not represented by this reduction's symbolic transform",
-}
-)]
+#[reduction(transform = upper_bound {
+    num_vars = "num_variables + 2 * num_expression_nodes",
+    num_clauses = "8 * num_expression_nodes + 2 * num_assignment_outputs",
+    num_literals = "24 * num_expression_nodes + 4 * num_assignment_outputs",
+})]
 impl ReduceTo<Satisfiability> for CircuitSAT {
     type Result = ReductionCircuitSATToSAT;
 

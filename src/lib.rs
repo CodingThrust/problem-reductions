@@ -159,3 +159,7 @@ mod test_reduction_graph;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
+
+#[cfg(test)]
+#[path = "unit_tests/ilp_overhead.rs"]
+mod ilp_overhead;

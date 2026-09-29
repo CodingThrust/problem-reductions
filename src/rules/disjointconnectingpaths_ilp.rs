@@ -99,6 +99,7 @@ impl crate::rules::AggregateReductionResult for ReductionDCPToILP {}
         num_constraints = "num_pairs * num_vertices + num_vertices",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_nonzeros = "(num_pairs * 2 * num_edges) * (num_pairs * num_vertices + num_vertices)",
     },
 })]

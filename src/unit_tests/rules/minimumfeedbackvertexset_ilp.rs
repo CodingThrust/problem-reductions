@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -10,7 +11,7 @@ fn test_reduction_creates_valid_ilp() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2n = 6 variables (3 binary x_i + 3 integer o_i)
@@ -27,7 +28,7 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -76,7 +77,7 @@ fn test_cycle_of_triangles() {
     let graph = DirectedGraph::new(9, arcs);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Verify ILP structure
@@ -101,7 +102,7 @@ fn test_dag_no_removal() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -119,7 +120,7 @@ fn test_single_vertex() {
     let graph = DirectedGraph::new(1, vec![]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 2);
@@ -141,7 +142,7 @@ fn test_weighted() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![10, 1, 10]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
@@ -172,7 +173,7 @@ fn test_two_disjoint_cycles() {
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -189,7 +190,7 @@ fn test_solution_extraction() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Simulate ILP solution: x_0=1, x_1=0, x_2=0, o_0=0, o_1=0, o_2=1
     let ilp_solution = vec![1, 0, 0, 0, 0, 1];
@@ -205,6 +206,6 @@ fn test_minimumfeedbackvertexset_to_ilp_bf_vs_ilp() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

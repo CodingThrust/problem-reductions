@@ -50,6 +50,7 @@ impl ReductionResult for ReductionMatchingToILP {
         num_vars = "num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_constraints = "num_vertices",
         num_nonzeros = "2 * num_edges",
     },

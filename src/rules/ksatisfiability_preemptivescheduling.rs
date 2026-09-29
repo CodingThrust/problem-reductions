@@ -368,16 +368,12 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToPreemptiveSchedul
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
-        num_processors = "2 * num_vars + 3 + 6 * num_clauses",
-        d_max = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
-    },
-    unavailable = {
-        num_precedences = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
+    num_processors = "2 * num_vars + 3 + 6 * num_clauses",
+    d_max = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
+    num_precedences = "((2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3))^2",
+})]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
     type Result = Reduction3SATToPreemptiveScheduling;
 

@@ -3,7 +3,7 @@
 //! One integer variable per prescribed path. Arc capacity aggregation
 //! across paths and total flow requirement.
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PathConstrainedNetworkFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -11,14 +11,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing PathConstrainedNetworkFlow to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionPCNFToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionPCNFToILP {
     type Source = PathConstrainedNetworkFlow;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -40,12 +40,15 @@ impl ReductionResult for ReductionPCNFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPCNFToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "num_paths",
-    num_constraints = "num_arcs + 1",
-    num_nonzeros = "num_paths * (num_arcs + 1)",
-})]
-impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_paths + 1) + 2",
+        num_vars = "num_paths",
+        num_constraints = "num_arcs + 1",
+        num_nonzeros = "num_paths * (num_arcs + 1)",
+    },
+)]
+impl ReduceTo<ILP<i64, i64, Bounded>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -69,7 +72,13 @@ impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
 
         // Total flow requirement: sum_i f_i >= R
         let total_terms: Vec<(usize, i64)> = (0..num_paths).map(|i| (i, 1)).collect();
-        constraints.push(LinearConstraint::ge(total_terms, self.requirement()));
+        constraints.push(LinearConstraint::ge(
+            total_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement(),
+                self.paths().iter().map(|path| self.path_bottleneck(path)),
+            ),
+        ));
 
         let variables = self
             .paths()
@@ -102,7 +111,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![0, 1], vec![2]],
                 2,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

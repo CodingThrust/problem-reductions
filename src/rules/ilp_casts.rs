@@ -77,6 +77,7 @@ impl<V: VariableDomain> ReductionResult for ReductionILPToFloat<V> {
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "max_constraint_magnitude_bits",
         num_vars = "num_vars",
         num_constraints = "num_constraints",
         num_nonzeros = "num_nonzeros",
@@ -92,6 +93,7 @@ impl ReduceTo<ILP<bool, f64>> for ILP<bool> {
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "max_constraint_magnitude_bits",
         num_vars = "num_vars",
         num_constraints = "num_constraints",
         num_nonzeros = "num_nonzeros",

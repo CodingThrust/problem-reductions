@@ -50,6 +50,7 @@ impl ReductionResult for ReductionClusteringToILP {
 impl crate::rules::AggregateReductionResult for ReductionClusteringToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_elements * num_clusters",
     num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
     num_nonzeros = "(num_elements * num_clusters) * (num_elements + num_elements * (num_elements - 1) / 2 * num_clusters)",

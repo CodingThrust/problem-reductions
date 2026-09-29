@@ -120,6 +120,11 @@ impl SequencingToMinimizeWeightedCompletionTime {
         }
     }
 
+    /// Smallest h >= 1 bounding every processing time in magnitude strictly by 2^h.
+    pub fn max_processing_time_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.lengths.iter().copied())
+    }
+
     /// Returns the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.lengths.len()
@@ -223,6 +228,7 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
     type Value = Min<i64>;
 
     crate::problem_parameters![
+        ("max_processing_time_bits", max_processing_time_bits),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];

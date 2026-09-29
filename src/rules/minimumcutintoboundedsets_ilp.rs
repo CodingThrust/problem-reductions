@@ -45,6 +45,7 @@ impl ReductionResult for ReductionMinCutBSToILP {
         num_constraints = "2 + 2 + 2 * num_edges",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
         num_nonzeros = "(num_vertices + num_edges) * (2 + 2 + 2 * num_edges)",
     },
 })]
@@ -57,7 +58,8 @@ impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {
         let m = edges.len();
         let num_vars = n + m;
         let n_i64 = Self::exact_i64(n, "encoding the partition size")?;
-        let size_bound = Self::exact_i64(self.size_bound(), "encoding the set-size bound")?;
+        // Each side contains at most all n vertices.
+        let size_bound = Self::exact_i64(self.size_bound().min(n), "encoding the set-size bound")?;
         let mut constraints = Vec::new();
 
         // x_s = 0

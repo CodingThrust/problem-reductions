@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::rules::ReduceTo;
@@ -20,7 +21,7 @@ fn small_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
 fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionBCSFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Solve source with brute force
@@ -43,7 +44,7 @@ fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
 fn test_extract_solution() {
     let source = small_instance();
     let reduction: ReductionBCSFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
@@ -62,7 +63,7 @@ fn test_single_component() {
         3,
     );
     let reduction: ReductionBCSFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver
@@ -82,7 +83,7 @@ fn test_infeasible_instance() {
         5,
     );
     let reduction: ReductionBCSFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_err());
@@ -92,6 +93,6 @@ fn test_infeasible_instance() {
 fn test_boundedcomponentspanningforest_to_ilp_bf_vs_ilp() {
     let source = small_instance();
     let reduction: ReductionBCSFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

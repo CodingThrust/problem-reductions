@@ -1,4 +1,4 @@
-//! Reduction from AcyclicPartition to `ILP<i64>`.
+//! Reduction from AcyclicPartition to `ILP<bool>`.
 //!
 //! One-hot assignment x_{v,c}, McCormick same-class indicators s_{t,c},
 //! crossing flags y_t, and partition labels used directly as a topological order.
@@ -12,15 +12,15 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionAcyclicPartitionToILP {
-    target: ILP<i64>,
+    target: ILP<bool>,
     n: usize,
 }
 
 impl ReductionResult for ReductionAcyclicPartitionToILP {
     type Source = AcyclicPartition<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -49,10 +49,11 @@ impl crate::rules::AggregateReductionResult for ReductionAcyclicPartitionToILP {
         num_constraints = "num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits + num_vertices + 1",
         num_nonzeros = "(num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices) * (num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1)",
     },
 })]
-impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
+impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
     type Result = ReductionAcyclicPartitionToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -101,7 +102,7 @@ impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
             terms.push((
                 used_idx(c),
                 weight_bound.checked_neg().ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<Self, ILP<i64>>(
+                    crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
                         "negating the partition weight bound",
                     )
                 })?,
@@ -170,13 +171,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
             );
             let reduction: ReductionAcyclicPartitionToILP =
-                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                crate::rules::ReduceTo::<ILP<bool>>::reduce_to(&source)
                     .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(extracted),

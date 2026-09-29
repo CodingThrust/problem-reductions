@@ -49,16 +49,12 @@ impl ReductionResult for ReductionSATToCircuit {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionSATToCircuit {}
 
-#[reduction(
-    transform = upper_bound {
-        num_variables = "2 * num_vars + num_clauses + 1",
-        num_assignments = "num_vars + num_clauses + 2",
-    },
-    unavailable = {
-        num_assignment_outputs = "the exact target parameter is not represented by this reduction's symbolic transform",
-        num_expression_nodes = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_variables = "2 * num_vars + num_clauses + 1",
+    num_assignments = "num_vars + num_clauses + 2",
+    num_assignment_outputs = "num_vars + num_clauses + 2",
+    num_expression_nodes = "num_vars + 2 * num_literals + 2 * num_clauses + 2",
+})]
 impl ReduceTo<CircuitSAT> for Satisfiability {
     type Result = ReductionSATToCircuit;
 

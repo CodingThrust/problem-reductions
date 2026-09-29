@@ -47,8 +47,8 @@ pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
 pub use equilibrium_point::EquilibriumPoint;
 pub use feasible_basis_extension::FeasibleBasisExtension;
 pub use ilp::{
-    Comparison, ILPCoefficient, IntegerVariable, LinearConstraint, ObjectiveSense, VariableDomain,
-    ILP,
+    Bounded, BoundsPolicy, Comparison, General, ILPCoefficient, IntegerVariable, LinearConstraint,
+    ObjectiveSense, VariableDomain, ILP,
 };
 pub use minimum_matrix_cover::MinimumMatrixCover;
 pub use minimum_matrix_domination::MinimumMatrixDomination;

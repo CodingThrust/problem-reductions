@@ -56,12 +56,12 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToIntegralFlow
 
 #[reduction(
     transform = upper_bound {
+        max_capacity_bits = "max_numeric_magnitude_bits + num_elements",
         num_vertices = "num_elements + 3",
         num_arcs = "2 * num_elements + 1",
     },
     unavailable = {
-        max_capacity = "the target capacity depends on source numeric values not represented by Partition parameters",
-        requirement = "the target requirement depends on source numeric values not represented by Partition parameters",
+        max_capacity = "bounding raw capacities from source magnitude bits requires a variable exponent; downstream ILP predictions use max_capacity_bits",
     }
 )]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {

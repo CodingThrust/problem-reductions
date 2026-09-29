@@ -71,6 +71,7 @@ impl ReductionResult for ReductionNMTSToILP {
 impl crate::rules::AggregateReductionResult for ReductionNMTSToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_pairs * num_pairs * num_pairs",
     num_constraints = "3 * num_pairs",
     num_nonzeros = "(num_pairs * num_pairs * num_pairs) * (3 * num_pairs)",

@@ -46,6 +46,7 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
         num_constraints = "num_clauses",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "2",
         num_nonzeros = "(num_vars + num_clauses) * num_clauses",
     },
 })]

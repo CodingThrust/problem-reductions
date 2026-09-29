@@ -52,6 +52,7 @@ impl ReductionResult for ReductionMFDTSToILP {
         num_vars = "num_inputs * num_outputs",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_constraints = "num_vertices - 1",
         num_nonzeros = "num_inputs * num_outputs * (num_vertices - 1)",
     },

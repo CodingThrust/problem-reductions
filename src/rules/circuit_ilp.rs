@@ -195,6 +195,7 @@ impl ILPBuilder {
 impl crate::rules::AggregateReductionResult for ReductionCircuitToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_expression_nodes + num_assignment_outputs + 2",
     num_vars = "num_variables + 2 * num_expression_nodes",
     num_constraints = "5 * num_expression_nodes + num_assignment_outputs",
     num_nonzeros = "(num_variables + 2 * num_expression_nodes) * (5 * num_expression_nodes + num_assignment_outputs)",

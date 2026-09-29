@@ -57,6 +57,20 @@ fn parameter_bounds_cover_slack_boundaries_and_cancellation() {
             );
         }
     }
+
+    // A unit row needs a small, data-dependent bound even when objective weights grow.
+    for weight in [0, 1000] {
+        let source = ILP::<bool>::new(
+            1,
+            vec![LinearConstraint::le(vec![(0, 1)], 1)],
+            vec![(0, weight)],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap();
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        assert_eq!(predicted.get("num_vars"), Some(3));
+        assert_eq!(predicted.get("num_quadratic_terms"), Some(9));
+    }
 }
 
 #[test]

@@ -432,6 +432,10 @@ problemreductions::inventory::submit! {
             fields: vec![],
             unavailable: vec![
                 problemreductions::rules::registry::UnavailableParameterField {
+                    field: "max_constraint_magnitude_bits",
+                    reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
+                },
+                problemreductions::rules::registry::UnavailableParameterField {
                     field: "num_vars",
                     reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
                 },

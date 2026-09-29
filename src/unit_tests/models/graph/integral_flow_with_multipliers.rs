@@ -146,8 +146,30 @@ fn test_integral_flow_with_multipliers_problem_name_and_parameters() {
         .collect();
     assert_eq!(
         fields,
-        HashSet::from(["max_capacity", "num_arcs", "num_vertices", "requirement"])
+        HashSet::from([
+            "max_capacity",
+            "max_capacity_bits",
+            "num_arcs",
+            "num_vertices"
+        ])
     );
+}
+
+#[test]
+fn negative_requirement_has_nonnegative_prediction_parameters() {
+    let source = IntegralFlowWithMultipliers::new(
+        DirectedGraph::new(2, vec![(0, 1)]),
+        0,
+        1,
+        vec![1, 1],
+        vec![1],
+        i64::MIN,
+    );
+    let restored: IntegralFlowWithMultipliers =
+        serde_json::from_value(serde_json::to_value(&source).unwrap()).unwrap();
+    assert_eq!(restored.requirement(), i64::MIN);
+    assert!(restored.evaluate(&vec![0]).unwrap().0);
+    assert_eq!(restored.parameters().get("max_capacity_bits"), Some(1));
 }
 
 #[cfg(feature = "example-db")]

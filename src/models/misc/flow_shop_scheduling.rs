@@ -143,6 +143,17 @@ impl FlowShopScheduling {
         self.deadline
     }
 
+    /// Smallest h >= 1 with every processing time and the deadline strictly below 2^h.
+    pub fn max_time_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.task_lengths
+                .iter()
+                .flatten()
+                .copied()
+                .chain(std::iter::once(self.deadline)),
+        )
+    }
+
     /// Get the number of jobs.
     pub fn num_jobs(&self) -> usize {
         self.task_lengths.len()
@@ -206,7 +217,11 @@ impl Problem for FlowShopScheduling {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_jobs", num_jobs), ("num_processors", num_processors),];
+    crate::problem_parameters![
+        ("max_time_bits", max_time_bits),
+        ("num_jobs", num_jobs),
+        ("num_processors", num_processors),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

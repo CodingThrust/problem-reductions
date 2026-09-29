@@ -37,6 +37,7 @@ impl ReductionResult for ReductionHSToILP {
         num_constraints = "num_sets",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "1",
         num_nonzeros = "universe_size * num_sets",
     },
 })]

@@ -67,6 +67,7 @@ impl ReductionResult for ReductionMCESToILP {
 }
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
     num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
     num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
     num_nonzeros = "(num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2) * (num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2)",

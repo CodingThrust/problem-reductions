@@ -489,6 +489,18 @@ nonzeros. If a rule predicts those dimensions by source expressions `f` and `g`,
 explicitly declare `num_nonzeros <= f * g`. Such structural bounds remain valid when
 coefficients cancel; exact sparsity can still require additional source information.
 
+Prefer coarse, sound bounds that use existing source parameters. Before adding a
+parameter, check whether an equivalent normalization can remove irrelevant input
+magnitudes. New parameters must describe intrinsic source data independently of
+any reduction, and their propagation must be audited on incoming rules. Keep
+model-specific definitions and rule-specific formulas beside their implementations.
+
+Avoid registering synonymous aliases. Arithmetic dependence alone does not make a
+parameter redundant: keep a meaningful derived quantity when its name makes
+formulas clearer or enables useful, sound predictions. Substitute existing
+parameters when doing so preserves clarity. Lack of a current formula consumer
+alone is not a reason to remove a parameter.
+
 `ReductionParameterDeclarations::fields` stores `(name, relation, expression)` triples.
 Use `ParameterTransform::relation(field)` to inspect a formula's accuracy and
 `unavailable(field)` for a composition failure and its upstream cause. The uniform
@@ -536,7 +548,7 @@ proved infeasibility, and `Err` reports an operational failure.
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
-| **ILPSolver** | Executes a problem's registered ILP pipeline, terminating at the native `ILP<V, C>` with `bool`/`i64` variables and `i64`/`f64` coefficients. `HighsAdapter` owns numerical conversion, backend settings, termination status, and returned-assignment validation. Integer terminals go directly to the adapter; the explicit integer-to-float reduction remains available but is not part of solver pipelines. Optimality and infeasibility follow HiGHS numerical tolerances; the adapter does not provide exact proofs. |
+| **ILPSolver** | Executes a problem's registered ILP pipeline, terminating at the native `ILP<V, C, B>` with `bool`/`i64` variables and `i64`/`f64` coefficients. `HighsAdapter` owns numerical conversion, backend settings, termination status, and returned-assignment validation. Integer terminals go directly to the adapter; the explicit integer-to-float reduction remains available but is not part of solver pipelines. Optimality and infeasibility follow HiGHS numerical tolerances; the adapter does not provide exact proofs. |
 
 ILP results are optimal or infeasible according to HiGHS numerical tolerances;
 zero MIP gaps do not imply mathematical exactness. Integer extraction rounds

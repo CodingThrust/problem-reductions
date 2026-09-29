@@ -67,6 +67,7 @@ impl crate::rules::AggregateReductionResult for ReductionPCSToILP {}
         num_constraints = "num_tasks + deadline + num_precedences",
     },
     upper_bound {
+        max_constraint_magnitude_bits = "num_tasks + deadline + 1",
         num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_precedences)",
     },
 })]
@@ -85,8 +86,11 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
 
         // x_{j,t} variable index
         let var = |j: usize, t: usize| j * d + t;
-        let processor_count =
-            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
+        // More processors than tasks cannot admit any additional schedules.
+        let processor_count = Self::exact_i64(
+            self.num_processors().min(n),
+            "encoding the processor capacity",
+        )?;
 
         let mut constraints = Vec::new();
 

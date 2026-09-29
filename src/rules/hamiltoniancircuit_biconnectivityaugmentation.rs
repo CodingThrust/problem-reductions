@@ -124,6 +124,7 @@ impl crate::rules::AggregateReductionResult
 
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "num_vertices + 1",
         num_vertices = "num_vertices + 3",
         num_edges = "0",
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",

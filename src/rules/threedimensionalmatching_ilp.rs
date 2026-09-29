@@ -38,6 +38,7 @@ impl crate::rules::AggregateReductionResult for ReductionThreeDimensionalMatchin
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "num_triples",
         num_constraints = "3 * universe_size",
         num_nonzeros = "3 * num_triples",

@@ -46,6 +46,7 @@ impl ReductionResult for ReductionSMCToILP {
 impl crate::rules::AggregateReductionResult for ReductionSMCToILP {}
 
 #[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
     num_vars = "num_rows * bound_k",
     num_constraints = "num_rows + num_rows^2 * num_cols^2 * bound_k",
     num_nonzeros = "(num_rows * bound_k) * (num_rows + num_rows^2 * num_cols^2 * bound_k)",

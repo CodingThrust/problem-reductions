@@ -4,7 +4,7 @@
 //! a_{u,v}, transitive-closure helpers h_{u,v,w}, and per-subset gadgets
 //! (top/bottom selectors, pair selectors, endpoint depths, extension costs).
 
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
@@ -59,15 +59,15 @@ fn total_vars(n: usize, r: usize) -> usize {
 
 #[derive(Debug, Clone)]
 pub struct ReductionRTSAToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     n: usize,
 }
 
 impl ReductionResult for ReductionRTSAToILP {
     type Source = RootedTreeStorageAssignment;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -90,24 +90,32 @@ impl ReductionResult for ReductionRTSAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRTSAToILP {}
 
-#[reduction(transform = upper_bound {
-    num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
-    num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
-    num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
-})]
-impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
+#[reduction(
+    transform = upper_bound {
+        max_constraint_magnitude_bits = "universe_size * (num_subsets + 1) + 2",
+        num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
+        num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
+        num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
+    },
+)]
+impl ReduceTo<ILP<i64, i64, Bounded>> for RootedTreeStorageAssignment {
     type Result = ReductionRTSAToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.universe_size();
         let subsets = self.subsets();
-        let bound = self.bound();
 
         // Nontrivial subsets (size >= 2)
         let nontrivial: Vec<usize> = (0..subsets.len())
             .filter(|&k| subsets[k].len() >= 2)
             .collect();
         let r = nontrivial.len();
+        // Each extension cost is between 0 and n-1; negative budgets are infeasible.
+        // Saturation is safe: the original i64 budget cannot exceed i64::MAX.
+        let max_cost = Self::exact_i64(r, "encoding the subset count")?.saturating_mul(
+            Self::exact_i64(n.saturating_sub(1), "encoding the maximum extension cost")?,
+        );
+        let bound = self.bound().clamp(-1, max_cost);
 
         if n == 0 {
             return Ok(ReductionRTSAToILP {
@@ -407,7 +415,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
             let reduction: ReductionRTSAToILP =
-                ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+                ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver
@@ -415,7 +424,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .expect("ILP should be solvable")
             };
             let source_config = reduction.extract_solution(&target_config).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64, i64, Bounded>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::to_value(source_config)
