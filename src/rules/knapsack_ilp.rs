@@ -43,7 +43,7 @@ impl ReductionResult for ReductionKnapsackToILP {
     upper_bound {
         max_constraint_magnitude_bits = "capacity + 1",
         num_constraints = "num_items + 1",
-        num_nonzeros = "num_items * 1",
+        num_nonzeros = "num_items",
     },
 })]
 impl ReduceTo<ILP<bool>> for Knapsack {

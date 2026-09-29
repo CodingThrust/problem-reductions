@@ -165,7 +165,7 @@ pub struct ReductionEntry {
     pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to derive target variant attributes from `Problem::variant()`.
     pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-    /// The rule's single parameter relation, formulas, and unavailable target fields.
+    /// The rule's per-field parameter relations, formulas, and unavailable target fields.
     pub parameter_declarations_fn: fn() -> ReductionParameterDeclarations,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
