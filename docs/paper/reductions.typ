@@ -11944,7 +11944,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
   A matching selects edges that share no endpoints; set packing selects sets that share no elements. By representing each edge as the 2-element set of its endpoints and using vertices as the universe, two edges conflict (share an endpoint) if and only if their sets overlap. This embeds matching as a special case of set packing where every set has size exactly 2.
 ][
-  _Construction._ Universe $U = V$ (vertices, indexed $0, ..., |V|-1$). For each edge $e = (u, v)$, define $S_e = {u, v}$ with weight $w(S_e) = w(e)$. Variables correspond one-to-one: edge $e$ maps to set $S_e$.
+  _Construction._ For each edge $e = (u, v)$, define $S_e = {u, v}$ with weight $w(S_e) = w(e)$. Variables correspond one-to-one: edge $e$ maps to set $S_e$. The implementation infers the universe size as one plus the largest endpoint label, or zero when there are no edges. Thus the number of sets is exactly $|E|$, while the universe size is at most $|V|$; trailing isolated vertices make this bound strict.
 
   _Correctness._ ($arrow.r.double$) If $M$ is a matching, then for any $e_1, e_2 in M$, the edges share no endpoint, so $S_(e_1) inter S_(e_2) = emptyset$ — the sets are mutually disjoint, forming a valid packing. ($arrow.l.double$) If ${S_e : e in P}$ is a packing, then for any $e_1, e_2 in P$, $S_(e_1) inter S_(e_2) = emptyset$, meaning the edges share no vertex, so $P$ is a valid matching. Weight sums are identical, so optimality is preserved.
 
@@ -19398,6 +19398,8 @@ The following table shows concrete target-variable counts for example instances,
   Invert edge weights relative to $w_"max"$ on a complete graph $K_N$ with $N = 2n'$. A minimum balanced bisection in the inverted graph corresponds to a maximum cut in the original.
 ][
   _Construction._ Given $G = (V, E, w)$ with $n = |V|$. Set $n' = n + (n mod 2)$, $N = 2n'$, $w_"max" = 1 + max_(e in E) w(e)$. Build $K_N$ with $tilde(w)(i,j) = w_"max" - w(i,j)$ for edges in $E$, else $w_"max"$. Designate $s = n'$, $t = n' + 1$, bound $b = n'$.
+
+  _Parameter bounds._ The target has exactly $2n'$ vertices and $n'(2n'-1)$ edges. Since $n' lt.eq n+1$, these are at most $2n+2$ and $(n+1)(2n+1)$ respectively. Both declared bounds are attained for odd $n$; for even $n$, the actual counts are $2n$ and $n(2n-1)$.
 
   _Correctness._ ($arrow.r.double$) A max-cut extended to a balanced bisection gives a feasible target instance. ($arrow.l.double$) Minimizing $tilde(w)$-cut cost is equivalent to maximizing original weight crossing the cut, since $tilde(w) = w_"max" - w$.
 

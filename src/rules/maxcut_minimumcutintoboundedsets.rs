@@ -40,8 +40,10 @@ impl ReductionResult for ReductionMaxCutToMinCutBounded {
     }
 }
 
+// With p = n + (n mod 2), the target is K_(2p): 2p vertices and p(2p-1) edges.
+// Since p <= n+1, these bounds are tight for odd n and overestimate for even n.
 #[reduction(
-    transform = exact {
+    transform = upper_bound {
         num_vertices = "2 * num_vertices + 2",
         num_edges = "(num_vertices + 1) * (2 * num_vertices + 1)",
     }
