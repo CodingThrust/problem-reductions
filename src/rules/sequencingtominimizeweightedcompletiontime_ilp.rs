@@ -1,9 +1,5 @@
-//! Reduction from SequencingToMinimizeWeightedCompletionTime to ILP.
-//!
-//! The reduction uses integer completion-time variables `C_j` and integer
-//! order variables `y_{i,j}` constrained to `{0, 1}` within `ILP<i64, i64, Bounded>`.
-//! For each unordered pair `{i, j}`, a pair of big-M constraints forces one
-//! task to finish before the other starts.
+//! Strict linear ordering with exact signed completion-time equations.
+//! Triangle inequalities rule out cyclic orders even for zero-duration jobs.
 
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
@@ -14,19 +10,6 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 pub struct ReductionSTMWCTToILP {
     target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
-}
-
-impl ReductionSTMWCTToILP {
-    #[cfg(test)]
-    pub(crate) fn completion_var(&self, task: usize) -> usize {
-        task
-    }
-
-    #[cfg(test)]
-    pub(crate) fn order_var(&self, i: usize, j: usize) -> usize {
-        assert!(i < j, "order_var expects i < j");
-        self.num_tasks + i * (2 * self.num_tasks - i - 1) / 2 + (j - i - 1)
-    }
 }
 
 impl ReductionResult for ReductionSTMWCTToILP {
@@ -41,113 +24,116 @@ impl ReductionResult for ReductionSTMWCTToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
-        Ok({
-            let mut schedule: Vec<usize> = (0..self.num_tasks).collect();
-            schedule.sort_by_key(|&task| (target_solution[task], task));
-            schedule
-        })
+        let mut ranks = vec![0; self.num_tasks];
+        for i in 0..self.num_tasks {
+            for j in i + 1..self.num_tasks {
+                let pair = self.num_tasks + i * (2 * self.num_tasks - i - 1) / 2 + j - i - 1;
+                ranks[if target_solution[pair] == 1 { j } else { i }] += 1;
+            }
+        }
+        let mut order: Vec<_> = (0..self.num_tasks).collect();
+        order.sort_by_key(|&j| ranks[j]);
+        Ok(order)
     }
 }
 
 #[reduction(transform = {
     exact {
         num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
-        num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
+        num_constraints = "num_tasks * (num_tasks - 1) * (num_tasks - 2) / 3 + num_tasks + num_precedences",
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks",
-        num_nonzeros = "(num_tasks + num_tasks * (num_tasks - 1) / 2) * (2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences)",
+        num_nonzeros = "num_tasks * (num_tasks - 1) * (num_tasks - 2) + num_tasks^2 + num_precedences",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let num_tasks = self.num_tasks();
-
-        let total_processing_time = self.lengths().iter().try_fold(0i64, |total, &length| {
-            total.checked_add(length).ok_or_else(|| {
-                crate::rules::ReductionError::integer_overflow::<
-                    SequencingToMinimizeWeightedCompletionTime,
-                    ILP<i64, i64, Bounded>,
-                >("summing task processing times")
-            })
-        })?;
-        let lengths = self.lengths();
-        let weights = self.weights();
-        let num_order_vars = num_tasks * (num_tasks.saturating_sub(1)) / 2;
-        let num_vars = num_tasks + num_order_vars;
-
-        let order_var = |i: usize, j: usize| -> usize {
-            debug_assert!(i < j);
-            num_tasks + i * (2 * num_tasks - i - 1) / 2 + (j - i - 1)
+        let overflow = |operation: &str| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                operation,
+            )
         };
-
-        let mut constraints = Vec::new();
-
-        for (task, &length) in lengths.iter().enumerate() {
-            constraints.push(LinearConstraint::ge(vec![(task, 1)], length));
-            constraints.push(LinearConstraint::le(vec![(task, 1)], total_processing_time));
+        let integer = |value: i128| {
+            i64::try_from(value).map_err(|_| overflow("representing an exact completion equation"))
+        };
+        let n = self.num_tasks();
+        let pairs = n
+            .checked_mul(n.saturating_sub(1))
+            .ok_or_else(|| overflow("counting ordering variables"))?
+            / 2;
+        let num_vars = n
+            .checked_add(pairs)
+            .ok_or_else(|| overflow("counting sequencing variables"))?;
+        let rows = pairs
+            .checked_mul(n.saturating_sub(2))
+            .and_then(|x| (x / 3).checked_mul(2))
+            .and_then(|x| x.checked_add(n))
+            .and_then(|x| x.checked_add(self.num_precedences()))
+            .ok_or_else(|| overflow("counting sequencing constraints"))?;
+        let lengths = self.lengths();
+        // Any permutation prefix lies between the sums of negative and positive lengths.
+        let lower: i128 = lengths.iter().map(|&p| i128::from(p.min(0))).sum();
+        let upper: i128 = lengths.iter().map(|&p| i128::from(p.max(0))).sum();
+        integer(lower)?;
+        integer(upper)?;
+        let mut variables = Vec::with_capacity(num_vars);
+        for &p in lengths {
+            let low = integer(i128::from(p) + lower - i128::from(p.min(0)))?;
+            let high = integer(i128::from(p) + upper - i128::from(p.max(0)))?;
+            variables.push(
+                IntegerVariable::new(Some(low), Some(high)).map_err(Self::target_construction)?,
+            );
         }
-
-        for i in 0..num_tasks {
-            for j in (i + 1)..num_tasks {
-                let order = order_var(i, j);
-                let completion_i = i;
-                let completion_j = j;
-                let length_i = lengths[i];
-                let length_j = lengths[j];
-
-                constraints.push(LinearConstraint::le(vec![(order, 1)], 1));
-
-                // If y_{i,j} = 1, then task i is before task j: C_j - C_i >= l_j.
-                constraints.push(LinearConstraint::ge(
-                    vec![
-                        (completion_j, 1),
-                        (completion_i, -1),
-                        (order, -total_processing_time),
-                    ],
-                    length_j - total_processing_time,
-                ));
-
-                // If y_{i,j} = 0, then task j is before task i: C_i - C_j >= l_i.
-                constraints.push(LinearConstraint::ge(
-                    vec![
-                        (completion_i, 1),
-                        (completion_j, -1),
-                        (order, total_processing_time),
-                    ],
-                    length_i,
-                ));
+        variables.resize(num_vars, IntegerVariable::binary());
+        let pair = |i: usize, j: usize| n + i * (2 * n - i - 1) / 2 + j - i - 1;
+        let mut constraints = Vec::with_capacity(rows);
+        for i in 0..n {
+            for j in i + 1..n {
+                for k in j + 1..n {
+                    let terms = vec![(pair(i, j), 1), (pair(j, k), 1), (pair(i, k), -1)];
+                    constraints.push(LinearConstraint::ge(terms.clone(), 0));
+                    constraints.push(LinearConstraint::le(terms, 1));
+                }
             }
         }
-
-        for &(pred, succ) in self.precedences() {
-            constraints.push(LinearConstraint::ge(
-                vec![(succ, 1), (pred, -1)],
-                lengths[succ],
-            ));
+        for &(a, b) in self.precedences() {
+            let terms = if a == b {
+                vec![]
+            } else {
+                vec![(pair(a.min(b), a.max(b)), 1)]
+            };
+            constraints.push(LinearConstraint::eq(terms, i64::from(a <= b)));
         }
-
-        let objective = weights.iter().copied().enumerate().collect();
-
-        let mut variables = vec![IntegerVariable::binary(); num_vars];
-        variables[..num_tasks].fill(
-            IntegerVariable::new(Some(0), Some(total_processing_time))
-                .map_err(Self::target_construction)?,
-        );
-
+        for j in 0..n {
+            let mut terms = vec![(j, 1)];
+            for (i, &p) in lengths.iter().enumerate().take(j) {
+                terms.push((pair(i, j), integer(-i128::from(p))?));
+            }
+            for (i, &p) in lengths.iter().enumerate().skip(j + 1) {
+                terms.push((pair(j, i), p));
+            }
+            let rhs = integer(lengths[j..].iter().map(|&p| i128::from(p)).sum())?;
+            constraints.push(LinearConstraint::eq(terms, rhs));
+        }
+        // Keep the source's coefficients and task-index accumulation order exactly.
+        let objective = self.weights().iter().copied().enumerate().collect();
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
+        crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
         Ok(Self::Result {
-            target: ILP::with_variables(
-                variables,
-                constraints,
-                objective,
-                ObjectiveSense::Minimize,
-            )
-            .map_err(Self::target_construction)?,
-            num_tasks,
+            target,
+            num_tasks: n,
         })
     }
 }

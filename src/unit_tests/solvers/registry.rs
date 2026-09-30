@@ -453,10 +453,10 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
         )
     };
 
-    let customized_only = solver_capabilities(&key("TimetableDesign", &[])).unwrap();
+    let customized_only = solver_capabilities(&key("MinimumDecisionTree", &[])).unwrap();
     assert_eq!(
         customized_only.customized.unwrap().implementation,
-        "timetable-required-assignments"
+        "subset-dp"
     );
     assert!(customized_only.ilp.is_none());
 

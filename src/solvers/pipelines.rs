@@ -766,7 +766,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("SequencingWithReleaseTimesAndDeadlines", []),
-    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }
 
 register_ilp_pipeline! {
@@ -843,7 +843,6 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("ThreePartition", []),
-    ("ResourceConstrainedScheduling", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
 
@@ -947,4 +946,14 @@ register_ilp_pipeline! {
     ("MinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "One")]),
     ("MinimumHittingSet", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+}
+
+register_ilp_pipeline! {
+    ("TimetableDesign", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+}
+
+register_ilp_pipeline! {
+    ("ProductionPlanning", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }

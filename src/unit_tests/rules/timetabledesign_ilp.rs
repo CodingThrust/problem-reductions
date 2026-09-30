@@ -58,7 +58,7 @@ fn test_timetabledesign_to_ilp_infeasible() {
 }
 
 #[test]
-fn test_timetabledesign_to_ilp_identity_extraction() {
+fn test_timetabledesign_to_ilp_sparse_extraction() {
     let problem = TimetableDesign::new(
         2,
         2,
@@ -74,18 +74,9 @@ fn test_timetabledesign_to_ilp_identity_extraction() {
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(
-        extracted
-            .iter()
-            .flatten()
-            .flatten()
-            .copied()
-            .collect::<Vec<_>>(),
-        ilp_solution
-            .iter()
-            .map(|&value| value != 0)
-            .collect::<Vec<_>>()
-    );
+    assert_eq!(extracted[0][1], vec![false; 2]);
+    assert_eq!(extracted[1][0], vec![false; 2]);
+    crate::rules::test_helpers::assert_parameter_predictions(&problem, &reduction);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -118,4 +109,24 @@ fn test_timetable_threshold_normalization() {
             }
         }
     }
+}
+
+#[test]
+fn timetable_allocates_only_required_available_assignments() {
+    let source = TimetableDesign::new(
+        2,
+        2,
+        2,
+        vec![vec![true, false], vec![false, true]],
+        vec![vec![true, true], vec![true, true]],
+        vec![vec![1, 0], vec![0, 1]],
+    );
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_vars(), 2);
+    let expected = vec![
+        vec![vec![true, false], vec![false, false]],
+        vec![vec![false, false], vec![false, true]],
+    ];
+    assert_eq!(source.evaluate(&expected).unwrap(), Or(true));
+    assert_eq!(ILPSolver::new().solve(&source).unwrap(), expected);
 }

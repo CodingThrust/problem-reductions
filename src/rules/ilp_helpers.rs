@@ -2,6 +2,36 @@
 
 use crate::models::algebraic::LinearConstraint;
 
+/// Ensure every normalized row's integer dot-product prefixes fit i64 over
+/// the declared domains. This checks arithmetic, not mathematical feasibility.
+pub(crate) fn validate_bounded_constraint_arithmetic<S: crate::Problem>(
+    target: &crate::models::algebraic::ILP<i64, i64, crate::models::algebraic::Bounded>,
+) -> Result<(), crate::rules::ReductionError> {
+    for row in target.constraints() {
+        let mut lower = 0_i128;
+        let mut upper = 0_i128;
+        for &(variable, coefficient) in row.terms() {
+            let domain = &target.variables()[variable];
+            let a = i128::from(coefficient)
+                * i128::from(domain.lower_bound().expect("bounded variable"));
+            let b = i128::from(coefficient)
+                * i128::from(domain.upper_bound().expect("bounded variable"));
+            // An i64*i64 product plus the preceding checked i64 prefix fits i128.
+            lower += a.min(b);
+            upper += a.max(b);
+            if i64::try_from(lower).is_err() || i64::try_from(upper).is_err() {
+                return Err(crate::rules::ReductionError::integer_overflow::<
+                    S,
+                    crate::models::algebraic::ILP<i64, i64, crate::models::algebraic::Bounded>,
+                >(
+                    "bounding an integer constraint evaluation"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Normalize a lower threshold for flow in `[-sum(capacities), sum(capacities)]`.
 /// Capacities must be nonnegative. Requests above the range remain infeasible;
 /// those below it remain redundant. Saturation is safe because the input

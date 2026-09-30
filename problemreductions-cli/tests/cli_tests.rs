@@ -5539,35 +5539,28 @@ fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() 
         .args([
             "path",
             "ThreePartition",
-            "QUBO/i64",
+            "SequencingWithReleaseTimesAndDeadlines",
             "--limit",
-            "2",
+            "1",
             "--json",
         ])
         .output()
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let path = envelope["paths"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|path| {
-            path["path"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|step| step["from"]["name"] == "SequencingWithReleaseTimesAndDeadlines")
-        })
-        .expect("time-indexed scheduling path exists");
-    let overall = &path["overall_parameters"];
+    let overall = &envelope["paths"][0]["overall_parameters"];
     let fields = overall["fields"].as_array().unwrap();
-    assert!(!fields.is_empty());
-    assert!(fields.iter().all(|field| {
-        field["relation"] == "unavailable"
-            && field["field"].is_string()
-            && field["reason"].is_string()
-    }));
+    let horizon = fields
+        .iter()
+        .find(|field| field["field"] == "time_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(horizon["reason"].is_string());
+    let task_count = fields
+        .iter()
+        .find(|field| field["field"] == "num_tasks")
+        .unwrap();
+    assert_eq!(task_count["relation"], "exact");
     assert!(overall.get("exact_composition_error").is_none());
     assert!(overall.get("bound_composition_error").is_none());
 }

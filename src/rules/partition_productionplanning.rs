@@ -39,8 +39,9 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
 impl crate::rules::AggregateReductionResult for ReductionPartitionToProductionPlanning {}
 
 #[reduction(
-    transform = exact {
-        num_periods = "num_elements + 1",
+    transform = {
+        exact { num_periods = "num_elements + 1", },
+        upper_bound { max_numeric_magnitude_bits = "max_numeric_magnitude_bits + num_elements", },
     },
     unavailable = {
         max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",

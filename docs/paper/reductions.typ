@@ -13844,37 +13844,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
-  Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
+  A strict linear order with exact prefix completion times preserves the permutation objective, including zero and signed processing times and weights.
 ][
-  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. Constraint magnitudes and completion-variable bounds are at most the total processing time (or unit constants), giving target `max_constraint_magnitude_bits` at most $h+n$. Objective weights need no parameter.
+  _Construction._ Let $p_j$ be task lengths, $w_j$ weights, $L=sum_j min(0,p_j)$ and $U=sum_j max(0,p_j)$. Use integer completion variables with bounds $p_j+L-min(0,p_j) <= C_j <= p_j+U-max(0,p_j)$, and binary $y_(i j)$ for $i<j$, meaning $i$ precedes $j$. For each $i<j<k$, impose $0 <= y_(i j)+y_(j k)-y_(i k) <= 1$. Fix each precedence's corresponding bit to its required orientation; a self precedence emits $0=1$. Define
+  $ C_j - sum_(i<j) p_i y_(i j) + sum_(i>j) p_i y_(j i) = sum_(i>=j) p_i. $
+  Minimize $sum_j w_j C_j$.
 
-  _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
+  _Correctness._ ($arrow.r.double$) A feasible source permutation defines a transitive orientation satisfying every triangle and precedence row. Its prefix sums meet the stated bounds and completion equations, so the objective is unchanged. ($arrow.l.double$) Triangle inequalities exclude both orientations of every directed triangle. A tournament with no directed triangle is a strict total order. The completion equations give precisely the processing prefix sums in that order, even when times are zero or negative. Thus every feasible target decodes to a source permutation with identical objective. Cyclic precedences cannot be hidden by equal completion times.
 
-  _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
+  _Solution extraction._ Validate target feasibility, count each task's predecessors from the order bits, and sort by this rank. No temporal tie-breaking or schedule repair is needed.
 
-  _Precedence constraints._ If $i prec.eq j$, require $C_j - C_i >= l_j$.
-
-  _Single-machine disjunction._ For every pair $i < j$, require
-  $C_j - C_i + M (1 - y_(i j)) >= l_j$
-  and
-  $C_i - C_j + M y_(i j) >= l_i$.
-  Exactly one of the two orderings is therefore active.
-
-  _Objective._ Minimize $sum_j w_j C_j$.
-
-  The ILP is:
-  $
-    min quad & sum_j w_j C_j \
-    "subject to" quad & l_j <= C_j <= M quad forall j \
-    & C_j - C_i >= l_j quad forall i prec.eq j \
-    & C_j - C_i + M (1 - y_(i j)) >= l_j quad forall i < j \
-    & C_i - C_j + M y_(i j) >= l_i quad forall i < j \
-    & y_(i j) in {0, 1}, C_j in ZZ_(>=0).
-  $
-
-  _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
-
-  _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
+  _Size and arithmetic._ There are $n+n(n-1)/2$ variables and $n(n-1)(n-2)/3+n+e$ rows, with at most $n(n-1)(n-2)+n^2+e$ nonzeros. If $h$ is `max_processing_time_bits`, constraint magnitudes have at most $h+n$ bits. Signed sums and bounded constraint evaluation are checked before returning a target; arithmetic failure is distinct from infeasibility. Objective coefficients remain the source weights.
 ]
 
 #let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
@@ -15008,21 +14988,22 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("PreemptiveScheduling", "ILP")[
-  Minimize makespan for preemptive parallel scheduling with variable-length tasks and precedence constraints.
+  Sparse time-indexed activity with a certified horizon preserves the minimum makespan for positive task lengths and precedence constraints.
 ][
-  _Construction._ Let $D = sum_t ell(t)$ be the horizon. Variables: binary $x_(t,u) in {0,1}$ (task $t$ processed at slot $u$) for $t in {0, dots, n-1}$, $u in {0, dots, D-1}$; integer $M in {0, dots, D}$ (makespan). The ILP is:
+  _Construction._ Let $D=sum_j p_j$. On the precedence DAG, compute earliest starts $E_j$ from predecessor paths and critical tails $B_j$ including task $j$. Construct a feasible nonpreemptive list schedule, prioritizing larger critical tails and then smaller task indices; process all simultaneous completions before dispatching ready tasks. Its makespan $H<=D$ certifies a horizon. Retain binary activity variables only for $E_j<=t<H-B_j+p_j$. For cycles set $H=0$ and retain no activity slots; the positive work equations then contradict feasibility. Use integer endpoints $S_j,C_j$ and makespan $M$ in $[0,H]$, with
   $
-    min quad & M \
-    "subject to" quad & sum_u x_(t,u) = ell(t) quad forall t quad "(work)" \
-    & sum_t x_(t,u) <= m quad forall u quad "(capacity)" \
-    & sum_u u dot x_(j,u) - sum_u u dot x_(i,u) >= 1 quad "for each" (i prec j) quad "(precedence)" \
-    & M - (u+1) dot x_(t,u) >= 0 quad forall t, u quad "(makespan)" \
-    & x_(t,u) in {0, 1}, quad M in ZZ_(>= 0).
+    sum_t x_(j,t) &= p_j \
+    sum_j x_(j,t) &<= min(m,n) \
+    S_j+(H-t)x_(j,t) &<= H \
+    C_j-(t+1)x_(j,t) &>= 0 \
+    C_a &<= S_b quad forall (a,b) in P \
+    C_j &<= M.
   $
+  Minimize $M$. Bounds are variable domains, not redundant constraint rows.
 
-  _Correctness._ Work constraints enforce each task runs for exactly $ell(t)$ slots. Capacity limits at most $m$ tasks per slot. Precedences are enforced by weighted time indicators. Makespan lower bounds force $M >= u+1$ whenever task $t$ is active at slot $u$.
+  _Correctness._ ($arrow.r.double$) An optimal schedule has makespan at most the feasible list schedule's $H$. Every predecessor path forces its activity after $E_j$, and every successor path forces it before $H-B_j+p_j$. Its activity is therefore retained. Set endpoints to actual first and last activity and $M$ to its makespan. ($arrow.l.double$) Work and capacity rows ensure valid processing. Active-slot endpoint rows and $C_a<=S_b$ forbid successors from starting before predecessors finish, including interrupted tasks. The decoded makespan is at most $M$; tightening endpoints and $M$ to actual activity proves optimum equality. Positive durations make precedence cycles infeasible on both sides.
 
-  _Solution extraction._ Config$[t dot D + u] = x_(t,u)$ for all $t, u$.
+  _Solution extraction and size._ Validate, project retained activity to the original $n$ by $D$ matrix, and put zero in omitted slots. For $A$ retained slots and $e$ arc occurrences, the target has exactly $A+2n+1$ variables, $2A+2n+H+e$ rows, and $6A+2n+2e$ nonzeros. Source parameters `schedule_horizon` and `num_admissible_slots` come from the same deterministic calculation. Constraint magnitudes need at most `max_schedule_magnitude_bits`; endpoint arithmetic is checked before allocation. Empty instances have only $M=0$.
 ]
 
 #reduction-rule("SequencingWithinIntervals", "ILP")[
@@ -15342,25 +15323,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("OpenShopScheduling", "ILP")[
-  Binary ordering variables and integer start times encode the disjunctive non-overlap constraints for both machines and jobs; the makespan is the minimized objective.
+  Tight start domains and pairwise order bits encode machine and job conflicts, with symmetry restricted to identical machines.
 ][
-  _Numeric magnitude._ The source `schedule_horizon_bits` is the binary digit count of the total processing time $M$, with a minimum of one. Start times and makespan have explicit domains $[0,M]$. All constraint magnitudes are at most $max(M,1)$, so this parameter bounds the target `max_constraint_magnitude_bits`.
+  _Construction._ Let $H=sum_(j,i) p_(j,i)$, and bound each integer start by $0<=s_(j,i)<=H-p_(j,i)$. For every pair of operations $a,b$ sharing a job or machine, introduce a binary $z$ and impose $s_b-s_a-H z>=p_a-H$ and $s_a-s_b+H z>=p_b$. Append makespan $M in [0,H]$, impose $M-s_a>=p_a$ for every operation, and minimize $M$.
 
-  _Construction._ Let $M = sum_(j,i) p(j,i)$ be the big-$M$ constant (an upper bound on the makespan). For each pair $j < k$ and each machine $i$, let $x_{j k i} in {0,1}$ with $x_{j k i} = 1$ iff job $j$ precedes job $k$ on machine $i$. For each job $j$ and pair of machines $i < i'$, let $y_{j i i'} in {0,1}$ with $y_{j i i'} = 1$ iff machine $i$ is processed before machine $i'$ for job $j$. Let $s_{j,i} in ZZ_{>=0}$ be the start time of job $j$ on machine $i$, and $C$ be the integer makespan variable. The ILP is:
-  $
-    min quad & C \
-    "subject to" quad
-    & s_(k,i) - s_(j,i) - M x_(j k i) >= p(j, i) - M quad forall j < k, i \
-    & s_(j,i) - s_(k,i) + M x_(j k i) >= p(k, i) quad forall j < k, i \
-    & s_(j,i') - s_(j,i) - M y_(j i i') >= p(j, i) - M quad forall j, i < i' \
-    & s_(j,i) - s_(j,i') + M y_(j i i') >= p(j, i') quad forall j, i < i' \
-    & C - s_(j,i) >= p(j, i) quad forall j, i \
-    & x_(j k i), y_(j i i') in {0,1},; s_(j,i), C in ZZ_(>=0).
-  $
+  _Symmetry._ Group machines whose processing columns are identical. For each group choose one anchor job of largest duration, breaking ties by job index. Require its operations to visit the group's machines in increasing machine-index order. This adds one row per consecutive pair in the group. Do not impose this order on other jobs.
 
-  _Correctness._ ($arrow.r.double$) Any feasible open-shop schedule with the given permutations $sigma_i$ induces valid ordering bits $x_{j k i}$ and $y_{j i i'}$ and start times satisfying all non-overlap constraints. ($arrow.l.double$) Any feasible ILP solution defines non-overlapping start times for all tasks, respecting both machine and job constraints.
+  _Correctness._ ($arrow.r.double$) A serial schedule proves the optimum is at most $H$. Permuting entire identical machine columns preserves every job and machine conflict and the makespan. Such a permutation orders the anchor's operations as required, independently in each group. Set each bit to the represented pair order. The inactive inequalities follow from the start domains; choose $M$ equal to makespan. ($arrow.l.double$) Each bit activates one finish-before-start condition, so every conflict is absent. This also matches the source overlap predicate for zero durations. Decreasing $M$ to the actual last finish proves optimum equality.
 
-  _Solution extraction._ Return the $n m$ start-time variables $s_{j,i}$ directly in job-major order.
+  _Extraction and size._ Validate and return the job-major start slice. Let $O=n(n-1)m/2+n m(m-1)/2$. The target has exactly $n m+O+1$ variables, at most $2O+n m+m$ rows and $6O+2n m+2m$ nonzeros. Magnitudes are bounded by `schedule_horizon_bits`. All count and normalized-row arithmetic is checked.
 ]
 
 #let doss_ilp = load-example("DecisionOpenShopScheduling", "ILP")
@@ -15374,16 +15345,36 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate schedule.json --config " + cli-config(doss_ilp.solutions.at(0).source_config),
     )
-    The canonical instance has processing times #repr(doss_ilp.source.instance.inner.processing_times) and bound #doss_ilp.source.instance.bound. Add the makespan constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which satisfy the bound. The fixture stores one witness.
+    The bound is #doss_ilp.source.instance.bound. The stored witness decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which meet that bound.
   ],
 )[
-  Impose the decision bound on the open-shop makespan variable. The optimization formulation gains one constraint and no variables.
+  Incorporate the decision bound in every operation's domain and disjunction, eliminating the makespan variable and its rows.
 ][
-  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= min(M,max(-1,B))$, and replace the objective with zero. Clipping preserves feasibility because $0 <= C <= M$, and keeps the target `max_constraint_magnitude_bits` bounded by the source `schedule_horizon_bits` independently of $B$.
+  _Construction._ For bound $B$, set $H=min(B,D)$, where $D$ is the serial processing sum. If $B<0$ or some duration exceeds $H$, emit $0=1$. Otherwise use the preceding conflict and identical-machine symmetry construction with this $H$, omit $M$ and its rows, and use zero objective.
 
-  _Correctness._ ($arrow.r.double$) A schedule of makespan at most $B$ gives feasible ordering variables and start times, with $C$ equal to its makespan. The existing horizon bounds can be met by removing unnecessary idle time. ($arrow.l.double$) Every feasible target assignment decodes to a schedule whose makespan is at most $C <= B$. Thus target feasibility is equivalent to the source YES answer; no optimum needs to be computed.
+  _Correctness._ ($arrow.r.double$) For $B<=D$, any satisfying source schedule already lies within $H$. For $B>D$, the serial schedule lies within $H=D$. Relabel identical machines as proved above and encode the pair orders. ($arrow.l.double$) Every target pair avoids overlap and all finishes are at most $H<=B$. The contradiction branch is source-infeasible because makespan is nonnegative and at least each operation's duration.
 
-  _Solution extraction._ Check target feasibility, then use the existing job-major start-time decoder. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
+  _Extraction and size._ Validate and decode starts. There are at most $n m+O$ variables, $2O+m+1$ rows and $6O+2m$ nonzeros, including the contradiction branch. The magnitude bound remains `schedule_horizon_bits`.
+]
+
+#reduction-rule("ThreePartition", "ILP")[
+  Direct binary exact cover by legal indexed triples removes group-label symmetry.
+][
+  _Construction._ Enumerate all $i<j<k$ whose sizes sum to the bound $B$, using a size-to-indices lookup for the third item. Allocate one binary variable per such triple and impose, for each item, that exactly one incident triple is selected. Use zero objective.
+
+  _Correctness._ ($arrow.r.double$) Every source group is a legal triple; selecting its column covers each indexed item once. ($arrow.l.double$) Exact coverage makes selected triples disjoint and exhaustive. There are exactly $n/3$ selected triples, each with sum $B$. Assign consecutive group labels to them. Equal-valued items retain distinct indices throughout.
+
+  _Extraction and size._ Validate, then label selected triples in column order. For $t$ legal triples there are $t$ variables, $n$ rows and $3t$ nonzeros, all with magnitude one. Existing source size parameters give $t<=n(n-1)(n-2)/6$; this is an upper bound, not an exact count. Enumeration costs $O(n^2 log n+t)$ independently of the numeric horizon.
+]
+
+#reduction-rule("ProductionPlanning", "ILP")[
+  Bounded production and inventory variables with exact setup indicators encode all periods in one linear integer model.
+][
+  _Construction._ For period $t$ use production $x_t in [0,c_t]$, inventory $I_t in [0,sum_(u<=t)c_u]$ and binary setup $z_t$. Set $I_(-1)=0$ and impose $x_t+I_(t-1)-I_t=d_t$, $x_t-c_t z_t<=0$, and $x_t-z_t>=0$. For production, setup and inventory costs $a_t,b_t,h_t$, impose $sum_t (a_t x_t+b_t z_t+h_t I_t)<=B$. Use zero objective.
+
+  _Correctness._ ($arrow.r.double$) A feasible source plan defines its cumulative inventories and $z_t=1$ exactly when production is positive; every row holds. ($arrow.l.double$) Conservation forces the true inventories, nonnegative inventory forbids backlog, and the two setup links force the same exact indicator. The budget row therefore equals source cost. Since costs are nonnegative, the final budget also enforces every source prefix-budget check.
+
+  _Extraction and arithmetic._ Validate and return the production coordinates. Checked cumulative demands and capacities, domain conversions, and normalized-row partial sums must fit the exact integer representation; failure is an arithmetic error rather than a NO answer. For $T$ periods there are $3T$ variables, $3T+1$ rows and at most $10T$ nonzeros. If $h$ bounds all input magnitudes in bits, $h+T$ also bounds cumulative inventory domains and every constraint magnitude.
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
@@ -15518,37 +15509,25 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SequencingWithReleaseTimesAndDeadlines", "ILP")[
-  A time-indexed formulation captures the admissible start window of each task and forbids overlap on the single machine.
+  Bounded starts and pairwise disjunctions encode a source permutation independently of horizon length, including zero-duration tasks.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ starts at time $t$, where $p_j = ell(t_j)$ is the processing time (length) of task $j$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(t = r_j)^(d_j - p_j) x_(j,t) = 1 quad forall j \
-    & sum_(j, t : t <= tau < t + p_j) x_(j,t) <= 1 quad forall tau \
-    & x_(j,t) in {0, 1}.
-  $
+  _Construction._ Durations, releases and deadlines are nonnegative. If any window $[r_j,d_j-p_j]$ is empty, emit $0=1$. Otherwise use bounded integer starts in those windows and a binary $y_(i j)$ for every $i<j$. Let $A_(i j)=max(0,d_i-r_j)$ and $B_(i j)=max(0,d_j-r_i)$. Emit
+  $s_j-s_i-A_(i j)y_(i j)>=p_i-A_(i j)$ and $s_i-s_j+B_(i j)y_(i j)>=p_j$.
+  For identical duration/release/deadline triples, fix $y_(i j)=1$. Relabeling tasks within each identical class into start order preserves all source conditions, including zero-duration ties, so this removes only equivalent representations. Use zero objective. The bounded-integer endpoint is direct; the binary endpoint applies the package's bounded-integer-to-binary encoding uniformly to this same construction.
 
-  _Correctness._ ($arrow.r.double$) Any feasible non-preemptive schedule chooses one valid start time per task and never overlaps two active jobs. ($arrow.l.double$) Any feasible ILP solution gives exactly such a start-time assignment, so executing the jobs in increasing start order solves the source instance.
+  _Correctness._ ($arrow.r.double$) A feasible source permutation's earliest-start schedule lies in the declared windows. Choose each bit according to its task order. The inactive inequalities follow from the window endpoints. ($arrow.l.double$) The disjunctions ensure that one task finishes before the other starts. Sort by start, then duration, then index; at equal starts this places zero-duration tasks before positive tasks. Positive tasks cannot surround a zero-duration task strictly in their interior. The resulting permutation respects all represented intervals, and its earliest-start execution can only finish earlier, meeting every deadline. An empty window certifies NO independently of any solver.
 
-  _Solution extraction._ Read each task's chosen start time, sort the tasks by that order, and encode the resulting permutation as Lehmer code.
+  _Size and extraction._ Validate and sort as above, returning the permutation. For $n$ tasks and horizon bit length $h$, the direct target has at most $n+n(n-1)/2$ variables, $n(n-1)+1$ rows, $3n(n-1)$ nonzeros and $h$ magnitude bits. The binary target has at most $n h+n(n-1)/2$ variables, the same row bound, and $n(n-1)(2h+1)$ nonzeros. Checked exact arithmetic rejects unrepresentable targets without declaring them infeasible.
 ]
 
 #reduction-rule("TimetableDesign", "ILP")[
-  The source witness is a binary craftsman-task-period incidence table, and all feasibility conditions are already linear.
+  Keep only available craftsman-task-period assignments with positive pair demand.
 ][
-  _Construction._ Variables: binary $x_(c,t,h)$ with $x_(c,t,h) = 1$ iff craftsman $c$ works on task $t$ in period $h$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & x_(c,t,h) = 0 quad "whenever either side is unavailable" \
-    & sum_t x_(c,t,h) <= 1 quad forall c, h \
-    & sum_c x_(c,t,h) <= 1 quad forall t, h \
-    & sum_h x_(c,t,h) = r_(c,t) quad forall c, t \
-    & x_(c,t,h) in {0, 1}.
-  $
+  _Construction._ Retain a binary variable for $(c,t,h)$ exactly when $r_(c,t)>0$ and both endpoints are available in period $h$. For each occupied craftsman-period and task-period emit a capacity row with upper bound one. For every nonzero pair demand emit its exact sum row, clipping the RHS to $[-1,H+1]$, where $H$ is the period count. Use zero objective; omit empty capacity rows and zero-demand pairs.
 
-  _Correctness._ ($arrow.r.double$) Any valid timetable satisfies availability, exclusivity, and exact requirement counts. ($arrow.l.double$) Any feasible ILP solution is exactly such a timetable because the variable layout matches the source configuration.
+  _Correctness._ ($arrow.r.double$) Availability and zero demand force every omitted entry of a feasible source tensor to zero. Projection satisfies every retained capacity and demand row. ($arrow.l.double$) Decode retained bits and zero-fill omitted entries. All availability and exclusivity conditions hold. Pair counts lie in $[0,H]$, where equality to the clipped demand is equivalent to equality to the original signed demand. Thus negative and oversized demands remain infeasible; no witness repair is needed.
 
-  _Solution extraction._ Output the flattened binary array $(x_(c,t,h))$ in source order.
+  _Size and extraction._ Validate target feasibility and reconstruct the original tensor. For $A$ available positive-demand assignments and $Q$ nonzero pair demands, there are exactly $A$ variables and $3A$ nonzeros, and at most $2A+Q$ rows. Constraint magnitude bits are at most `period_count_bits + 1`. These source-derived counts describe the emitted sparse matrix, including zero-variable infeasible instances.
 ]
 
 // Position/Assignment

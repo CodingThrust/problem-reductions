@@ -170,17 +170,17 @@ fn test_timetable_design_bruteforce_solver_finds_solution() {
 }
 
 #[test]
-fn test_timetable_design_customized_solver_finds_feasible_solution() {
+fn test_timetable_design_ilp_solver_finds_feasible_solution() {
     let problem = super::issue_example_problem();
-    let solution = problem
-        .solve_via_required_assignments()
-        .expect("expected customized solver to find a satisfying timetable");
+    let solution = crate::solvers::ILPSolver::new()
+        .solve(&problem)
+        .expect("expected ILP solver to find a satisfying timetable");
 
     assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
-fn test_timetable_design_customized_solver_returns_none_for_infeasible_instance() {
+fn test_timetable_design_ilp_solver_proves_infeasibility() {
     let problem = TimetableDesign::new(
         1,
         2,
@@ -190,7 +190,10 @@ fn test_timetable_design_customized_solver_returns_none_for_infeasible_instance(
         vec![vec![1], vec![1]],
     );
 
-    assert!(problem.solve_via_required_assignments().is_none());
+    assert_eq!(
+        crate::solvers::ILPSolver::new().solve(&problem),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]

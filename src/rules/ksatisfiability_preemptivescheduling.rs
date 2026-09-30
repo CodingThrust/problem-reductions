@@ -372,6 +372,9 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToPreemptiveSchedul
     num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
     num_processors = "2 * num_vars + 3 + 6 * num_clauses",
     d_max = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
+    schedule_horizon = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
+    num_admissible_slots = "((2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3))^2",
+    max_schedule_magnitude_bits = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
     num_precedences = "((2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3))^2",
 })]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {

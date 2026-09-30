@@ -10,7 +10,7 @@ use crate::models::graph::{
 };
 use crate::models::misc::{
     AdditionalKey, BoyceCoddNormalFormViolation, GroupingBySwapping, MinimumDecisionTree,
-    ShortestCommonSuperstring, TimetableDesign,
+    ShortestCommonSuperstring,
 };
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::solvers::registry::CustomizedSolverRegistration;
@@ -86,12 +86,6 @@ register_customized_solver!(
     "maximal-clique-edge-cover",
     |problem| Ok(super::minimum_intersection_graph_basis::solve(problem))
 );
-register_customized_solver!(
-    TimetableDesign,
-    "timetable-required-assignments",
-    |problem| Ok(TimetableDesign::solve_via_required_assignments(problem))
-);
-
 register_customized_solver!(
     crate::models::algebraic::ClosestVectorProblem,
     "cvp-sphere-enumeration",

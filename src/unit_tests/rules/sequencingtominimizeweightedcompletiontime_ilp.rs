@@ -12,11 +12,11 @@ fn test_reduction_creates_expected_ilp_shape() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // 2 completion variables + 1 pair-order variable.
+    // Two exact completion variables and one order bit.
     assert_eq!(ilp.num_vars(), 3);
 
-    // 2 lower bounds + 2 upper bounds + 1 binary upper bound + 2 disjunctive constraints.
-    assert_eq!(ilp.constraints().len(), 7);
+    // Each job has one exact completion equation; two jobs need no triangles.
+    assert_eq!(ilp.constraints().len(), 2);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Objective is w_0 * C_0 + w_1 * C_1.
@@ -24,21 +24,7 @@ fn test_reduction_creates_expected_ilp_shape() {
 }
 
 #[test]
-fn test_variable_layout_helpers() {
-    let problem =
-        SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1, 3], vec![3, 5, 1], vec![(0, 2)]);
-    let reduction: ReductionSTMWCTToILP =
-        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
-
-    assert_eq!(reduction.completion_var(0), 0);
-    assert_eq!(reduction.completion_var(2), 2);
-    assert_eq!(reduction.order_var(0, 1), 3);
-    assert_eq!(reduction.order_var(0, 2), 4);
-    assert_eq!(reduction.order_var(1, 2), 5);
-}
-
-#[test]
-fn test_extract_solution_encodes_schedule_as_lehmer_code() {
+fn test_extract_solution_preserves_the_order_and_objective() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
     let reduction: ReductionSTMWCTToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -51,7 +37,7 @@ fn test_extract_solution_encodes_schedule_as_lehmer_code() {
 }
 
 #[test]
-fn test_issue_example_closed_loop() {
+fn test_precedence_weighted_completion_closed_loop() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(
         vec![2, 1, 3, 1, 2],
         vec![3, 5, 1, 4, 2],
@@ -166,4 +152,44 @@ fn test_sequencingtominimizeweightedcompletiontime_to_ilp_bf_vs_ilp() {
     let reduction: ReductionSTMWCTToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+#[test]
+fn zero_duration_jobs_keep_strict_precedence() {
+    let source =
+        SequencingToMinimizeWeightedCompletionTime::new(vec![0, 1], vec![1, 1], vec![(1, 0)]);
+    let witness = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(witness, vec![1, 0]);
+    assert_eq!(source.evaluate(&witness).unwrap(), Min(Some(2)));
+}
+
+#[test]
+fn zero_duration_precedence_cycles_are_infeasible() {
+    let source = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![0, 0],
+        vec![1, 1],
+        vec![(0, 1), (1, 0)],
+    );
+    assert_eq!(BruteForce::new().solve(&source).unwrap(), None);
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    assert!(reduction.extract_solution(&vec![0, 0, 0]).is_err());
+    assert!(matches!(
+        ILPSolver::new().solve(&source),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    ));
+}
+
+#[test]
+fn signed_processing_times_preserve_the_permutation_objective() {
+    let source = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![-1, 2, 0],
+        vec![-2, 3, -1],
+        vec![(2, 0)],
+    );
+    let expected = BruteForce::new().solve(&source).unwrap().unwrap();
+    let actual = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(
+        source.evaluate(&actual).unwrap(),
+        source.evaluate(&expected).unwrap()
+    );
 }

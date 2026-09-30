@@ -399,3 +399,48 @@ fn test_ilp_solver_rejects_source_objective_overflow() {
         Err(ILPSolveError::InvalidSolution(_))
     ));
 }
+
+#[test]
+fn production_planning_pipeline_accounts_for_inventory_and_setups() {
+    use crate::models::misc::ProductionPlanning;
+    use crate::Problem;
+    for budget in [7, 8] {
+        let source = ProductionPlanning::new(
+            3,
+            vec![1, 1, 1],
+            vec![2, 0, 1],
+            vec![2; 3],
+            vec![1; 3],
+            vec![1; 3],
+            budget,
+        );
+        let expected = crate::solvers::BruteForce::new().solve(&source).unwrap();
+        match (expected, crate::solvers::ILPSolver::new().solve(&source)) {
+            (Some(witness), Ok(actual)) => {
+                assert_eq!(actual, vec![2, 0, 1]);
+                assert_eq!(source.evaluate(&actual), source.evaluate(&witness));
+            }
+            (None, Err(crate::solvers::ILPSolveError::Infeasible)) => {}
+            other => panic!("production pipeline disagrees: {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn three_partition_pipeline_selects_triples_directly() {
+    let key = crate::solvers::registry::ExactProblemKey::new("ThreePartition", Default::default());
+    let capabilities = crate::solvers::registry::solver_capabilities(&key).unwrap();
+    let pipeline = capabilities.ilp.unwrap();
+    assert_eq!(pipeline.path_labels().len(), 2);
+    for sizes in [vec![4, 5, 6, 4, 6, 5], vec![4, 4, 4, 6, 6, 6]] {
+        let source = crate::models::misc::ThreePartition::new(sizes, 15);
+        let expected = crate::solvers::BruteForce::new().solve(&source).unwrap();
+        match (expected, crate::solvers::ILPSolver::new().solve(&source)) {
+            (Some(_), Ok(actual)) => {
+                assert_eq!(source.evaluate(&actual).unwrap(), crate::types::Or(true))
+            }
+            (None, Err(crate::solvers::ILPSolveError::Infeasible)) => {}
+            other => panic!("partition pipeline disagrees: {other:?}"),
+        }
+    }
+}

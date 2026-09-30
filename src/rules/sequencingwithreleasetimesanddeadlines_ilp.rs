@@ -1,57 +1,134 @@
-//! Reduction from SequencingWithReleaseTimesAndDeadlines to `ILP<bool>`.
-//!
-//! Time-indexed formulation: binary x_{j,t} = 1 iff task j starts at time t.
-//! Each task starts within its admissible window [r_j, d_j - p_j].
-//! No two tasks may overlap on the single machine.
+//! Exact release/deadline sequencing using bounded starts and pairwise order.
+//! The binary endpoint uniformly composes the same construction with the
+//! existing bounded-integer encoding; neither construction expands time slots.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingWithReleaseTimesAndDeadlines;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing SequencingWithReleaseTimesAndDeadlines to `ILP<bool>`.
-///
-/// Variable layout: x_{j,t} at index `j * T + t` for j in 0..n, t in 0..T,
-/// where T = time_horizon (max deadline).
+#[derive(Debug, Clone)]
+pub struct ReductionSWRTDToBoundedILP {
+    target: ILP<i64, i64, Bounded>,
+    lengths: Vec<i64>,
+}
+
+impl ReductionResult for ReductionSWRTDToBoundedILP {
+    type Source = SequencingWithReleaseTimesAndDeadlines;
+    type Target = ILP<i64, i64, Bounded>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, values: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            values,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
+        let mut order: Vec<_> = (0..self.lengths.len()).collect();
+        // A zero-duration job at a positive job's start must come first.
+        order.sort_by_key(|&j| (values[j], self.lengths[j], j));
+        Ok(order)
+    }
+}
+
+#[crate::aggregate_reduction(ilp_feasibility)]
+impl crate::rules::AggregateReductionResult for ReductionSWRTDToBoundedILP {}
+
+#[reduction(transform = upper_bound {
+    num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
+    num_constraints = "num_tasks * (num_tasks - 1) + 1",
+    num_nonzeros = "3 * num_tasks * (num_tasks - 1)",
+    max_constraint_magnitude_bits = "time_horizon_bits",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingWithReleaseTimesAndDeadlines {
+    type Result = ReductionSWRTDToBoundedILP;
+
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let construct = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction;
+        let n = self.num_tasks();
+        let lengths = self.lengths();
+        let releases = self.release_times();
+        let deadlines = self.deadlines();
+        if (0..n).any(|j| releases[j] > deadlines[j] || lengths[j] > deadlines[j] - releases[j]) {
+            return Ok(Self::Result {
+                target: ILP::with_variables(
+                    vec![],
+                    vec![LinearConstraint::eq(vec![], 1)],
+                    vec![],
+                    ObjectiveSense::Minimize,
+                )
+                .map_err(construct)?,
+                lengths: lengths.to_vec(),
+            });
+        }
+        let pairs = n
+            .checked_mul(n.saturating_sub(1))
+            .and_then(|count| n.checked_add(count / 2))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                    "counting sequencing variables",
+                )
+            })?;
+        let mut variables = Vec::with_capacity(pairs);
+        for j in 0..n {
+            variables.push(
+                IntegerVariable::new(Some(releases[j]), Some(deadlines[j] - lengths[j]))
+                    .map_err(construct)?,
+            );
+        }
+        let mut constraints = Vec::new();
+        for i in 0..n {
+            for j in i + 1..n {
+                let y = variables.len();
+                // Relabel identical tasks into index order; their source data are interchangeable.
+                let identical = (lengths[i], releases[i], deadlines[i])
+                    == (lengths[j], releases[j], deadlines[j]);
+                variables.push(
+                    IntegerVariable::new(Some(i64::from(identical)), Some(1)).map_err(construct)?,
+                );
+                let forward = (deadlines[i] - releases[j]).max(0);
+                let backward = (deadlines[j] - releases[i]).max(0);
+                constraints.push(LinearConstraint::ge(
+                    vec![(j, 1), (i, -1), (y, -forward)],
+                    lengths[i] - forward,
+                ));
+                constraints.push(LinearConstraint::ge(
+                    vec![(i, 1), (j, -1), (y, backward)],
+                    lengths[j],
+                ));
+            }
+        }
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(construct)?;
+        crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
+        Ok(Self::Result {
+            target,
+            lengths: lengths.to_vec(),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ReductionSWRTDToILP {
-    target: ILP<bool>,
-    num_tasks: usize,
-    time_horizon: usize,
+    bounded: ReductionSWRTDToBoundedILP,
+    binary: crate::rules::ilp_i64_ilp_bool::ReductionIntILPToBinaryILP,
 }
 
 impl ReductionResult for ReductionSWRTDToILP {
     type Source = SequencingWithReleaseTimesAndDeadlines;
     type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<bool> {
-        &self.target
+    fn target_problem(&self) -> &Self::Target {
+        self.binary.target_problem()
     }
 
-    /// Extract by reading each task's start time and sorting tasks by start time.
-    fn extract_solution(
-        &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
-    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_witness(
-            self.target_problem(),
-            target_solution,
-            |value| value.value.is_some(),
-            "target ILP assignment is infeasible",
-        )?;
-
-        Ok({
-            let n = self.num_tasks;
-            let horizon = self.time_horizon;
-            // For each task, find the start time
-            let starts =
-                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0)?;
-            let mut start_times: Vec<_> = starts.into_iter().enumerate().collect();
-            // Sort by start time (break ties by task index)
-            start_times.sort_by_key(|&(j, t)| (t, j));
-            let schedule: Vec<usize> = start_times.iter().map(|&(j, _)| j).collect();
-            schedule
-        })
+    fn extract_solution(&self, values: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<usize>> {
+        self.bounded
+            .extract_solution(&self.binary.extract_solution(values)?)
     }
 }
 
@@ -59,94 +136,39 @@ impl ReductionResult for ReductionSWRTDToILP {
 impl crate::rules::AggregateReductionResult for ReductionSWRTDToILP {}
 
 #[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_vars = "num_tasks * time_horizon",
-    num_constraints = "num_tasks * time_horizon + num_tasks + time_horizon",
-    num_nonzeros = "(num_tasks * time_horizon) * (num_tasks * time_horizon + num_tasks + time_horizon)",
+    num_vars = "num_tasks * time_horizon_bits + num_tasks * (num_tasks - 1) / 2",
+    num_constraints = "num_tasks * (num_tasks - 1) + 1",
+    num_nonzeros = "num_tasks * (num_tasks - 1) * (2 * time_horizon_bits + 1)",
+    max_constraint_magnitude_bits = "time_horizon_bits",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSWRTDToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let n = self.num_tasks();
-        let horizon = self.time_horizon() as usize;
-        let num_vars = n * horizon;
-
-        let var = |j: usize, t: usize| -> usize { j * horizon + t };
-
-        let lengths = self.lengths();
-        let release_times = self.release_times();
-        let deadlines = self.deadlines();
-
-        let mut constraints = Vec::new();
-
-        // 1. Each task starts exactly once within its admissible window:
-        // Σ_{t=r_j}^{d_j-p_j} x_{j,t} = 1 for all j.
-        // Also, x_{j,t} = 0 for t outside the window (handled implicitly
-        // by not including them; add explicit zero constraints for safety).
-        for j in 0..n {
-            let r = release_times[j] as usize;
-            let last_start = deadlines[j]
-                .checked_sub(lengths[j])
-                .and_then(|time| usize::try_from(time).ok());
-            let terms: Vec<(usize, i64)> = last_start
-                .filter(|&last| r <= last)
-                .into_iter()
-                .flat_map(|last| r..=last)
-                .filter(|&t| t < horizon)
-                .map(|t| (var(j, t), 1))
-                .collect();
-            constraints.push(LinearConstraint::eq(terms, 1));
-
-            // Zero-fix variables outside the admissible window
-            for t in 0..horizon {
-                if t < r || last_start.is_none_or(|last| t > last) {
-                    constraints.push(LinearConstraint::eq(vec![(var(j, t), 1)], 0));
-                }
-            }
-        }
-
-        // 2. No overlap: for each time instant tau in 0..horizon,
-        // Σ_{j,t : t <= tau < t + p_j} x_{j,t} <= 1
-        for tau in 0..horizon {
-            let mut terms: Vec<(usize, i64)> = Vec::new();
-            for (j, &len_j) in lengths.iter().enumerate() {
-                let p = len_j as usize;
-                // Task j started at time t overlaps tau iff t <= tau < t + p_j
-                // i.e., tau - p_j + 1 <= t <= tau, where t >= 0
-                let t_min = (tau + 1).saturating_sub(p);
-                let t_max = tau;
-                for t in t_min..=t_max {
-                    if t < horizon {
-                        terms.push((var(j, t), 1));
-                    }
-                }
-            }
-            constraints.push(LinearConstraint::le(terms, 1));
-        }
-
-        Ok(ReductionSWRTDToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
-            num_tasks: n,
-            time_horizon: horizon,
-        })
+        let bounded = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(self)?;
+        let binary = ReduceTo::<ILP<bool>>::reduce_to(bounded.target_problem())?;
+        Ok(Self::Result { bounded, binary })
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "sequencingwithreleasetimesanddeadlines_to_ilp",
-        build: || {
-            let source = SequencingWithReleaseTimesAndDeadlines::new(
-                vec![1, 2, 1],
-                vec![0, 0, 2],
-                vec![3, 3, 4],
-            );
-            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+    use crate::example_db::specs::{
+        rule_example_via_bounded_ilp, rule_example_via_ilp, RuleExampleSpec,
+    };
+    fn source() -> SequencingWithReleaseTimesAndDeadlines {
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4])
+    }
+    vec![
+        RuleExampleSpec {
+            id: "sequencingwithreleasetimesanddeadlines_to_ilp",
+            build: || rule_example_via_ilp::<_, bool>(source()),
         },
-    }]
+        RuleExampleSpec {
+            id: "sequencingwithreleasetimesanddeadlines_to_bounded_ilp",
+            build: || rule_example_via_bounded_ilp(source()),
+        },
+    ]
 }
 
 #[cfg(test)]

@@ -24,20 +24,11 @@ fn medium_instance() -> PreemptiveScheduling {
 #[test]
 fn test_preemptivescheduling_to_ilp_structure() {
     let p = small_instance();
-    // n=2, D_max=2 → 2*2+1 = 5 variables
-    let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
-    let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars(), 5, "expected n*D_max+1 = 5 variables");
-    assert_eq!(
-        ilp.objective(),
-        vec![(4, 1)],
-        "objective: minimize M at index 4"
-    );
-
-    // Constraints:
-    // 2 work + 2 capacity + 1 prec*(D_max=2 slots) + 2*2 makespan + 2*2 binary = 2+2+2+4+4 = 14
-    assert_eq!(ilp.constraints().len(), 14);
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).unwrap();
+    // Precedence leaves only task 0 at slot 0 and task 1 at slot 1.
+    assert_eq!(reduction.target_problem().num_vars(), 7);
+    assert_eq!(reduction.target_problem().num_constraints(), 11);
+    crate::rules::test_helpers::assert_parameter_predictions(&p, &reduction);
 }
 
 // ─── closed-loop ───────────────────────────────────────────────────────────
@@ -88,34 +79,103 @@ fn test_preemptivescheduling_to_ilp_medium_closed_loop() {
     );
 }
 
-// ─── infeasible ────────────────────────────────────────────────────────────
-
-#[test]
-fn test_preemptivescheduling_to_ilp_infeasible() {
-    // 1 processor, tasks t0→t1→t0 would be a cycle — let's just make a
-    // tight instance: 1 processor, 1 task of length 1, always feasible.
-    // Actually, let's check that a huge task on 1 tiny processor is fine
-    // (it's always feasible; makespan is just larger).
-    // Use a cycle-free precedence that is always schedulable.
-    let p = PreemptiveScheduling::new(vec![1, 1], 1, vec![(0, 1)]).unwrap();
-    let reduction: ReductionPSToILP =
-        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
-    let sol = ILPSolver::new().solve(reduction.target_problem());
-    // 1 processor, t0 at slot 0, t1 at slot 1 → always feasible
-    assert!(sol.is_ok(), "should be feasible");
-}
-
 // ─── extract_solution ──────────────────────────────────────────────────────
 
 #[test]
 fn test_preemptivescheduling_to_ilp_extract_solution() {
-    // small_instance: n=2, D_max=2, m_var=4
-    // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1, M=2
     let p = small_instance();
     let reduction: ReductionPSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&p).expect("reduction should succeed");
-    let ilp_solution = vec![1, 0, 0, 1, 2]; // last element is M
+    let ilp_solution = vec![1, 1, 2, 0, 1, 1, 2]; // x, M, S, C
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);
     assert_eq!(p.evaluate(&extracted).unwrap(), Min(Some(2)));
+}
+
+#[test]
+fn precedence_encoding_has_constant_size_per_edge() {
+    let edges: Vec<_> = (0..12)
+        .flat_map(|a| (a + 1..12).map(move |b| (a, b)))
+        .collect();
+    let independent = PreemptiveScheduling::new(vec![3; 12], 4, vec![]).unwrap();
+    let ordered = PreemptiveScheduling::new(vec![3; 12], 4, edges.clone()).unwrap();
+    let base = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&independent).unwrap();
+    let constrained = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&ordered).unwrap();
+    // Finish-before-start needs just two task endpoints per edge, regardless of horizon.
+    assert!(
+        constrained.target_problem().num_nonzeros()
+            <= base.target_problem().num_nonzeros() + 2 * edges.len()
+    );
+    crate::rules::test_helpers::assert_parameter_predictions(&ordered, &constrained);
+}
+
+#[test]
+fn scheduling_ilp_preserves_optima_and_rejects_precedence_cycles() {
+    use crate::solvers::{BruteForce, ILPSolveError};
+
+    for (lengths, processors, precedences) in [
+        (vec![], 1, vec![]),
+        (vec![2, 1], 2, vec![]),
+        (vec![2, 1], 2, vec![(0, 1)]),
+        (vec![1, 1], 2, vec![(0, 1), (0, 1)]),
+        (vec![1], 1, vec![(0, 0)]),
+        (vec![1, 1], 2, vec![(0, 1), (1, 0)]),
+        (vec![1, 1, 1], 2, vec![(0, 1), (1, 2), (2, 0)]),
+    ] {
+        let source = PreemptiveScheduling::new(lengths, processors, precedences).unwrap();
+        let expected = BruteForce::new().solve(&source).unwrap();
+        let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        crate::rules::test_helpers::assert_parameter_predictions(&source, &reduced);
+        match (expected, ILPSolver::new().solve(reduced.target_problem())) {
+            (Some(expected), Ok(actual)) => {
+                let decoded = reduced.extract_solution(&actual).unwrap();
+                assert_eq!(source.evaluate(&decoded), source.evaluate(&expected));
+            }
+            (None, Err(ILPSolveError::Infeasible)) => {}
+            other => panic!("source and target disagree: {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn endpoint_encoding_allows_interruptions_but_rejects_early_successors() {
+    let source = PreemptiveScheduling::new(vec![2, 1, 1, 3], 2, vec![(0, 2)]).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    // Task 0 runs at 0 and 2; its successor may start at 3, not at 1.
+    let mut witness = vec![
+        1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 4, 0, 1, 3, 0, 3, 2, 4, 3,
+    ];
+    let decoded = reduction.extract_solution(&witness).unwrap();
+    assert_eq!(source.evaluate(&decoded).unwrap(), Min(Some(4)));
+    witness[7] = 1;
+    witness[8] = 0;
+    witness[16] = 2;
+    witness[20] = 3;
+    assert!(!reduction.target_problem().is_feasible(&witness).unwrap());
+    assert!(reduction.extract_solution(&witness).is_err());
+}
+
+#[test]
+fn scheduling_arithmetic_overflow_is_reported_before_allocation() {
+    let horizon = i64::try_from(usize::MAX / 2).unwrap();
+    // One case exceeds the variable count, the other endpoint-row arithmetic.
+    for lengths in [vec![horizon - 1, 1], vec![horizon]] {
+        let source = PreemptiveScheduling::new(lengths, 1, vec![]).unwrap();
+        assert!(matches!(
+            ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn parallel_work_uses_a_certified_horizon_instead_of_the_serial_horizon() {
+    let source = PreemptiveScheduling::new(vec![1; 4], 2, vec![]).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    // Two slots suffice; eight activity bits plus two endpoints per task and M.
+    assert!(reduction.target_problem().num_vars() <= 17);
+    let values = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let decoded = reduction.extract_solution(&values).unwrap();
+    assert_eq!(source.evaluate(&decoded).unwrap(), Min(Some(2)));
+    assert!(decoded.iter().all(|task| task.len() == 4));
 }

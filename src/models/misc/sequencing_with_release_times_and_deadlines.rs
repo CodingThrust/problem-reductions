@@ -141,6 +141,11 @@ impl SequencingWithReleaseTimesAndDeadlines {
     pub fn time_horizon(&self) -> i64 {
         self.deadlines.iter().copied().max().unwrap_or(0)
     }
+
+    /// Magnitude bits of the maximum deadline, with at least one bit.
+    pub fn time_horizon_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.time_horizon()])
+    }
 }
 
 impl Problem for SequencingWithReleaseTimesAndDeadlines {
@@ -148,7 +153,11 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_tasks", num_tasks), ("time_horizon", time_horizon),];
+    crate::problem_parameters![
+        ("num_tasks", num_tasks),
+        ("time_horizon", time_horizon),
+        ("time_horizon_bits", time_horizon_bits),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

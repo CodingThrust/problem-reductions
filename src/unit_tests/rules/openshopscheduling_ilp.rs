@@ -13,7 +13,7 @@ fn small_instance() -> OpenShopScheduling {
 }
 
 #[test]
-fn test_decision_openshopscheduling_to_ilp_bound_is_a_constraint() {
+fn test_decision_openshopscheduling_to_ilp_preserves_makespan_threshold() {
     let inner = small_instance();
     let optimization = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&inner).unwrap();
     let solver = ILPSolver::new();
@@ -23,11 +23,8 @@ fn test_decision_openshopscheduling_to_ilp_bound_is_a_constraint() {
         let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         assert!(target.objective().is_empty());
-        assert_eq!(target.num_vars(), optimization.target_problem().num_vars());
-        assert_eq!(
-            target.num_constraints(),
-            optimization.target_problem().num_constraints() + 1
-        );
+        assert!(target.num_vars() < optimization.target_problem().num_vars());
+        crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
         let result = solver.solve(&source);
         if bound < 3 {
             assert!(matches!(
@@ -77,14 +74,8 @@ fn test_openshopscheduling_to_ilp_structure_small() {
         "expected 9 variables, got {}",
         ilp.num_vars()
     );
-    // Constraint count: 2 bound_x + 4 s_upper + 1 c_upper + 4 machine_nooverlap
-    //                 + 2 bound_y + 4 job_nooverlap + 4 makespan = 21
-    assert_eq!(
-        ilp.constraints().len(),
-        21,
-        "expected 21 constraints, got {}",
-        ilp.constraints().len()
-    );
+    // Four disjunction pairs need eight rows; four makespan rows remain.
+    assert_eq!(ilp.num_constraints(), 12);
     assert_eq!(
         ilp.objective(),
         vec![(8, 1)],
@@ -204,4 +195,54 @@ fn test_decision_makespan_threshold_normalization() {
             }
         }
     }
+}
+
+#[test]
+fn decision_open_shop_uses_the_bound_without_a_makespan_variable() {
+    let source = Decision::new(OpenShopScheduling::new(2, vec![vec![1, 1], vec![1, 1]]), 2);
+    let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    assert_eq!(reduced.target_problem().num_vars(), 8);
+    assert_eq!(reduced.target_problem().num_constraints(), 9);
+    assert_eq!(reduced.target_problem().num_nonzeros(), 26);
+    let solution = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(source.evaluate(&solution).unwrap(), crate::types::Or(true));
+}
+
+#[test]
+fn symmetry_preserves_zero_duration_and_asymmetric_open_shops() {
+    use crate::solvers::{BruteForce, ILPSolveError};
+    for times in [
+        vec![],
+        vec![vec![]],
+        vec![vec![0, 0], vec![0, 0]],
+        vec![vec![0, 1], vec![1, 0]],
+        vec![vec![1, 1], vec![1, 1]],
+    ] {
+        let machines = times.first().map_or(0, Vec::len);
+        let source = OpenShopScheduling::new(machines, times);
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
+        let expected = BruteForce::new().solve(&source).unwrap().unwrap();
+        let actual = ILPSolver::new().solve(&source).unwrap();
+        assert_eq!(source.evaluate(&actual), source.evaluate(&expected));
+        for bound in [-1, 0, 1, 2] {
+            let decision = Decision::new(source.clone(), bound);
+            let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&decision).unwrap();
+            crate::rules::test_helpers::assert_parameter_predictions(&decision, &reduced);
+            match ILPSolver::new().solve(&decision) {
+                Ok(witness) => assert!(decision.evaluate(&witness).unwrap().0),
+                Err(ILPSolveError::Infeasible) => assert!(!decision.evaluate(&expected).unwrap().0),
+                other => panic!("unexpected solve: {other:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn open_shop_reports_unrepresentable_constraint_arithmetic() {
+    let source = OpenShopScheduling::new(1, vec![vec![i64::MAX / 2], vec![i64::MAX / 2]]);
+    assert!(matches!(
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
 }
