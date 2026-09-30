@@ -9,12 +9,15 @@ pub use registry::{
 #[doc(hidden)]
 pub use traits::aggregate_view;
 
+pub(crate) mod betweenness_ilp;
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
+pub(crate) mod boundeddiameterspanningtree_ilp;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod cyclicordering_ilp;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
@@ -29,6 +32,9 @@ pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod exactcoverby3sets_subsetproduct;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) mod minimumweightandorgraph_ilp;
+pub(crate) mod partitionintoperfectmatchings_ilp;
+pub(crate) mod twodimensionalconsecutivesets_ilp;
 pub(crate) use graph::{recover_completed_result, RecoveryStep};
 pub(crate) mod graph_helpers;
 pub(crate) mod graphpartitioning_maxcut;
@@ -89,6 +95,7 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimumcodegenerationunlimitedregisters_ilp;
 pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
@@ -305,6 +312,13 @@ pub use traits::{
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(partitionintoperfectmatchings_ilp::canonical_rule_example_specs());
+    specs.extend(minimumweightandorgraph_ilp::canonical_rule_example_specs());
+    specs.extend(boundeddiameterspanningtree_ilp::canonical_rule_example_specs());
+    specs.extend(betweenness_ilp::canonical_rule_example_specs());
+    specs.extend(minimumcodegenerationunlimitedregisters_ilp::canonical_rule_example_specs());
+    specs.extend(cyclicordering_ilp::canonical_rule_example_specs());
+    specs.extend(twodimensionalconsecutivesets_ilp::canonical_rule_example_specs());
     specs.extend(bicliquecover_bmf::canonical_rule_example_specs());
     specs.extend(bmf_bicliquecover::canonical_rule_example_specs());
     specs.extend(circuit_sat::canonical_rule_example_specs());

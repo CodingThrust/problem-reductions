@@ -15,3 +15,4 @@ pub(crate) mod partial_feedback_edge_set;
 pub(crate) mod rooted_tree_arrangement;
 pub(crate) mod shortest_common_superstring;
 mod solver;
+pub(crate) mod subset_sum;

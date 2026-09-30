@@ -72,12 +72,6 @@ fn decision_ilp_paths_respect_bounds_and_return_valid_witnesses() {
             1,
         ),
         (
-            "DecisionMinimumCoveringByCliques",
-            BTreeMap::from([("graph".into(), "SimpleGraph".into())]),
-            serde_json::json!({"graph": graph}),
-            2,
-        ),
-        (
             "DecisionOpenShopScheduling",
             BTreeMap::new(),
             serde_json::json!({"num_machines": 2, "processing_times": [[2,1],[1,2]]}),

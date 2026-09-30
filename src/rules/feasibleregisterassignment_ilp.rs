@@ -1,18 +1,9 @@
-//! Reduction from Feasible Register Assignment to ILP (Integer Linear Programming).
-//!
-//! The formulation uses non-negative integer variables:
-//! - `t_v`: evaluation position of vertex `v`
-//! - `L_v`: latest position among `v` and all dependents of `v`
-//! - `z_uv`: binary order selector for each unordered pair `{u, v}`
-//!
-//! The pair-order constraints force the `t_v` values to form a permutation of
-//! `{0, ..., n-1}`. For same-register pairs, the extra constraints enforce
-//! interval non-overlap: if `u` is before `v`, then `v` must be scheduled no
-//! earlier than the latest dependent of `u`.
+//! Bounded ranks with order selectors only for vertices sharing a register.
 
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::FeasibleRegisterAssignment;
 use crate::reduction;
+use crate::rules::ilp_helpers::{bounded_order_comparison, ranks_to_positions};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
@@ -40,7 +31,7 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
             "target ILP assignment is infeasible",
         )?;
 
-        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_vertices])
+        Ok(ranks_to_positions(&target_solution[..self.num_vertices]))
     }
 }
 
@@ -49,11 +40,11 @@ impl crate::rules::AggregateReductionResult for ReductionFeasibleRegisterAssignm
 
 #[reduction(transform = {
     exact {
-        num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
-        num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-        num_nonzeros = "4 * num_vertices + 4 * num_arcs + 7 * num_vertices * (num_vertices - 1) / 2 + 6 * num_same_register_pairs",
+        num_vars = "num_vertices + num_same_register_pairs",
     },
     upper_bound {
+        num_constraints = "num_vertices * num_arcs + 2 * num_same_register_pairs",
+        num_nonzeros = "3 * num_vertices * num_arcs + 6 * num_same_register_pairs",
         max_constraint_magnitude_bits = "num_vertices + 1",
     },
 })]
@@ -62,91 +53,60 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for FeasibleRegisterAssignment {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let pair_list: Vec<(usize, usize)> = (0..n)
+        let pairs: Vec<_> = (0..n)
             .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
+            .filter(|&(u, v)| self.assignment()[u] == self.assignment()[v])
             .collect();
-        let same_register_pairs: Vec<(usize, usize, usize)> = pair_list
-            .iter()
-            .copied()
-            .enumerate()
-            .filter(|(_, (u, v))| self.assignment()[*u] == self.assignment()[*v])
-            .map(|(pair_idx, (u, v))| (u, v, pair_idx))
-            .collect();
-
-        let num_pair_vars = pair_list.len();
-        let num_vars = 2 * n + num_pair_vars;
+        let num_vars = n.checked_add(pairs.len()).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                "counting register assignment variables",
+            )
+        })?;
         let big_m = Self::exact_i64(n, "encoding the schedule order")?;
-        let last_position =
-            Self::exact_i64(n.saturating_sub(1), "encoding the final schedule position")?;
-
-        let time_idx = |vertex: usize| -> usize { vertex };
-        let latest_idx = |vertex: usize| -> usize { n + vertex };
-        let order_idx = |pair_idx: usize| -> usize { 2 * n + pair_idx };
-
-        let mut constraints = Vec::with_capacity(
-            3 * num_pair_vars + 3 * n + 2 * self.num_arcs() + 2 * same_register_pairs.len(),
-        );
-
-        for vertex in 0..n {
-            constraints.push(LinearConstraint::le(
-                vec![(time_idx(vertex), 1)],
-                last_position,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(latest_idx(vertex), 1)],
-                last_position,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(vertex), 1), (time_idx(vertex), -1)],
-                0,
-            ));
-        }
-
+        let last_position = big_m.saturating_sub(1).max(0);
+        let mut variables = vec![
+            IntegerVariable::new(Some(0), Some(last_position))
+                .map_err(Self::target_construction)?;
+            n
+        ];
+        variables.resize(num_vars, IntegerVariable::binary());
+        let mut constraints = Vec::new();
+        let mut dependents = vec![Vec::new(); n];
         for &(dependent, dependency) in self.arcs() {
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(dependent), 1), (time_idx(dependency), -1)],
+                vec![(dependent, 1), (dependency, -1)],
                 1,
             ));
-            constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(dependency), 1), (time_idx(dependent), -1)],
-                0,
-            ));
+            dependents[dependency].push(dependent);
         }
-
-        for (pair_idx, &(u, v)) in pair_list.iter().enumerate() {
-            let order_var = order_idx(pair_idx);
-            constraints.push(LinearConstraint::le(vec![(order_var, 1)], 1));
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(v), 1), (time_idx(u), -1), (order_var, -big_m)],
-                1 - big_m,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(u), 1), (time_idx(v), -1), (order_var, big_m)],
-                1,
-            ));
+        for (index, &(u, v)) in pairs.iter().enumerate() {
+            let selector = n + index;
+            constraints.extend(bounded_order_comparison(u, v, selector, big_m));
+            // An overwriter may consume the old value in that same operation.
+            // Every other consumer must finish strictly before the overwrite.
+            for &w in &dependents[u] {
+                if w != v {
+                    constraints.push(LinearConstraint::ge(
+                        vec![(v, 1), (w, -1), (selector, -big_m)],
+                        1 - big_m,
+                    ));
+                }
+            }
+            for &w in &dependents[v] {
+                if w != u {
+                    constraints.push(LinearConstraint::ge(
+                        vec![(u, 1), (w, -1), (selector, big_m)],
+                        1,
+                    ));
+                }
+            }
         }
-
-        for &(u, v, pair_idx) in &same_register_pairs {
-            let order_var = order_idx(pair_idx);
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(v), 1), (latest_idx(u), -1), (order_var, -big_m)],
-                -big_m,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(u), 1), (latest_idx(v), -1), (order_var, big_m)],
-                0,
-            ));
-        }
-
-        let mut variables = vec![IntegerVariable::binary(); num_vars];
-        variables[..2 * n].fill(
-            IntegerVariable::new(Some(0), Some(last_position))
-                .map_err(Self::target_construction)?,
-        );
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
+        crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
 
         Ok(ReductionFeasibleRegisterAssignmentToILP {
-            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target,
             num_vertices: n,
         })
     }

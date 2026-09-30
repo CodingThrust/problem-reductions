@@ -73,6 +73,11 @@ register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| 
 register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| {
     super::shortest_common_superstring::solve(problem).map(Some)
 });
+register_customized_solver!(
+    crate::models::misc::SubsetSum,
+    "meet-in-the-middle",
+    super::subset_sum::solve
+);
 register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| {
     super::minimum_decision_tree::solve(problem).map(Some)
 });
@@ -85,6 +90,23 @@ register_customized_solver!(
     MinimumIntersectionGraphBasis<SimpleGraph>,
     "maximal-clique-edge-cover",
     |problem| Ok(super::minimum_intersection_graph_basis::solve(problem))
+);
+register_customized_solver!(
+    crate::models::graph::MinimumCoveringByCliques<SimpleGraph>,
+    "maximal-clique-edge-cover",
+    |problem| Ok(Some(super::minimum_intersection_graph_basis::solve_cover(
+        problem
+    )))
+);
+register_customized_solver!(
+    crate::models::Decision<crate::models::graph::MinimumCoveringByCliques<SimpleGraph>>,
+    "maximal-clique-edge-cover",
+    |problem: &crate::models::Decision<
+        crate::models::graph::MinimumCoveringByCliques<SimpleGraph>,
+    >| {
+        let solution = super::minimum_intersection_graph_basis::solve_cover(problem.inner());
+        Ok(problem.evaluate(&solution)?.0.then_some(solution))
+    }
 );
 register_customized_solver!(
     crate::models::algebraic::ClosestVectorProblem,

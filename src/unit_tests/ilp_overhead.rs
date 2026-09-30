@@ -362,15 +362,39 @@ fn bounded_forest_magnitude_and_incoming_qubo() {
 
 #[test]
 fn acyclic_partition_magnitude_and_qubo() {
-    for (weight, bound, bits) in [(0, 1, 1), (8, 1, 4), (1, -8, 4), (i64::MIN, 1, 64)] {
+    for (weight, bound, bits) in [
+        (0, 1, 1),
+        (8, 1, 4),
+        (1, -8, 4),
+        (i64::MIN, 1, 64),
+        (i64::MIN, i64::MIN, 64),
+        (i64::MAX, -1, 63),
+    ] {
         let source = AcyclicPartition::new(DirectedGraph::empty(1), vec![weight], vec![], bound, 0);
         assert_eq!(
             source.parameters().get("max_numeric_magnitude_bits"),
             Some(bits)
         );
-        check_contract::<_, ILP<bool>>(&source);
+        check_contract::<_, ILP<i64, i64, Bounded>>(&source);
+        let reduction = ReduceTo::<BoundedILP>::reduce_to(&source).unwrap();
+        let mut feasible = 0;
+        // One vertex forces its membership and label; enumerate the auxiliary bit.
+        for auxiliary in 0..=1 {
+            let target = vec![1, auxiliary, 0];
+            if reduction
+                .target_problem()
+                .evaluate(&target)
+                .unwrap()
+                .value
+                .is_some()
+            {
+                assert_eq!(reduction.extract_solution(&target).unwrap(), vec![0]);
+                feasible += 1;
+            }
+        }
+        assert_eq!(feasible, usize::from(source.evaluate(&vec![0]).unwrap().0));
     }
-    check_contract::<_, ILP<bool>>(&AcyclicPartition::new(
+    check_contract::<_, ILP<i64, i64, Bounded>>(&AcyclicPartition::new(
         DirectedGraph::new(1, vec![(0, 0)]),
         vec![1],
         vec![1],
@@ -378,7 +402,7 @@ fn acyclic_partition_magnitude_and_qubo() {
         1,
     ));
     for bound in [1, 3] {
-        check_qubo::<_, ILP<bool>>(AcyclicPartition::new(
+        check_qubo::<_, ILP<i64, i64, Bounded>>(AcyclicPartition::new(
             DirectedGraph::new(2, vec![(0, 1)]),
             vec![1, 2],
             vec![1],

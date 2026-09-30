@@ -15,8 +15,9 @@ fn test_feasible_register_assignment_to_ilp_structure() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars(), 14);
-    assert_eq!(ilp.constraints().len(), 42);
+    assert_eq!(ilp.num_vars(), 7);
+    assert_eq!(ilp.constraints().len(), 12);
+    assert_eq!(ilp.num_nonzeros(), 33);
     assert_eq!(ilp.objective(), vec![]);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
@@ -56,4 +57,21 @@ fn test_feasible_register_assignment_to_ilp_bf_vs_ilp() {
     let reduction =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}
+
+#[test]
+fn register_assignment_decodes_unrelated_ties_without_hiding_overwrites() {
+    let source = FeasibleRegisterAssignment::new(2, vec![], 2, vec![0, 1]);
+    let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    assert_eq!(reduced.extract_solution(&vec![0, 0]).unwrap(), vec![0, 1]);
+    let conflict = FeasibleRegisterAssignment::new(
+        4,
+        vec![(2, 0), (2, 1), (3, 0), (3, 1)],
+        2,
+        vec![0, 1, 0, 1],
+    );
+    assert_eq!(
+        ILPSolver::new().solve(&conflict),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }

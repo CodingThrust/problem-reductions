@@ -1,28 +1,21 @@
-//! Reduction from RegisterSufficiency to `ILP<i64, i64, Bounded>`.
-//!
-//! The formulation uses:
-//! - integer `t_v` variables for evaluation positions
-//! - integer `l_v` variables for latest-use positions
-//! - binary pair-order selectors to force a permutation of `0..n-1`
-//! - binary threshold/live indicators to count how many values are live after
-//!   each evaluation step
+//! Binary cumulative evaluation and live-value indicators for register sufficiency.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::RegisterSufficiency;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionRegisterSufficiencyToILP {
-    target: ILP<i64, i64, Bounded>,
+    target: ILP<bool>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionRegisterSufficiencyToILP {
     type Source = RegisterSufficiency;
-    type Target = ILP<i64, i64, Bounded>;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -37,7 +30,17 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
             "target ILP assignment is infeasible",
         )?;
 
-        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_vertices])
+        let n = self.num_vertices;
+        (0..n)
+            .map(|v| {
+                target_solution[v * n..(v + 1) * n]
+                    .iter()
+                    .position(|&computed| computed != 0)
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid("vertex is never computed")
+                    })
+            })
+            .collect()
     }
 }
 
@@ -46,157 +49,87 @@ impl crate::rules::AggregateReductionResult for ReductionRegisterSufficiencyToIL
 
 #[reduction(transform = {
     exact {
-        num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
-        num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
-        num_nonzeros = "18 * num_vertices^2 + 2 * num_vertices + 7 * num_vertices * (num_vertices - 1) / 2 + 4 * num_arcs + num_sinks",
+        num_vars = "2 * num_vertices^2 - num_vertices * num_sinks",
+        num_constraints = "num_vertices^2 + 2 * num_vertices * num_arcs + num_vertices",
+        num_nonzeros = "4 * num_vertices^2 - 2 * num_vertices + 5 * num_vertices * num_arcs - num_arcs",
     },
     upper_bound {
-        max_constraint_magnitude_bits = "2 * num_vertices + bound + 1",
+        max_constraint_magnitude_bits = "num_vertices + 1",
     },
 })]
-impl ReduceTo<ILP<i64, i64, Bounded>> for RegisterSufficiency {
+impl ReduceTo<ILP<bool>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let pair_list: Vec<(usize, usize)> = (0..n)
-            .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
-            .collect();
-        let num_pair_vars = pair_list.len();
-
-        let time_offset = 0;
-        let latest_offset = n;
-        let order_offset = 2 * n;
-        let before_offset = order_offset + num_pair_vars;
-        let after_offset = before_offset + n * n;
-        let live_offset = after_offset + n * n;
-        let num_vars = live_offset + n * n;
-
-        let time_idx = |vertex: usize| -> usize { time_offset + vertex };
-        let latest_idx = |vertex: usize| -> usize { latest_offset + vertex };
-        let order_idx = |pair_idx: usize| -> usize { order_offset + pair_idx };
-        let before_idx =
-            |vertex: usize, step: usize| -> usize { before_offset + vertex * n + step };
-        let after_idx = |vertex: usize, step: usize| -> usize { after_offset + vertex * n + step };
-        let live_idx = |vertex: usize, step: usize| -> usize { live_offset + vertex * n + step };
-
-        let big_m = Self::exact_i64(n, "representing the schedule length in ILP rows")?;
-        let latest_time = big_m;
-        let maximum_time = Self::exact_i64(
-            n.saturating_sub(1),
-            "representing the maximum schedule time in ILP rows",
-        )?;
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
+                "counting cumulative scheduling variables",
+            )
+        };
+        let square = n.checked_mul(n).ok_or_else(overflow)?;
         let mut has_dependent = vec![false; n];
+        for &(_, u) in self.arcs() {
+            has_dependent[u] = true;
+        }
+        let non_sinks = has_dependent.iter().filter(|&&value| value).count();
+        let num_vars = n
+            .checked_mul(non_sinks)
+            .and_then(|count| square.checked_add(count))
+            .ok_or_else(overflow)?;
+        let horizon = Self::exact_i64(n, "bounding schedule row sums")?;
+        let bound = Self::exact_i64(self.bound(), "representing the register bound")?.min(horizon);
+        let computed = |v: usize, t: usize| v * n + t;
+        let mut live_offset: Vec<_> = (0..n).map(|v| v * n).collect();
+        let mut next = square;
+        for (v, &needed) in has_dependent.iter().enumerate() {
+            if needed {
+                live_offset[v] = next;
+                next += n;
+            }
+        }
         let mut constraints = Vec::new();
-
-        for vertex in 0..n {
-            constraints.push(LinearConstraint::le(
-                vec![(time_idx(vertex), 1)],
-                maximum_time,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(latest_idx(vertex), 1)],
-                latest_time,
-            ));
-        }
-
-        for (pair_idx, &(u, v)) in pair_list.iter().enumerate() {
-            let order_var = order_idx(pair_idx);
-            constraints.push(LinearConstraint::le(vec![(order_var, 1)], 1));
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(v), 1), (time_idx(u), -1), (order_var, -big_m)],
-                1 - big_m,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(u), 1), (time_idx(v), -1), (order_var, big_m)],
-                1,
-            ));
-        }
-
-        for &(dependent, dependency) in self.arcs() {
-            has_dependent[dependency] = true;
-            constraints.push(LinearConstraint::ge(
-                vec![(time_idx(dependent), 1), (time_idx(dependency), -1)],
-                1,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(dependency), 1), (time_idx(dependent), -1)],
-                0,
-            ));
-        }
-
-        for (vertex, &has_child) in has_dependent.iter().enumerate() {
-            if !has_child {
-                constraints.push(LinearConstraint::eq(
-                    vec![(latest_idx(vertex), 1)],
-                    latest_time,
+        for v in 0..n {
+            for t in 0..n.saturating_sub(1) {
+                constraints.push(LinearConstraint::le(
+                    vec![(computed(v, t), 1), (computed(v, t + 1), -1)],
+                    0,
                 ));
             }
         }
-
-        for vertex in 0..n {
-            for step in 0..n {
-                let step_value = Self::exact_i64(step, "representing a schedule step in ILP rows")?;
-                let before_var = before_idx(vertex, step);
-                constraints.push(LinearConstraint::le(vec![(before_var, 1)], 1));
-                constraints.push(LinearConstraint::le(
-                    vec![(time_idx(vertex), 1), (before_var, big_m)],
-                    step_value + big_m,
-                ));
+        for t in 0..n {
+            constraints.push(LinearConstraint::eq(
+                (0..n).map(|v| (computed(v, t), 1)).collect(),
+                Self::exact_i64(t + 1, "counting completed vertices")?,
+            ));
+        }
+        for &(w, u) in self.arcs() {
+            for t in 0..n {
+                let mut precedence = vec![(computed(w, t), 1)];
+                if t > 0 {
+                    precedence.push((computed(u, t - 1), -1));
+                }
+                constraints.push(LinearConstraint::le(precedence, 0));
                 constraints.push(LinearConstraint::ge(
-                    vec![(time_idx(vertex), 1), (before_var, big_m)],
-                    step_value + 1,
-                ));
-
-                let after_var = after_idx(vertex, step);
-                constraints.push(LinearConstraint::le(vec![(after_var, 1)], 1));
-                constraints.push(LinearConstraint::ge(
-                    vec![(latest_idx(vertex), 1), (after_var, -big_m)],
-                    step_value + 1 - big_m,
-                ));
-                constraints.push(LinearConstraint::le(
-                    vec![(latest_idx(vertex), 1), (after_var, -big_m)],
-                    step_value,
-                ));
-
-                let live_var = live_idx(vertex, step);
-                constraints.push(LinearConstraint::le(
-                    vec![(live_var, 1), (before_var, -1)],
+                    vec![
+                        (live_offset[u] + t, 1),
+                        (computed(u, t), -1),
+                        (computed(w, t), 1),
+                    ],
                     0,
-                ));
-                constraints.push(LinearConstraint::le(
-                    vec![(live_var, 1), (after_var, -1)],
-                    0,
-                ));
-                constraints.push(LinearConstraint::ge(
-                    vec![(live_var, 1), (before_var, -1), (after_var, -1)],
-                    -1,
                 ));
             }
         }
-
-        for step in 0..n {
-            let live_terms: Vec<(usize, i64)> =
-                (0..n).map(|vertex| (live_idx(vertex, step), 1)).collect();
+        for t in 0..n {
+            // For sinks, computed bits are also their exact live indicators.
             constraints.push(LinearConstraint::le(
-                live_terms,
-                Self::exact_i64(
-                    self.bound(),
-                    "representing the register bound in an ILP row",
-                )?,
+                live_offset.iter().map(|&offset| (offset + t, 1)).collect(),
+                bound,
             ));
         }
-
-        let mut variables = vec![IntegerVariable::binary(); num_vars];
-        variables[time_offset..latest_offset].fill(
-            IntegerVariable::new(Some(0), Some(maximum_time)).map_err(Self::target_construction)?,
-        );
-        variables[latest_offset..order_offset].fill(
-            IntegerVariable::new(Some(0), Some(latest_time)).map_err(Self::target_construction)?,
-        );
 
         Ok(ReductionRegisterSufficiencyToILP {
-            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_vertices: n,
         })
@@ -222,7 +155,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 3,
             );
-            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

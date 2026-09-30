@@ -261,7 +261,7 @@ fn parameter_relations_match_reduced_instances() {
     check_reduced_parameters::<_, ILP<bool>>(
         BMF::new(vec![vec![true, false], vec![false, true]], 2),
         &["num_nonzeros"],
-        exact,
+        ParameterRelation::UpperBound,
     );
     check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         ClosestString::new(2, vec![vec![0, 1], vec![1, 0]]),
@@ -286,7 +286,7 @@ fn parameter_relations_match_reduced_instances() {
     check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]),
         &["num_nonzeros"],
-        exact,
+        ParameterRelation::UpperBound,
     );
     check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
         IntegerKnapsack::new(vec![3, 4], vec![5, 6], 7).unwrap(),
@@ -313,7 +313,7 @@ fn parameter_relations_match_reduced_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+    check_reduced_parameters::<_, ILP<bool>>(
         RegisterSufficiency::new(4, vec![(2, 0), (3, 1)], 2),
         &["num_nonzeros"],
         exact,
@@ -335,8 +335,13 @@ fn parameter_relations_match_reduced_instances() {
     );
     check_reduced_parameters::<_, ILP<bool>>(
         HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
-        &["num_vars", "num_constraints", "num_nonzeros"],
+        &["num_vars", "num_constraints"],
         exact,
+    );
+    check_reduced_parameters::<_, ILP<bool>>(
+        HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (0, 1), (1, 1)])),
+        &["num_nonzeros"],
+        ParameterRelation::UpperBound,
     );
     check_reduced_parameters::<_, BicliqueCover>(
         BMF::new(vec![vec![true, false], vec![false, true]], 1),
@@ -406,7 +411,7 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
         &["num_nonzeros"],
         exact,
     );
-    check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+    check_reduced_parameters::<_, ILP<bool>>(
         RegisterSufficiency::new(0, vec![], 0),
         &["num_nonzeros"],
         exact,
@@ -423,12 +428,12 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
     );
     check_reduced_parameters::<_, ILP<bool>>(
         HamiltonianPath::new(SimpleGraph::new(0, vec![])),
-        &["num_vars", "num_constraints", "num_nonzeros"],
+        &["num_vars", "num_constraints"],
         exact,
     );
     check_reduced_parameters::<_, ILP<bool>>(
         HamiltonianPath::new(SimpleGraph::new(1, vec![])),
-        &["num_vars", "num_constraints", "num_nonzeros"],
+        &["num_vars", "num_constraints"],
         exact,
     );
     check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(

@@ -21,7 +21,7 @@ fn small_instance() -> AcyclicPartition<i64> {
 fn test_acyclicpartition_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Solve source with brute force
@@ -44,10 +44,10 @@ fn test_acyclicpartition_to_ilp_closed_loop() {
 fn test_reduction_num_vars() {
     let source = small_instance();
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars(), 35);
-    assert_eq!(ilp.num_constraints(), 75);
+    assert_eq!(ilp.num_vars(), 27);
+    assert_eq!(ilp.num_constraints(), 39);
 }
 
 #[test]
@@ -69,12 +69,12 @@ fn signed_partition_weights_and_costs_are_checked_after_summing() {
         ),
     ] {
         assert!(source.evaluate(&witness).unwrap().0);
-        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
         crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
     }
     let empty = AcyclicPartition::new(DirectedGraph::new(0, vec![]), vec![], vec![], 0, -1);
     assert!(!empty.evaluate(&vec![]).unwrap().0);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&empty).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&empty).unwrap();
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
@@ -82,7 +82,7 @@ fn signed_partition_weights_and_costs_are_checked_after_summing() {
 fn test_extract_solution() {
     let source = small_instance();
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
@@ -105,7 +105,7 @@ fn test_infeasible_instance() {
         0,
     );
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_err());
@@ -115,7 +115,7 @@ fn test_infeasible_instance() {
 fn test_acyclicpartition_to_ilp_bf_vs_ilp() {
     let source = small_instance();
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -129,7 +129,7 @@ fn test_acyclicpartition_to_ilp_regression_direct_topological_labels() {
         10,
     );
     let reduction: ReductionAcyclicPartitionToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("the feasible source instance must yield a feasible ILP");

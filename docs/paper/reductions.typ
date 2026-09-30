@@ -14286,6 +14286,116 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
 ]
 
+#reduction-rule("MinimumCodeGenerationUnlimitedRegisters", "ILP", example: true)[
+  For the $k$ internal operations, use integer ranks $p_v in {0, dots, k-1}$,
+  binary copy indicators $y_v$, and a fixed variable $z=1$. For each internal
+  operand $u$ of $v$, impose $p_v-p_u >= 1$. For every distinct other operation
+  $u$ using the left operand of $v$, impose $p_v-p_u+k y_v >= 1$.
+  Minimize $k z + sum_v y_v$ and extract positions by sorting ranks, breaking ties
+  by internal vertex index. With $n$ input vertices, there are at most $2n+1$
+  variables, $n^2+n$ rows, and $3n^2+n$ nonzeros.
+][
+  A valid order supplies ranks and its actual copy indicators, with equal cost.
+  Conversely, strict dependency comparisons survive sorting tied ranks. When
+  $y_v=0$, every other user of its left operand precedes $v$, so no copy is
+  required; otherwise the extracted order charges at most one copy. Its cost is
+  therefore at most the target cost, proving equal optima together with the
+  forward construction. Cyclic dependencies make both problems infeasible.
+  Repeated left/right uses by one operation count as one other user.
+]
+
+#reduction-rule("PartitionIntoPerfectMatchings", "ILP", example: true)[
+  For each vertex use a group label $c_v in {0, dots, K-1}$. Ignore loops and
+  repeated adjacencies. Each remaining edge $e=(u,v)$ has binary variables $s_e$
+  and $y_e$. Require degree one in the selected $s$ edges. Writing $d=c_v-c_u$,
+  impose $d+(K-1)s_e <= K-1$, $-d+(K-1)s_e <= K-1$,
+  $d-K y_e+s_e >= 1-K$, and $-d+K y_e+s_e >= 1$.
+  The objective is zero; extract the group labels. With $n$ vertices and $m$
+  stored edges, at most $n+2m$ variables, $n+4m$ rows, and $16m$ nonzeros suffice.
+][
+  A valid partition sets $s_e=1$ exactly for equal-label endpoints and chooses
+  the direction of unequal labels with $y_e$. Conversely, the first two rows
+  force equal labels when $s_e=1$, while the last two force unequal labels when
+  $s_e=0$. Degree one therefore holds exactly within each induced group. Every
+  nonempty group is a disjoint union of edges and hence a perfect matching.
+  The argument includes $K=1$, empty groups, and isolated vertices.
+]
+
+#reduction-rule("MinimumWeightAndOrGraph", "ILP", example: true)[
+  Use binary arc selections $x_e$, binary reached flags $z_v$, and integer
+  flows $f_e in {0,dots,n-1}$ on gate arcs (zero flow on leaf arcs). Mark the
+  source. Selected tails, and selected gate-arc heads, must be marked. Reached
+  AND gates select every outgoing arc; reached OR gates select at least one.
+  Require $f_e <= (n-1)x_e$ on gate arcs and incoming flow minus outgoing flow
+  at least $z_v$ at every nonsource vertex. Minimize the original selected-arc
+  weight. This uses $n+2m$ variables, at most $2n+4m$ rows and $2n+10m$ nonzeros.
+][
+  A valid source solution supplies its reached flags and sends one flow unit
+  to every reached nonsource vertex along a discovery tree. Conversely, summing
+  flow balances over any unreachable set rules out marked vertices there.
+  The local gate constraints then certify the source selection, with identical
+  cost. This includes cycles, signed weights, shared descendants, and the model's
+  nonpropagating leaf arcs. Integer objective prefixes agree in original arc
+  order, including typed overflow errors.
+]
+
+#reduction-rule("BoundedDiameterSpanningTree", "ILP", example: true)[
+  Clamp the diameter bound to $D' = min(D,n-1)$ and put $q=floor(D'/2)$.
+  Use selected-edge bits, two parent orientations per edge, root flags, and depths
+  in $0, dots, q$. Each nonroot has exactly one incoming parent, roots have depth
+  zero, and a selected parent strictly increases depth using coefficient $q+1$.
+  For even $D'$ choose one root. For odd $D'$ choose one center edge and make its
+  endpoints the two roots. An edge is selected exactly when used as a parent or
+  center edge. Enforce the original weight budget; loops are fixed unselected.
+  The empty graph maps to an empty feasible ILP. At most $4m+2n$ variables,
+  $3m+3n+2$ rows, and $16m+4n$ nonzeros suffice.
+][
+  Every bounded-diameter tree has a midpoint vertex or midpoint edge whose
+  rooted components have depth at most $q$. If its diameter is even but $D'$ is
+  odd, any edge incident to a midpoint vertex supplies the two centers.
+  Conversely, strict depth growth prevents parent cycles, and the parent counts
+  produce one rooted tree or two trees joined by the center edge. Any vertex
+  lies at most $q$ edges from its root, giving diameter at most $D'$.
+  Extraction takes the selected edges, whose weight satisfies the budget.
+]
+
+#reduction-rule("CyclicOrdering", "ILP", example: true)[
+  A sparse bounded-rank formulation uses $n+3t$ variables, $7t$ rows and $21t$ nonzeros for $n$ elements and $t$ cyclic triples. Its zero objective encodes feasibility.
+][
+  _Construction._ Assign each element an integer rank $p_v in [0,n-1]$. For each triple $(a,b,c)$ introduce three binary comparisons $y_(a b),y_(b c),y_(c a)$. For each directed pair $(u,v)$ enforce
+  $p_v-p_u-n y_(u v) >= 1-n, quad p_u-p_v+n y_(u v) >= 1.$
+  Add $y_(a b)+y_(b c)+y_(c a)=2$.
+
+  _Correctness._ ($arrow.r.double$) A valid source permutation sets the three bits to its comparison truth values. Each permitted cyclic orientation has exactly two true comparisons. ($arrow.l.double$) The inequalities force each bit to represent its strict comparison. Their sum restricts each triple to one of the three permitted orientations. Sorting all elements by rank, breaking ties by index, preserves every required strict comparison. No triple contains tied elements, so this produces a valid permutation.
+
+  _Solution extraction._ Return the inverse of that sorted list: each element receives its new position. Unconstrained elements may have equal target ranks.
+]
+
+#reduction-rule("Betweenness", "ILP", example: true)[
+  A bounded-rank formulation uses $n+t$ variables, $4t$ rows and $12t$ nonzeros for $n$ elements and $t$ betweenness triples.
+][
+  _Construction._ Use integer ranks $p_v in [0,n-1]$. For each $(a,b,c)$ introduce one binary $y$ and, for both $(u,v)=(a,b)$ and $(b,c)$, add
+  $p_v-p_u-n y >= 1-n, quad p_u-p_v+n y >= 1.$
+  The objective is zero.
+
+  _Correctness._ ($arrow.r.double$) Copy the positions of a valid source permutation and set $y=1$ for $a<b<c$, or $y=0$ for $c<b<a$. ($arrow.l.double$) Each target selector enforces exactly one of those strict chains. Sorting the ranks and breaking unrelated ties preserves every strict chain and therefore every betweenness triple.
+
+  _Solution extraction._ Assign each element its position in the sorted list, rather than returning the list of elements.
+]
+
+#reduction-rule("TwoDimensionalConsecutiveSets", "ILP", example: true)[
+  Let $P=sum_(S) binom(|S|,2)$ over the input subsets. A bounded-label formulation has $n+P$ variables, $4P$ rows and $10P$ nonzeros. Empty and singleton subsets need no rows.
+][
+  _Construction._ Give each element an integer group label $p_v in [0,n-1]$. For every unordered pair $u<v$ in each subset $S$ of size $k$, create a binary $y$ and enforce
+  $p_v-p_u-n y >= 1-n, quad p_u-p_v+n y >= 1,$
+  $p_v-p_u <= k-1, quad p_u-p_v <= k-1.$
+  Distinct subsets have separate selectors, including repeated subsets. The objective is zero.
+
+  _Correctness._ ($arrow.r.double$) Compress a valid source assignment to dense group labels. Every subset occupies $k$ consecutive labels, so its pairs are distinct and differ by at most $k-1$; choose selectors according to their order. ($arrow.l.double$) The target gives every subset $k$ distinct integer labels with total span at most $k-1$, hence exactly $k$ consecutive labels. Global compression cannot remove a label inside such an interval because the subset itself occupies every label in it. Unrelated elements may share groups.
+
+  _Solution extraction._ Return the first $n$ target labels. The model applies its usual global label compression.
+]
+
 #reduction-rule("OneInThreeSatisfiability", "ILP", example: true)[
   Encode exact-one clauses directly with binary variables and one equality per clause.
   The elementary encoding below is derived directly from the literal semantics.
@@ -15533,23 +15643,27 @@ The following reductions to Integer Linear Programming are straightforward formu
 // Position/Assignment
 
 #reduction-rule("HamiltonianPath", "ILP")[
-  Place each vertex in exactly one path position and use auxiliary variables for consecutive pairs so only graph edges may appear between adjacent positions.
+  A binary permutation matrix with direct adjacency rows, using $n^2$ variables.
 ][
-  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ is placed at position $p$, and binary $z_((u,v),p)$ linearizing $x_(u,p) x_(v,p+1)$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
-    & sum_v x_(v,p) = 1 quad forall p \
-    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
-    & z_((u,v),p) <= x_(v,p+1) quad forall (u, v), p \
-    & z_((u,v),p) >= x_(u,p) + x_(v,p+1) - 1 quad forall (u, v), p \
-    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
-    & x_(v,p), z_((u,v),p) in {0, 1}.
-  $
+  _Construction._ Let $x_(v,p)$ indicate vertex $v$ at position $p$.
+  Require each vertex and each position to occur exactly once. For every
+  nonfinal position $p$ and vertex $v$, impose
+  $x_(v,p) <= sum_(w in N(v)) x_(w,p+1)$, where $N(v)$ contains distinct
+  non-self neighbors. Minimize zero.
 
-  _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
+  _Correctness._ A Hamiltonian path supplies a permutation matrix satisfying
+  every adjacency row. Conversely, the assignment rows define a permutation.
+  At each nonfinal position its selected vertex forces the next vertex to be
+  a neighbor. Thus every feasible target decodes to a Hamiltonian path.
+  Duplicate edges and loops do not change adjacency between distinct vertices.
+  Empty and singleton paths require no adjacency rows.
 
-  _Solution extraction._ For each position $p$, output the unique vertex $v$ with $x_(v,p) = 1$.
+  _Overhead._ With $q=max(n-1,0)$, there are exactly $n^2$ variables and
+  $2n+n q$ rows. If $e$ is the number of distinct non-loop edges, nonzeros
+  equal $2n^2+q(n+2e)$, bounded by $2n^2+q(n+2m)$ for the stored edge count
+  $m$. Coefficients and right-hand sides have magnitude at most one.
+
+  _Solution extraction._ Return the unique selected vertex at each position.
 ]
 
 #reduction-rule("DirectedHamiltonianPath", "ILP")[
@@ -15833,45 +15947,38 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("AcyclicPartition", "ILP")[
-  Assign every vertex to a topologically numbered partition class and directly require every arc to have nondecreasing class labels, following the upper-triangular formulation of @ozkayaCatalyurek2022.
+  Bounded topological part labels and one exact crossing indicator per stored arc,
+  retaining one-hot membership for signed part-weight constraints.
 ][
-  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering vertex weights, arc costs, and both bounds, and $n$ the vertex count. Label coefficients and endpoints are at most $n$; normalized product rows can contain coefficient $2$. Target `max_constraint_magnitude_bits` is at most $h+n+1$.
+  _Construction._ Introduce binary memberships $x_(v,j)$ and emptiness bits $e_j$,
+  integer labels $p_v in {0,dots,n-1}$, and binary crossing bits $y_a$.
+  Require $sum_j x_(v,j)=1$ and $p_v=sum_j j x_(v,j)$.
+  For each part impose $x_(v,j)+e_j <= 1$, $sum_v x_(v,j)+e_j >= 1$, and
+  $sum_v w_v x_(v,j)+min(B,0)e_j <= B$. Thus $e_j=1$ exactly for empty
+  parts, which satisfy $min(B,0) <= B$; occupied parts meet their original
+  weight bound without negating or subtracting $B$.
+  For arc $a=(u,v)$, set $d=p_v-p_u$ and
+  impose $d >= y_a$ and $d <= (n-1)y_a$. Finally require
+  $sum_a c_a y_a <= K$, retaining this row even for an empty graph.
 
-  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i64>` with variable order
-  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t$.
-  The indices are
-  $"idx"_x(v,c) = v n + c$,
-  $"idx"_s(t,c) = n^2 + t n + c$,
-  and $"idx"_y(t) = n^2 + m n + t$.
-  There are $n^2 + m n + m$ variables.
+  _Correctness._ A feasible source quotient is a DAG, so its occupied parts
+  can be relabeled in topological order without changing weights or crossing
+  costs. This supplies a feasible target. Conversely, a target selects one
+  part per vertex, checks each occupied weight, and forces $y_a=1$ exactly
+  when an arc crosses. Every crossing strictly increases its label, excluding
+  quotient cycles. The cost row therefore measures the exact signed crossing
+  sum; negative costs cannot be exploited by a false crossing indicator.
 
-  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to topological class label $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, and $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes.
+  _Overhead._ There are exactly $n^2+2n+m$ variables and
+  $n^2+4n+2m+1$ rows. The one-hot, label, emptiness implication, emptiness sum,
+  weight, crossing, and cost blocks contribute at most
+  $n^2+n^2+2n^2+(n^2+n)+(n^2+n)+6m+m=6n^2+2n+7m$ nonzeros.
+  Loops and zero coefficients can reduce nonzeros after normalization.
+  With source numeric magnitude bound $h$, target magnitudes need at most
+  $h+n+1$ bits. All integer variables have explicit finite bounds.
 
-  The constraints are:
-  $sum_(c = 0)^(n - 1) x_(v,c) = 1$ for every vertex $v$;
-  $sum_v w_v x_(v,c) <= B$ for every class $c$;
-  $s_(t,c) <= x_(u_t,c)$, $s_(t,c) <= x_(v_t,c)$, and $s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1$ for every arc $a_t$ and class $c$;
-  $y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1$ for every arc $a_t$, so $y_t = 1$ exactly for crossing arcs;
-  $sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K$;
-  and $sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c)$ for every arc $a_t = (u_t -> v_t)$.
-  The last inequality directly requires every original arc to go from a lower or equal class label to a higher or equal label. Equality represents an internal arc; a crossing arc has distinct labels and therefore strictly increases along the corresponding quotient arc.
-
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(c = 0)^(n - 1) x_(v,c) = 1 quad forall v in V \
-    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, n - 1} \
-    & s_(t,c) <= x_(u_t,c), s_(t,c) <= x_(v_t,c) quad forall t, c \
-    & s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1 quad forall t, c \
-    & y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1 quad forall t in {0, dots, m - 1} \
-    & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
-    & sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c) quad forall t in {0, dots, m - 1} \
-    & x_(v,c), s_(t,c), y_t in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) Given a valid acyclic partition, choose a topological ordering of its quotient digraph and relabel each used class by its position in that ordering. This relabeling preserves class membership, class weights, and crossing cost. Every internal arc has equal endpoint labels, while every quotient arc goes to a strictly larger label, so the direct ordering inequalities hold. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, and charges exactly the inter-class arcs. Along every quotient arc the endpoint classes have distinct, nondecreasing labels and hence the label strictly increases. A directed quotient cycle would require a strict increase around the cycle back to its starting label, which is impossible; therefore the quotient digraph is acyclic.
-
-  _Solution extraction._ For each vertex $v$, output the unique class label $c$ with $x_(v,c) = 1$.
+  _Solution extraction._ Decode the selected part of each one-hot row;
+  the label equalities give the same result from $p$.
 ]
 
 #reduction-rule("BalancedCompleteBipartiteSubgraph", "ILP")[
@@ -16037,23 +16144,21 @@ The following reductions to Integer Linear Programming are straightforward formu
 // Matrix/encoding
 
 #reduction-rule("BMF", "ILP")[
-  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, pin each reconstructed entry to the target, and minimize the total factor weight.
+  Retain the binary factor matrices $B,C$. For each zero entry of $A$, require
+  $b_(i,r)+c_(r,j) <= 1$ for every rank $r$. For each one entry introduce coverage
+  bits $p_(i,j,r) <= b_(i,r)$ and $p_(i,j,r) <= c_(r,j)$, with
+  $sum_r p_(i,j,r) >= 1$. Minimize the total factor weight. If $t$ entries are
+  one, this uses $k(m+n)+k t$ variables, $k(m n-t)+(2k+1)t$ rows, and
+  $2k(m n-t)+5k t$ nonzeros. Existing source parameters yield upper bounds by
+  substituting $t <= m n$.
 ][
-  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, and binary $w_(i,j)$ for the reconstructed entry. The ILP is:
-  $
-    min quad & sum_(i,r) b_(i,r) + sum_(r,j) c_(r,j) \
-    "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
-    & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
-    & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
-    & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
-    & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
-    & w_(i,j) = A_(i,j) quad forall i, j \
-    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) Any exact factorization $B circle.tiny C = A$ gives a feasible ILP solution with objective equal to $|B|_1 + |C|_1$. ($arrow.l.double$) The McCormick constraints force $p_(i,r,j) = b_(i,r) dot c_(r,j)$; the $w$ constraints then force $w_(i,j) = or.big_r p_(i,r,j)$, so the equality $w_(i,j) = A_(i,j)$ is feasible exactly when $B circle.tiny C = A$. If no exact rank-$k$ factorization exists the ILP is infeasible, matching BMF's infeasibility signal.
-
-  _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+  An exact factorization supplies valid coverage bits from its true products.
+  Conversely, zero-entry rows exclude every product there, and each one entry
+  has a selected coverage bit that forces both factor memberships. The extracted
+  matrices therefore reconstruct $A$ exactly, with identical objective for every
+  feasible target witness. Coverage bits need not equal every true product.
+  Rank zero yields an empty contradictory row for each one entry and remains
+  feasible for zero matrices; empty dimensions preserve their factor shapes.
 ]
 
 #reduction-rule("BMF", "BicliqueCover")[
@@ -16097,58 +16202,34 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("ConsecutiveOnesMatrixAugmentation", "ILP")[
-  Choose a column permutation and, for each row, choose the interval that will become its consecutive block of 1s; flips are needed only for zeros inside that interval.
+  A column permutation and two bounded interval endpoints per row, using
+  $n^2+2m$ variables for an $m$ by $n$ Boolean matrix.
 ][
-  _Construction._ Let the matrix have $m$ rows and $n$ columns, and let $A_(r,c) in {0, 1}$ be the given entry. For each row define the constant
-  $beta_r = 1$ if row $r$ contains at least one 1, and $beta_r = 0$ otherwise.
-  Use `ILP<bool>` with variable order
-  $(x_(c,p))_(c,p), (a_(r,p))_(r,p), (ell_(r,p))_(r,p), (u_(r,p))_(r,p), (h_(r,p))_(r,p), (f_(r,p))_(r,p)$.
-  The indices are
-  $"idx"_x(c,p) = c n + p$,
-  $"idx"_a(r,p) = n^2 + r n + p$,
-  $"idx"_ell(r,p) = n^2 + m n + r n + p$,
-  $"idx"_u(r,p) = n^2 + 2 m n + r n + p$,
-  $"idx"_h(r,p) = n^2 + 3 m n + r n + p$,
-  and $ "idx"_f(r,p) = n^2 + 4 m n + r n + p$.
-  There are $n^2 + 5 m n$ binary variables.
+  _Construction._ Binary $x_(c,p)$ places column $c$ at position $p$.
+  Assign every column exactly once with capacity one per position.
+  For each nonempty row $r$, introduce $L_r,R_r in {0,dots,n-1}$ and
+  require every original one-position $sum_p p x_(c,p)$ to lie between them.
+  Empty rows have both endpoints fixed to zero. Let $T$ be the number of
+  ones, $a$ the number of nonempty rows, and $k=min(K,m n-T)$.
+  Require $sum_(r: t_r>0)(R_r-L_r) <= k+T-a$ and minimize zero.
 
-  Here $x_(c,p) = 1$ means original column $c$ is placed at position $p$ of the permutation, $a_(r,p)$ is the value seen in row $r$ at permuted position $p$, $ell_(r,p)$ and $u_(r,p)$ choose the left and right interval boundaries of row $r$, $h_(r,p)$ indicates that position $p$ lies inside that chosen interval, and $f_(r,p)$ indicates that row $r$ flips a 0 to a 1 at position $p$.
+  _Correctness._ A valid ordering supplies its true first and last one positions;
+  the augmentation cost is exactly $sum_(r:t_r>0)(R_r-L_r+1-t_r)$.
+  Conversely, any feasible target gives a column permutation whose true one
+  spans lie inside the chosen intervals. Filling those spans costs no more
+  than the budgeted interval lengths. Enlarging an interval can only increase
+  the cost. All-zero rows contribute zero. Clipping $K$ to the number of
+  zero entries preserves feasibility and prevents artificial budget overflow.
 
-  The constraints are:
-  $sum_p x_(c,p) = 1$ for every column $c$;
-  $sum_c x_(c,p) = 1$ for every position $p$;
-  $a_(r,p) = sum_c A_(r,c) x_(c,p)$ for every row $r$ and position $p$;
-  $sum_p ell_(r,p) = beta_r$ and $sum_p u_(r,p) = beta_r$ for every row $r$;
-  $sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r)$ for every row $r$, which forces the left boundary not to exceed the right boundary when the row is nonzero;
-  for every row $r$ and position $p$,
-  $h_(r,p) <= sum_(q = 0)^p ell_(r,q)$,
-  $h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q)$,
-  and
-  $h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1$;
-  $a_(r,p) <= h_(r,p)$ for every $r, p$, so every original 1 lies inside the chosen interval;
-  $h_(r,p) <= a_(r,p) + f_(r,p)$, $f_(r,p) <= h_(r,p)$, and $f_(r,p) + a_(r,p) <= 1$ for every $r, p$, so $f_(r,p) = 1$ exactly when the position lies inside the interval but the original matrix has a 0 there;
-  and the augmentation budget
-  $sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K$.
-  These are the exact consecutive-ones constraints: after permutation, row $r$ is 1 exactly on the positions with $h_(r,p) = 1$, and the only modifications charged are the zero-to-one flips recorded by $f$.
+  _Overhead._ Variables equal $n^2+2m$; rows equal $2n+2T+1$, bounded by
+  $2n+2m n+1$. Nonzeros equal $2n^2+2n T+2a$, bounded by
+  $2n^2+2m n^2+2m$. Coefficients and endpoints are at most $n$, and the
+  budget right-hand side is at most $m n$, covered by $2m n+n+1$ magnitude
+  bits. Empty-column matrices retain their fixed-zero endpoints and one
+  empty budget row.
 
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
-    & sum_c x_(c,p) = 1 quad forall p \
-    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
-    & sum_p ell_(r,p) = beta_r, sum_p u_(r,p) = beta_r quad forall r \
-    & sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r) quad forall r \
-    & h_(r,p) <= sum_(q = 0)^p ell_(r,q), h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q) quad forall r, p \
-    & h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1 quad forall r, p \
-    & a_(r,p) <= h_(r,p); h_(r,p) <= a_(r,p) + f_(r,p); f_(r,p) <= h_(r,p); f_(r,p) + a_(r,p) <= 1 quad forall r, p \
-    & sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K \
-    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) A feasible augmentation chooses a permutation and flips exactly the zeros lying inside each row's final consecutive-ones interval. ($arrow.l.double$) Any feasible ILP solution yields a permuted matrix whose rows become consecutive-ones after the encoded zero-to-one augmentations, with total augmentation cost at most $K$.
-
-  _Solution extraction._ Decode the column permutation from $x_(c,p)$ and discard the auxiliary flip variables.
+  _Solution extraction._ Return the selected column at each position after
+  validating target feasibility.
 ]
 
 #reduction-rule("ConsecutiveOnesSubmatrix", "ILP")[
@@ -17589,25 +17670,69 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("FeasibleRegisterAssignment", "ILP",
   example: false,
 )[
-  Direct ILP formulation of the feasible register assignment problem: binary permutation matrix variables, topological ordering constraints, and register-conflict constraints via shared-register ordering indicators.
+  Bounded ranks and one binary order selector per pair sharing a register.
+  With $n$ vertices, $m$ arcs, and $S$ such pairs, the construction has
+  $n+S$ variables, at most $n m+2S$ rows, and at most $3n m+6S$ nonzeros.
 ][
-  _Construction._ Binary variables $x_(v,t) in {0,1}$ (vertex $v$ at position $t$). Permutation: each row and column sums to $1$. Topological: for arc $(u,v)$, $sum_(t) t dot x_(v,t) < sum_(t) t dot x_(u,t)$. Register conflict: for vertices $v,w$ sharing a register, an ordering indicator $b_(v,w)$ with big-$M$ constraints ensures all dependents of the first-computed vertex complete before the second uses the register. Feasibility objective (Value $=$ Or).
+  _Construction._ Give each vertex a rank $p_v in {0, dots, n-1}$.
+  An arc $(w,u)$ means $w$ consumes $u$; impose $p_w-p_u >= 1$.
+  For a same-register pair $u<v$, introduce binary $y$ with
+  $p_v-p_u-n y >= 1-n$ and $p_u-p_v+n y >= 1$.
+  For every consumer $w$ of $u$ except $v$, add $p_v-p_w-n y >= 1-n$.
+  For every consumer $w$ of $v$ except $u$, add $p_u-p_w+n y >= 1$.
+  The objective is zero. The empty source gives an empty feasible target.
 
-  _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
+  _Correctness._ A valid source ordering supplies the ranks and pair orientations.
+  The later writer may consume the earlier value itself, but every other
+  consumer must precede it, so all rows hold. Conversely, the pair rows choose
+  a strict orientation. Every dependency and every required consumer-before-overwrite
+  relation is strict; sorting by rank, with vertex index breaking ties, preserves
+  all these relations. Thus every feasible target extracts a valid source ordering.
+  Unrelated vertices can share ranks without hiding an overwrite conflict.
 
-  _Solution extraction._ Read vertex positions from the permutation matrix.
+  _Overhead._ Each arc contributes one dependency row and at most $n-1$
+  conditional rows, in addition to two rows per same-register pair.
+  These have respectively two and three nonzeros. Hence rows are at most
+  $n m+2S$ and nonzeros at most $3n m+6S$. Coefficients and bounds have
+  magnitude at most $max(n,1)$, covered by $n+1$ magnitude bits.
+
+  _Solution extraction._ Sort the vertices by $(p_v,v)$ and return their inverse
+  permutation as evaluation positions.
 ]
 
 #reduction-rule("RegisterSufficiency", "ILP",
   example: false,
 )[
-  Direct ILP formulation of Register Sufficiency: integer evaluation times, latest-use times, binary pair-order selectors, and per-step live-value indicators. For a DAG with $n$ vertices, $m$ arcs, and $s$ sinks, the ILP has $(7n^2 + 3n)/2$ variables and $(21n^2 + 3n)/2 + 2m + s$ constraints.
+  A binary cumulative schedule with live-value indicators. For $n$ vertices,
+  $m$ stored arcs, and $s$ sinks, the ILP has $2n^2-n s$ variables,
+  $n^2+2n m+n$ rows, and $4n^2-2n+5n m-m$ nonzeros.
 ][
-  _Construction._ Let the source DAG use the repository convention that an arc $(v, u)$ means vertex $v$ depends on vertex $u$. Introduce integer variables $t_v in {0, dots, n-1}$ for evaluation positions and $l_v in {0, dots, n}$ for latest-use positions. For every unordered vertex pair ${u, v}$, add a binary selector $b_(u,v)$ with big-$M$ constraints forcing either $t_u < t_v$ or $t_v < t_u$; since all $t_v$ lie in the interval ${0, dots, n-1}$, the positions form a permutation. For every dependency arc $(v, u)$, enforce $t_v >= t_u + 1$ and $l_u >= t_v$. For every sink vertex (no dependents), set $l_u = n$. For each vertex-step pair $(u, s)$ with $s in {0, dots, n-1}$, add binary threshold variables $p_(u,s)$ and $q_(u,s)$ satisfying $p_(u,s) = 1$ iff $t_u <= s$ and $q_(u,s) = 1$ iff $l_u > s$, plus a binary live indicator $h_(u,s) = p_(u,s) and q_(u,s)$. Finally impose $sum_u h_(u,s) <= K$ for every step $s$.
+  _Construction._ A binary $x_(v,t)$ says vertex $v$ has been computed by the
+  end of step $t$. Require $x_(v,t) <= x_(v,t+1)$ and
+  $sum_v x_(v,t)=t+1$. For every arc $(w,u)$ (consumer, dependency), require
+  $x_(w,t) <= x_(u,t-1)$, treating $x_(u,-1)=0$.
+  For each non-sink $u$, introduce binary $h_(u,t)$ and impose
+  $h_(u,t) >= x_(u,t)-x_(w,t)$ for every consumer $w$.
+  At each step, the sum of these live indicators and computed sink indicators
+  must be at most $min(K,n)$. Sinks remain live until the computation ends.
+  Minimize zero; the empty source yields an empty feasible target.
 
-  _Correctness._ ($arrow.r.double$) Any valid computation ordering of the source DAG yields a feasible ILP solution: assign each $t_v$ to the vertex position in the ordering, each $l_v$ to the latest dependent position (or $n$ for sinks), and derive the binary threshold/live variables from those integers. The dependency constraints hold by topological validity, and the live-count inequalities hold because the source witness uses at most $K$ registers. ($arrow.l.double$) Any feasible ILP solution gives distinct positions $t_v$, hence a permutation of the vertices, and the arc constraints make that permutation topological. The live indicators $h_(u,s)$ certify exactly which values remain live after step $s$, so the step constraints prove that no more than $K$ values are simultaneously live. Therefore the extracted ordering is a valid Register Sufficiency witness.
+  _Correctness._ A valid source permutation supplies its cumulative computed
+  bits and actual live bits, satisfying every row. Conversely, monotonicity
+  and column sums force exactly one vertex to become computed at each step.
+  The dependency inequalities make this a topological order. Whenever a
+  computed non-sink has an uncomputed consumer, its live indicator must be
+  one. Extra live indicators only increase the capacity sum. Consequently
+  every feasible target bounds the actual source register usage by $K$.
 
-  _Solution extraction._ Return the first $n$ ILP coordinates $(t_0, dots, t_(n-1))$ as the vertex evaluation positions.
+  _Overhead._ The blocks have $n(n-1)$, $n$, $n m$, $n m$, and $n$ rows,
+  respectively, and $2n(n-1)$, $n^2$, $(2n-1)m$, $3n m$, and $n^2$
+  nonzeros. Self-arcs are rejected by the source, so no terms cancel;
+  duplicate arcs retain their rows. Coefficients have magnitude one and
+  right-hand sides at most $n$, covered by $n+1$ magnitude bits.
+
+  _Solution extraction._ Return the first step $t$ with $x_(v,t)=1$ for each
+  vertex $v$, after validating target feasibility.
 ]
 
 // Removed: Partition → SequencingWithinIntervals (unsound reduction, #1006)

@@ -1,26 +1,21 @@
-//! Reduction from AcyclicPartition to `ILP<bool>`.
-//!
-//! One-hot assignment x_{v,c}, McCormick same-class indicators s_{t,c},
-//! crossing flags y_t, and partition labels used directly as a topological order.
-//! See the paper entry for the full formulation.
+//! Bounded partition labels with exact crossing flags and occupied-part budgets.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::AcyclicPartition;
 use crate::reduction;
-use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionAcyclicPartitionToILP {
-    target: ILP<bool>,
+    target: ILP<i64, i64, Bounded>,
     n: usize,
 }
 
 impl ReductionResult for ReductionAcyclicPartitionToILP {
     type Source = AcyclicPartition<i64>;
-    type Target = ILP<bool>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<bool> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -45,15 +40,15 @@ impl crate::rules::AggregateReductionResult for ReductionAcyclicPartitionToILP {
 
 #[reduction(transform = {
     exact {
-        num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices",
-        num_constraints = "num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1",
+        num_vars = "num_vertices^2 + 2 * num_vertices + num_arcs",
+        num_constraints = "num_vertices^2 + 4 * num_vertices + 2 * num_arcs + 1",
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits + num_vertices + 1",
-        num_nonzeros = "(num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + num_vertices) * (num_vertices^2 + 4 * num_vertices + 3 * num_arcs * num_vertices + 2 * num_arcs + 1)",
+        num_nonzeros = "6 * num_vertices^2 + 2 * num_vertices + 7 * num_arcs",
     },
 })]
-impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
+impl ReduceTo<ILP<i64, i64, Bounded>> for AcyclicPartition<i64> {
     type Result = ReductionAcyclicPartitionToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -61,72 +56,79 @@ impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
 
-        // Variable indices:
-        // x_{v,c} : v*n + c                          [0, n^2)
-        // s_{t,c} : n^2 + t*n + c                    [n^2, n^2 + m*n)
-        // y_t     : n^2 + m*n + t                     [n^2 + m*n, n^2 + m*n + m)
-        let x_idx = |v: usize, c: usize| -> usize { v * n + c };
-        let s_idx = |t: usize, c: usize| -> usize { n * n + t * n + c };
-        let y_idx = |t: usize| -> usize { n * n + m * n + t };
-        let used_idx = |c: usize| -> usize { n * n + m * n + m + c };
-        let num_vars = n * n + m * n + m + n;
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                "counting acyclic partition variables",
+            )
+        };
+        let square = n.checked_mul(n).ok_or_else(overflow)?;
+        let labels = square.checked_add(n).ok_or_else(overflow)?;
+        let crossing = labels.checked_add(n).ok_or_else(overflow)?;
+        let num_vars = crossing.checked_add(m).ok_or_else(overflow)?;
+        let last_label = Self::exact_i64(n.saturating_sub(1), "bounding partition labels")?;
+        let x_idx = |v: usize, c: usize| v * n + c;
+        let empty_idx = |c: usize| square + c;
+        let label_idx = |v: usize| labels + v;
+        let y_idx = |t: usize| crossing + t;
         let mut constraints = Vec::new();
         let vertex_weights = self.vertex_weights();
         let arc_costs = self.arc_costs();
         let weight_bound = *self.weight_bound();
         let cost_bound = *self.cost_bound();
 
-        // 1) Assignment: Σ_c x_{v,c} = 1  for each vertex v
+        // Assignment: Σ_c x_{v,c} = 1 for each vertex v.
         for v in 0..n {
             let terms: Vec<(usize, i64)> = (0..n).map(|c| (x_idx(v, c), 1)).collect();
             constraints.push(LinearConstraint::eq(terms, 1));
+            let mut label = vec![(label_idx(v), 1)];
+            for c in 1..n {
+                label.push((
+                    x_idx(v, c),
+                    -Self::exact_i64(c, "representing a partition label")?,
+                ));
+            }
+            constraints.push(LinearConstraint::eq(label, 0));
         }
 
-        // 2) Only occupied classes must meet the weight bound, which can be negative.
+        // Only occupied classes must meet the weight bound, which can be negative.
         for c in 0..n {
-            constraints.push(LinearConstraint::le(vec![(used_idx(c), 1)], 1));
-            let mut occupied = vec![(used_idx(c), -1)];
+            let mut membership = vec![(empty_idx(c), 1)];
             for v in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(x_idx(v, c), 1), (used_idx(c), -1)],
-                    0,
+                    vec![(x_idx(v, c), 1), (empty_idx(c), 1)],
+                    1,
                 ));
-                occupied.push((x_idx(v, c), 1));
+                membership.push((x_idx(v, c), 1));
             }
-            constraints.push(LinearConstraint::ge(occupied, 0));
+            constraints.push(LinearConstraint::ge(membership, 1));
             let mut terms: Vec<(usize, i64)> = vertex_weights
                 .iter()
                 .enumerate()
                 .map(|(vertex, &weight)| (x_idx(vertex, c), weight))
                 .collect();
-            terms.push((
-                used_idx(c),
-                weight_bound.checked_neg().ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
-                        "negating the partition weight bound",
-                    )
-                })?,
-            ));
-            constraints.push(LinearConstraint::le(terms, 0));
+            // Keep the bound on the RHS to preserve representable source sums.
+            terms.push((empty_idx(c), weight_bound.min(0)));
+            constraints.push(LinearConstraint::le(terms, weight_bound));
         }
 
-        // 3) McCormick: s_{t,c} = x_{u_t,c} * x_{v_t,c}
+        // A crossing arc increases its part label by at least one; an internal
+        // arc has equal labels. This equivalence also handles negative costs.
         for (t, &(u, v)) in arcs.iter().enumerate() {
-            for c in 0..n {
-                constraints.extend(mccormick_product(s_idx(t, c), x_idx(u, c), x_idx(v, c)));
-            }
+            constraints.push(LinearConstraint::ge(
+                vec![(label_idx(v), 1), (label_idx(u), -1), (y_idx(t), -1)],
+                0,
+            ));
+            constraints.push(LinearConstraint::le(
+                vec![
+                    (label_idx(v), 1),
+                    (label_idx(u), -1),
+                    (y_idx(t), -last_label),
+                ],
+                0,
+            ));
         }
 
-        // 4) Crossing: y_t + Σ_c s_{t,c} = 1
-        for t in 0..m {
-            let mut terms: Vec<(usize, i64)> = vec![(y_idx(t), 1)];
-            for c in 0..n {
-                terms.push((s_idx(t, c), 1));
-            }
-            constraints.push(LinearConstraint::eq(terms, 1));
-        }
-
-        // 5) Cost bound: Σ_t cost(a_t) * y_t ≤ K
+        // Cost bound: Σ_t cost(a_t) * y_t ≤ K.
         let cost_terms: Vec<(usize, i64)> = arc_costs
             .iter()
             .enumerate()
@@ -134,20 +136,11 @@ impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
             .collect();
         constraints.push(LinearConstraint::le(cost_terms, cost_bound));
 
-        // 6) Topological labels: every arc goes from a lower or equal class to a
-        //    higher or equal class. Equal labels are internal arcs; strict
-        //    increases are quotient arcs.
-        for (u, v) in arcs {
-            let mut terms = Vec::with_capacity(2 * n.saturating_sub(1));
-            for c in 1..n {
-                let label = Self::exact_i64(c, "representing a partition label in ILP rows")?;
-                terms.push((x_idx(u, c), label));
-                terms.push((x_idx(v, c), -label));
-            }
-            constraints.push(LinearConstraint::le(terms, 0));
-        }
-
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[labels..crossing].fill(
+            IntegerVariable::new(Some(0), Some(last_label)).map_err(Self::target_construction)?,
+        );
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
 
         Ok(ReductionAcyclicPartitionToILP { target, n })
@@ -156,32 +149,17 @@ impl ReduceTo<ILP<bool>> for AcyclicPartition<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     use crate::topology::DirectedGraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "acyclicpartition_to_ilp",
         build: || {
-            let source = AcyclicPartition::new(
+            crate::example_db::specs::rule_example_via_bounded_ilp(AcyclicPartition::new(
                 DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
                 vec![1, 1, 1, 1],
                 vec![1, 1, 1],
                 3,
                 2,
-            );
-            let reduction: ReductionAcyclicPartitionToILP =
-                crate::rules::ReduceTo::<ILP<bool>>::reduce_to(&source)
-                    .expect("reduction should succeed");
-            let ilp_sol = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: serde_json::json!(extracted),
-                    target_config: serde_json::json!(ilp_sol),
-                },
-            )
+            ))
         },
     }]
 }

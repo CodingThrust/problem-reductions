@@ -43,7 +43,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("AcyclicPartition", [("weight", "i64")]),
-    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }
 
 register_ilp_pipeline! {
@@ -124,7 +124,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("ConsecutiveOnesMatrixAugmentation", []),
-    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }
 
 register_ilp_pipeline! {
@@ -705,7 +705,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("RegisterSufficiency", []),
-    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
 
 register_ilp_pipeline! {
@@ -955,5 +955,40 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("ProductionPlanning", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("CyclicOrdering", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("Betweenness", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("TwoDimensionalConsecutiveSets", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("MinimumCodeGenerationUnlimitedRegisters", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("PartitionIntoPerfectMatchings", [("graph", "SimpleGraph")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("MinimumWeightAndOrGraph", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
+    ("BoundedDiameterSpanningTree", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }

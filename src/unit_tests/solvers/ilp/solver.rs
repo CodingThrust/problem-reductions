@@ -444,3 +444,152 @@ fn three_partition_pipeline_selects_triples_directly() {
         }
     }
 }
+
+#[test]
+fn cyclic_ordering_pipeline_preserves_orientations() {
+    use crate::models::misc::CyclicOrdering;
+    for (triples, feasible) in [(vec![(0, 1, 2)], true), (vec![(0, 1, 2), (0, 2, 1)], false)] {
+        let source = CyclicOrdering::new(4, triples);
+        match ILPSolver::new().solve(&source) {
+            Ok(witness) => {
+                assert!(feasible);
+                assert!(source.evaluate(&witness).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible);
+                assert_eq!(error, ILPSolveError::Infeasible);
+            }
+        }
+    }
+}
+
+#[test]
+fn betweenness_pipeline_preserves_middle_elements() {
+    use crate::models::misc::Betweenness;
+    for (triples, feasible) in [(vec![(0, 1, 2)], true), (vec![(0, 1, 2), (0, 2, 1)], false)] {
+        let source = Betweenness::new(4, triples);
+        match ILPSolver::new().solve(&source) {
+            Ok(witness) => {
+                assert!(feasible);
+                assert!(source.evaluate(&witness).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible);
+                assert_eq!(error, ILPSolveError::Infeasible);
+            }
+        }
+    }
+}
+
+#[test]
+fn consecutive_sets_pipeline_preserves_group_adjacency() {
+    use crate::models::set::TwoDimensionalConsecutiveSets;
+    for (subsets, feasible) in [
+        (vec![vec![], vec![0, 1], vec![1, 2]], true),
+        (vec![vec![0, 1], vec![1, 2], vec![0, 2]], false),
+    ] {
+        let source = TwoDimensionalConsecutiveSets::new(4, subsets);
+        match ILPSolver::new().solve(&source) {
+            Ok(witness) => {
+                assert!(feasible);
+                assert!(source.evaluate(&witness).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible);
+                assert_eq!(error, ILPSolveError::Infeasible);
+            }
+        }
+    }
+}
+
+#[test]
+fn unlimited_register_pipeline_minimizes_copies_and_rejects_cycles() {
+    use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
+    use crate::types::Min;
+    let source = MinimumCodeGenerationUnlimitedRegisters::new(
+        5,
+        vec![(1, 3), (2, 3), (0, 1)],
+        vec![(1, 4), (2, 4), (0, 2)],
+    );
+    let witness = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(source.evaluate(&witness).unwrap(), Min(Some(4)));
+    let cycle =
+        MinimumCodeGenerationUnlimitedRegisters::new(3, vec![(0, 1), (1, 2), (2, 0)], vec![]);
+    assert_eq!(
+        ILPSolver::new().solve(&cycle),
+        Err(ILPSolveError::Infeasible)
+    );
+}
+
+#[test]
+fn matching_partition_pipeline_checks_induced_degrees() {
+    use crate::models::graph::PartitionIntoPerfectMatchings;
+    use crate::topology::SimpleGraph;
+    for (n, edges, k, feasible) in [
+        (4, vec![(0, 1), (0, 2), (1, 3), (2, 3)], 2, true),
+        (4, vec![(0, 1), (0, 2), (1, 3), (2, 3)], 1, false),
+        (3, vec![(0, 1), (0, 2), (1, 2)], 3, false),
+    ] {
+        let source = PartitionIntoPerfectMatchings::new(SimpleGraph::new(n, edges), k);
+        match ILPSolver::new().solve(&source) {
+            Ok(witness) => {
+                assert!(feasible);
+                assert!(source.evaluate(&witness).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible);
+                assert_eq!(error, ILPSolveError::Infeasible);
+            }
+        }
+    }
+}
+
+#[test]
+fn and_or_pipeline_preserves_reachability_and_signed_cost() {
+    use crate::models::misc::MinimumWeightAndOrGraph;
+    use crate::types::Min;
+    let source = MinimumWeightAndOrGraph::new(
+        3,
+        vec![(0, 1), (0, 2), (1, 2)],
+        0,
+        vec![Some(true), Some(false), None],
+        vec![1, 2, -4],
+    );
+    let witness = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(source.evaluate(&witness).unwrap(), Min(Some(-1)));
+    let source = MinimumWeightAndOrGraph::new(
+        3,
+        vec![(0, 1)],
+        0,
+        vec![Some(true), Some(false), None],
+        vec![1],
+    );
+    assert_eq!(
+        ILPSolver::new().solve(&source),
+        Err(ILPSolveError::Infeasible)
+    );
+}
+
+#[test]
+fn bounded_tree_pipeline_enforces_diameter_and_weight() {
+    use crate::models::graph::BoundedDiameterSpanningTree;
+    use crate::topology::SimpleGraph;
+    for (diameter, budget, feasible) in [(3, 3, true), (2, 3, false), (4, 2, false)] {
+        let source = BoundedDiameterSpanningTree::new(
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            vec![1; 3],
+            budget,
+            diameter,
+        );
+        match ILPSolver::new().solve(&source) {
+            Ok(w) => {
+                assert!(feasible);
+                assert!(source.evaluate(&w).unwrap().0);
+            }
+            Err(e) => {
+                assert!(!feasible);
+                assert_eq!(e, ILPSolveError::Infeasible);
+            }
+        }
+    }
+}

@@ -157,6 +157,33 @@ pub fn permutation_to_lehmer(permutation: &[usize]) -> Vec<usize> {
         .collect()
 }
 
+/// Compare ranks in `0..num_positions`: selector one means first precedes second.
+pub(crate) fn bounded_order_comparison(
+    first: usize,
+    second: usize,
+    selector: usize,
+    num_positions: i64,
+) -> [LinearConstraint; 2] {
+    [
+        LinearConstraint::ge(
+            vec![(second, 1), (first, -1), (selector, -num_positions)],
+            1 - num_positions,
+        ),
+        LinearConstraint::ge(vec![(first, 1), (second, -1), (selector, num_positions)], 1),
+    ]
+}
+
+/// Break rank ties by element index, preserving every strict comparison.
+pub(crate) fn ranks_to_positions(ranks: &[i64]) -> Vec<usize> {
+    let mut elements: Vec<_> = (0..ranks.len()).collect();
+    elements.sort_by_key(|&element| (ranks[element], element));
+    let mut positions = vec![0; ranks.len()];
+    for (position, element) in elements.into_iter().enumerate() {
+        positions[element] = position;
+    }
+    positions
+}
+
 /// Constrain each item to exactly one slot and each slot to at most one item.
 pub fn one_hot_assignment_constraints(
     num_items: usize,
