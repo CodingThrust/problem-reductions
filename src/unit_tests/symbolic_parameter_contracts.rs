@@ -22,10 +22,6 @@ fn parameter_schemas_keep_distinct_counts_without_synonymous_aliases() {
             &["num_vertices", "num_leaves", "num_internal"],
         ),
         (
-            "HamiltonianPath",
-            &["num_vertices", "num_consecutive_positions"],
-        ),
-        (
             "LongestCommonSubsequence",
             &["max_length", "num_transitions"],
         ),
@@ -39,6 +35,23 @@ fn parameter_schemas_keep_distinct_counts_without_synonymous_aliases() {
         .parameter_names("ExactCoverBy3Sets")
         .iter()
         .any(|field| field == "num_sets"));
+    for (model, expected) in [
+        ("HamiltonianPath", &["num_edges", "num_vertices"][..]),
+        (
+            "PreemptiveScheduling",
+            &[
+                "d_max",
+                "max_schedule_magnitude_bits",
+                "num_precedences",
+                "num_processors",
+                "num_tasks",
+            ],
+        ),
+    ] {
+        let mut fields = graph.parameter_names(model);
+        fields.sort();
+        assert_eq!(fields, expected, "{model} public parameter schema");
+    }
 }
 
 #[test]
@@ -438,12 +451,12 @@ fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
     );
     check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
         HamiltonianCircuit::new(SimpleGraph::new(0, vec![])),
-        &["num_vertices", "num_consecutive_positions"],
+        &["num_vertices"],
         exact,
     );
     check_reduced_parameters::<_, HamiltonianPath<SimpleGraph>>(
         HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
-        &["num_vertices", "num_consecutive_positions"],
+        &["num_vertices"],
         exact,
     );
     check_reduced_parameters::<_, LongestCommonSubsequence>(

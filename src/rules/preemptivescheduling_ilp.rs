@@ -53,15 +53,11 @@ impl ReductionResult for ReductionPSToILP {
     }
 }
 
-#[reduction(transform = {
-    exact {
-        num_vars = "num_admissible_slots + 2 * num_tasks + 1",
-        num_constraints = "2 * num_tasks + schedule_horizon + 2 * num_admissible_slots + num_precedences",
-        num_nonzeros = "6 * num_admissible_slots + 2 * num_precedences + 2 * num_tasks",
-    },
-    upper_bound {
-        max_constraint_magnitude_bits = "max_schedule_magnitude_bits",
-    },
+#[reduction(transform = upper_bound {
+    num_vars = "num_tasks * d_max + 2 * num_tasks + 1",
+    num_constraints = "2 * num_tasks + d_max + 2 * num_tasks * d_max + num_precedences",
+    num_nonzeros = "6 * num_tasks * d_max + 2 * num_precedences + 2 * num_tasks",
+    max_constraint_magnitude_bits = "max_schedule_magnitude_bits",
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;

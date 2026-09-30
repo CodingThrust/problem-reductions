@@ -89,11 +89,6 @@ impl<G: Graph> HamiltonianPath<G> {
         self.graph.num_edges()
     }
 
-    /// Number of consecutive position pairs in a Hamiltonian path.
-    pub fn num_consecutive_positions(&self) -> usize {
-        self.num_vertices().saturating_sub(1)
-    }
-
     /// Check if a configuration is a valid Hamiltonian path.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         is_valid_hamiltonian_path(&self.graph, config)
@@ -108,11 +103,7 @@ where
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![
-        ("num_edges", num_edges),
-        ("num_vertices", num_vertices),
-        ("num_consecutive_positions", num_consecutive_positions),
-    ];
+    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]

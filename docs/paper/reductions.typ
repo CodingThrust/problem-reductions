@@ -15113,7 +15113,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ ($arrow.r.double$) An optimal schedule has makespan at most the feasible list schedule's $H$. Every predecessor path forces its activity after $E_j$, and every successor path forces it before $H-B_j+p_j$. Its activity is therefore retained. Set endpoints to actual first and last activity and $M$ to its makespan. ($arrow.l.double$) Work and capacity rows ensure valid processing. Active-slot endpoint rows and $C_a<=S_b$ forbid successors from starting before predecessors finish, including interrupted tasks. The decoded makespan is at most $M$; tightening endpoints and $M$ to actual activity proves optimum equality. Positive durations make precedence cycles infeasible on both sides.
 
-  _Solution extraction and size._ Validate, project retained activity to the original $n$ by $D$ matrix, and put zero in omitted slots. For $A$ retained slots and $e$ arc occurrences, the target has exactly $A+2n+1$ variables, $2A+2n+H+e$ rows, and $6A+2n+2e$ nonzeros. Source parameters `schedule_horizon` and `num_admissible_slots` come from the same deterministic calculation. Constraint magnitudes need at most `max_schedule_magnitude_bits`; endpoint arithmetic is checked before allocation. Empty instances have only $M=0$.
+  _Solution extraction and size._ Validate, project retained activity to the original $n$ by $D$ matrix, and put zero in omitted slots. For $A$ retained slots and $e$ arc occurrences, the target has exactly $A+2n+1$ variables, $2A+2n+H+e$ rows, and $6A+2n+2e$ nonzeros. Since $H <= D$ and $A <= n D$, the registered upper bounds are $n D+2n+1$ variables, $2n+D+2n D+e$ rows, and $6n D+2n+2e$ nonzeros. Constraint magnitudes need at most `max_schedule_magnitude_bits`; endpoint arithmetic is checked before allocation. Empty instances have only $M=0$.
 ]
 
 #reduction-rule("SequencingWithinIntervals", "ILP")[
@@ -15659,9 +15659,10 @@ The following reductions to Integer Linear Programming are straightforward formu
   Empty and singleton paths require no adjacency rows.
 
   _Overhead._ With $q=max(n-1,0)$, there are exactly $n^2$ variables and
-  $2n+n q$ rows. If $e$ is the number of distinct non-loop edges, nonzeros
-  equal $2n^2+q(n+2e)$, bounded by $2n^2+q(n+2m)$ for the stored edge count
-  $m$. Coefficients and right-hand sides have magnitude at most one.
+  $n^2+n$ rows. If $e$ is the number of distinct non-loop edges, nonzeros
+  equal $2n^2+q(n+2e)$. Since $q <= n$ and $e <= m$ for the stored edge
+  count $m$, the registered upper bound is $3n^2+2n m$.
+  Coefficients and right-hand sides have magnitude at most one.
 
   _Solution extraction._ Return the unique selected vertex at each position.
 ]

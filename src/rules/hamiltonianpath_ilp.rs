@@ -44,10 +44,10 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianPathToILP {}
     exact {
         max_constraint_magnitude_bits = "1",
         num_vars = "num_vertices^2",
-        num_constraints = "2 * num_vertices + num_vertices * num_consecutive_positions",
+        num_constraints = "num_vertices^2 + num_vertices",
     },
     upper_bound {
-        num_nonzeros = "2 * num_vertices^2 + num_consecutive_positions * (num_vertices + 2 * num_edges)",
+        num_nonzeros = "3 * num_vertices^2 + 2 * num_vertices * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
@@ -72,7 +72,7 @@ impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
         for (v, adjacent) in neighbors.iter_mut().enumerate() {
             adjacent.sort_unstable();
             adjacent.dedup();
-            for p in 0..self.num_consecutive_positions() {
+            for p in 0..n.saturating_sub(1) {
                 let mut terms = vec![(v * n + p, 1)];
                 terms.extend(adjacent.iter().map(|&w| (w * n + p + 1, -1)));
                 constraints.push(LinearConstraint::le(terms, 0));

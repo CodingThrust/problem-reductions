@@ -91,7 +91,6 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToHam
 #[reduction(transform = {
     exact {
         num_vertices = "num_vertices + 3",
-        num_consecutive_positions = "num_vertices + 2",
     },
     upper_bound {
         num_edges = "2 * num_edges + 2",

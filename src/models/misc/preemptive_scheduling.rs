@@ -173,20 +173,6 @@ impl PreemptiveScheduling {
         &self.precedences
     }
 
-    /// Horizon of a feasible critical-path-priority list schedule; zero for cycles.
-    pub fn schedule_horizon(&self) -> usize {
-        self.scheduling_windows().0
-    }
-
-    /// Activity slots that can occur within the certified horizon.
-    pub fn num_admissible_slots(&self) -> usize {
-        self.scheduling_windows()
-            .1
-            .iter()
-            .map(|window| window.len())
-            .sum()
-    }
-
     /// Bit bound for work, capacity and endpoint coefficients.
     pub fn max_schedule_magnitude_bits(&self) -> u64 {
         crate::types::max_numeric_magnitude_bits([self.d_max(), self.num_processors()])
@@ -302,8 +288,6 @@ impl Problem for PreemptiveScheduling {
 
     crate::problem_parameters![
         ("d_max", d_max),
-        ("schedule_horizon", schedule_horizon),
-        ("num_admissible_slots", num_admissible_slots),
         ("max_schedule_magnitude_bits", max_schedule_magnitude_bits),
         ("num_precedences", num_precedences),
         ("num_processors", num_processors),
