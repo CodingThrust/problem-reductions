@@ -75,6 +75,9 @@ impl ReductionResult for ReductionBiconnAugToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
 
+// Budget uses at most p terms. Each of n(n+1) commodities contributes at most
+// 4m base-flow terms and 8p candidate-flow/activation terms. Deleted-edge pins
+// replace those terms; trivial commodities and normalization only reduce them.
 #[reduction(transform = {
     exact {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
@@ -82,7 +85,7 @@ impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
     upper_bound {
         num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
         num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
-        num_nonzeros = "(num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)) * (1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices))",
+        num_nonzeros = "num_potential_edges + num_vertices * (num_vertices + 1) * (4 * num_edges + 8 * num_potential_edges)",
     },
 })]
 impl ReduceTo<ILP<bool>> for BiconnectivityAugmentation<SimpleGraph, i64> {

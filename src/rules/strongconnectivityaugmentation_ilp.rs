@@ -44,6 +44,9 @@ impl ReductionResult for ReductionSCAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
 
+// Candidate bounds and budget use at most 2p terms. Each commodity has
+// 4(m+p) forward/backward conservation terms and 4p activation terms; dummy
+// commodity pins use only 2(m+p). Loop cancellation only reduces this count.
 #[reduction(transform = {
     exact {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
@@ -51,7 +54,7 @@ impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
     upper_bound {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
-        num_nonzeros = "(num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)) * (1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices)",
+        num_nonzeros = "2 * num_potential_arcs + num_vertices * (4 * num_arcs + 8 * num_potential_arcs)",
     },
 })]
 impl ReduceTo<ILP<bool>> for StrongConnectivityAugmentation<i64> {

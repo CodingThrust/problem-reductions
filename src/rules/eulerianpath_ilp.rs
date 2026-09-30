@@ -147,11 +147,13 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionEulerianPathToILP {}
 
+// For m arcs and P compatible distinct ordered pairs, row counts give exactly
+// 7m+6P nonzeros when m>0. P<=m(m-1), and the empty construction has zero.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "num_arcs + 1",
     num_vars = "3 * num_arcs + num_arcs * num_arcs",
     num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
-    num_nonzeros = "(3 * num_arcs + num_arcs * num_arcs) * (5 * num_arcs + 2 * num_arcs * num_arcs + 2)",
+    num_nonzeros = "num_arcs + 6 * num_arcs * num_arcs",
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for EulerianPath {
     type Result = ReductionEulerianPathToILP;

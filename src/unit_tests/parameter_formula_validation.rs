@@ -228,3 +228,64 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     assert_eq!(checked, expected, "some formula fields were not checked");
 }
+
+#[test]
+fn sparse_ilp_predictions_use_construction_counts() {
+    use crate::models::{BiconnectivityAugmentation, Factoring, StrongConnectivityAugmentation};
+    use crate::topology::{DirectedGraph, SimpleGraph};
+    use crate::traits::Problem;
+
+    use crate::models::graph::EulerianPath;
+
+    // Independent row-count budgets for these small constructions, before cancellations:
+    // biconnectivity: 3 budget terms + 20 commodities * (12 base + 24 candidate terms);
+    // strong connectivity: 4 candidate/budget terms + 3 commodities * (8 base + 16 candidate);
+    // factoring: 48 product terms + 5 factor bounds + at most 36 carry-related terms;
+    // Eulerian path: 28 arc terms + at most 12 ordered pairs * 6 terms.
+    let cases = [
+        (
+            "BiconnectivityAugmentation",
+            BiconnectivityAugmentation::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                vec![(0, 2, 1_i64), (0, 3, 2), (1, 3, 1)],
+                3,
+            )
+            .parameters(),
+            723_u64,
+        ),
+        (
+            "StrongConnectivityAugmentation",
+            StrongConnectivityAugmentation::new(
+                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                vec![(2, 0, 1_i64), (1, 0, 2)],
+                2,
+            )
+            .parameters(),
+            76,
+        ),
+        (
+            "Factoring",
+            Factoring::with_factor_bits(15, 2, 3).parameters(),
+            89,
+        ),
+        (
+            "EulerianPath",
+            EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
+                .parameters(),
+            100,
+        ),
+    ];
+    let entries = crate::rules::registry::reduction_entries();
+    for (name, parameters, budget) in cases {
+        let entry = entries
+            .iter()
+            .find(|e| e.source_name == name && e.target_name == "ILP")
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let prediction = contract.transform().unwrap().evaluate(&parameters).unwrap();
+        assert!(
+            prediction.get("num_nonzeros").unwrap() <= budget,
+            "{name}: sparse count budget exceeded"
+        );
+    }
+}

@@ -113,11 +113,14 @@ impl ReductionResult for ReductionFactoringToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionFactoringToILP {}
 
+// With L=max(m+n,target_bits), McCormick rows use 7mn terms; bit equations,
+// final carry, factor bounds and carry bounds use mn+m+n+4L more.
+// Substitute L <= m+n+target_bits to obtain a bound using source parameters.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "num_bits_first + num_bits_second + 2",
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
-    num_nonzeros = "(num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits) * (3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1)",
+    num_nonzeros = "8 * num_bits_first * num_bits_second + 5 * num_bits_first + 5 * num_bits_second + 4 * target_bits",
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for Factoring {
     type Result = ReductionFactoringToILP;
