@@ -13,12 +13,6 @@ pub struct ReductionOSSToILP {
 }
 
 impl ReductionOSSToILP {
-    fn decode_schedule(&self, solution: &[i64]) -> crate::rules::ExtractionResult<Vec<usize>> {
-        crate::rules::ilp_helpers::decode_usize_values(
-            &solution[self.start_offset..self.start_offset + self.num_operations],
-        )
-    }
-
     fn build(
         source: &OpenShopScheduling,
         bound: Option<i64>,
@@ -173,7 +167,9 @@ impl ReductionResult for ReductionOSSToILP {
             |value| value.value.is_some(),
             "target ILP assignment is infeasible",
         )?;
-        self.decode_schedule(solution)
+        crate::rules::ilp_helpers::decode_usize_values(
+            &solution[self.start_offset..self.start_offset + self.num_operations],
+        )
     }
 }
 
@@ -203,13 +199,7 @@ impl ReductionResult for ReductionDecisionOpenShopSchedulingToILP {
         &self.inner.target
     }
     fn extract_solution(&self, solution: &Vec<i64>) -> crate::rules::ExtractionResult<Vec<usize>> {
-        crate::rules::traits::validate_target_witness(
-            self.target_problem(),
-            solution,
-            |value| value.value.is_some(),
-            "target ILP assignment is infeasible",
-        )?;
-        self.inner.decode_schedule(solution)
+        self.inner.extract_solution(solution)
     }
 }
 #[crate::aggregate_reduction(ilp_feasibility)]

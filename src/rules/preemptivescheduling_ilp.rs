@@ -6,7 +6,8 @@
 //! successors start. Minimize M with M >= C(t) for every task.
 //!
 //! Using task endpoints avoids repeating all earlier time slots for every
-//! precedence edge: the matrix has 6*A + 2*p + 2*n for A admissible activity slots nonzeros.
+//! precedence edge: the matrix has 6*A + 2*p + 2*n nonzeros for A admissible
+//! activity slots, p precedence edges, and n tasks.
 
 use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PreemptiveScheduling;
@@ -32,7 +33,7 @@ impl ReductionResult for ReductionPSToILP {
 
     /// Extract schedule from ILP solution.
     ///
-    /// Returns a binary config of length n * D_max: `config[t * D_max + u] = x_{t,u}`.
+    /// Returns the task-by-time activity matrix, restoring omitted slots to false.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,

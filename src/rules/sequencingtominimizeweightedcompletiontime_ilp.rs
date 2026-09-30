@@ -32,10 +32,11 @@ impl ReductionResult for ReductionSTMWCTToILP {
         )?;
 
         let mut ranks = vec![0; self.num_tasks];
+        let mut pair = self.num_tasks;
         for i in 0..self.num_tasks {
             for j in i + 1..self.num_tasks {
-                let pair = self.num_tasks + i * (2 * self.num_tasks - i - 1) / 2 + j - i - 1;
                 ranks[if target_solution[pair] == 1 { j } else { i }] += 1;
+                pair += 1;
             }
         }
         let mut order: Vec<_> = (0..self.num_tasks).collect();
