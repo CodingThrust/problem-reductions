@@ -14306,6 +14306,54 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
 ]
 
+#reduction-rule("OneInThreeSatisfiability", "ILP", example: true)[
+  Encode exact-one clauses directly with binary variables and one equality per clause.
+  The elementary encoding below is derived directly from the literal semantics.
+][
+  _Construction._ Introduce one binary variable $x_i$ per source variable.
+  For each clause let $q$ count its negative literal occurrences. Add
+  $ sum_(i in P) x_i - sum_(i in N) x_i = 1-q, $
+  where $P$ and $N$ retain repeated occurrences. Use a zero minimization objective.
+
+  _Correctness._ The left side plus $q$ counts precisely the true literal
+  occurrences. ($arrow.r.double$) A satisfying source assignment therefore satisfies
+  every equality. ($arrow.l.double$) Every feasible target assignment makes exactly
+  one occurrence true in each clause, including clauses with repeated or opposite
+  literals. The empty formula is handled by the same construction.
+
+  _Overhead._ For $n$ variables and $m$ clauses there are exactly $n$ variables
+  and $m$ rows. Normalization leaves at most $3m$ nonzeros. Coefficients have
+  magnitude at most three and right-hand sides at most two, requiring at most
+  two magnitude bits.
+
+  _Solution extraction._ Validate target feasibility and read each binary variable
+  as its source truth value. Target feasibility maps to the source Boolean value.
+]
+
+#reduction-rule("Kernel", "ILP", example: true)[
+  Encode independence and outgoing absorption with one binary variable per vertex.
+  The elementary encoding below follows the two defining kernel conditions.
+][
+  _Construction._ For each arc occurrence $(u,v)$ add $x_u+x_v<=1$.
+  For each vertex $u$ add $x_u+sum_(v in N^+(u))x_v>=1$, using the set of
+  distinct outgoing neighbors. All variables are binary; the objective is zero.
+
+  _Correctness._ ($arrow.r.double$) A kernel satisfies every independence row;
+  each unselected vertex has a selected outgoing neighbor, so absorption also
+  holds. ($arrow.l.double$) Independence rows forbid two selected arc endpoints,
+  while absorption rows ensure every unselected vertex reaches a selected one.
+  A self-loop gives $2x_u<=1$ and correctly forbids selecting its vertex.
+  Parallel arcs repeat independence rows without changing feasibility.
+
+  _Overhead._ With $n$ vertices and $m$ arc occurrences there are exactly $n$
+  variables and $m+n$ rows. The independence rows contribute at most $2m$
+  nonzeros and absorption at most $n+m$. Normalized coefficients have magnitude
+  at most two, so two magnitude bits suffice.
+
+  _Solution extraction._ Validate target feasibility and return the selected
+  vertices as a Boolean vector. Target feasibility maps to the source Boolean value.
+]
+
 #reduction-rule("NAESatisfiability", "ILP")[
   Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
 ][

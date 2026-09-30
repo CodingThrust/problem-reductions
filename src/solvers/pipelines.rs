@@ -52,6 +52,16 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("OneInThreeSatisfiability", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+}
+
+register_ilp_pipeline! {
+    ("Kernel", []),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+}
+
+register_ilp_pipeline! {
     ("BalancedCompleteBipartiteSubgraph", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }

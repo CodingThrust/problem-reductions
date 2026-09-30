@@ -253,6 +253,62 @@ fn test_registered_ilp_pipeline_success() {
 }
 
 #[test]
+fn test_one_in_three_registered_ilp_feasibility() {
+    use crate::models::formula::{CNFClause, OneInThreeSatisfiability};
+    for (problem, feasible) in [
+        (OneInThreeSatisfiability::new(0, vec![]), true),
+        (
+            OneInThreeSatisfiability::new(
+                3,
+                vec![
+                    CNFClause::new(vec![1, 2, 3]),
+                    CNFClause::new(vec![-1, -2, 3]),
+                ],
+            ),
+            true,
+        ),
+        (
+            OneInThreeSatisfiability::new(3, vec![CNFClause::new(vec![1, 1, 1])]),
+            false,
+        ),
+    ] {
+        match ILPSolver::new().solve(&problem) {
+            Ok(solution) => {
+                assert!(feasible);
+                assert!(problem.evaluate(&solution).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible, "{error}");
+                assert!(matches!(error, ILPSolveError::Infeasible));
+            }
+        }
+    }
+}
+
+#[test]
+fn test_kernel_registered_ilp_feasibility() {
+    use crate::models::graph::Kernel;
+    use crate::topology::DirectedGraph;
+    for (graph, feasible) in [
+        (DirectedGraph::new(0, vec![]), true),
+        (DirectedGraph::new(3, vec![(0, 1), (1, 2)]), true),
+        (DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), false),
+    ] {
+        let problem = Kernel::new(graph);
+        match ILPSolver::new().solve(&problem) {
+            Ok(solution) => {
+                assert!(feasible);
+                assert!(problem.evaluate(&solution).unwrap().0);
+            }
+            Err(error) => {
+                assert!(!feasible, "{error}");
+                assert!(matches!(error, ILPSolveError::Infeasible));
+            }
+        }
+    }
+}
+
+#[test]
 fn test_ilp_solve_dyn_bool() {
     let ilp = ILP::<bool, f64>::new(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize).unwrap();
     assert!(ILPSolver::new()
