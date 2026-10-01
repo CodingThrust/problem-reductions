@@ -368,12 +368,16 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToPreemptiveSchedul
     }
 }
 
+// Variable chains/forcing contribute 2n(n+1) precedences; clauses contribute
+// 21c, retaining repeated links. Each of n+2 adjacent filler layers has at
+// most P^2 links, P<=2n+3+6c. Unit lengths give d_max<=P(n+3); both factors
+// are <2^(n+c+3) and <2^(n+2), respectively. Early outputs have one unit task.
 #[reduction(transform = upper_bound {
     num_tasks = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
     num_processors = "2 * num_vars + 3 + 6 * num_clauses",
     d_max = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
-    max_schedule_magnitude_bits = "(2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3)",
-    num_precedences = "((2 * num_vars + 3 + 6 * num_clauses) * (num_vars + 3))^2",
+    max_schedule_magnitude_bits = "2 * num_vars + num_clauses + 5",
+    num_precedences = "2 * num_vars * (num_vars + 1) + 21 * num_clauses + (num_vars + 2) * (2 * num_vars + 3 + 6 * num_clauses)^2",
 })]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
     type Result = Reduction3SATToPreemptiveScheduling;

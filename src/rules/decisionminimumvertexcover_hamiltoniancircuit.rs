@@ -300,9 +300,12 @@ impl crate::rules::AggregateReductionResult
 {
 }
 
+// Normalized surviving edges m'<=m contribute 14m' gadget edges;
+// incident chains add <=2m', selectors <=2n^2. Set deduplication only
+// decreases these counts; fixed YES/NO targets have at most three edges.
 #[reduction(transform = upper_bound {
     num_vertices = "num_vertices + 12 * num_edges + 3",
-    num_edges = "(num_vertices + 12 * num_edges + 3)^2",
+    num_edges = "16 * num_edges + 2 * num_vertices^2 + 3",
 })]
 impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, One>> {
     type Result = ReductionDecisionMinimumVertexCoverToHamiltonianCircuit;

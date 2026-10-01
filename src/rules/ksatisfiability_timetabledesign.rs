@@ -794,14 +794,18 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for Reduction3SATToTimetableDesign {}
 
+// Normalization leaves v<=L variables and q<=c+L clauses. Each variable
+// has six two-list gadgets: 18 required edges and 36 available assignments.
+// Each clause has <=3 edges and <=6 assignments. The two bipartition sides
+// have <=1+9v+q craftsmen and <=8v+2q tasks. Periods<=4*max(1,v).
 #[reduction(
     transform = upper_bound {
         num_periods = "4 * num_literals + 4",
-        period_count_bits = "4 * num_literals + 4",
-        num_available_assignments = "(24 * num_literals + num_clauses + 1)^2 * (4 * num_literals + 4)",
-        num_nonzero_requirements = "(24 * num_literals + num_clauses + 1)^2",
-        num_craftsmen = "24 * num_literals + num_clauses + 1",
-        num_tasks = "24 * num_literals + num_clauses + 1",
+        period_count_bits = "num_literals + 3",
+        num_available_assignments = "42 * num_literals + 6 * num_clauses",
+        num_nonzero_requirements = "21 * num_literals + 3 * num_clauses",
+        num_craftsmen = "10 * num_literals + num_clauses + 1",
+        num_tasks = "10 * num_literals + 2 * num_clauses",
     }
 )]
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {

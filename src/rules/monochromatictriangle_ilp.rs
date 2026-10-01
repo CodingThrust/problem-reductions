@@ -43,11 +43,16 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionMonochromaticTriangleToILP {}
 
+// For T triangles, K five-cliques, and H triangles in a five-clique:
+// rows=2T+15K-H and terms=6T+40K-2H. Incidence counting gives
+// 10K<=T(n-3)(n-4)/2; n<3 implies T=0. This is a direct-source bound;
+// bounded substitution uses the existing positive polynomial hull, dropping
+// negative terms; composed predictions can therefore be looser.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "2",
     num_vars = "num_edges",
-    num_constraints = "2 * num_triangles + num_vertices^5 / 8",
-    num_nonzeros = "num_edges * (2 * num_triangles + num_vertices^5 / 8)",
+    num_constraints = "2 * num_triangles + 3 * num_triangles * (num_vertices - 3) * (num_vertices - 4) / 4",
+    num_nonzeros = "6 * num_triangles + 2 * num_triangles * (num_vertices - 3) * (num_vertices - 4)",
 })]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;

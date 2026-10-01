@@ -51,11 +51,12 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToKnapsack {
 #[reduction(
     transform = {
         exact { num_items = "num_elements" },
-        upper_bound { capacity_bits = "max_numeric_magnitude_bits + num_elements" },
+        // The constructor rounds S/2 down; bound evaluation rounds up.
+        upper_bound {
+            capacity = "total_sum / 2",
+            capacity_bits = "max_numeric_magnitude_bits + num_elements",
+        },
     },
-    unavailable = {
-        capacity = "raw capacity requires numeric magnitude values; downstream predictions use capacity_bits",
-    }
 )]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;

@@ -39,12 +39,17 @@ impl ReductionResult for ReductionRPCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRPCToILP {}
 
+// For each row interval, maximal rectangles use distinct maximal column
+// runs, at most c; transpose gives the second bound. Their average is
+// rc(r+c+2)/4. Each rectangle contributes at most rc cell terms plus one
+// budget term. The clamped RHS has magnitude <=max(1,R). Positive dimensions
+// satisfy d(d+1)/2<2^d, hence R<2^(r+c) and its bit count is <=r+c.
 #[reduction(
     transform = upper_bound {
-        max_constraint_magnitude_bits = "num_rows^2 * num_cols^2 + 1",
-        num_vars = "num_rows^2 * num_cols^2",
+        max_constraint_magnitude_bits = "num_rows + num_cols",
+        num_vars = "num_rows * num_cols * (num_rows + num_cols + 2) / 4",
         num_constraints = "num_rows * num_cols + 1",
-        num_nonzeros = "(num_rows^2 * num_cols^2) * (num_rows * num_cols + 1)",
+        num_nonzeros = "num_rows * num_cols * (num_rows + num_cols + 2) * (num_rows * num_cols + 1) / 4",
     },
 )]
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {

@@ -74,6 +74,24 @@ impl NAESatisfiability {
         self.clauses.iter().map(|c| c.len()).sum()
     }
 
+    /// Sum of the distinct Boolean variables appearing in each clause.
+    ///
+    /// Signs and repeated occurrences do not change membership. Computing this
+    /// statistic takes expected linear time in the number of literal occurrences.
+    pub fn num_clause_variables(&self) -> usize {
+        self.clauses
+            .iter()
+            .map(|clause| {
+                clause
+                    .literals
+                    .iter()
+                    .map(|lit| lit.unsigned_abs())
+                    .collect::<std::collections::HashSet<_>>()
+                    .len()
+            })
+            .sum()
+    }
+
     /// Get the total number of literal pairs across all clauses.
     ///
     /// For each clause with k literals, this contributes C(k,2) = k*(k-1)/2 pairs.
@@ -168,6 +186,7 @@ impl Problem for NAESatisfiability {
 
     crate::problem_parameters![
         ("num_clauses", num_clauses),
+        ("num_clause_variables", num_clause_variables),
         ("num_literal_pairs", num_literal_pairs),
         ("num_literals", num_literals),
         ("num_vars", num_vars),

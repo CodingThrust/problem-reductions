@@ -159,11 +159,17 @@ impl ReductionResult for ReductionIMDCToILP {
     }
 }
 
+// Non-overlapping length-l references number at most
+// (n-2l+1)(n-2l+2)/2, for 1<=l<=floor(n/2). Their sum is
+// (2n^3+3n^2-2n)/24 for even n and 1/8 less for odd n.
+// n(n-1)(n+3)/12 bounds it for n>=4; final ceilings cover n=0..3.
+// Substring filtering only removes pointers. Every positive-length segment
+// appears in exactly two endpoint rows; empty input has zero variables/terms.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "1",
-    num_vars = "string_len + string_len ^ 3",
+    num_vars = "string_len + string_len * (string_len - 1) * (string_len + 3) / 12",
     num_constraints = "string_len + 1",
-    num_nonzeros = "(string_len + string_len ^ 3) * (string_len + 1)",
+    num_nonzeros = "2 * string_len + string_len * (string_len - 1) * (string_len + 3) / 6",
 })]
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
     type Result = ReductionIMDCToILP;

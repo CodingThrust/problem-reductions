@@ -194,11 +194,15 @@ impl ILPBuilder {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionCircuitToILP {}
 
+// With N expression nodes and A roots there are N-A child edges. Each
+// gate contributes at most 12 terms per child plus one per node (including
+// constants and empty gates); each output link contributes at most two.
+// Repeated operands merge/cancel. All normalized magnitudes are at most N+2.
 #[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "num_expression_nodes + num_assignment_outputs + 2",
+    max_constraint_magnitude_bits = "num_expression_nodes / 2 + 2",
     num_vars = "num_variables + 2 * num_expression_nodes",
     num_constraints = "5 * num_expression_nodes + num_assignment_outputs",
-    num_nonzeros = "(num_variables + 2 * num_expression_nodes) * (5 * num_expression_nodes + num_assignment_outputs)",
+    num_nonzeros = "13 * num_expression_nodes - 12 * num_assignments + 2 * num_assignment_outputs",
 })]
 impl ReduceTo<ILP<bool>> for CircuitSAT {
     type Result = ReductionCircuitToILP;

@@ -5534,7 +5534,7 @@ fn test_path_set_has_explicit_parameter_information() {
 }
 
 #[test]
-fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
+fn test_path_reports_numeric_horizon_without_internal_modes() {
     let output = pred()
         .args([
             "path",
@@ -5554,8 +5554,8 @@ fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() 
         .iter()
         .find(|field| field["field"] == "time_horizon")
         .unwrap();
-    assert_eq!(horizon["relation"], "unavailable");
-    assert!(horizon["reason"].is_string());
+    assert_eq!(horizon["relation"], "exact");
+    assert!(horizon["formula"].is_string());
     let task_count = fields
         .iter()
         .find(|field| field["field"] == "num_tasks")
@@ -5613,7 +5613,14 @@ fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
 #[test]
 fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
-        .args(["path", "Partition", "Knapsack", "--limit", "1", "--json"])
+        .args([
+            "path",
+            "MinimumVertexCover/SimpleGraph/One",
+            "LongestCommonSubsequence",
+            "--limit",
+            "1",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5630,8 +5637,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["num_items"], "exact");
-    assert_eq!(relations["capacity"], "unavailable");
+    assert_eq!(relations["alphabet_size"], "exact");
+    assert_eq!(relations["cross_frequency_product"], "unavailable");
     let unavailable = fields
         .iter()
         .find(|field| field["relation"] == "unavailable")

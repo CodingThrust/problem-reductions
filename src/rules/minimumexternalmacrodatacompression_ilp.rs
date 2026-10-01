@@ -213,11 +213,19 @@ fn encode_pointer(n: usize, start: usize, len: usize) -> usize {
     idx + len - 1
 }
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_vars = "string_length * alphabet_size + 2 * string_length + string_length ^ 3",
-    num_constraints = "string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length",
-    num_nonzeros = "(string_length * alphabet_size + 2 * string_length + string_length ^ 3) * (string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length)",
+// P=sum_{l=1}^n(n-l+1)^2=n(n+1)(2n+1)/6 pointers;
+// M=sum_{l=1}^n l(n-l+1)^2=n(n+1)^2(n+2)/12 matching rows.
+// Variables=nk+2n+P; rows=3n+nk+M (also zero at n=0).
+// Terms=3nk+4n-2+2P+2M for n>0; dropping -2 covers the empty return.
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "1",
+        num_vars = "string_length * alphabet_size + 2 * string_length + string_length * (string_length + 1) * (2 * string_length + 1) / 6",
+        num_constraints = "3 * string_length + string_length * alphabet_size + string_length * (string_length + 1)^2 * (string_length + 2) / 12",
+    },
+    upper_bound {
+        num_nonzeros = "3 * string_length * alphabet_size + 4 * string_length + string_length * (string_length + 1) * (2 * string_length + 1) / 3 + string_length * (string_length + 1)^2 * (string_length + 2) / 6",
+    },
 })]
 impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
     type Result = ReductionEMDCToILP;

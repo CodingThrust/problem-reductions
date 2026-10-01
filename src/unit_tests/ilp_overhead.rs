@@ -13,6 +13,643 @@ use crate::{
 
 type BoundedILP = ILP<i64, i64, Bounded>;
 
+// Expected counts below come from enumerated rows/segments, independently of
+// the registered expressions. Check predictions as well as the real targets.
+fn check_counts<S: Problem + ReduceTo<T>, T: Problem>(source: &S, counts: &[(&str, u64, u64)]) {
+    check_contract::<S, T>(source);
+    let reduction = source.reduce_to().unwrap();
+    let actual = reduction.target_problem().parameters();
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|e| {
+            e.source_name == S::NAME
+                && e.target_name == T::NAME
+                && e.source_variant() == S::variant()
+                && e.target_variant() == T::variant()
+        })
+        .unwrap();
+    let predicted = entry
+        .parameter_contract()
+        .unwrap()
+        .transform()
+        .unwrap()
+        .evaluate(&source.parameters())
+        .unwrap();
+    for &(field, measured, bound) in counts {
+        assert_eq!(
+            actual.get(field),
+            Some(measured),
+            "{}: actual {field}",
+            S::NAME
+        );
+        assert_eq!(
+            predicted.get(field),
+            Some(bound),
+            "{}: predicted {field}",
+            S::NAME
+        );
+    }
+}
+
+#[test]
+fn partition_gadgets_count_sparse_rows_on_the_accepted_domain() {
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|e| e.source_name == "PartitionIntoTriangles" && e.target_name == "ILP")
+        .unwrap();
+    assert_eq!(
+        entry
+            .parameter_contract()
+            .unwrap()
+            .transform()
+            .unwrap()
+            .relation("num_vars"),
+        Some(ParameterRelation::Exact)
+    );
+    check_counts::<_, ILP<bool>>(
+        &PartitionIntoTriangles::new(SimpleGraph::complete(3)),
+        &[
+            ("num_vars", 3, 3),
+            ("num_constraints", 4, 7),
+            ("num_nonzeros", 6, 12),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &PartitionIntoTriangles::new(SimpleGraph::empty(6)),
+        &[
+            ("num_vars", 12, 12),
+            ("num_constraints", 38, 38),
+            ("num_nonzeros", 84, 84),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &PartitionIntoPathsOfLength2::new(SimpleGraph::path(3)),
+        &[
+            ("num_vars", 5, 5),
+            ("num_constraints", 11, 11),
+            ("num_nonzeros", 22, 22),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &PartitionIntoCliques::new(SimpleGraph::empty(3), 2),
+        &[("num_constraints", 9, 12), ("num_nonzeros", 18, 27)],
+    );
+    for n in [0, 3] {
+        check_contract::<_, ILP<bool>>(&PartitionIntoTriangles::new(SimpleGraph::empty(n)));
+        check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::empty(n)));
+    }
+    // Loops never become product variables; parallel orientations merge.
+    check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::new(
+        3,
+        vec![(0, 0), (0, 1), (1, 0), (1, 2)],
+    )));
+}
+
+#[test]
+fn macro_segments_count_endpoint_and_matching_terms() {
+    // Three literals and three non-overlapping one-character references.
+    check_counts::<_, ILP<bool>>(
+        &MinimumInternalMacroDataCompression::new(1, vec![0, 0, 0], 1),
+        &[("num_vars", 6, 6), ("num_nonzeros", 12, 12)],
+    );
+    for (string, vars, terms) in [(vec![], 0, 0), (vec![0, 1], 2, 4), (vec![0, 0], 3, 6)] {
+        check_counts::<_, ILP<bool>>(
+            &MinimumInternalMacroDataCompression::new(2, string, 2),
+            &[
+                ("num_vars", vars, if vars == 0 { 0 } else { 3 }),
+                ("num_nonzeros", terms, if vars == 0 { 0 } else { 6 }),
+            ],
+        );
+    }
+    // n=2: five pointers, six pointer-character matches, four dictionary bits.
+    check_counts::<_, ILP<bool>>(
+        &MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2),
+        &[
+            ("num_vars", 13, 13),
+            ("num_constraints", 16, 16),
+            ("num_nonzeros", 40, 42),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &MinimumExternalMacroDataCompression::new(0, vec![], 2),
+        &[
+            ("num_vars", 0, 0),
+            ("num_constraints", 0, 0),
+            ("num_nonzeros", 0, 0),
+        ],
+    );
+}
+
+#[test]
+fn triangle_strengthening_counts_cliques_without_dense_rows() {
+    // K5: ten triangle pairs and five degree rows, no opposite-edge equalities.
+    check_counts::<_, ILP<bool>>(
+        &MonochromaticTriangle::new(SimpleGraph::complete(5)),
+        &[
+            ("num_vars", 10, 10),
+            ("num_constraints", 25, 35),
+            ("num_nonzeros", 80, 100),
+        ],
+    );
+    // K6: 20 triangles, six K5s, and three opposite edges per base triangle.
+    check_counts::<_, ILP<bool>>(
+        &MonochromaticTriangle::new(SimpleGraph::complete(6)),
+        &[("num_constraints", 110, 130), ("num_nonzeros", 320, 360)],
+    );
+    for n in 0..5 {
+        check_contract::<_, ILP<bool>>(&MonochromaticTriangle::new(SimpleGraph::empty(n)));
+    }
+}
+
+#[test]
+fn rectangle_bounds_cover_empty_shapes_and_normalized_budgets() {
+    for bound in [i64::MIN, 0, 1, i64::MAX] {
+        // One maximal 2x2 rectangle: four cell rows and one budget row.
+        check_counts::<_, ILP<bool>>(
+            &RectilinearPictureCompression::new(vec![vec![true; 2]; 2], bound),
+            &[
+                ("num_vars", 1, 6),
+                ("num_nonzeros", 5, 30),
+                ("max_constraint_magnitude_bits", 1, 4),
+            ],
+        );
+    }
+    for matrix in [vec![vec![false]], vec![vec![false; 2]; 2]] {
+        check_contract::<_, ILP<bool>>(&RectilinearPictureCompression::new(matrix, i64::MIN));
+    }
+}
+
+#[test]
+fn nae_support_ignores_repeated_literals_and_bounds_cancellation() {
+    use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
+    for (literals, variables, terms) in [
+        (vec![1, 2], 2, 4),
+        (vec![1, 1, 1, 1], 1, 2),
+        (vec![1, -1, 2, 2], 2, 2),
+        (vec![1, -1], 1, 0),
+    ] {
+        let source = NAESatisfiability::new(4, vec![CNFClause::new(literals)]);
+        assert_eq!(
+            source.parameters().get("num_clause_variables"),
+            Some(variables)
+        );
+        check_counts::<_, ILP<bool>>(&source, &[("num_nonzeros", terms, 2 * variables)]);
+    }
+    check_counts::<_, ILP<bool>>(
+        &NAESatisfiability::new(0, vec![]),
+        &[("num_nonzeros", 0, 0)],
+    );
+    for clauses in [
+        vec![CNFClause::new(vec![])],
+        vec![CNFClause::new(vec![1, 1])],
+    ] {
+        check_contract::<_, NAESatisfiability>(&Satisfiability::new(1, clauses));
+    }
+}
+
+#[test]
+fn timetable_counts_core_edges_and_their_available_colors() {
+    use crate::models::formula::{CNFClause, KSatisfiability};
+    use crate::variant::K3;
+    let source = KSatisfiability::<K3>::new_allow_less(
+        1,
+        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+    );
+    // Six two-list variable edges each supply three edges with two colors;
+    // the two singleton clause edges each supply one available assignment.
+    check_counts::<_, TimetableDesign>(
+        &source,
+        &[
+            ("num_nonzero_requirements", 20, 48),
+            ("num_available_assignments", 38, 96),
+            ("period_count_bits", 3, 5),
+            ("num_craftsmen", 10, 23),
+            ("num_tasks", 10, 24),
+        ],
+    );
+    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(0, vec![]));
+    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(
+        0,
+        vec![CNFClause::new(vec![])],
+    ));
+}
+
+#[test]
+fn lattice_bounds_count_bits_and_off_diagonal_terms() {
+    use crate::models::algebraic::ClosestVectorProblem;
+    // Rank two, dimension two, two magnitude bits: at most nine bits per
+    // coefficient; eighteen variables have 153 off-diagonal positions, bounded by 162.
+    check_counts::<_, QUBO<i64>>(
+        &ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3, 1]).unwrap(),
+        &[("num_vars", 1, 18), ("num_quadratic_terms", 0, 162)],
+    );
+    check_counts::<_, QUBO<i64>>(
+        &ClosestVectorProblem::new(vec![], vec![]).unwrap(),
+        &[("num_vars", 0, 0), ("num_quadratic_terms", 0, 0)],
+    );
+}
+
+#[test]
+fn rooted_tree_bounds_count_each_sparse_gadget() {
+    use crate::models::set::RootedTreeStorageAssignment;
+    // Two vertices contribute 82 terms; the two-element subset contributes
+    // 112 gadget terms and one budget term. Dropping -n gives excess two.
+    check_counts::<_, BoundedILP>(
+        &RootedTreeStorageAssignment::new(2, vec![vec![0, 1]], 1),
+        &[
+            ("num_nonzeros", 195, 197),
+            ("max_constraint_magnitude_bits", 2, 4),
+        ],
+    );
+    check_contract::<_, BoundedILP>(&RootedTreeStorageAssignment::new(0, vec![], i64::MIN));
+    check_contract::<_, BoundedILP>(&RootedTreeStorageAssignment::new(
+        1,
+        vec![vec![], vec![0]],
+        i64::MAX,
+    ));
+}
+
+#[test]
+fn sparse_matrix_and_schedule_rows_count_conflicting_pairs() {
+    use crate::models::algebraic::SparseMatrixCompression;
+    check_counts::<_, ILP<bool>>(
+        &SparseMatrixCompression::new(vec![vec![true], vec![true]], 2),
+        &[
+            ("num_vars", 4, 4),
+            ("num_constraints", 4, 4),
+            ("num_nonzeros", 8, 8),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![1, 1]).unwrap(),
+        &[
+            ("num_vars", 4, 4),
+            ("num_constraints", 4, 8),
+            ("num_nonzeros", 8, 16),
+        ],
+    );
+}
+
+#[test]
+fn flow_and_tour_bounds_include_sparse_global_rows() {
+    check_counts::<_, BoundedILP>(
+        &BoundedComponentSpanningForest::new(SimpleGraph::path(2), vec![1, 1], 1, 2),
+        &[("num_nonzeros", 52, 52)],
+    );
+    check_contract::<_, BoundedILP>(&BoundedComponentSpanningForest::new(
+        SimpleGraph::new(1, vec![(0, 0)]),
+        vec![0],
+        1,
+        1,
+    ));
+    check_counts::<_, ILP<bool>>(
+        &StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]),
+        &[("num_nonzeros", 64, 72)],
+    );
+    check_counts::<_, ILP<bool>>(
+        &BottleneckTravelingSalesman::new(SimpleGraph::path(2), vec![1]),
+        &[("num_nonzeros", 52, 52)],
+    );
+}
+
+#[test]
+fn string_state_rows_count_terms_instead_of_dense_entries() {
+    check_counts::<_, ILP<bool>>(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]),
+        &[
+            ("num_vars", 28, 28),
+            ("num_nonzeros", 78, 100),
+            ("max_constraint_magnitude_bits", 2, 3),
+        ],
+    );
+    check_counts::<_, ILP<bool>>(
+        &StringToStringCorrection::new(1, vec![0], vec![0], 1),
+        &[("num_nonzeros", 21, 41)],
+    );
+    check_counts::<_, ILP<bool>>(
+        &StringToStringCorrection::new(0, vec![], vec![], 2),
+        &[("num_nonzeros", 2, 2)],
+    );
+    check_contract::<_, ILP<bool>>(&StringToStringCorrection::new(1, vec![], vec![0], 2));
+}
+
+#[test]
+fn ensemble_terms_include_ordering_and_target_matches() {
+    // Two operands, one operation, one target: 1 activity bound, four selector
+    // terms + two activity terms, five ordering terms, ten union/disjoint
+    // terms, and eight match terms.
+    check_counts::<_, ILP<bool>>(
+        &EnsembleComputation::new(2, vec![vec![0, 1]], 1),
+        &[("num_nonzeros", 30, 30)],
+    );
+    check_counts::<_, ILP<bool>>(
+        &EnsembleComputation::new(0, vec![], 1),
+        &[("num_nonzeros", 4, 4)],
+    );
+}
+
+#[test]
+fn changed_predictions_bound_real_intermediate_targets() {
+    use crate::models::formula::{CNFClause, KSatisfiability, NAESatisfiability, Satisfiability};
+    use crate::variant::K3;
+    let source = KSatisfiability::<K3>::new_allow_less(
+        1,
+        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+    );
+    for intermediate in [
+        step::<TimetableDesign>(),
+        step::<MonochromaticTriangle<SimpleGraph>>(),
+    ] {
+        let first = ReductionPath {
+            steps: vec![step::<KSatisfiability<K3>>(), intermediate],
+        };
+        let mut second = first.clone();
+        second.steps.push(step::<ILP<bool>>());
+        let graph = ReductionGraph::new();
+        for path in [first, second] {
+            let chain = graph.reduce_along_path(&path, &source).unwrap().unwrap();
+            let predicted = graph
+                .compose_path_parameter_transform(&path)
+                .unwrap()
+                .unwrap()
+                .evaluate(&source.parameters())
+                .unwrap();
+            let target = path.steps.last().unwrap();
+            let actual = ReductionGraph::compute_problem_parameters(
+                &target.name,
+                &target.variant,
+                chain.target_problem_any(),
+            );
+            for (field, value) in actual.iter() {
+                assert!(
+                    predicted.get(field).expect(field) >= value,
+                    "{path:?}: {field}"
+                );
+            }
+        }
+    }
+    // Includes empty clauses, repeated literals and a fresh sentinel through
+    // the new incoming support contract and a real solve/extract workflow.
+    for literals in [vec![], vec![1, 1], vec![1, -1]] {
+        check_path(
+            Satisfiability::new(1, vec![CNFClause::new(literals)]),
+            ReductionPath {
+                steps: vec![
+                    step::<Satisfiability>(),
+                    step::<NAESatisfiability>(),
+                    step::<ILP<bool>>(),
+                    step::<QUBO<i64>>(),
+                ],
+            },
+        );
+    }
+}
+
+#[test]
+fn circuit_support_counts_constant_leaves_and_xor_folds() {
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
+    let source = CircuitSAT::new(Circuit::new(vec![Assignment::new(
+        vec!["out".into()],
+        BooleanExpr::xor(vec![BooleanExpr::constant(false); 32]),
+    )]));
+    // 32 one-term constant rows, 31 four-row XORs of three terms, one output link.
+    check_counts::<_, ILP<bool>>(
+        &source,
+        &[
+            ("num_nonzeros", 406, 419),
+            ("max_constraint_magnitude_bits", 2, 19),
+        ],
+    );
+    for expression in [
+        BooleanExpr::and(vec![]),
+        BooleanExpr::or(vec![]),
+        BooleanExpr::xor(vec![]),
+        BooleanExpr::xor(vec![BooleanExpr::var("out"), BooleanExpr::var("out")]),
+    ] {
+        check_contract::<_, ILP<bool>>(&CircuitSAT::new(Circuit::new(vec![Assignment::new(
+            vec!["out".into()],
+            expression,
+        )])));
+    }
+}
+
+#[test]
+fn graph_mapping_rows_count_non_edges() {
+    check_counts::<_, ILP<bool>>(
+        &IsomorphicSpanningTree::new(SimpleGraph::path(3), SimpleGraph::path(3)),
+        &[("num_constraints", 10, 18), ("num_nonzeros", 26, 42)],
+    );
+    use crate::topology::BipartiteGraph;
+    check_counts::<_, ILP<bool>>(
+        &BalancedCompleteBipartiteSubgraph::new(BipartiteGraph::new(2, 2, vec![]), 2),
+        &[
+            ("num_constraints", 6, 6),
+            ("num_nonzeros", 12, 12),
+            ("max_constraint_magnitude_bits", 2, 2),
+        ],
+    );
+}
+
+#[test]
+fn homologous_flow_support_counts_repeated_pairs() {
+    // Accepted duplicate pair declarations each emit their own equality row;
+    // pair count cannot be bounded by a function of arc/vertex counts alone.
+    let source = IntegralFlowHomologousArcs::new(
+        DirectedGraph::new(2, vec![(0, 1), (0, 1)]),
+        vec![1, 1],
+        0,
+        1,
+        1,
+        vec![(0, 1); 10],
+    );
+    check_counts::<_, BoundedILP>(
+        &source,
+        &[("num_constraints", 13, 14), ("num_nonzeros", 24, 26)],
+    );
+    assert_eq!(source.parameters().get("num_homologous_pairs"), Some(10));
+    // All terms in a (self,self) homologous equality cancel.
+    let source = IntegralFlowHomologousArcs::new(
+        DirectedGraph::new(1, vec![(0, 0)]),
+        vec![i64::MAX],
+        0,
+        0,
+        i64::MAX,
+        vec![(0, 0); 10],
+    );
+    assert_eq!(source.parameters().get("max_capacity_bits"), Some(63));
+    check_counts::<_, BoundedILP>(&source, &[("max_constraint_magnitude_bits", 63, 65)]);
+    use crate::models::formula::{CNFClause, Satisfiability};
+    let source = Satisfiability::new(1, vec![CNFClause::new(vec![1, 1, -1])]);
+    check_counts::<_, IntegralFlowHomologousArcs>(
+        &source,
+        &[("num_homologous_pairs", 2, 3), ("max_capacity_bits", 1, 4)],
+    );
+    for clauses in [
+        vec![],
+        vec![CNFClause::new(vec![1])],
+        vec![CNFClause::new(vec![])],
+    ] {
+        check_path(
+            Satisfiability::new(1, clauses),
+            ReductionPath {
+                steps: vec![
+                    step::<Satisfiability>(),
+                    step::<IntegralFlowHomologousArcs>(),
+                    step::<BoundedILP>(),
+                    step::<ILP<bool>>(),
+                    step::<QUBO<i64>>(),
+                ],
+            },
+        );
+    }
+}
+
+#[test]
+fn labelled_graph_products_count_sparse_support() {
+    use crate::models::graph::{LabelledArc, LabelledDigraph};
+    for (n, arc, terms) in [
+        (2, LabelledArc::new(0, 0, 1), 15),
+        (1, LabelledArc::new(0, 0, 0), 8),
+    ] {
+        let graph = LabelledDigraph::new(n, vec![arc]);
+        check_counts::<_, ILP<bool>>(
+            &MaximumCommonEdgeSubgraph::new(graph.clone(), graph),
+            &[("num_nonzeros", terms, 2 * n as u64 * n as u64 + 7)],
+        );
+    }
+    check_contract::<_, ILP<bool>>(&MaximumCommonEdgeSubgraph::new(
+        LabelledDigraph::new(0, vec![]),
+        LabelledDigraph::new(2, vec![]),
+    ));
+}
+
+#[test]
+fn sentinel_literal_pairs_count_each_clause_once() {
+    use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
+    check_counts::<_, NAESatisfiability>(
+        &Satisfiability::new(
+            1,
+            vec![CNFClause::new(vec![]), CNFClause::new(vec![1, 1, -1])],
+        ),
+        &[("num_literal_pairs", 7, 8)],
+    );
+}
+
+#[test]
+fn unit_schedule_bits_and_precedences_count_layers() {
+    use crate::models::formula::{CNFClause, KSatisfiability};
+    use crate::variant::K3;
+    // Capacities [1,3,3,6], seven processors, filler sizes [6,4,4,1].
+    // 4 variable links + 21 literal links + 24+16+4 filler links.
+    check_counts::<_, PreemptiveScheduling>(
+        &KSatisfiability::<K3>::new_allow_less(1, vec![CNFClause::new(vec![1])]),
+        &[
+            ("num_precedences", 69, 388),
+            ("max_schedule_magnitude_bits", 5, 8),
+        ],
+    );
+    for clauses in [vec![], vec![CNFClause::new(vec![])]] {
+        check_contract::<_, PreemptiveScheduling>(&KSatisfiability::<K3>::new_allow_less(
+            0, clauses,
+        ));
+    }
+}
+
+#[test]
+fn numeric_source_sums_make_raw_target_predictions_available() {
+    use crate::models::Decision;
+    for (sizes, sum, capacity, horizon) in [
+        (vec![1], 1u64, 0, 3),
+        (vec![1, 2], 3, 1, 12),
+        (vec![1, 3], 4, 2, 18),
+    ] {
+        let source = Partition::new(sizes).unwrap();
+        check_counts::<_, Knapsack>(&source, &[("capacity", capacity, sum.div_ceil(2))]);
+        check_counts::<_, Decision<OpenShopScheduling>>(
+            &source,
+            &[("schedule_horizon", horizon, (9 * sum).div_ceil(2))],
+        );
+        check_counts::<_, IntegralFlowWithMultipliers>(
+            &source,
+            &[("max_capacity", if sum % 2 == 1 { 1 } else { 3 }, sum)],
+        );
+        check_counts::<_, ProductionPlanning>(
+            &source,
+            &[(
+                "max_capacity",
+                if sum == 1 {
+                    1
+                } else if sum == 3 {
+                    2
+                } else {
+                    3
+                },
+                sum,
+            )],
+        );
+        assert_eq!(source.parameters().get("total_sum"), Some(sum));
+    }
+    let source = ThreePartition::new(vec![1; 3], 3);
+    check_counts::<_, SequencingWithReleaseTimesAndDeadlines>(&source, &[("time_horizon", 3, 3)]);
+    assert_eq!(source.parameters().get("bound"), Some(3));
+    use crate::models::set::ThreeDimensionalMatching;
+    for source in [
+        ThreeDimensionalMatching::new(0, vec![]),
+        ThreeDimensionalMatching::new(1, vec![]),
+        ThreeDimensionalMatching::new(1, vec![(0, 0, 0)]),
+    ] {
+        check_contract::<_, ThreePartition>(&source);
+        let path = ReductionPath {
+            steps: vec![
+                step::<ThreeDimensionalMatching>(),
+                step::<ThreePartition>(),
+                step::<SequencingWithReleaseTimesAndDeadlines>(),
+            ],
+        };
+        let predicted = ReductionGraph::new()
+            .compose_path_parameter_transform(&path)
+            .unwrap()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let intermediate = ReduceTo::<ThreePartition>::reduce_to(&source).unwrap();
+        let target = ReduceTo::<SequencingWithReleaseTimesAndDeadlines>::reduce_to(
+            intermediate.target_problem(),
+        )
+        .unwrap();
+        assert!(
+            predicted.get("time_horizon").unwrap()
+                >= target
+                    .target_problem()
+                    .parameters()
+                    .get("time_horizon")
+                    .unwrap()
+        );
+    }
+}
+
+#[test]
+fn hamiltonian_edge_bound_includes_normalization_and_fixed_outputs() {
+    use crate::models::Decision;
+    // Two 14-edge gadgets, one incident chain link, six selector links.
+    check_counts::<_, HamiltonianCircuit<SimpleGraph>>(
+        &Decision::new(
+            MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
+            1,
+        ),
+        &[("num_edges", 35, 53)],
+    );
+    for bound in [-1, 0, 3] {
+        check_contract::<_, HamiltonianCircuit<SimpleGraph>>(&Decision::new(
+            MinimumVertexCover::new(
+                SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0)]),
+                vec![One; 3],
+            ),
+            bound,
+        ));
+    }
+}
+
 #[test]
 fn integer_knapsack_and_open_shop_bit_predictions_reach_qubo() {
     use crate::models::{set::IntegerKnapsack, Decision};

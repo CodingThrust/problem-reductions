@@ -58,8 +58,12 @@ impl crate::rules::AggregateReductionResult for ReductionSATToNAESAT {}
         num_clauses = "num_clauses",
     },
     upper_bound {
+        // Nonempty clauses add one fresh sentinel; empty clauses use (s,s).
+        num_clause_variables = "num_literals + num_clauses",
         num_literals = "num_literals + 2 * num_clauses",
-        num_literal_pairs = "(num_literals + 2 * num_clauses)^2",
+        // Nonempty length l contributes l(l+1)/2; an empty clause contributes
+        // one pair. Sum l^2 <= (sum l)^2, including repeated literals.
+        num_literal_pairs = "num_literals * (num_literals + 1) / 2 + num_clauses",
     },
 })]
 impl ReduceTo<NAESatisfiability> for Satisfiability {

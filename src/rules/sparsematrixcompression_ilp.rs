@@ -45,11 +45,13 @@ impl ReductionResult for ReductionSMCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSMCToILP {}
 
+// Assignments contribute r*k terms. Each unordered row pair and pair
+// of columns emits at most k two-term collision rows; empty columns add none.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "1",
     num_vars = "num_rows * bound_k",
-    num_constraints = "num_rows + num_rows^2 * num_cols^2 * bound_k",
-    num_nonzeros = "(num_rows * bound_k) * (num_rows + num_rows^2 * num_cols^2 * bound_k)",
+    num_constraints = "num_rows + num_rows * (num_rows - 1) * num_cols^2 * bound_k / 2",
+    num_nonzeros = "num_rows * bound_k + num_rows * (num_rows - 1) * num_cols^2 * bound_k",
 })]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;

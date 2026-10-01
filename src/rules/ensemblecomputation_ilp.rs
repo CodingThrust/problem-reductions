@@ -84,10 +84,13 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
     exact {
         num_vars = "3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget",
         num_constraints = "5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets",
+        // Distinct selector/product/result blocks never merge. For b>=1,
+        // sum activity/prefix/selection/order terms, 7 terms per product,
+        // both membership rows, and each target's match rows plus final sum.
+        num_nonzeros = "6 * budget - 2 + 9 * budget * universe_size + (4 + 9 * universe_size) * budget * (budget - 1) + num_subsets * budget * (4 + 2 * universe_size)",
     },
     upper_bound {
         max_constraint_magnitude_bits = "universe_size + budget + 1",
-        num_nonzeros = "(3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget) * (5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets)",
     },
 })]
 impl ReduceTo<ILP<bool>> for EnsembleComputation {

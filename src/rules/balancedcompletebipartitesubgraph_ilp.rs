@@ -45,11 +45,14 @@ impl ReductionResult for ReductionBCBSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBCBSToILP {}
 
+// The two partition sums contain n terms total; each missing cross-pair
+// contributes one two-term row. Edge lookup deduplicates raw edges.
+// Coefficients/endpoints are 0/1 and the only other magnitude is k.
 #[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "k + 1",
+    max_constraint_magnitude_bits = "k / 2 + 1",
     num_vars = "num_vertices",
-    num_constraints = "num_vertices^2 + 2",
-    num_nonzeros = "num_vertices * (num_vertices^2 + 2)",
+    num_constraints = "left_size * right_size + 2",
+    num_nonzeros = "num_vertices + 2 * left_size * right_size",
 })]
 impl ReduceTo<ILP<bool>> for BalancedCompleteBipartiteSubgraph {
     type Result = ReductionBCBSToILP;

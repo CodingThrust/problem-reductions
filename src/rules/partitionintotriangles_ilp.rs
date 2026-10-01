@@ -60,11 +60,16 @@ impl ReductionResult for ReductionPITToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPITToILP {}
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "2",
-    num_vars = "num_vertices^2",
-    num_constraints = "num_vertices^2 * num_vertices",
-    num_nonzeros = "(num_vertices^2) * (num_vertices^2 * num_vertices)",
+// Source construction requires n divisible by three, so q=n/3 exactly.
+// With h absent unordered pairs: nq variables, n+q+qh rows, and
+// 2nq+2qh terms. Use h<=n(n-1)/2; the empty source has q=0.
+#[reduction(transform = {
+    exact { num_vars = "num_vertices^2 / 3", },
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+        num_constraints = "4 * num_vertices / 3 + num_vertices^2 * (num_vertices - 1) / 6",
+        num_nonzeros = "(num_vertices^3 + num_vertices^2) / 3",
+    },
 })]
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
     type Result = ReductionPITToILP;

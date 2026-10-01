@@ -76,11 +76,13 @@ impl ReductionResult for ReductionSWIToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSWIToILP {}
 
+// S start slots contribute S assignment terms; at most S(S-1)/2
+// unordered slot pairs emit two-term conflict rows, giving at most S^2 terms.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "1",
     num_vars = "num_start_slots",
-    num_constraints = "num_start_slots^2 + num_tasks",
-    num_nonzeros = "num_start_slots * (num_start_slots^2 + num_tasks)",
+    num_constraints = "num_tasks + num_start_slots * (num_start_slots - 1) / 2",
+    num_nonzeros = "num_start_slots^2",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
     type Result = ReductionSWIToILP;

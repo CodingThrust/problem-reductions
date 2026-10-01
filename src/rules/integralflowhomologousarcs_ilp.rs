@@ -40,12 +40,17 @@ impl ReductionResult for ReductionIFHAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionIFHAToILP {}
 
+// Capacity rows contribute m terms; conservation plus sink balance use at
+// most 2m; each declared homologous pair contributes at most two. Duplicate
+// pairs retain separate rows, while self-loops and (a,a) pairs cancel terms.
+// The clamped requirement has magnitude at most sum(capacities)+1, whose
+// bits are at most h+bit_length(m) <= h+ceil(m/2+1); m=0 is also covered.
 #[reduction(
     transform = upper_bound {
-        max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
+        max_constraint_magnitude_bits = "max_capacity_bits + num_arcs / 2 + 1",
         num_vars = "num_arcs",
-        num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
-        num_nonzeros = "num_arcs * (num_arcs^2 + num_arcs + num_vertices + 1)",
+        num_constraints = "num_arcs + num_vertices + num_homologous_pairs",
+        num_nonzeros = "3 * num_arcs + 2 * num_homologous_pairs",
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowHomologousArcs {
