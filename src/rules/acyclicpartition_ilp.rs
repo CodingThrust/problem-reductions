@@ -9,7 +9,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 pub struct ReductionAcyclicPartitionToILP {
     target: ILP<i64, i64, Bounded>,
     n: usize,
-    parts: Option<usize>,
+    one_hot: bool,
 }
 
 impl ReductionResult for ReductionAcyclicPartitionToILP {
@@ -20,7 +20,7 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
         &self.target
     }
 
-    /// One-hot decode: for each vertex v, output the unique c with x_{v,c} = 1.
+    /// Decode one-hot memberships or return the direct binary part labels.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
@@ -32,11 +32,10 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
             "target ILP assignment is infeasible",
         )?;
 
-        match self.parts {
-            Some(parts) => {
-                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, parts, 0)
-            }
-            None => crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.n]),
+        if self.one_hot {
+            crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, self.n, 0)
+        } else {
+            crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.n])
         }
     }
 }
@@ -220,7 +219,7 @@ fn two_part_reduction(
     Ok(ReductionAcyclicPartitionToILP {
         target,
         n,
-        parts: None,
+        one_hot: false,
     })
 }
 
@@ -332,7 +331,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for AcyclicPartition<i64> {
         Ok(ReductionAcyclicPartitionToILP {
             target,
             n,
-            parts: Some(parts),
+            one_hot: true,
         })
     }
 }

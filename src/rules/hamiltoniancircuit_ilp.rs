@@ -10,8 +10,7 @@ type Target = ILP<i64, i64, Bounded>;
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToILP {
     target: Target,
-    edges: Vec<(usize, usize)>,
-    n: usize,
+    graph: SimpleGraph,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToILP {
@@ -29,14 +28,11 @@ impl ReductionResult for ReductionHamiltonianCircuitToILP {
             |value| value.value.is_some(),
             "target ILP assignment is infeasible",
         )?;
-        let selected: Vec<_> = solution[..self.edges.len()]
+        let selected: Vec<_> = solution[..self.graph.num_edges()]
             .iter()
             .map(|&value| value == 1)
             .collect();
-        crate::rules::graph_helpers::edges_to_cycle_order(
-            &SimpleGraph::new(self.n, self.edges.clone()),
-            &selected,
-        )
+        crate::rules::graph_helpers::edges_to_cycle_order(&self.graph, &selected)
     }
 }
 
@@ -105,7 +101,10 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for HamiltonianCircuit<SimpleGraph> {
         let target =
             Target::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(<Self as ReduceTo<Target>>::target_construction)?;
-        Ok(ReductionHamiltonianCircuitToILP { target, edges, n })
+        Ok(ReductionHamiltonianCircuitToILP {
+            target,
+            graph: SimpleGraph::new(n, edges),
+        })
     }
 }
 

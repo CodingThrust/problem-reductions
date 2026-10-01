@@ -52,13 +52,9 @@ pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>,
                 .copied()
                 .filter(|element| left.binary_search(element).is_err())
                 .collect();
-            let choice =
-                useful
-                    .len()
-                    .checked_add(partitions.len())
-                    .ok_or(SolveError::IntegerOverflow(
-                        "indexing ensemble union choices".into(),
-                    ))?;
+            let choice = useful.len().checked_add(partitions.len()).ok_or_else(|| {
+                SolveError::IntegerOverflow("indexing ensemble union choices".into())
+            })?;
             choices.push((choice, 1));
             for child in [&left, &right] {
                 if child.len() > 1 {
@@ -116,13 +112,11 @@ pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>,
             continue;
         }
         for child in [left, right] {
-            program.push(
-                *operands
-                    .get(child)
-                    .ok_or(failure(ILPSolveError::InvalidSolution(
-                        "union operand was not computed".into(),
-                    )))?,
-            );
+            program.push(*operands.get(child).ok_or_else(|| {
+                failure(ILPSolveError::InvalidSolution(
+                    "union operand was not computed".into(),
+                ))
+            })?);
         }
         operands.insert(
             useful[*index].clone(),

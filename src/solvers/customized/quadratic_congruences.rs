@@ -105,10 +105,10 @@ fn half_sums(choices: &[Vec<BigUint>], modulus: &BigUint) -> Result<Vec<BigUint>
             next.try_reserve(sums.len())?;
             next.extend(sums.iter().map(|sum| (sum + choice) % modulus));
         }
-        next.sort_unstable();
-        next.dedup();
         sums = next;
     }
+    sums.sort_unstable();
+    sums.dedup();
     Ok(sums)
 }
 
@@ -158,13 +158,8 @@ fn bounded_root(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<Option<BigUint>
             let index = right.partition_point(|b| b < &lower);
             if let Some(b) = right.get(index) {
                 let residue = (&a + b) % &modulus;
-                let x = if residue.is_zero() {
-                    modulus.clone()
-                } else {
-                    residue
-                };
-                if &x < c {
-                    return Ok(Some(x));
+                if !residue.is_zero() && &residue < c {
+                    return Ok(Some(residue));
                 }
             }
         }
