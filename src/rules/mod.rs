@@ -42,6 +42,7 @@ pub(crate) mod graphpartitioning_qubo;
 pub(crate) mod hamiltoniancircuit_biconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_bottlenecktravelingsalesman;
 pub(crate) mod hamiltoniancircuit_hamiltonianpath;
+pub(crate) mod hamiltoniancircuit_ilp;
 pub(crate) mod hamiltoniancircuit_longestcircuit;
 pub(crate) mod hamiltoniancircuit_quadraticassignment;
 pub(crate) mod hamiltoniancircuit_ruralpostman;
@@ -339,6 +340,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(hamiltoniancircuit_biconnectivityaugmentation::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_bottlenecktravelingsalesman::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_hamiltonianpath::canonical_rule_example_specs());
+    specs.extend(hamiltoniancircuit_ilp::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_longestcircuit::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_quadraticassignment::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_ruralpostman::canonical_rule_example_specs());

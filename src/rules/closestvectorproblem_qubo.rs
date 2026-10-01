@@ -10,7 +10,7 @@ use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use num_bigint::BigInt;
-use num_traits::Zero;
+use num_traits::{Signed, Zero};
 
 type Source = ClosestVectorProblem;
 type Target = QUBO<i64>;
@@ -109,7 +109,7 @@ fn determinant(matrix: &[Vec<i64>]) -> Result<i64, crate::rules::ReductionError>
         .map_err(|_| overflow("computing a closest-vector determinant"))
 }
 
-fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::ReductionError> {
+fn coefficient_bounds(problem: &Source) -> Result<Vec<(i64, i64)>, crate::rules::ReductionError> {
     let rows = problem
         .independent_rows()
         .map_err(crate::rules::ReductionError::construction::<Source, Target>)?;
@@ -117,66 +117,109 @@ fn coefficient_bounds(problem: &Source) -> Result<Vec<i64>, crate::rules::Reduct
     if size == 0 {
         return Ok(Vec::new());
     }
-
-    let matrix = rows
+    let matrix: Vec<Vec<_>> = rows
         .iter()
-        .map(|&row| {
-            problem
-                .basis()
-                .iter()
-                .map(|column| column[row])
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    if determinant(&matrix)? == 0 {
+        .map(|&row| problem.basis().iter().map(|column| column[row]).collect())
+        .collect();
+    let determinant = determinant(&matrix)?;
+    if determinant == 0 {
         return Err(
             crate::rules::ReductionError::invalid_target::<Source, Target>(
                 "selected closest-vector rows are not independent",
             ),
         );
     }
-
-    let target_norm = problem.target().iter().try_fold(0_i64, |total, &value| {
-        total
-            .checked_add(
-                value
-                    .checked_abs()
-                    .ok_or_else(|| overflow("taking a closest-vector target absolute value"))?,
-            )
-            .ok_or_else(|| overflow("computing the closest-vector target one-norm"))
-    })?;
-    let row_bounds = rows
+    let denominator = BigInt::from(determinant).abs();
+    let mut adjugate = Vec::new();
+    for coefficient in 0..size {
+        let mut row = Vec::new();
+        for selected_row in 0..size {
+            let minor: Vec<Vec<_>> = (0..size)
+                .filter(|&row| row != selected_row)
+                .map(|row| {
+                    (0..size)
+                        .filter(|&column| column != coefficient)
+                        .map(|column| matrix[row][column])
+                        .collect()
+                })
+                .collect();
+            let mut entry = BigInt::from(self::determinant(&minor)?);
+            if (coefficient + selected_row) % 2 == 1 {
+                entry = -entry;
+            }
+            if determinant < 0 {
+                entry = -entry;
+            }
+            row.push(entry);
+        }
+        adjugate.push(row);
+    }
+    // Cramer's rule gives a rational center. A rounded center supplies a
+    // feasible lattice point, so its squared residual bounds the optimum.
+    let centers: Vec<BigInt> = adjugate
         .iter()
-        .map(|&row| {
-            problem.target()[row]
-                .checked_abs()
-                .and_then(|value| value.checked_add(target_norm))
-                .ok_or_else(|| overflow("computing a closest-vector selected-row bound"))
+        .map(|row| {
+            row.iter()
+                .zip(&rows)
+                .map(|(entry, &coordinate)| entry * problem.target()[coordinate])
+                .sum()
         })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    (0..size)
-        .map(|coefficient| {
-            (0..size).try_fold(0_i64, |bound, selected_row| {
-                let minor = (0..size)
-                    .filter(|&row| row != selected_row)
-                    .map(|row| {
-                        (0..size)
-                            .filter(|&column| column != coefficient)
-                            .map(|column| matrix[row][column])
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let adjugate_magnitude = determinant(&minor)?
-                    .checked_abs()
-                    .ok_or_else(|| overflow("taking a closest-vector cofactor absolute value"))?;
-                let term = adjugate_magnitude
-                    .checked_mul(row_bounds[selected_row])
-                    .ok_or_else(|| overflow("computing a closest-vector coefficient bound"))?;
-                bound
-                    .checked_add(term)
-                    .ok_or_else(|| overflow("computing a closest-vector coefficient bound"))
-            })
+        .collect();
+    let candidate: Vec<BigInt> = centers
+        .iter()
+        .map(|center| {
+            let mut quotient = center / &denominator;
+            let remainder = center % &denominator;
+            if remainder.abs() * 2 >= denominator {
+                quotient += remainder.signum();
+            }
+            quotient
+        })
+        .collect();
+    let mut radius_squared = BigInt::zero();
+    let mut zero_distance = BigInt::zero();
+    for coordinate in 0..problem.ambient_dimension() {
+        let target = BigInt::from(problem.target()[coordinate]);
+        let lattice: BigInt = problem
+            .basis()
+            .iter()
+            .zip(&candidate)
+            .map(|(column, coefficient)| coefficient * column[coordinate])
+            .sum();
+        let residual = lattice - &target;
+        radius_squared += &residual * &residual;
+        zero_distance += &target * &target;
+    }
+    radius_squared = radius_squared.min(zero_distance);
+    let floor = |numerator: &BigInt| {
+        let quotient = numerator / &denominator;
+        if numerator.is_negative() && !(numerator % &denominator).is_zero() {
+            quotient - 1
+        } else {
+            quotient
+        }
+    };
+    centers
+        .iter()
+        .zip(&adjugate)
+        .map(|(center, row)| {
+            // Cauchy-Schwarz: |det(A) z_i - center_i|² <= ||adj_i||² R².
+            // The left side is integer, so the integer square root is exact here.
+            let norm: BigInt = row.iter().map(|entry| entry * entry).sum();
+            let radius = BigInt::from(
+                (norm * &radius_squared)
+                    .to_biguint()
+                    .expect("squared radius is nonnegative")
+                    .sqrt(),
+            );
+            let lower = -floor(&(&radius - center));
+            let upper = floor(&(center + radius));
+            Ok((
+                i64::try_from(lower)
+                    .map_err(|_| overflow("bounding closest-vector coefficients"))?,
+                i64::try_from(upper)
+                    .map_err(|_| overflow("bounding closest-vector coefficients"))?,
+            ))
         })
         .collect()
 }
@@ -198,19 +241,21 @@ fn exact_range_weights(maximum: i64) -> Result<Vec<i64>, crate::rules::Reduction
     Ok(weights)
 }
 
-fn encoding_spans(bounds: &[i64]) -> Result<Vec<EncodingSpan>, crate::rules::ReductionError> {
+fn encoding_spans(
+    bounds: &[(i64, i64)],
+) -> Result<Vec<EncodingSpan>, crate::rules::ReductionError> {
     let mut start = 0usize;
     bounds
         .iter()
-        .map(|&bound| {
-            let maximum = bound
-                .checked_mul(2)
+        .map(|&(lower, upper)| {
+            let maximum = upper
+                .checked_sub(lower)
                 .ok_or_else(|| overflow("computing a closest-vector encoding range"))?;
             let weights = exact_range_weights(maximum)?;
             let span = EncodingSpan {
                 start,
                 weights,
-                lower: -bound,
+                lower,
             };
             start = start
                 .checked_add(span.weights.len())
@@ -331,7 +376,7 @@ impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
 
 #[cfg(feature = "example-db")]
 fn canonical_cvp_instance() -> Source {
-    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2])
+    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 1])
         .expect("canonical closest-vector instance must be valid")
 }
 
@@ -344,9 +389,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 canonical_cvp_instance(),
                 SolutionPair {
                     source_config: serde_json::json!(vec![1, 1]),
-                    target_config: serde_json::json!(vec![
-                        false, false, false, true, true, false, false, true, false, false, true,
-                    ]),
+                    target_config: serde_json::json!(vec![true]),
                 },
             )
         },

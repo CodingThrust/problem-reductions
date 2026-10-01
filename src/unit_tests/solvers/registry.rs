@@ -156,11 +156,24 @@ fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
         Err(ILPSolveError::Infeasible)
     ));
     // Exercise completed-value recovery through the explicit optimization route.
-    let mut path = original.path.clone();
-    path.insert(
-        2,
-        ExactProblemKey::new("LongestCircuit", path[1].variant.clone()),
-    );
+    let graph = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
+    let weighted_graph = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    let path = vec![
+        ExactProblemKey::new("HamiltonianCircuit", graph),
+        ExactProblemKey::new("DecisionLongestCircuit", weighted_graph.clone()),
+        ExactProblemKey::new("LongestCircuit", weighted_graph),
+        ExactProblemKey::new(
+            "ILP",
+            BTreeMap::from([
+                ("variable".into(), "bool".into()),
+                ("coefficient".into(), "i64".into()),
+                ("bounds".into(), "general".into()),
+            ]),
+        ),
+    ];
     let reducers = path
         .windows(2)
         .map(|pair| {

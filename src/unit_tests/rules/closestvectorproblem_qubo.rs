@@ -2,14 +2,43 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
+#[test]
+fn translated_target_does_not_expand_the_coefficient_search() {
+    let source =
+        ClosestVectorProblem::new(vec![vec![3, 0], vec![0, 3]], vec![3_000_001, -3_000_001])
+            .unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    // Rounding each coordinate to a multiple of three leaves residual (1, -1).
+    // Every other lattice point has strictly greater squared distance than two.
+    assert_eq!(reduction.target_problem().num_vars(), 0);
+    let witness = reduction.extract_solution(&vec![]).unwrap();
+    assert_eq!(witness, vec![1_000_000, -1_000_000]);
+    assert_eq!(source.evaluate(&witness).unwrap().0, Some(2));
+}
+
+#[test]
+fn scaled_orthogonal_basis_has_a_small_coefficient_encoding() {
+    let source = ClosestVectorProblem::new(vec![vec![100, 0], vec![0, 100]], vec![100, 0]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    // Distance at the zero vector is 100. Thus |z_0| <= 2 and |z_1| <= 1;
+    // the symmetric coefficient box needs only three plus two binary bits.
+    assert!(reduction.target_problem().num_vars() <= 5);
+    let optimum = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+    let witness = reduction.extract_solution(&optimum).unwrap();
+    assert_eq!(source.evaluate(&witness).unwrap().unwrap(), 0);
+    assert_eq!(witness, vec![1, 0]);
+}
+
 fn canonical_cvp() -> ClosestVectorProblem {
-    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 2]).unwrap()
+    ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3_i64, 1]).unwrap()
 }
 
 fn canonical_bits() -> Vec<bool> {
-    vec![
-        false, false, false, true, true, false, false, true, false, false, true,
-    ]
+    // z_0 = 1 and z_1 = bit_0.
+    vec![true]
 }
 
 #[test]
@@ -73,8 +102,8 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(source_solution, vec![1, 1]);
-    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(0));
-    assert_eq!(reduction.target_problem().num_vars(), 11);
+    assert_eq!(source.evaluate(&source_solution).unwrap().0, Some(1));
+    assert_eq!(reduction.target_problem().num_vars(), 1);
 }
 
 #[test]
@@ -115,13 +144,15 @@ fn test_closestvectorproblem_to_qubo_preserves_squared_distance_up_to_constant()
 
 #[test]
 fn test_closestvectorproblem_to_qubo_coefficients() {
-    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&canonical_cvp()).unwrap();
+    let source =
+        ClosestVectorProblem::new(vec![vec![1, 0, 0], vec![1, 1, 0]], vec![0, 0, 2]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let qubo = reduction.target_problem();
-
-    assert_eq!(qubo.get(0, 0), Some(&-248));
-    assert_eq!(qubo.get(0, 1), Some(&16));
-    assert_eq!(qubo.get(0, 6), Some(&4));
-    assert_eq!(qubo.get(6, 6), Some(&-241));
+    // Expanding from lower coefficients (-2,-2): G = [[1,1],[1,2]],
+    // the linear projection G*lower is (-4,-6).
+    assert_eq!(qubo.get(0, 0), Some(&-7));
+    assert_eq!(qubo.get(0, 3), Some(&2));
+    assert_eq!(qubo.get(3, 3), Some(&-10));
 }
 
 #[test]
@@ -132,15 +163,15 @@ fn test_closestvectorproblem_to_qubo_exact_range_decoding() {
         vec![1, 1]
     );
 
-    let duplicate = vec![
-        true, false, false, true, false, true, true, true, true, true, false,
-    ];
-    assert_eq!(reduction.extract_solution(&duplicate).unwrap(), vec![1, 1]);
+    let source = ClosestVectorProblem::new(vec![vec![1, 0]], vec![0, 2]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
+    // The range [-2,2] uses weights 1,2,1; both offsets below equal two.
+    let first = vec![false, true, false];
+    let duplicate = vec![true, false, true];
+    assert_eq!(reduction.extract_solution(&first).unwrap(), vec![0]);
+    assert_eq!(reduction.extract_solution(&duplicate).unwrap(), vec![0]);
     assert_eq!(
-        reduction
-            .target_problem()
-            .evaluate(&canonical_bits())
-            .unwrap(),
+        reduction.target_problem().evaluate(&first).unwrap(),
         reduction.target_problem().evaluate(&duplicate).unwrap()
     );
 }
@@ -162,8 +193,11 @@ fn test_closestvectorproblem_to_qubo_preserves_optimum_outside_old_box() {
 #[test]
 fn test_closestvectorproblem_to_qubo_reports_numeric_boundaries() {
     let absolute_value = ClosestVectorProblem::new(vec![vec![1]], vec![i64::MIN]).unwrap();
+    let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&absolute_value).unwrap();
+    assert_eq!(reduction.extract_solution(&vec![]).unwrap(), vec![i64::MIN]);
+    let gram_overflow = ClosestVectorProblem::new(vec![vec![i64::MAX]], vec![0]).unwrap();
     assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&absolute_value),
+        ReduceTo::<QUBO<i64>>::reduce_to(&gram_overflow),
         Err(crate::rules::ReductionError::IntegerOverflow { .. })
     ));
 
@@ -182,7 +216,7 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "ClosestVectorProblem");
     assert_eq!(example.target.problem, "QUBO");
-    assert_eq!(example.target.instance["num_vars"], 11);
+    assert_eq!(example.target.instance["num_vars"], 1);
     assert_eq!(
         example.solutions[0].source_config,
         serde_json::json!([1, 1])

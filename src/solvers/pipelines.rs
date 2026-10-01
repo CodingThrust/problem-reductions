@@ -220,8 +220,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("HamiltonianCircuit", [("graph", "SimpleGraph")]),
-    ("DecisionLongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
-    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }
 
 register_ilp_pipeline! {

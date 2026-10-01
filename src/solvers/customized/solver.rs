@@ -115,6 +115,28 @@ register_customized_solver!(
 );
 
 register_customized_solver!(
+    crate::models::algebraic::QuadraticCongruences,
+    "prime-power-crt",
+    super::quadratic_congruences::solve
+);
+register_customized_solver!(
+    crate::models::algebraic::QuadraticDiophantineEquations,
+    "prime-power-crt",
+    super::quadratic_congruences::solve_diophantine
+);
+
+register_customized_solver!(
+    crate::models::misc::RegisterSufficiency,
+    "register-topological-search",
+    |problem: &crate::models::misc::RegisterSufficiency| Ok(problem.solve_exact())
+);
+register_customized_solver!(
+    crate::models::misc::EnsembleComputation,
+    "useful-union-ilp",
+    super::ensemble_computation::solve
+);
+
+register_customized_solver!(
     crate::models::decision::Decision<crate::models::algebraic::ClosestVectorProblem>,
     "cvp-sphere-enumeration",
     |problem: &crate::models::decision::Decision<

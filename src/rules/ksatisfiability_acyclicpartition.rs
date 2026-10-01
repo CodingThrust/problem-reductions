@@ -1,7 +1,7 @@
 //! 3-SAT to the bounded-weight quotient-DAG partition problem.
 //!
 //! Compose the formal SAT-to-clique reduction with an incidence construction.
-//! Unit vertex/edge items encode a clique under a cardinality bound. Two heavy
+//! Unit-weight vertices and zero-weight edge items encode a clique. Two heavy
 //! anchors and polynomial arc costs force exactly two blocks and encode the
 //! incidence closure and clique-size inequalities, without digit-encoded weights.
 
@@ -80,10 +80,7 @@ impl ReduceTo<AcyclicPartition<i64>> for KSatisfiability<K3> {
         }
         let mut arcs = Vec::with_capacity(arc_count);
         let mut arc_costs = Vec::with_capacity(arc_count);
-        let profits = degree
-            .iter()
-            .map(|&d| d + 1)
-            .chain(std::iter::repeat_n(0, e));
+        let profits = degree.iter().copied().chain(std::iter::repeat_n(0, e));
         for (item, profit) in profits.enumerate() {
             arcs.push((source_vertex, item));
             arc_costs.push(magnitude);
@@ -96,13 +93,14 @@ impl ReduceTo<AcyclicPartition<i64>> for KSatisfiability<K3> {
             arcs.push((v, n + j));
             arc_costs.push(1);
         }
-        let mut weights = vec![1; items];
+        let mut weights = vec![1; n];
+        weights.resize(items, 0);
         weights.push(weight_bound - capacity);
         weights.push(
             weight_bound
                 - <Self as ReduceTo<AcyclicPartition<i64>>>::exact_i64(
-                    items,
-                    "representing incidence item count",
+                    n - clique.k(),
+                    "representing unselected clique vertex count",
                 )?,
         );
         let target = AcyclicPartition::new(
@@ -141,13 +139,7 @@ fn incidence_parameters(
         .ok_or_else(overflow)?;
     let l = i64::try_from(items).map_err(|_| overflow())?;
     let k = i64::try_from(k).map_err(|_| overflow())?;
-    let next = k.checked_add(1).ok_or_else(overflow)?;
-    let capacity = if k % 2 == 0 {
-        (k / 2).checked_mul(next)
-    } else {
-        k.checked_mul(next / 2)
-    }
-    .ok_or_else(overflow)?;
+    let capacity = k;
     let magnitude = l
         .checked_mul(2)
         .and_then(|x| x.checked_add(1))
@@ -157,10 +149,10 @@ fn incidence_parameters(
         .and_then(|x| x.checked_mul(2))
         .and_then(|x| x.checked_add(1))
         .ok_or_else(overflow)?;
-    let square = k.checked_mul(k).ok_or_else(overflow)?;
+    let twice_edges = k.checked_mul(k.saturating_sub(1)).ok_or_else(overflow)?;
     let cost_bound = magnitude
         .checked_mul(l)
-        .and_then(|x| x.checked_sub(square))
+        .and_then(|x| x.checked_sub(twice_edges))
         .ok_or_else(overflow)?;
     Ok((target_n, arcs, capacity, magnitude, bound, cost_bound))
 }

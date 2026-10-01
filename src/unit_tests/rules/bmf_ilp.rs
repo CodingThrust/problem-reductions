@@ -4,16 +4,36 @@ use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 
 #[test]
+fn mutually_incompatible_edges_reduce_factor_search_symmetry() {
+    use crate::solvers::ILPSolver;
+    use crate::traits::Problem;
+    let source = BMF::new(
+        vec![
+            vec![true, false, false],
+            vec![false, true, false],
+            vec![false, false, true],
+        ],
+        3,
+    );
+    let reduced = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    // No two diagonal edges can share a factor. After naming their factors,
+    // each diagonal needs at most one additional coverage bit.
+    assert!(reduced.target_problem().num_vars() <= 21);
+    let solution = ILPSolver::new().solve(&source).unwrap();
+    assert_eq!(source.evaluate(&solution).unwrap().0, Some(6));
+}
+
+#[test]
 fn test_bmf_to_ilp_structure() {
     // 2x2 identity matrix, rank 1
     let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1);
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    // Four factor bits and one coverage bit per true diagonal entry.
-    assert_eq!(ilp.num_vars(), 6);
-    assert_eq!(ilp.num_constraints(), 8);
-    assert_eq!(ilp.num_nonzeros(), 14);
+    // The first anchored edge fixes its factor; the other diagonal is impossible.
+    assert_eq!(ilp.num_vars(), 4);
+    assert_eq!(ilp.num_constraints(), 5);
+    assert_eq!(ilp.num_nonzeros(), 4);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
@@ -43,8 +63,8 @@ fn test_bmf_to_ilp_trivial() {
     let reduction: ReductionBMFToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    // Two factor bits and one coverage bit.
-    assert_eq!(ilp.num_vars(), 3);
+    // Both factor bits are fixed by the only edge, so coverage needs no extra bit.
+    assert_eq!(ilp.num_vars(), 2);
 }
 
 #[test]
@@ -82,10 +102,10 @@ fn bmf_sparse_coverage_preserves_values_and_zero_dimensions() {
     }
     let source = BMF::new(vec![vec![true]], 2);
     let reduced = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    // Both rank products are true; selecting just one coverage indicator is valid.
-    let witness = reduced.extract_solution(&vec![1, 1, 1, 1, 1, 0]).unwrap();
+    // The anchored first factor covers the edge; extra memberships remain valid.
+    let witness = reduced.extract_solution(&vec![1, 1, 1, 1]).unwrap();
     assert_eq!(source.evaluate(&witness).unwrap(), Min(Some(4)));
-    assert!(reduced.extract_solution(&vec![1, 1, 1, 1, 0, 0]).is_err());
+    assert!(reduced.extract_solution(&vec![0, 0, 0, 0]).is_err());
     assert!(reduced.extract_solution(&vec![]).is_err());
     let huge = BMF::new(vec![vec![false]], usize::MAX);
     assert!(matches!(

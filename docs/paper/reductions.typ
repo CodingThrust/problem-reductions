@@ -11967,7 +11967,14 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     matrix.at(i).at(j) = value
   }
   let bits = cvp_qubo_sol.target_config
-  let lower = (-23, -14)
+  let determinant = basis.at(0).at(0) * basis.at(1).at(1) - basis.at(1).at(0) * basis.at(0).at(1)
+  let adjugate = ((basis.at(1).at(1), -basis.at(1).at(0)), (-basis.at(0).at(1), basis.at(0).at(0)))
+  let center = adjugate.map(row => row.zip(target).fold(0, (acc, pair) => acc + pair.at(0) * pair.at(1)) / determinant)
+  let candidate = center.map(calc.round)
+  let radius-sq = range(target.len()).fold(0, (acc, d) => acc + calc.pow(candidate.enumerate().fold(0, (sum, pair) => sum + pair.at(1) * basis.at(pair.at(0)).at(d)) - target.at(d), 2))
+  let radii = adjugate.map(row => calc.floor(calc.sqrt(row.fold(0, (acc, x) => acc + x*x) * radius-sq)))
+  let lower = center.enumerate().map(((i,x)) => calc.ceil(x - radii.at(i) / calc.abs(determinant)))
+  let upper = center.enumerate().map(((i,x)) => calc.floor(x + radii.at(i) / calc.abs(determinant)))
   let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
   let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
   let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == false { 0.0 } else {
@@ -11990,30 +11997,32 @@ the displayed rule, extracted from the corresponding `pred path` entry.
         )
         *Step 1 -- Source instance.* The canonical CVP example has basis columns $bold(b)_1=#fmt-vec(basis.at(0))$ and $bold(b)_2=#fmt-vec(basis.at(1))$ and target $bold(t)=#fmt-vec(target)$. The source model supplies no coefficient bounds.
 
-        *Step 2 -- Derive a safe box.* Here $A=((2,1),(0,2))$, $norm(bold(t))_1=5$, and the selected-row bounds are $bold(C)=(8,7)$. Since $op("adj")(A)=((2,-1),(0,2))$, the reduction obtains $M_1=23$ and $M_2=14$.
+        *Step 2 -- Derive a safe box.* The inverse-basis center is #fmt-vec(center). Rounding gives #fmt-vec(candidate), whose squared residual is #radius-sq. Exact Cauchy--Schwarz bounds give coefficient intervals from #fmt-vec(lower) to #fmt-vec(upper).
 
-        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.num_vars variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
+        *Step 3 -- Encode and expand.* Encode each interval's offset using powers of two and one capped final weight. Fixed coordinates need no bits; this target uses #cvp_qubo.target.instance.num_vars variable, with coefficient $Q_(0,0)=#matrix.at(0).at(0)$.
 
-        *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq, so $B bold(x)=bold(t)$ #sym.checkmark.
-
-        *Multiplicity.* Residual final weights make some offsets have multiple encodings, so the fixture stores one canonical bit vector although other optimal QUBO witnesses can decode to the same $bold(x)$.
+        *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq #sym.checkmark.
       ],
     )[
       Following the quadratic formulation of Canale, Qureshi, and Viola @canale2023qubo, this rule derives a finite box containing a global minimizer of standard CVP, then encodes that box and expands the squared-distance objective.
     ][
-      _Construction._ Let $B in ZZ^(m times n)$ have full column rank and $bold(t) in ZZ^m$. Select $n$ rows forming an invertible matrix $A$, with source row indices $r_j$. Since zero is a candidate, every minimizer $bold(x)^*$ satisfies $norm(B bold(x)^*-bold(t))_2 <= norm(bold(t))_2$. For $bold(y)=A bold(x)^*$, define $C_j=abs(t_(r_j))+norm(bold(t))_1$. Then $abs(y_j)<=C_j$, and $bold(x)^*=op("adj")(A)bold(y)/det(A)$ gives
-      $ abs(x_i^*) <= M_i = sum_j abs(op("adj")(A)_(i,j)) C_j $
-      because the nonzero integer determinant has magnitude at least one.
+      _Construction._ Let $B in ZZ^(m times n)$ have full column rank and $bold(t) in ZZ^m$. Select $n$ independent rows forming $A$. Write $D=abs(det(A))$ and $H=op("sign")(det(A))op("adj")(A)$, so $A^(-1)=H/D$. Let $s_i=sum_j H_(i,j)t_(r_j)$. Round $s_i/D$ to integer coefficients $q_i$, and set $R^2=min(norm(B bold(q)-bold(t))_2^2,norm(bold(t))_2^2)$. Both comparison points belong to the lattice, so every minimizer has squared residual at most $R^2$.
 
-      Encode $x_i+M_i in [0,2M_i]$ with powers of two and one capped final weight. If $W$ maps the resulting bits to coefficient offsets, $G=B^top B$, $h=B^top bold(t)$, and $bold(ell)=-bold(M)$, then
+      Cauchy--Schwarz applied to the selected residual coordinates gives
+      $ abs(D x_i^*-s_i)^2 <= (sum_j H_(i,j)^2) R^2. $
+      Set $rho_i=floor(sqrt((sum_j H_(i,j)^2)R^2))$. Because $D x_i^*-s_i$ is integer, all minimizing coefficients lie in
+      $ ell_i=ceil((s_i-rho_i)/D) <= x_i^* <= u_i=floor((s_i+rho_i)/D). $
+      All divisions and square roots in the implementation use exact integer arithmetic.
+
+      Encode $x_i-ell_i in [0,u_i-ell_i]$ with powers of two and one capped final weight. Fixed coordinates contribute no bits. If $W$ maps bits to offsets, $G=B^top B$ and $h=B^top bold(t)$, then
       $ norm(B bold(x)-bold(t))_2^2 = bold(z)^top(W^top G W)bold(z) + 2 bold(z)^top W^top(G bold(ell)-h) + "const". $
-      The constant is dropped.
+      Drop the constant.
 
-      _Size bound._ Let $h >= 1$ be the maximum bit length of the absolute entries of $B$ and $bold(t)$. Each cofactor has magnitude at most $(n-1)! 2^(h(n-1))$, and $C_j < (m+1)2^h$. Thus $M_i < n! (m+1)2^(h n)$. Using $log_2(n!) <= n^2$ and $log_2(m+1) <= m$ for $m >= 1$, each coefficient needs at most $n^2+m+n h+3$ bits. The registered bounds are therefore $V=n(n^2+m+n h+3)$ QUBO variables and $V^2$ quadratic terms. A rank-zero basis gives zero variables. The magnitude parameter describes only the source entries, independently of this encoding.
+      _Size bound._ The new intervals lie within the coarse box $[-M_i,M_i]$, where $M_i=sum_j abs(H_(i,j))(abs(t_(r_j))+norm(bold(t))_1)$: the comparison radius never exceeds the zero-vector radius. Let $h >= 1$ be the maximum bit length of the absolute entries of $B$ and $bold(t)$. Each cofactor has magnitude at most $(n-1)! 2^(h(n-1))$, and $C_j < (m+1)2^h$. Thus $M_i < n! (m+1)2^(h n)$. Using $log_2(n!) <= n^2$ and $log_2(m+1) <= m$ for $m >= 1$, each coefficient needs at most $n^2+m+n h+3$ bits. The registered bounds are therefore $V=n(n^2+m+n h+3)$ QUBO variables and $V^2$ quadratic terms. A rank-zero basis gives zero variables. The magnitude parameter describes only the source entries, independently of this encoding.
 
       _Correctness._ ($arrow.r.double$) Every bit vector decodes inside the derived box and has QUBO value equal to its CVP squared distance minus one common constant, so a QUBO minimizer is best within the box. ($arrow.l.double$) The derived box contains a global CVP minimizer, and every point in the box has an exact-range encoding. Therefore the best encoded point is globally optimal for CVP.
 
-      _Solution extraction._ Sum the selected weights for each coefficient and subtract $M_i$.
+      _Solution extraction._ Sum the selected weights for each coefficient and add $ell_i$.
     ]
   ]
 }
@@ -15947,9 +15956,38 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Return the vertex-assignment prefix $(x_0, dots, x_(n-1))$.
 ]
 
+#let hc_ilp = load-example("HamiltonianCircuit", "ILP")
+#reduction-rule("HamiltonianCircuit", "ILP",
+  example: true,
+  example-caption: [One flow certifies connectivity of the selected spanning cycle],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(hc_ilp) + " -o circuit.json",
+      "pred reduce circuit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuit.json --config " + cli-config(hc_ilp.solutions.at(0).source_config),
+    )
+    The source has #hc_ilp.source.instance.graph.num_vertices vertices and
+    #hc_ilp.source.instance.graph.edges.len() edges. Its target has
+    #hc_ilp.target.instance.variables.len() bounded integer variables.
+    The extracted order is #fmt-values(hc_ilp.solutions.at(0).source_config):
+    every source vertex is visited once and the final edge returns to the first.
+  ],
+)[
+  Select a spanning degree-two subgraph and enforce connectivity with one bounded integral flow.
+][
+  _Construction._ Discard loops and duplicate undirected edges. For each remaining edge $e$, use a binary selection $y_e$ and two directed flows bounded in $[0,n-1]$. Require degree two at every vertex and $f_(e,eta)<=(n-1)y_e$. Vertex zero supplies $n-1$ units; every other vertex consumes one. Graphs with fewer than three vertices receive a contradictory row, matching the source's cycle definition. All variables belong to the bounded integer ILP variant.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian cycle has degree two. Send one unit to each other vertex along cycle paths from zero; every directed flow fits the capacity. ($arrow.l.double$) A selected component excluding zero cannot consume one unit per vertex without a selected edge crossing its boundary. Thus the selected graph is connected. A connected simple graph of degree two is one spanning cycle, and the contradictory row excludes the empty and two-vertex cases.
+
+  _Overhead._ With $m'$ distinct non-loop edges, there are $3m'<=3m$ variables, $2n+2m'$ rows plus at most one contradictory row, and at most $10m'$ nonzeros. The largest magnitude is at most $max(n-1,2)$.
+
+  _Solution extraction._ Walk the selected cycle from zero, returning the visited vertex order. Reject an invalid target or a walk that repeats a vertex before returning to zero after all vertices.
+]
+
 #reduction-rule("AcyclicPartition", "ILP")[
-  Bounded topological part labels and one exact crossing indicator per stored arc,
-  retaining one-hot membership for signed part-weight constraints.
+  Binary labels for a certified two-part domain; otherwise bounded topological
+  labels, exact crossing indicators, and one-hot membership for signed weights.
 ][
   _Construction._ Introduce binary memberships $x_(v,j)$ and emptiness bits $e_j$,
   integer labels $p_v in {0,dots,n-1}$, and binary crossing bits $y_a$.
@@ -15970,16 +16008,21 @@ The following reductions to Integer Linear Programming are straightforward formu
   quotient cycles. The cost row therefore measures the exact signed crossing
   sum; negative costs cannot be exploited by a false crossing indicator.
 
-  _Overhead._ There are exactly $n^2+2n+m$ variables and
-  $n^2+4n+2m+1$ rows. The one-hot, label, emptiness implication, emptiness sum,
+  _Part bound._ For nonnegative weights and costs, two vertices $r,s$ with $w_r+w_s>B$ must occupy different parts. Suppose every other vertex $v$ has arcs $r arrow.r v arrow.r s$. Let $a_v,b_v$ be the total costs of the respective parallel arcs, and let $d$ be the total direct $r arrow.r s$ cost. Every feasible partition costs at least $L=d+sum_v min(a_v,b_v)$. If $v$ occupies neither anchor part, both path arcs cross, adding at least $max(a_v,b_v)$ above that baseline. Therefore, when $K-L<min_v max(a_v,b_v)$, every vertex belongs to an anchor part. The implementation then uses one binary label $p_v$ per vertex, fixes $p_r=0,p_s=1$, and substitutes these constants. Arc rows require $p_u<=p_v$; crossing cost is exactly $sum_(a=(u,v)) c_a(p_v-p_u)$ and the two weight rows are $sum_v w_v p_v<=B$ and $sum_v w_v(1-p_v)<=B$. Thus no crossing flags or one-hot memberships are needed in this certified domain. Otherwise it retains the general $n$-label construction. This is a certificate from the target instance's own graph and budgets and applies independently of its origin.
+
+  _Cardinality counting rows._ If all ordinary weights are zero or one and the two capacities sum to the total unit weight, exactly $k=B-w_r$ unit-weight vertices occupy the root part. A zero-weight item with two distinct unit-weight predecessors can occupy that part only when both predecessors do. For each unordered predecessor pair retain one representative item, even when several items share those predecessors. For a unit vertex $v$, let $I_v$ contain the representative items incident to it. Then
+  $ sum_(a in I_v)(1-p_a) <= (k-1)(1-p_v). $
+  If $p_v=1$, all its successor items also have label one. If $p_v=0$, its selected neighbors are distinct among the other $k-1$ selected vertices. Thus the row holds for every source witness. It adds no variables and prevents the relaxation from assigning one selected vertex more selected neighbors than the fixed cardinality permits. Other domains retain the original weight rows.
+
+  _Overhead._ The general construction has $n^2+2n+m$ variables and $n^2+4n+2m+1$ rows. The certified two-part construction uses $n$ variables and at most $m+n+3$ rows. Therefore both counts remain upper-bounded by the general formulas. The one-hot, label, emptiness implication, emptiness sum,
   weight, crossing, and cost blocks contribute at most
   $n^2+n^2+2n^2+(n^2+n)+(n^2+n)+6m+m=6n^2+2n+7m$ nonzeros.
   Loops and zero coefficients can reduce nonzeros after normalization.
   With source numeric magnitude bound $h$, target magnitudes need at most
-  $h+n+1$ bits. All integer variables have explicit finite bounds.
+  $h+2+log_2(n+m+1)$ bits, covering the substituted weight sums and crossing coefficients. The registered polynomial bound $h+n+m+1$ follows from $1+log_2(n+m+1)<=n+m$ for $n+m>=3$; smaller instances use the unmodified general construction. All integer variables have explicit finite bounds.
 
-  _Solution extraction._ Decode the selected part of each one-hot row;
-  the label equalities give the same result from $p$.
+  _Solution extraction._ Return the binary labels in the certified two-part
+  domain; otherwise decode the selected part of each one-hot row.
 ]
 
 #reduction-rule("BalancedCompleteBipartiteSubgraph", "ILP")[
@@ -16145,21 +16188,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 // Matrix/encoding
 
 #reduction-rule("BMF", "ILP")[
-  Retain the binary factor matrices $B,C$. For each zero entry of $A$, require
-  $b_(i,r)+c_(r,j) <= 1$ for every rank $r$. For each one entry introduce coverage
-  bits $p_(i,j,r) <= b_(i,r)$ and $p_(i,j,r) <= c_(r,j)$, with
-  $sum_r p_(i,j,r) >= 1$. Minimize the total factor weight. If $t$ entries are
-  one, this uses $k(m+n)+k t$ variables, $k(m n-t)+(2k+1)t$ rows, and
-  $2k(m n-t)+5k t$ nonzeros. Existing source parameters yield upper bounds by
-  substituting $t <= m n$.
+  Binary factor memberships and sparse coverage witnesses, with factors named by pairwise incompatible matrix entries.
 ][
-  An exact factorization supplies valid coverage bits from its true products.
-  Conversely, zero-entry rows exclude every product there, and each one entry
-  has a selected coverage bit that forces both factor memberships. The extracted
-  matrices therefore reconstruct $A$ exactly, with identical objective for every
-  feasible target witness. Coverage bits need not equal every true product.
-  Rank zero yields an empty contradictory row for each one entry and remains
-  feasible for zero matrices; empty dimensions preserve their factor shapes.
+  _Construction._ Retain $B,C$. Choose up to $k$ one entries $(i,j)$ whose pairs $(i,j),(u,v)$ satisfy $A_(i,v)=0$ or $A_(u,j)=0$. Name a distinct factor for each entry, fixing its endpoint memberships to one and its non-neighbors to zero. Skip rows and coverage variables already decided by these fixed memberships. For remaining zeros require $b_(i,r)+c_(r,j)<=1$; for remaining ones use coverage bits $p_(i,j,r)<=b_(i,r),c_(r,j)$ and $sum_r p_(i,j,r)>=1$. Minimize factor weight.
+
+  _Correctness._ Incompatible entries cannot lie in one all-ones rectangle. Any exact factorization therefore covers the chosen entries with distinct factors, which can be permuted into the named positions without changing its weight. Fixing the endpoint memberships and excluding their non-neighbors preserves that permuted factorization. Every omitted row is implied by these fixed values. Remaining coverage rows force exact reconstruction, and extraction retains the identical factor-weight objective. Coverage bits need not equal every true product. Rank zero and empty dimensions retain their original semantics.
+
+  _Overhead._ There are at most $k(m+n)+k m n$ variables. At most $k(m+n)$ membership pins supplement the original bounds $(2k+1)m n$ rows and $5k m n$ nonzeros. Pruning can only reduce these counts.
+
+  _Solution extraction._ Read the factor-membership prefix in its original layout.
 ]
 
 #reduction-rule("BMF", "BicliqueCover")[
@@ -17967,26 +18004,26 @@ The following table shows concrete target-variable counts for example instances,
 #let ksat_ap_sol = ksat_ap.solutions.at(0)
 #reduction-rule("KSatisfiability", "AcyclicPartition",
   example: true,
-  example-caption: [3-SAT to a partition with two heavy anchors and unit incidence items],
+  example-caption: [3-SAT to a partition with heavy anchors, unit-weight vertices, and zero-weight edge items],
   extra: [
-    The canonical formula $(x_1 or x_1 or x_1)$ gives a clique graph with four vertices, three edges, and threshold two. The incidence construction has seven items and two anchors, capacity $c=3$, magnitude $M=15$, weight bound $B=21$, and cost bound $K=101$. Anchor weights are 18 and 14. The stored partition $(#fmt-values(ksat_ap_sol.target_config))$ puts two clique vertices and their edge item with the source anchor. Its cut cost is $105-2-2=101$. Formal extraction gives $(#fmt-values(ksat_ap_sol.source_config))$.
+    The canonical formula $(x_1 or x_1 or x_1)$ gives a four-vertex clique graph with threshold two. Its partition target has #ksat_ap.target.instance.graph.num_vertices vertices and #ksat_ap.target.instance.graph.arcs.len() arcs, weight bound #ksat_ap.target.instance.weight_bound and cost bound #ksat_ap.target.instance.cost_bound. The final two vertex weights are #fmt-values(ksat_ap.target.instance.vertex_weights.slice(-2)). The stored partition $(#fmt-values(ksat_ap_sol.target_config))$ puts two clique vertices and their edge item with the source anchor; edge items consume no capacity. Formal extraction gives $(#fmt-values(ksat_ap_sol.source_config))$.
   ],
 )[
-  Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. All weights and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
+  Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. Vertex weights are nonnegative integers and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
 ][
   _Numeric magnitude._ For $c$ clauses, incidence count $L$ is at most $5(c+1)^2$, the cluster parameter is $c+1$, and capacity is at most $(c+1)^2$. All constructed magnitudes are below $64(c+1)^4<=2^(4c+6)$. Thus target `max_numeric_magnitude_bits` is at most $4c+6$, including $c=0$.
 
   _Construction._ First obtain a clique instance $H=(V,E)$ with threshold $k$ from the formal 3-SAT-to-KClique rule, including its universal vertex and padding. Write $h=|V|$, $e=|E|$, and $L=h+e$. Here $1 <= k <= h$.
 
-  1. Create one unit-weight item per vertex and edge of $H$. Set $c=k(k+1)/2$, $M=2L+1$, and $B=2(L+c)+1$.
-  2. Add anchors $s,t$ with weights $B-c$ and $B-L$. For every item $i$, add $(s,i)$ of cost $M$ and $(i,t)$ of cost $M-d_i$, where $d_i=deg_H(i)+1$ for vertex items and zero for edge items.
-  3. For every edge $a={u,v}$ add $(u,a)$ and $(v,a)$, each of cost one. Set the weight bound to $B$ and cut-cost bound to $K=M L-k^2$.
+  1. Create one unit-weight item per vertex and one zero-weight item per edge of $H$. Set $M=2L+1$ and $B=2(L+k)+1$.
+  2. Add anchors $s,t$ with weights $B-k$ and $B-(h-k)$. For every item $i$, add $(s,i)$ of cost $M$ and $(i,t)$ of cost $M-d_i$, where $d_i=deg_H(i)$ for vertex items and zero for edge items.
+  3. For every edge $a={u,v}$ add $(u,a)$ and $(v,a)$, each of cost one. Set the weight bound to $B$ and cut-cost bound to $K=M L-k(k-1)$.
 
-  _Forward direction._ Given a clique of at least $k$ vertices, choose exactly $k$ of them. Put these vertex items and their $k(k-1)/2$ edge items with $s$, and all remaining items with $t$. The source block contains exactly $c$ unit items; the sink block contains at most $L$. No dependency arc goes from the sink block to the source block, so the quotient is acyclic. Spoke costs are $M L-sum_(v " selected")(deg_H(v)+1)$, and dependency costs are $sum_(v " selected") deg_H(v)-k(k-1)$. Their sum is $M L-k^2=K$.
+  _Forward direction._ Choose exactly $k$ vertices of a source clique. Put their vertex items and all $k(k-1)/2$ internal edge items with $s$, and the remaining items with $t$. The respective ordinary vertex weights are $k$ and $h-k$, so both blocks meet their capacity exactly. Edge items add no weight. No dependency points from the sink block to the source block. Spoke costs are $M L-sum_(v " selected") deg_H(v)$, and dependency costs are $sum_(v " selected") deg_H(v)-k(k-1)$. The total is $K$.
 
-  _Backward direction._ Each anchor weighs more than $B/2$, so they occupy distinct blocks. If $r>=1$ items lie outside those blocks, spoke costs alone are at least $M(L+r)-(h+2e)>M L>K$, since $h+2e<=2L<M$. Thus every item is in an anchor block. Some spoke induces a source-to-sink quotient arc because $L>=1$. A dependency in the opposite direction would create a cycle, so an edge item in the source block has both endpoints there.
+  _Backward direction._ Each anchor weighs more than $B/2$, so they occupy distinct blocks. If $r>=1$ items lie outside those blocks, spoke costs alone are at least $M(L+r)-2e>M L>=K$, since $2e<=2L<M$. Thus every item lies in an anchor block. A spoke induces a source-to-sink quotient arc; a dependency in the opposite direction would create a cycle. Therefore a source-block edge item has both endpoints in that block.
 
-  Let $p$ and $q$ count vertex and edge items in the source block. Capacity gives $p+q<=c$ and closure gives $q<=p(p-1)/2$. The exact cut cost is $M L-p-2q$, hence $p+2q>=k^2$. If $p<k$, then $p+2q<=p^2<k^2$. If $p>k$, then $p+2q<=2c-p<k^2$. Therefore $p=k$ and $q=k(k-1)/2$: the selected vertices form a clique.
+  Let $p,q$ count ordinary vertex and edge items in the source block. The two independent weight bounds give $p<=k$ and $h-p<=h-k$, hence $p=k$. Closure gives $q<=p(p-1)/2$. The exact cut cost is $M L-2q$, so $q>=k(k-1)/2$. Equality follows, and the selected $k$ vertices form a clique. The explicit vertex cardinality avoids the weaker mixed vertex-plus-edge capacity inequality.
 
   _Solution extraction._ Validate the target partition, select precisely those vertex items sharing the label of $s$, and invoke the formal clique-to-SAT extractor. This mapping is independent of the numerical names of partition blocks.
 

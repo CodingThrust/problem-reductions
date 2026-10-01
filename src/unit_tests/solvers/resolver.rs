@@ -5,6 +5,151 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn arithmetic_solvers_find_large_bounded_roots() {
+    use num_bigint::BigUint;
+
+    let x = (BigUint::from(1u8) << 60usize) + BigUint::from(1u8);
+    let modulus = BigUint::from(3u8).pow(100);
+    let cases = [
+        (
+            "QuadraticCongruences",
+            serde_json::json!({"a": (&x * &x).to_string(), "b": modulus.to_string(), "c": (&x + BigUint::from(1u8)).to_string()}),
+        ),
+        (
+            "QuadraticDiophantineEquations",
+            serde_json::json!({"a": "6", "b": (&modulus * 6u8).to_string(), "c": ((&x * &x + &modulus) * 6u8).to_string()}),
+        ),
+    ];
+    for (name, data) in cases {
+        let problem = load_dyn(name, &BTreeMap::new(), data).unwrap();
+        let result = solve(&problem, SolverRequest::Customized).unwrap();
+        let SolveOutcome::Optimal { solution, .. } = result.outcome else {
+            panic!("expected the independently constructed root for {name}");
+        };
+        assert_eq!(solution, serde_json::to_value(&x).unwrap());
+        assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+    }
+}
+
+#[test]
+fn arithmetic_solvers_match_integer_enumeration() {
+    for b in 1u64..=20 {
+        for a in 0..b {
+            for c in [1u64, 2, 4, 9] {
+                let expected = (1..c).any(|x| x * x % b == a);
+                let problem = load_dyn(
+                    "QuadraticCongruences",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let actual = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "x² = {a} mod {b}, x < {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+    for a in 1u64..=4 {
+        for b in 1u64..=12 {
+            for c in 1u64..=30 {
+                let expected = (1..c).any(|x| a * x * x < c && (c - a * x * x) % b == 0);
+                let problem = load_dyn(
+                    "QuadraticDiophantineEquations",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let actual = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "{a}x² + {b}y = {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn register_solver_matches_exhaustive_ordering_search() {
+    use crate::models::misc::RegisterSufficiency;
+    for mask in 0..64 {
+        let arcs: Vec<_> = [(1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2)]
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, edge)| (mask & (1 << i) != 0).then_some(edge))
+            .collect();
+        for bound in 0..=4 {
+            let model = RegisterSufficiency::new(4, arcs.clone(), bound);
+            let problem = load_dyn(
+                RegisterSufficiency::NAME,
+                &BTreeMap::new(),
+                serde_json::to_value(model).unwrap(),
+            )
+            .unwrap();
+            let expected = solve(&problem, SolverRequest::BruteForce).unwrap();
+            let actual = solve(&problem, SolverRequest::Customized).unwrap();
+            assert_eq!(
+                matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                matches!(expected.outcome, SolveOutcome::Optimal { .. }),
+                "DAG {mask}, bound {bound}"
+            );
+            if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            }
+        }
+    }
+}
+
+#[test]
+fn register_solver_checks_identical_dependency_groups() {
+    use crate::models::misc::RegisterSufficiency;
+    // Each consumer needs twelve inputs simultaneously. The final consumer
+    // requires both results, so thirteen registers suffice and eleven cannot.
+    let arcs = (0..12)
+        .map(|v| (24, v))
+        .chain((12..24).map(|v| (25, v)))
+        .chain([(26, 24), (26, 25)])
+        .collect::<Vec<_>>();
+    for (bound, expected) in [(11, false), (13, true)] {
+        let model = RegisterSufficiency::new(27, arcs.clone(), bound);
+        let actual = model.solve_exact();
+        assert_eq!(actual.is_some(), expected);
+        if let Some(solution) = actual {
+            assert!(model.evaluate(&solution).unwrap().0);
+        }
+    }
+}
+
+#[test]
+fn ensemble_solver_returns_a_minimum_shared_union_program() {
+    use crate::models::misc::EnsembleComputation;
+    let model = EnsembleComputation::new(5, vec![vec![0, 1, 2], vec![0, 1, 3], vec![0, 1, 4]], 8);
+    let problem = load_dyn(
+        EnsembleComputation::NAME,
+        &BTreeMap::new(),
+        serde_json::to_value(model).unwrap(),
+    )
+    .unwrap();
+    let actual = solve(&problem, SolverRequest::Customized).unwrap();
+    let SolveOutcome::Optimal { solution, .. } = actual.outcome else {
+        panic!("shared union program exists");
+    };
+    // Three distinct triples each need a gate and all triples can share {0,1}.
+    // No triple is a disjoint union of two available singletons: optimum = 4.
+    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Min(4)");
+}
+
+#[test]
 fn tree_and_weighted_sequencing_default_to_ilp() {
     let tree_variant = BTreeMap::from([
         ("graph".into(), "SimpleGraph".into()),

@@ -18,6 +18,90 @@ fn small_instance() -> AcyclicPartition<i64> {
 }
 
 #[test]
+fn crossing_budget_bounds_the_number_of_occupied_parts() {
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3), (1, 2)]);
+    let source = AcyclicPartition::new(
+        graph.clone(),
+        vec![8, 1, 1, 8],
+        vec![10, 8, 10, 8, 1],
+        10,
+        17,
+    );
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    // Anchors cannot share a part. The two paths already cost at least 16;
+    // putting any interior vertex in a third part adds at least 10.
+    assert_eq!(reduction.target_problem().num_vars(), 4);
+    for bound in [9, 10] {
+        for budget in [15, 16, 17, 19, 25, 26] {
+            let source = AcyclicPartition::new(
+                graph.clone(),
+                vec![8, 1, 1, 8],
+                vec![10, 8, 10, 8, 1],
+                bound,
+                budget,
+            );
+            let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+            let expected = BruteForce::new().solve(&source).unwrap();
+            match ILPSolver::new().solve(reduction.target_problem()) {
+                Ok(solution) => {
+                    assert!(expected.is_some());
+                    assert!(
+                        source
+                            .evaluate(&reduction.extract_solution(&solution).unwrap())
+                            .unwrap()
+                            .0
+                    );
+                }
+                Err(crate::solvers::ILPSolveError::Infeasible) => assert!(expected.is_none()),
+                Err(error) => panic!("{error}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn fixed_vertex_cardinality_preserves_every_two_part_witness() {
+    let mut arcs = Vec::new();
+    let mut costs = Vec::new();
+    for (v, profit) in [(1, 2), (2, 3), (3, 1), (4, 0), (5, 0), (6, 0)] {
+        arcs.extend([(0, v), (v, 7)]);
+        costs.extend([20, 20 - profit]);
+    }
+    // Two distinct neighbor pairs, with two separate items for pair (1,2).
+    // Both duplicate items can belong to the selected part simultaneously.
+    arcs.extend([(1, 4), (2, 4), (2, 5), (3, 5), (1, 6), (2, 6)]);
+    costs.extend([1; 6]);
+    let source = AcyclicPartition::new(
+        DirectedGraph::new(8, arcs),
+        vec![8, 1, 1, 1, 0, 0, 0, 9],
+        costs,
+        10,
+        118,
+    );
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+    for mask in 0..64 {
+        let labels = std::iter::once(0)
+            .chain((0..6).map(|v| (mask >> v) & 1))
+            .chain([1])
+            .collect::<Vec<_>>();
+        let assignment = labels
+            .iter()
+            .map(|&label| i64::try_from(label).unwrap())
+            .collect();
+        assert_eq!(
+            reduction
+                .target_problem()
+                .evaluate(&assignment)
+                .unwrap()
+                .value
+                .is_some(),
+            source.evaluate(&labels).unwrap().0,
+            "partition {labels:?}"
+        );
+    }
+}
+
+#[test]
 fn test_acyclicpartition_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionAcyclicPartitionToILP =
