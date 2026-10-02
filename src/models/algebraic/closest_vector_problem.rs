@@ -49,7 +49,7 @@ pub struct ClosestVectorProblem {
     /// Target vector in the ambient space.
     target: Vec<i64>,
     #[serde(skip)]
-    coefficient_bound_bits: u64,
+    coefficient_box_bits: u64,
 }
 
 impl ClosestVectorProblem {
@@ -75,7 +75,7 @@ impl ClosestVectorProblem {
                 "closest-vector basis columns must be linearly independent".into(),
             )
         })?;
-        let coefficient_bound_bits = if basis.is_empty() {
+        let coefficient_box_bits = if basis.is_empty() {
             0
         } else {
             let norms: Vec<BigInt> = basis
@@ -85,8 +85,7 @@ impl ClosestVectorProblem {
             // Cauchy-Binet and Hadamard bound every adjugate row's squared
             // norm by the product of the other column norms. The determinant
             // is already available from the rank check; no source solve is needed.
-            let complementary_norm = norms.iter().product::<BigInt>()
-                / norms.iter().min().expect("nonempty independent basis");
+            let norm_product = norms.iter().product::<BigInt>();
             let mut squared_radius: BigInt =
                 target.iter().map(|&entry| BigInt::from(entry).pow(2)).sum();
             if basis.len() == ambient_dimension {
@@ -98,16 +97,25 @@ impl ClosestVectorProblem {
             // Every coefficient interval has integer width at most
             // floor(sqrt(4 P R^2 / det(A)^2)); width's bit length is the
             // exact-range binary bit count. BigInt keeps large cancellations exact.
-            (complementary_norm * squared_radius * 4u32 / determinant.pow(2))
-                .to_biguint()
-                .expect("squared width is nonnegative")
-                .sqrt()
-                .bits()
+            let scaled_radius = norm_product * squared_radius * 4u32;
+            let squared_determinant = determinant.pow(2);
+            norms
+                .iter()
+                .map(|norm| {
+                    (&scaled_radius / norm / &squared_determinant)
+                        .to_biguint()
+                        .expect("squared width is nonnegative")
+                        .sqrt()
+                        .bits()
+                })
+                .fold(0u64, u64::saturating_add)
+            // Constructible target counts fit u64, so capping an upper bound
+            // at u64::MAX remains sound even if the geometric relaxation exceeds it.
         };
         Ok(Self {
             basis,
             target,
-            coefficient_bound_bits,
+            coefficient_box_bits,
         })
     }
 
@@ -128,14 +136,14 @@ impl ClosestVectorProblem {
         )
     }
 
-    /// Cached upper bound on bits per coefficient in a closest-vector box.
+    /// Cached upper bound on total bits in a constructible closest-vector box.
     ///
     /// Uses the selected coordinate determinant, Hadamard bounds on inverse
     /// row norms, and the zero or full-rank rounded candidate's distance bound.
     /// Computing it adds norm sums and integer arithmetic to the existing rank
     /// check, without computing coefficient centers or solving CVP.
-    pub fn coefficient_bound_bits(&self) -> u64 {
-        self.coefficient_bound_bits
+    pub fn coefficient_box_bits(&self) -> u64 {
+        self.coefficient_box_bits
     }
 
     /// Integer basis columns.
@@ -222,7 +230,7 @@ impl Problem for ClosestVectorProblem {
         ("ambient_dimension", ambient_dimension),
         ("num_basis_vectors", num_basis_vectors),
         ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
-        ("coefficient_bound_bits", coefficient_bound_bits),
+        ("coefficient_box_bits", coefficient_box_bits),
     ];
 
     fn evaluate(&self, solution: &Self::Solution) -> Result<Min<i64>, EvaluationError> {

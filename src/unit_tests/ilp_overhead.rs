@@ -270,7 +270,7 @@ fn lattice_geometry_bounds_preserve_ambient_residuals_and_cancellation() {
     // interactions, and every interaction between the blocks cancels.
     let source =
         ClosestVectorProblem::new(vec![vec![1, 0, 0], vec![0, 1, 0]], vec![0, 0, 2]).unwrap();
-    assert_eq!(source.parameters().get("coefficient_bound_bits"), Some(3));
+    assert_eq!(source.parameters().get("coefficient_box_bits"), Some(6));
     check_counts::<_, QUBO<i64>>(
         &source,
         &[("num_vars", 6, 6), ("num_quadratic_terms", 6, 18)],
@@ -283,6 +283,18 @@ fn lattice_geometry_bounds_preserve_ambient_residuals_and_cancellation() {
     check_counts::<_, QUBO<i64>>(
         &ClosestVectorProblem::new(vec![vec![2]], vec![0]).unwrap(),
         &[("num_vars", 0, 0), ("num_quadratic_terms", 0, 0)],
+    );
+}
+
+#[test]
+fn lattice_box_bits_sum_distinct_coordinate_widths() {
+    use crate::models::algebraic::ClosestVectorProblem;
+    // Selected determinant one, squared complementary norms ten and one,
+    // and an unspanned residual squared of one: widths six and two use three
+    // and two bits. All ten off-diagonal pairs have nonzero Gram coefficients.
+    check_counts::<_, QUBO<i64>>(
+        &ClosestVectorProblem::new(vec![vec![1, 0, 0], vec![3, 1, 0]], vec![0, 0, 1]).unwrap(),
+        &[("num_vars", 5, 5), ("num_quadratic_terms", 10, 13)],
     );
 }
 
@@ -789,10 +801,10 @@ fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
         // The carry lattices have unit selected determinants. Squared column
         // norms (3), then (3,5), and squared target norm two bound widths by
         // floor(sqrt(8)) and floor(sqrt(40)), respectively.
-        let (actual_bits, predicted_bits) = if sizes[0] == 1 { (2, 4) } else { (3, 7) };
+        let (actual_bits, predicted_bits) = if sizes[0] == 1 { (2, 4) } else { (6, 14) };
         check_counts::<_, Decision<ClosestVectorProblem>>(
             &source,
-            &[("coefficient_bound_bits", actual_bits, predicted_bits)],
+            &[("coefficient_box_bits", actual_bits, predicted_bits)],
         );
         check_path(
             source,
