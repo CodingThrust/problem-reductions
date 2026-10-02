@@ -143,6 +143,19 @@ impl RectilinearPictureCompression {
         &self.maximal_rects
     }
 
+    /// Number of cached maximal all-1 rectangles.
+    pub fn num_rectangles(&self) -> usize {
+        self.maximal_rects.len()
+    }
+
+    /// Sum of maximal rectangle areas, counting overlapping cells separately.
+    pub fn total_rectangle_area(&self) -> usize {
+        self.maximal_rects
+            .iter()
+            .map(|&(r1, c1, r2, c2)| (r2 - r1 + 1) * (c2 - c1 + 1))
+            .sum()
+    }
+
     fn build_prefix_sum(&self) -> Vec<Vec<usize>> {
         let m = self.num_rows();
         let n = self.num_cols();
@@ -248,7 +261,12 @@ impl Problem for RectilinearPictureCompression {
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_cols", num_cols), ("num_rows", num_rows),];
+    crate::problem_parameters![
+        ("num_cols", num_cols),
+        ("num_rows", num_rows),
+        ("num_rectangles", num_rectangles),
+        ("total_rectangle_area", total_rectangle_area),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

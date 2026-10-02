@@ -48,6 +48,8 @@ pub struct ClosestVectorProblem {
     basis: Vec<Vec<i64>>,
     /// Target vector in the ambient space.
     target: Vec<i64>,
+    #[serde(skip)]
+    coefficient_bound_bits: u64,
 }
 
 impl ClosestVectorProblem {
@@ -68,12 +70,45 @@ impl ClosestVectorProblem {
                 basis.len()
             )));
         }
-        if independent_rows(&basis, ambient_dimension).is_none() {
-            return Err(ConstructionError::Conversion(
+        let (_, determinant) = independent_rows(&basis, ambient_dimension).ok_or_else(|| {
+            ConstructionError::Conversion(
                 "closest-vector basis columns must be linearly independent".into(),
-            ));
-        }
-        Ok(Self { basis, target })
+            )
+        })?;
+        let coefficient_bound_bits = if basis.is_empty() {
+            0
+        } else {
+            let norms: Vec<BigInt> = basis
+                .iter()
+                .map(|column| column.iter().map(|&entry| BigInt::from(entry).pow(2)).sum())
+                .collect();
+            // Cauchy-Binet and Hadamard bound every adjugate row's squared
+            // norm by the product of the other column norms. The determinant
+            // is already available from the rank check; no source solve is needed.
+            let complementary_norm = norms.iter().product::<BigInt>()
+                / norms.iter().min().expect("nonempty independent basis");
+            let mut squared_radius: BigInt =
+                target.iter().map(|&entry| BigInt::from(entry).pow(2)).sum();
+            if basis.len() == ambient_dimension {
+                // With full rank, rounding A^-1 t leaves coefficient errors
+                // <=1/2. Cauchy-Schwarz gives ||B error||^2 <=r sum(norms)/4.
+                squared_radius = squared_radius
+                    .min(BigInt::from(basis.len()) * norms.iter().sum::<BigInt>() / 4);
+            }
+            // Every coefficient interval has integer width at most
+            // floor(sqrt(4 P R^2 / det(A)^2)); width's bit length is the
+            // exact-range binary bit count. BigInt keeps large cancellations exact.
+            (complementary_norm * squared_radius * 4u32 / determinant.pow(2))
+                .to_biguint()
+                .expect("squared width is nonnegative")
+                .sqrt()
+                .bits()
+        };
+        Ok(Self {
+            basis,
+            target,
+            coefficient_bound_bits,
+        })
     }
 
     /// Number of basis vectors.
@@ -93,6 +128,16 @@ impl ClosestVectorProblem {
         )
     }
 
+    /// Cached upper bound on bits per coefficient in a closest-vector box.
+    ///
+    /// Uses the selected coordinate determinant, Hadamard bounds on inverse
+    /// row norms, and the zero or full-rank rounded candidate's distance bound.
+    /// Computing it adds norm sums and integer arithmetic to the existing rank
+    /// check, without computing coefficient centers or solving CVP.
+    pub fn coefficient_bound_bits(&self) -> u64 {
+        self.coefficient_bound_bits
+    }
+
     /// Integer basis columns.
     pub fn basis(&self) -> &[Vec<i64>] {
         &self.basis
@@ -104,18 +149,20 @@ impl ClosestVectorProblem {
     }
 
     pub(crate) fn independent_rows(&self) -> Result<Vec<usize>, ConstructionError> {
-        independent_rows(&self.basis, self.ambient_dimension()).ok_or_else(|| {
-            ConstructionError::Conversion(
-                "closest-vector basis columns must be linearly independent".into(),
-            )
-        })
+        independent_rows(&self.basis, self.ambient_dimension())
+            .map(|(rows, _)| rows)
+            .ok_or_else(|| {
+                ConstructionError::Conversion(
+                    "closest-vector basis columns must be linearly independent".into(),
+                )
+            })
     }
 }
 
-fn independent_rows(basis: &[Vec<i64>], ambient_dimension: usize) -> Option<Vec<usize>> {
+fn independent_rows(basis: &[Vec<i64>], ambient_dimension: usize) -> Option<(Vec<usize>, BigInt)> {
     let num_columns = basis.len();
     if num_columns == 0 {
-        return Some(Vec::new());
+        return Some((Vec::new(), BigInt::from(1)));
     }
 
     let mut matrix = (0..ambient_dimension)
@@ -147,7 +194,7 @@ fn independent_rows(basis: &[Vec<i64>], ambient_dimension: usize) -> Option<Vec<
         previous_pivot = pivot;
     }
     row_indices.truncate(num_columns);
-    Some(row_indices)
+    Some((row_indices, previous_pivot))
 }
 
 impl<'de> Deserialize<'de> for ClosestVectorProblem {
@@ -175,6 +222,7 @@ impl Problem for ClosestVectorProblem {
         ("ambient_dimension", ambient_dimension),
         ("num_basis_vectors", num_basis_vectors),
         ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("coefficient_bound_bits", coefficient_bound_bits),
     ];
 
     fn evaluate(&self, solution: &Self::Solution) -> Result<Min<i64>, EvaluationError> {

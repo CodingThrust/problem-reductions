@@ -67,6 +67,11 @@ impl ReductionSubsetSumToClosestVectorProblem {
     }
 }
 
+// For r=n+k-1 columns, the selected determinant is one. Element column
+// squared norms are <=k+2, carry norms are five, and target squared norm
+// is <=n+k=r+1. For r>=1, k+4<=2^(k+2) and r+1<=2^r, so width
+// <=2^(((r-1)(k+2)+r)/2+1). Its bit length is <=r(k+3)/2+2.
+// The empty basis has zero bits and also satisfies this relaxed bound.
 #[reduction(transform = {
     exact {
         ambient_dimension = "2 * num_elements + max_numeric_magnitude_bits",
@@ -74,6 +79,7 @@ impl ReductionSubsetSumToClosestVectorProblem {
     },
     upper_bound {
         max_numeric_magnitude_bits = "2",
+        coefficient_bound_bits = "(num_elements + max_numeric_magnitude_bits - 1) * (max_numeric_magnitude_bits + 3) / 2 + 2",
     }
 })]
 impl ReduceTo<Decision<ClosestVectorProblem>> for SubsetSum {

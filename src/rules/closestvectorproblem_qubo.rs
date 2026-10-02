@@ -276,18 +276,14 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
         })
 }
 
-// With rank r>=1, dimension d and entry magnitude M<2^h, the zero
-// candidate gives R^2<=d*M^2. Cofactors are <=(r-1)! M^(r-1), so each
-// coefficient range has width <=2 sqrt(rd) (r-1)! M^r. Using
-// (r-1)!<=2^((r-1)(r-2)/2) and rd<=2^(r+d-2) gives at most
-// B=(r^2+d)/2+r*h+2 bits: the logarithmic width bound is at least
-// r+1 below B, so the integer bit count is <=floor(B). Summing these
-// bounds before the final ceiling is safe. r=0 gives an empty target.
+// The source's cached geometric bound covers every coefficient interval,
+// including the zero-distance and empty-basis cases. It uses the same
+// selected determinant and a Hadamard bound, without computing the intervals.
 // QUBO counts only off-diagonal terms: at most N(N-1)/2<=N^2/2;
 // the latter bound also composes monotonically through bounded dimensions.
 #[reduction(transform = upper_bound {
-    num_vars = "num_basis_vectors * ((num_basis_vectors^2 + ambient_dimension) / 2 + num_basis_vectors * max_numeric_magnitude_bits + 2)",
-    num_quadratic_terms = "(num_basis_vectors * ((num_basis_vectors^2 + ambient_dimension) / 2 + num_basis_vectors * max_numeric_magnitude_bits + 2))^2 / 2",
+    num_vars = "num_basis_vectors * coefficient_bound_bits",
+    num_quadratic_terms = "(num_basis_vectors * coefficient_bound_bits)^2 / 2",
 })]
 impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;

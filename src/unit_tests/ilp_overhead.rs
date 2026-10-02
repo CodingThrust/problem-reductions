@@ -168,15 +168,28 @@ fn rectangle_bounds_cover_empty_shapes_and_normalized_budgets() {
         check_counts::<_, ILP<bool>>(
             &RectilinearPictureCompression::new(vec![vec![true; 2]; 2], bound),
             &[
-                ("num_vars", 1, 6),
-                ("num_nonzeros", 5, 30),
+                ("num_vars", 1, 1),
+                ("num_nonzeros", 5, 5),
                 ("max_constraint_magnitude_bits", 1, 4),
             ],
         );
     }
     for matrix in [vec![vec![false]], vec![vec![false; 2]; 2]] {
-        check_contract::<_, ILP<bool>>(&RectilinearPictureCompression::new(matrix, i64::MIN));
+        check_counts::<_, ILP<bool>>(
+            &RectilinearPictureCompression::new(matrix, i64::MIN),
+            &[("num_vars", 0, 0), ("num_nonzeros", 0, 0)],
+        );
     }
+    // The two maximal dominoes overlap at the top-left cell: four incidences,
+    // rather than three distinct true cells, and two budget coefficients.
+    check_counts::<_, ILP<bool>>(
+        &RectilinearPictureCompression::new(vec![vec![true, true], vec![true, false]], 2),
+        &[("num_vars", 2, 2), ("num_nonzeros", 6, 6)],
+    );
+    check_counts::<_, ILP<bool>>(
+        &RectilinearPictureCompression::new(vec![vec![true, false, true]], 2),
+        &[("num_vars", 2, 2), ("num_nonzeros", 4, 4)],
+    );
 }
 
 #[test]
@@ -237,15 +250,53 @@ fn timetable_counts_core_edges_and_their_available_colors() {
 #[test]
 fn lattice_bounds_count_bits_and_off_diagonal_terms() {
     use crate::models::algebraic::ClosestVectorProblem;
-    // Rank two, dimension two, two magnitude bits: at most nine bits per
-    // coefficient; eighteen variables have 153 off-diagonal positions, bounded by 162.
+    // Determinant four, largest complementary squared norm five, and rounded
+    // residual squared at most four: coefficient width <=sqrt(5)<3, or two bits.
     check_counts::<_, QUBO<i64>>(
         &ClosestVectorProblem::new(vec![vec![2, 0], vec![1, 2]], vec![3, 1]).unwrap(),
-        &[("num_vars", 1, 18), ("num_quadratic_terms", 0, 162)],
+        &[("num_vars", 1, 4), ("num_quadratic_terms", 0, 8)],
     );
     check_counts::<_, QUBO<i64>>(
         &ClosestVectorProblem::new(vec![], vec![]).unwrap(),
         &[("num_vars", 0, 0), ("num_quadratic_terms", 0, 0)],
+    );
+}
+
+#[test]
+fn lattice_geometry_bounds_preserve_ambient_residuals_and_cancellation() {
+    use crate::models::algebraic::ClosestVectorProblem;
+    // An unspanned residual of length two permits coefficients -2..=2.
+    // Three bits encode that range; the two orthogonal blocks each have three
+    // interactions, and every interaction between the blocks cancels.
+    let source =
+        ClosestVectorProblem::new(vec![vec![1, 0, 0], vec![0, 1, 0]], vec![0, 0, 2]).unwrap();
+    assert_eq!(source.parameters().get("coefficient_bound_bits"), Some(3));
+    check_counts::<_, QUBO<i64>>(
+        &source,
+        &[("num_vars", 6, 6), ("num_quadratic_terms", 6, 18)],
+    );
+    // A one-bit interval exercises the final ceiling of the off-diagonal cap.
+    check_counts::<_, QUBO<i64>>(
+        &ClosestVectorProblem::new(vec![vec![2]], vec![1]).unwrap(),
+        &[("num_vars", 1, 1), ("num_quadratic_terms", 0, 1)],
+    );
+    check_counts::<_, QUBO<i64>>(
+        &ClosestVectorProblem::new(vec![vec![2]], vec![0]).unwrap(),
+        &[("num_vars", 0, 0), ("num_quadratic_terms", 0, 0)],
+    );
+}
+
+#[test]
+fn kings_mapping_bounds_count_wires_and_gadget_edges() {
+    use crate::topology::KingsSubgraph;
+    check_counts::<_, MaximumIndependentSet<KingsSubgraph, One>>(
+        &MaximumIndependentSet::new(SimpleGraph::empty(1), vec![One]),
+        &[("num_vertices", 1, 5), ("num_edges", 0, 11)],
+    );
+    // Two adjacent source vertices simplify to a single target edge.
+    check_counts::<_, MaximumIndependentSet<KingsSubgraph, One>>(
+        &MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]),
+        &[("num_vertices", 2, 20), ("num_edges", 1, 44)],
     );
 }
 
@@ -734,8 +785,17 @@ fn partition_knapsack_qubo_predictions_and_solution_recovery() {
 fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
     use crate::models::{algebraic::ClosestVectorProblem, Decision};
     for (sizes, target) in [(vec![1], 1), (vec![2], 1)] {
+        let source = SubsetSum::new(sizes.clone(), target);
+        // The carry lattices have unit selected determinants. Squared column
+        // norms (3), then (3,5), and squared target norm two bound widths by
+        // floor(sqrt(8)) and floor(sqrt(40)), respectively.
+        let (actual_bits, predicted_bits) = if sizes[0] == 1 { (2, 4) } else { (3, 7) };
+        check_counts::<_, Decision<ClosestVectorProblem>>(
+            &source,
+            &[("coefficient_bound_bits", actual_bits, predicted_bits)],
+        );
         check_path(
-            SubsetSum::new(sizes, target),
+            source,
             ReductionPath {
                 steps: vec![
                     step::<SubsetSum>(),

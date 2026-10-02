@@ -37,10 +37,20 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
     }
 }
 
+// At order position i, vertical slot span is <=i and horizontal span
+// <=n-1-i. With spacing four, copy lines contain <=4n(n-1)+n cells.
+// Only disconnected crossing gadgets increase counts: +2 vertices and
+// +10 internal edges, consuming one doubled cell each. There are at most
+// n(n-1)/2 doubled cells; all gadget boundary nodes are retained source
+// nodes, so no outside edges are added. Other gadgets only decrease counts.
+// Copy-line edges total <=4n(n-1)+5(n-1) (five extra corner contacts),
+// with at most four extra contacts per pair of crossing lines. Thus final
+// V<=5n^2-4n and E<=11n(n-1)+5(n-1)<=11n^2. Positive-coefficient
+// relaxations preserve monotonic composition; n=0 is rejected by the mapper.
 #[reduction(
     transform = upper_bound {
-        num_vertices = "16 * num_vertices^2 + 32 * num_vertices + 12",
-        num_edges = "64 * num_vertices^2 + 128 * num_vertices + 48",
+        num_vertices = "5 * num_vertices^2",
+        num_edges = "11 * num_vertices^2",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
