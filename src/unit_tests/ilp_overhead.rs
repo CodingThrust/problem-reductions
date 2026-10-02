@@ -8,7 +8,7 @@ use crate::solvers::{BruteForce, BruteForceProblem, ILPSolver};
 use crate::topology::{DirectedGraph, SimpleGraph};
 use crate::{
     types::{Min, One},
-    Problem,
+    Problem, ProblemParameters,
 };
 
 type BoundedILP = ILP<i64, i64, Bounded>;
@@ -16,25 +16,7 @@ type BoundedILP = ILP<i64, i64, Bounded>;
 // Expected counts below come from enumerated rows/segments, independently of
 // the registered expressions. Check predictions as well as the real targets.
 fn check_counts<S: Problem + ReduceTo<T>, T: Problem>(source: &S, counts: &[(&str, u64, u64)]) {
-    check_contract::<S, T>(source);
-    let reduction = source.reduce_to().unwrap();
-    let actual = reduction.target_problem().parameters();
-    let entry = crate::rules::registry::reduction_entries()
-        .into_iter()
-        .find(|e| {
-            e.source_name == S::NAME
-                && e.target_name == T::NAME
-                && e.source_variant() == S::variant()
-                && e.target_variant() == T::variant()
-        })
-        .unwrap();
-    let predicted = entry
-        .parameter_contract()
-        .unwrap()
-        .transform()
-        .unwrap()
-        .evaluate(&source.parameters())
-        .unwrap();
+    let (actual, predicted) = check_contract::<S, T>(source);
     for &(field, measured, bound) in counts {
         assert_eq!(
             actual.get(field),
@@ -840,7 +822,9 @@ fn factoring_circuit_sat_qubo_predictions_and_solution_recovery() {
     }
 }
 
-fn check_contract<S: Problem + ReduceTo<T>, T: Problem>(source: &S) {
+fn check_contract<S: Problem + ReduceTo<T>, T: Problem>(
+    source: &S,
+) -> (ProblemParameters, ProblemParameters) {
     let target = source.reduce_to().unwrap();
     let entry = crate::rules::registry::reduction_entries()
         .into_iter()
@@ -860,7 +844,8 @@ fn check_contract<S: Problem + ReduceTo<T>, T: Problem>(source: &S) {
     );
     let transform = contract.transform().unwrap();
     let predicted = transform.evaluate(&source.parameters()).unwrap();
-    for (field, actual) in target.target_problem().parameters().iter() {
+    let actual = target.target_problem().parameters();
+    for (field, actual) in actual.iter() {
         let prediction = predicted.get(field).expect(field);
         match transform.relation(field).unwrap() {
             ParameterRelation::Exact => assert_eq!(prediction, actual, "{}: {field}", S::NAME),
@@ -871,6 +856,7 @@ fn check_contract<S: Problem + ReduceTo<T>, T: Problem>(source: &S) {
             ),
         }
     }
+    (actual, predicted)
 }
 
 fn step<P: Problem>() -> ReductionStep {
