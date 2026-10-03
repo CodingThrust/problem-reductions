@@ -1,4 +1,4 @@
-//! Exact bounded square roots: prime-power lifting, CRT, and meet in the middle.
+//! Exact bounded square roots with budgeted CRT preprocessing.
 //! CRT proof: https://kconrad.math.uconn.edu/blurbs/ugradnumthy/crt.pdf
 //! Hensel lifting: https://www.math-cs.gordon.edu/~kcrisman/mat338/section-74.html
 
@@ -7,15 +7,32 @@ use crate::solvers::SolveError;
 use num_bigint::BigUint;
 use num_traits::{One, Pow, Zero};
 
-fn prime_powers(modulus: &BigUint) -> Vec<(BigUint, usize)> {
+struct WorkBudget(BigUint);
+
+struct BudgetExceeded;
+
+impl WorkBudget {
+    fn take(&mut self, amount: BigUint) -> Result<(), BudgetExceeded> {
+        if amount > self.0 {
+            return Err(BudgetExceeded);
+        }
+        self.0 -= amount;
+        Ok(())
+    }
+}
+
+fn prime_powers(
+    modulus: &BigUint,
+    budget: &mut WorkBudget,
+) -> Result<Vec<(BigUint, usize)>, BudgetExceeded> {
     let mut remaining = modulus.clone();
     let mut prime = BigUint::from(2u8);
     let mut factors = Vec::new();
-    // ponytail: exact trial division; use certified faster factoring if large
-    // prime factors, rather than the number of CRT choices, become the bottleneck.
     while &prime * &prime <= remaining {
+        budget.take(BigUint::one())?;
         let mut exponent = 0;
         while (&remaining % &prime).is_zero() {
+            budget.take(BigUint::one())?;
             remaining /= &prime;
             exponent += 1;
         }
@@ -31,18 +48,23 @@ fn prime_powers(modulus: &BigUint) -> Vec<(BigUint, usize)> {
     if remaining > BigUint::one() {
         factors.push((remaining, 1));
     }
-    factors
+    Ok(factors)
 }
 
 /// Return the complete root classes, allowing a smaller period for nonunits.
-fn local_roots(a: &BigUint, prime: &BigUint, exponent: usize) -> Option<(BigUint, Vec<BigUint>)> {
+fn local_roots(
+    a: &BigUint,
+    prime: &BigUint,
+    exponent: usize,
+    budget: &mut WorkBudget,
+) -> Result<Option<(BigUint, Vec<BigUint>)>, BudgetExceeded> {
     let full = Pow::pow(prime.clone(), exponent);
     let mut unit = a % &full;
     if unit.is_zero() {
-        return Some((
+        return Ok(Some((
             Pow::pow(prime.clone(), exponent.div_ceil(2)),
             vec![BigUint::zero()],
-        ));
+        )));
     }
     let mut valuation = 0;
     while (&unit % prime).is_zero() {
@@ -50,8 +72,9 @@ fn local_roots(a: &BigUint, prime: &BigUint, exponent: usize) -> Option<(BigUint
         valuation += 1;
     }
     if valuation % 2 != 0 {
-        return None;
+        return Ok(None);
     }
+    budget.take(prime.clone())?;
     let mut roots = Vec::new();
     let mut candidate = BigUint::zero();
     while &candidate < prime {
@@ -61,7 +84,7 @@ fn local_roots(a: &BigUint, prime: &BigUint, exponent: usize) -> Option<(BigUint
         candidate += 1u8;
     }
     if roots.is_empty() {
-        return None;
+        return Ok(None);
     }
     let mut period = prime.clone();
     for _ in 1..exponent - valuation {
@@ -85,16 +108,16 @@ fn local_roots(a: &BigUint, prime: &BigUint, exponent: usize) -> Option<(BigUint
             }
         }
         if lifted.is_empty() {
-            return None;
+            return Ok(None);
         }
         roots = lifted;
         period = next;
     }
     let scale: BigUint = Pow::pow(prime.clone(), valuation / 2);
-    Some((
+    Ok(Some((
         &period * &scale,
         roots.into_iter().map(|root| root * &scale).collect(),
-    ))
+    )))
 }
 
 fn half_sums(choices: &[Vec<BigUint>], modulus: &BigUint) -> Result<Vec<BigUint>, SolveError> {
@@ -112,30 +135,50 @@ fn half_sums(choices: &[Vec<BigUint>], modulus: &BigUint) -> Result<Vec<BigUint>
     Ok(sums)
 }
 
+fn enumerate_root(
+    a: &BigUint,
+    b: &BigUint,
+    mut candidate: BigUint,
+    limit: &BigUint,
+) -> Option<BigUint> {
+    let residue = a % b;
+    while &candidate <= limit {
+        if (&candidate * &candidate) % b == residue {
+            return Some(candidate);
+        }
+        candidate += 1u8;
+    }
+    None
+}
+
 fn bounded_root(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<Option<BigUint>, SolveError> {
     if c <= &BigUint::one() {
         return Ok(None);
     }
-    // Check small witness spaces before factoring or enumerating prime roots.
-    // One complete positive residue period suffices when c exceeds b.
+    // A prefix finds cheap witnesses regardless of the size of c. One complete
+    // positive residue period suffices when c exceeds b.
     let limit = (c - BigUint::one()).min(b.clone());
-    if limit <= BigUint::from(4096u32) {
-        let residue = a % b;
-        let mut candidate = BigUint::one();
-        while candidate <= limit {
-            if (&candidate * &candidate) % b == residue {
-                return Ok(Some(candidate));
-            }
-            candidate += 1u8;
-        }
+    let prefix = limit.clone().min(BigUint::from(4096u32));
+    if let Some(root) = enumerate_root(a, b, BigUint::one(), &prefix) {
+        return Ok(Some(root));
+    }
+    if prefix == limit {
         return Ok(None);
     }
-    let Some(classes) = prime_powers(b)
-        .into_iter()
-        .map(|(prime, exponent)| local_roots(a, &prime, exponent))
-        .collect::<Option<Vec<_>>>()
-    else {
-        return Ok(None);
+    let fallback = || enumerate_root(a, b, &prefix + BigUint::one(), &limit);
+    // Never spend more trials on factorization and prime-root scans than
+    // there are remaining witnesses. Exhaustion requests enumeration, not NO.
+    let mut budget = WorkBudget(&limit - &prefix);
+    let classes = (|| {
+        prime_powers(b, &mut budget)?
+            .into_iter()
+            .map(|(prime, exponent)| local_roots(a, &prime, exponent, &mut budget))
+            .collect::<Result<Option<Vec<_>>, BudgetExceeded>>()
+    })();
+    let classes = match classes {
+        Ok(Some(classes)) => classes,
+        Ok(None) => return Ok(None),
+        Err(BudgetExceeded) => return Ok(fallback()),
     };
     let modulus: BigUint = classes.iter().map(|(period, _)| period).product();
     let choices: Vec<Vec<BigUint>> = classes
@@ -158,6 +201,17 @@ fn bounded_root(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<Option<BigUint>
         return Ok(Some(if residue.is_zero() { modulus } else { residue }));
     }
     let split = choices.len() / 2;
+    let combinations: BigUint = [&choices[..split], &choices[split..]]
+        .into_iter()
+        .map(|half| {
+            half.iter()
+                .map(|roots| BigUint::from(roots.len()))
+                .product::<BigUint>()
+        })
+        .sum();
+    if budget.take(combinations).is_err() {
+        return Ok(fallback());
+    }
     let left = half_sums(&choices[..split], &modulus)?;
     let right = half_sums(&choices[split..], &modulus)?;
     // Since c <= M, zero residues are excluded, including after wraparound.
