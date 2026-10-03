@@ -21,8 +21,13 @@ fn subsets(set: &[usize]) -> Result<Vec<Vec<usize>>, SolveError> {
 }
 
 pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>, SolveError> {
-    // Computed sets are nonempty disjoint unions of two nonempty operands.
-    if problem.subsets().iter().any(|set| set.len() < 2) {
+    // A k-element set needs k-1 disjoint unions of singleton leaves, even
+    // when intermediate results are shared with other required sets.
+    if problem
+        .subsets()
+        .iter()
+        .any(|set| set.len() < 2 || set.len() - 1 > problem.budget())
+    {
         return Ok(None);
     }
     // ponytail: enumerate subsets of required sets; use implicit subset search

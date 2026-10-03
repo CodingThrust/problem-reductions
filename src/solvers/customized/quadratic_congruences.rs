@@ -116,6 +116,20 @@ fn bounded_root(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<Option<BigUint>
     if c <= &BigUint::one() {
         return Ok(None);
     }
+    // Check small witness spaces before factoring or enumerating prime roots.
+    // One complete positive residue period suffices when c exceeds b.
+    let limit = (c - BigUint::one()).min(b.clone());
+    if limit <= BigUint::from(4096u32) {
+        let residue = a % b;
+        let mut candidate = BigUint::one();
+        while candidate <= limit {
+            if (&candidate * &candidate) % b == residue {
+                return Ok(Some(candidate));
+            }
+            candidate += 1u8;
+        }
+        return Ok(None);
+    }
     let Some(classes) = prime_powers(b)
         .into_iter()
         .map(|(prime, exponent)| local_roots(a, &prime, exponent))

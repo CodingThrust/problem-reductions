@@ -5,6 +5,86 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn arithmetic_solvers_check_small_witness_ranges_before_large_moduli() {
+    let cases = [
+        (
+            "QuadraticCongruences",
+            1u64,
+            1_000_000_007u64,
+            2u64,
+            Some(1u64),
+        ),
+        ("QuadraticCongruences", 4, 1_000_000_007, 2, None),
+        ("QuadraticCongruences", 4, 1_000_000_007, 3, Some(2)),
+        ("QuadraticCongruences", 0, 1, 2, Some(1)),
+        ("QuadraticCongruences", 0, 7, 7, None),
+        ("QuadraticCongruences", 0, 7, 8, Some(7)),
+        (
+            "QuadraticDiophantineEquations",
+            1,
+            1_000_000_007,
+            1_000_000_008,
+            Some(1),
+        ),
+        (
+            "QuadraticDiophantineEquations",
+            1,
+            1_000_000_007,
+            1_000_000_009,
+            None,
+        ),
+    ];
+    for (name, a, b, c, expected) in cases {
+        let problem = load_dyn(
+            name,
+            &BTreeMap::new(),
+            serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+        )
+        .unwrap();
+        let result = solve(&problem, SolverRequest::Default).unwrap();
+        match (result.outcome, expected) {
+            (SolveOutcome::Optimal { solution, .. }, Some(witness)) => {
+                assert_eq!(
+                    solution,
+                    serde_json::to_value(num_bigint::BigUint::from(witness)).unwrap()
+                );
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            }
+            (SolveOutcome::Infeasible, None) => {}
+            (actual, expected) => {
+                panic!("{name}({a}, {b}, {c}): {actual:?}, expected {expected:?}")
+            }
+        }
+    }
+}
+
+#[test]
+fn arithmetic_solver_search_boundary_matches_integer_enumeration() {
+    for b in [5005u64, 6561, 8192] {
+        for a in [0u64, 1, 2, 9, 16, 49] {
+            for c in [4097u64, 4098, 10_000] {
+                let expected = (1..c).any(|x| x * x % b == a);
+                let problem = load_dyn(
+                    "QuadraticCongruences",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let result = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(result.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "x² = {a} mod {b}, x < {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = result.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn arithmetic_solvers_find_large_bounded_roots() {
     use num_bigint::BigUint;
 
