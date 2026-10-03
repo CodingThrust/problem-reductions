@@ -56,7 +56,7 @@ impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i64>>
         let mapping_error = |error: crate::rules::ReductionError| {
             error.for_reduction::<Self, MaximumIndependentSet<TriangularSubgraph, i64>>()
         };
-        let result = triangular::map_weighted(n, &edges).map_err(&mapping_error)?;
+        let result = triangular::map_weighted(n, &edges).map_err(mapping_error)?;
         let weights = triangular::map_unit_weights(&result).map_err(mapping_error)?;
         let grid = result.to_triangular_subgraph();
         let target = MaximumIndependentSet::new(grid, weights);
