@@ -115,11 +115,14 @@ impl ReductionResult for ReductionSTSCToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSTSCToILP {}
 
+// State/initial/final rows contribute <=(2k+4)n^2+(3k+5)n terms;
+// operation/legality rows <=8kn+k; updates <=12kn^3+6kn^2.
+// The length-rejection target has no terms; n=0 has k one-term no-op rows.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "1",
     num_vars = "(bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound",
     num_constraints = "4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound + 1",
-    num_nonzeros = "((bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound) * (4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound + 1)",
+    num_nonzeros = "12 * bound * source_length^3 + (8 * bound + 4) * source_length^2 + (11 * bound + 5) * source_length + bound",
 })]
 impl ReduceTo<ILP<bool>> for StringToStringCorrection {
     type Result = ReductionSTSCToILP;

@@ -73,6 +73,9 @@ impl crate::rules::AggregateReductionResult for ReductionSubsetSumToPartition {}
     transform = upper_bound {
         max_numeric_magnitude_bits = "max_numeric_magnitude_bits + num_elements + 1",
         num_elements = "num_elements + 1",
+    },
+    unavailable = {
+        total_sum = "target sum is source_sum + abs(source_sum - 2*target); neither raw source_sum nor target is in the source schema, which accepts arbitrary-precision values; a scale-sensitive bound from magnitude bits requires a variable exponent unsupported by the exact evaluator",
     })]
 impl ReduceTo<Partition> for SubsetSum {
     type Result = ReductionSubsetSumToPartition;

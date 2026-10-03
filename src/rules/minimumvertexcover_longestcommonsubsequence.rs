@@ -52,7 +52,7 @@ impl ReductionResult for ReductionVCToLCS {
         },
     },
     unavailable = {
-        cross_frequency_product = "the exact target parameter is not represented by this reduction's symbolic transform",
+        cross_frequency_product = "each symbol occurs once in the base string and at most twice in each of num_edges edge strings; the source-only bound num_vertices * 2^num_edges needs a variable exponent, unsupported by the exact evaluator; endpoint incidences determine the exact product",
     }
 )]
 impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One> {

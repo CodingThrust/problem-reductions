@@ -87,12 +87,11 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopSche
             num_machines = "3",
         },
         upper_bound {
+            // Three copies of each size and three floor(S/2) operations.
+            schedule_horizon = "9 * total_sum / 2",
             schedule_horizon_bits = "max_numeric_magnitude_bits + num_elements + 3",
         },
     },
-    unavailable = {
-        schedule_horizon = "raw horizon requires numeric magnitude values; downstream predictions use schedule_horizon_bits",
-    }
 )]
 impl ReduceTo<Decision<OpenShopScheduling>> for Partition {
     type Result = ReductionPartitionToOpenShopScheduling;

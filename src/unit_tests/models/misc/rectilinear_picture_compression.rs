@@ -4,6 +4,20 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
+fn rectangle_parameters_count_cached_incidence_including_overlaps() {
+    for (matrix, rectangles, area) in [
+        (vec![vec![false; 2]; 2], 0, 0),
+        (vec![vec![true; 2]; 2], 1, 4),
+        (vec![vec![true, true], vec![true, false]], 2, 4),
+        (vec![vec![true, false, true]], 2, 2),
+    ] {
+        let source = RectilinearPictureCompression::new(matrix, 1);
+        assert_eq!(source.parameters().get("num_rectangles"), Some(rectangles));
+        assert_eq!(source.parameters().get("total_rectangle_area"), Some(area));
+    }
+}
+
+#[test]
 fn test_rectilinear_picture_compression_rejects_invalid_json_without_panicking() {
     for matrix in [
         serde_json::json!([]),

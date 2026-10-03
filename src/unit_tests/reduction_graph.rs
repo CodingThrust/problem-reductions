@@ -1375,12 +1375,29 @@ fn numeric_magnitude_bits_cover_padding_and_empty_targets() {
             })
             .unwrap();
         let contract = entry.parameter_contract().unwrap();
+        let expected_unavailable = if S::NAME == SubsetSum::NAME && T::NAME == Partition::NAME {
+            vec!["total_sum"]
+        } else {
+            vec![]
+        };
+        assert_eq!(
+            contract
+                .unavailable()
+                .iter()
+                .map(|f| f.field)
+                .collect::<Vec<_>>(),
+            expected_unavailable
+        );
         let predicted = contract
             .transform()
             .unwrap()
             .evaluate(&source.parameters())
             .unwrap();
         for (field, actual) in reduction.target_problem().parameters().iter() {
+            if expected_unavailable.contains(&field) {
+                assert!(predicted.get(field).is_none());
+                continue;
+            }
             assert!(
                 predicted.get(field).unwrap() >= actual,
                 "{} -> {}: {field}",

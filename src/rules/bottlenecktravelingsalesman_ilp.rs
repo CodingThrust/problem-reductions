@@ -79,6 +79,9 @@ impl ReductionBTSPToILP {
     }
 }
 
+// Binary/assignment/implication/selection rows contribute 3n^2+18mn+3m
+// terms. Weight-threshold selectors add at most m^2 terms, including ties.
+// Loop orientations and parallel edges remain separate variables.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + num_edges",
@@ -86,7 +89,7 @@ impl ReductionBTSPToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_nonzeros = "(num_vertices^2 + 2 * num_edges * num_vertices + num_edges) * (num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1)",
+        num_nonzeros = "3 * num_vertices^2 + 18 * num_edges * num_vertices + num_edges^2 + 3 * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for BottleneckTravelingSalesman {

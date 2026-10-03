@@ -44,11 +44,14 @@ impl ReductionResult for ReductionSCToILP {
     }
 }
 
+// Two assignment families contribute 2m^2 terms. Each of m^3
+// products contributes at most seven terms plus one unreachable-pair pin.
+// At m=1 repeated operands merge; at m=0 the target is empty.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "2",
     num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
     num_constraints = "num_arcs + num_arcs + 4 * num_arcs * num_arcs * num_arcs",
-    num_nonzeros = "(num_arcs * num_arcs + num_arcs * num_arcs * num_arcs) * (num_arcs + num_arcs + 4 * num_arcs * num_arcs * num_arcs)",
+    num_nonzeros = "2 * num_arcs^2 + 8 * num_arcs^3",
 })]
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;

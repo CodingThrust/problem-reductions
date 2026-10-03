@@ -345,6 +345,8 @@ impl crate::rules::AggregateReductionResult for ReductionThreeDimensionalMatchin
 
 #[reduction(
     transform = upper_bound {
+        // B=64*(16*40*(32q)^4+15)+4; fixed YES/NO bounds are 3/20.
+        bound = "40960 * (32 * universe_size)^4 + 964",
         max_numeric_magnitude_bits = "4 * universe_size + 36",
         num_elements = "24 * num_triples * num_triples - 3 * num_triples + 6",
         num_groups = "8 * num_triples * num_triples - num_triples + 2",

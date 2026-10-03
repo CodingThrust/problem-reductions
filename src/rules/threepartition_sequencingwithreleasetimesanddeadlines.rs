@@ -96,12 +96,13 @@ impl crate::rules::AggregateReductionResult for ReductionThreePartitionToSRTD {}
 
 #[reduction(
     transform = {
-        exact { num_tasks = "num_elements + num_groups - 1", },
+        // Validated ThreePartition inputs have at least one group.
+        exact {
+            num_tasks = "num_elements + num_groups - 1",
+            time_horizon = "num_groups * (bound + 1) - 1",
+        },
         upper_bound { time_horizon_bits = "max_numeric_magnitude_bits + num_groups + 1", },
     },
-    unavailable = {
-        time_horizon = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
     type Result = ReductionThreePartitionToSRTD;

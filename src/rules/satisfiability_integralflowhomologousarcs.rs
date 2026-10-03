@@ -129,6 +129,9 @@ impl crate::rules::AggregateReductionResult for ReductionSATToIntegralFlowHomolo
     num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
     num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
     max_capacity = "num_literals + 1",
+    // One pair per distinct signed clause literal. Capacity is 1 or at most L-1.
+    num_homologous_pairs = "num_literals",
+    max_capacity_bits = "num_literals / 2 + 2",
 })]
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;

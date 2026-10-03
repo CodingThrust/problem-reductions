@@ -42,11 +42,14 @@ impl ReductionResult for ReductionISTToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionISTToILP {}
 
+// Two assignment families contribute 2n rows and 2n^2 terms. Each of the
+// n-1 tree edges emits one two-term row per ordered non-edge, at most n(n-1).
+// At n=0 both products vanish, including the otherwise negative n-1 factor.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "2",
     num_vars = "num_vertices * num_vertices",
-    num_constraints = "2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices",
-    num_nonzeros = "(num_vertices * num_vertices) * (2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices)",
+    num_constraints = "2 * num_vertices + num_vertices * (num_vertices - 1)^2",
+    num_nonzeros = "2 * num_vertices^2 + 2 * num_vertices * (num_vertices - 1)^2",
 })]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;

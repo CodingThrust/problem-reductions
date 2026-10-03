@@ -90,12 +90,16 @@ impl ReductionResult for ReductionRTSAToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionRTSAToILP {}
 
+// Tree rows contribute <=9n^3+3n^2-n terms. Each nontrivial subset of
+// size s contributes 10n^2+4sn^2+4n+12s+8, plus one budget term.
+// Use s<=n and r<=num_subsets and drop -n. Magnitudes are bounded by
+// n+1 and r(n-1); n+num_subsets+1 bits also cover n=0 and clamped budgets.
 #[reduction(
     transform = upper_bound {
-        max_constraint_magnitude_bits = "universe_size * (num_subsets + 1) + 2",
+        max_constraint_magnitude_bits = "universe_size + num_subsets + 1",
         num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
         num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
-        num_nonzeros = "(universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)) * (4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8))",
+        num_nonzeros = "9 * universe_size^3 + 3 * universe_size^2 + num_subsets * (4 * universe_size^3 + 10 * universe_size^2 + 16 * universe_size + 9)",
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for RootedTreeStorageAssignment {

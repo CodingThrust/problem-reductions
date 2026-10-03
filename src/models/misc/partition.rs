@@ -115,6 +115,7 @@ impl Problem for Partition {
     crate::problem_parameters![
         ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
         ("num_elements", num_elements),
+        ("total_sum", total_sum),
     ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {

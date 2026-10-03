@@ -3,6 +3,35 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn coefficient_bit_bounds_use_basis_geometry_without_solving() {
+    // Complementary norms are one and the selected determinant is one.
+    // An ambient residual squared of four allows width four, requiring three bits.
+    let embedded = ClosestVectorProblem::new(vec![vec![1, 0]], vec![0, 2]).unwrap();
+    assert_eq!(embedded.parameters().get("coefficient_box_bits"), Some(3));
+    // Full rank permits a rounded coefficient vector with squared error <=1/4;
+    // the integer error is zero even when the target magnitude is large.
+    let translated = ClosestVectorProblem::new(vec![vec![1]], vec![i64::MAX]).unwrap();
+    assert_eq!(translated.parameters().get("coefficient_box_bits"), Some(0));
+    // Nearly parallel columns have determinant one and complementary norms
+    // five and two. Squared error one bounds widths by four and two: five bits.
+    let skewed = ClosestVectorProblem::new(vec![vec![1, 1], vec![1, 2]], vec![1, 0]).unwrap();
+    assert_eq!(skewed.parameters().get("coefficient_box_bits"), Some(5));
+    let decoded: ClosestVectorProblem =
+        serde_json::from_str(&serde_json::to_string(&skewed).unwrap()).unwrap();
+    assert_eq!(decoded.parameters(), skewed.parameters());
+    // Row swaps and large cancelling products must preserve the determinant.
+    let m = i64::MAX;
+    let cancelled =
+        ClosestVectorProblem::new(vec![vec![m, m - 1], vec![m - 1, m - 2]], vec![1, 0]).unwrap();
+    assert_eq!(
+        cancelled.parameters().get("coefficient_box_bits"),
+        Some(130)
+    );
+    let swapped = ClosestVectorProblem::new(vec![vec![0, 2], vec![3, 0]], vec![0, 1]).unwrap();
+    assert_eq!(swapped.parameters().get("coefficient_box_bits"), Some(1));
+}
+
+#[test]
 fn test_cvp_constructs_integer_targets() {
     let integer =
         ClosestVectorProblem::new(vec![vec![2, 0, 0], vec![1, 2, 0]], vec![3_i64, 3, 1]).unwrap();

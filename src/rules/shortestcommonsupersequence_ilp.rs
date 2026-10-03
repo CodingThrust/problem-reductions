@@ -45,11 +45,15 @@ impl ReductionResult for ReductionSCSToILP {
     }
 }
 
+// With b positions and L source characters: symbol/match/link rows
+// contribute b(a+1)+3Lb terms, order rows <=2Lb, padding <=2b.
+// Zero positional coefficients disappear. Coefficients <=max(1,b-1)
+// require at most ceil(b/2+1) bits, including b=0.
 #[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "max_length + 1",
+    max_constraint_magnitude_bits = "max_length / 2 + 1",
     num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
     num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
-    num_nonzeros = "(max_length * (alphabet_size + 1) + total_length * max_length) * (max_length + total_length + total_length * max_length + total_length + max_length)",
+    num_nonzeros = "max_length * (alphabet_size + 3) + 5 * total_length * max_length",
 })]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;

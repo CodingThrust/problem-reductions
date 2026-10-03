@@ -49,11 +49,13 @@ impl ReductionResult for ReductionPartitionIntoCliquesToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPartitionIntoCliquesToILP {}
 
+// With k<=n and h absent unordered pairs: n+kh rows and nk+2kh
+// terms. Use h<=n(n-1)/2; loops and parallel edges do not add rows.
 #[reduction(transform = upper_bound {
     max_constraint_magnitude_bits = "1",
     num_vars = "num_vertices^2",
-    num_constraints = "num_vertices + num_vertices^3",
-    num_nonzeros = "(num_vertices^2) * (num_vertices + num_vertices^3)",
+    num_constraints = "num_vertices + num_vertices^2 * (num_vertices - 1) / 2",
+    num_nonzeros = "num_vertices^3",
 })]
 impl ReduceTo<ILP<bool>> for PartitionIntoCliques<SimpleGraph> {
     type Result = ReductionPartitionIntoCliquesToILP;

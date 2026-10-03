@@ -44,6 +44,9 @@ impl ReductionResult for ReductionNAESATToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionNAESATToILP {}
 
+// Each clause emits two rows. Repeated variables merge and opposite
+// literals cancel, so support is at most twice the summed distinct variables.
+// This retains both the dense 2*n*c cap and the occurrence 2*L cap.
 #[reduction(transform = {
     exact {
         num_vars = "num_vars",
@@ -51,7 +54,7 @@ impl crate::rules::AggregateReductionResult for ReductionNAESATToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_literals + 1",
-        num_nonzeros = "num_vars * (2 * num_clauses)",
+        num_nonzeros = "2 * num_clause_variables",
     },
 })]
 impl ReduceTo<ILP<bool>> for NAESatisfiability {

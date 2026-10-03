@@ -56,13 +56,12 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionToIntegralFlow
 
 #[reduction(
     transform = upper_bound {
+        // Odd sums use capacity 1; otherwise max(1,max(sizes),S/2)<=S.
+        max_capacity = "total_sum",
         max_capacity_bits = "max_numeric_magnitude_bits + num_elements",
         num_vertices = "num_elements + 3",
         num_arcs = "2 * num_elements + 1",
     },
-    unavailable = {
-        max_capacity = "bounding raw capacities from source magnitude bits requires a variable exponent; downstream ILP predictions use max_capacity_bits",
-    }
 )]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
     type Result = ReductionPartitionToIntegralFlowWithMultipliers;

@@ -276,11 +276,14 @@ fn dot(left: &[i64], right: &[i64], operation: &str) -> Result<i64, crate::rules
         })
 }
 
-// Cofactor bounds give at most r^2 + d + r*h + 3 bits per coefficient,
-// where r is the rank, d the ambient dimension, and h the input magnitude bits.
+// The source's cached geometric bound sums the bits of individual coefficient intervals,
+// including the zero-distance and empty-basis cases. It uses the same
+// selected determinant and a Hadamard bound, without computing the intervals.
+// QUBO counts only off-diagonal terms: at most N(N-1)/2<=N^2/2;
+// the latter bound also composes monotonically through bounded dimensions.
 #[reduction(transform = upper_bound {
-    num_vars = "num_basis_vectors * (num_basis_vectors^2 + ambient_dimension + num_basis_vectors * max_numeric_magnitude_bits + 3)",
-    num_quadratic_terms = "(num_basis_vectors * (num_basis_vectors^2 + ambient_dimension + num_basis_vectors * max_numeric_magnitude_bits + 3))^2",
+    num_vars = "coefficient_box_bits",
+    num_quadratic_terms = "coefficient_box_bits^2 / 2",
 })]
 impl ReduceTo<QUBO<i64>> for ClosestVectorProblem {
     type Result = ReductionCVPToQUBO;

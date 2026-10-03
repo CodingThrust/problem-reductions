@@ -45,6 +45,9 @@ impl ReductionResult for ReductionBCSFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBCSFToILP {}
 
+// Assignment/weight/size/root/product/conservation rows contribute
+// <=16nk+6k terms; arc capacities and conservation add <=14mk.
+// Zero weights, n=0/1 capacity coefficients, and self-loop flows only cancel.
 #[reduction(transform = {
     exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
@@ -52,7 +55,7 @@ impl crate::rules::AggregateReductionResult for ReductionBCSFToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
-        num_nonzeros = "(3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components) * (num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components)",
+        num_nonzeros = "16 * num_vertices * max_components + 6 * max_components + 14 * num_edges * max_components",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for BoundedComponentSpanningForest<SimpleGraph, i64> {

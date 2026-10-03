@@ -194,6 +194,7 @@ impl Problem for ThreePartition {
     type Value = Or;
 
     crate::problem_parameters![
+        ("bound", bound),
         ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
         ("num_elements", num_elements),
         ("num_groups", num_groups),

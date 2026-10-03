@@ -226,6 +226,14 @@ impl IntegralFlowHomologousArcs {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 
+    pub fn max_capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.max_capacity()])
+    }
+
+    pub fn num_homologous_pairs(&self) -> usize {
+        self.homologous_pairs.len()
+    }
+
     pub fn is_valid_solution(
         &self,
         config: &[usize],
@@ -299,7 +307,9 @@ impl Problem for IntegralFlowHomologousArcs {
 
     crate::problem_parameters![
         ("max_capacity", max_capacity),
+        ("max_capacity_bits", max_capacity_bits),
         ("num_arcs", num_arcs),
+        ("num_homologous_pairs", num_homologous_pairs),
         ("num_vertices", num_vertices),
     ];
 
