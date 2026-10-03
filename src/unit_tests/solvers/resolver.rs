@@ -16,6 +16,46 @@ fn arithmetic_solvers_check_small_witness_ranges_before_large_moduli() {
         ),
         ("QuadraticCongruences", 4, 1_000_000_007, 2, None),
         ("QuadraticCongruences", 4, 1_000_000_007, 3, Some(2)),
+        ("QuadraticCongruences", 1, 1_000_000_007, 4098, Some(1)),
+        // Exhausting factorization's work budget resumes the witness search.
+        (
+            "QuadraticCongruences",
+            4100 * 4100,
+            1_000_000_007,
+            4101,
+            Some(4100),
+        ),
+        (
+            "QuadraticCongruences",
+            4101 * 4101,
+            1_000_000_007,
+            4101,
+            None,
+        ),
+        // Factoring finishes, but scanning all prime roots would cost more.
+        (
+            "QuadraticCongruences",
+            4500 * 4500 % 10_007,
+            10_007,
+            4501,
+            Some(4500),
+        ),
+        (
+            "QuadraticCongruences",
+            4501 * 4501 % 10_007,
+            10_007,
+            4501,
+            None,
+        ),
+        // Zero and nonunit root classes stay compact above the prefix.
+        ("QuadraticCongruences", 0, 1 << 28, 20_000, Some(16_384)),
+        (
+            "QuadraticCongruences",
+            12_288 * 12_288,
+            1 << 30,
+            13_000,
+            Some(12_288),
+        ),
         ("QuadraticCongruences", 0, 1, 2, Some(1)),
         ("QuadraticCongruences", 0, 7, 7, None),
         ("QuadraticCongruences", 0, 7, 8, Some(7)),

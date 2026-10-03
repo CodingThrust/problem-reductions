@@ -1,4 +1,4 @@
-//! Exact verification solver: choose useful unions, rather than ordering circuit slots.
+//! Direct union chains and bounded subset enumeration with a compact ILP fallback.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::EnsembleComputation;
@@ -21,6 +21,29 @@ fn subsets(set: &[usize]) -> Result<Vec<Vec<usize>>, SolveError> {
 }
 
 pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>, SolveError> {
+    solve_with_union_limit(problem, 65_536)
+}
+
+fn pad_program(
+    problem: &EnsembleComputation,
+    mut program: Vec<usize>,
+) -> Result<Vec<usize>, SolveError> {
+    let length = problem
+        .budget()
+        .checked_mul(2)
+        .ok_or_else(|| SolveError::IntegerOverflow("sizing the ensemble program".into()))?;
+    let padding = length.checked_sub(program.len()).ok_or_else(|| {
+        SolveError::IntegerOverflow("ensemble program exceeds its operation budget".into())
+    })?;
+    program.try_reserve_exact(padding)?;
+    program.resize(length, 0);
+    Ok(program)
+}
+
+fn solve_with_union_limit(
+    problem: &EnsembleComputation,
+    union_limit: usize,
+) -> Result<Option<Vec<usize>>, SolveError> {
     // A k-element set needs k-1 disjoint unions of singleton leaves, even
     // when intermediate results are shared with other required sets.
     if problem
@@ -30,11 +53,49 @@ pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>,
     {
         return Ok(None);
     }
-    // ponytail: enumerate subsets of required sets; use implicit subset search
-    // if correctness checks must handle large individual required sets.
+    let required: BTreeSet<_> = problem.subsets().iter().collect();
+    if required.is_empty() {
+        return pad_program(problem, Vec::new()).map(Some);
+    }
+    if required.len() == 1 {
+        // A chain attains the k-1 lower bound for one distinct required set.
+        let set = required.first().expect("one required set");
+        let mut program = vec![set[0], set[1]];
+        for &element in &set[2..] {
+            let previous = problem
+                .universe_size()
+                .checked_add(program.len() / 2 - 1)
+                .ok_or_else(|| SolveError::IntegerOverflow("indexing an ensemble union".into()))?;
+            program.extend([previous, element]);
+        }
+        return pad_program(problem, program).map(Some);
+    }
+    let failure = |source| SolveError::IlpSolve {
+        problem: EnsembleComputation::NAME.into(),
+        source,
+    };
+    // All subsets and unordered disjoint partitions of one k-element set
+    // require (3^k-1)/2-k variables. Sum this upper bound before allocating;
+    // repeated intermediate sets only decrease the actual construction size.
+    let fits = required
+        .iter()
+        .try_fold(union_limit, |remaining, set| {
+            let power = 3usize.checked_pow(u32::try_from(set.len()).ok()?)?;
+            remaining.checked_sub((power - 1) / 2 - set.len())
+        })
+        .is_some();
+    if !fits {
+        // Explicit ILP dispatch uses the compact slot encoding, not this
+        // customized solver, so this fallback cannot recurse.
+        return match ILPSolver::new().solve(problem) {
+            Ok(solution) => Ok(Some(solution)),
+            Err(ILPSolveError::Infeasible) => Ok(None),
+            Err(error) => Err(failure(error)),
+        };
+    }
     let mut useful = BTreeSet::new();
-    for required in problem.subsets() {
-        useful.extend(subsets(required)?.into_iter().filter(|set| set.len() >= 2));
+    for set in &required {
+        useful.extend(subsets(set)?.into_iter().filter(|set| set.len() >= 2));
     }
     let mut useful: Vec<_> = useful.into_iter().collect();
     useful.sort_by_key(Vec::len);
@@ -74,13 +135,9 @@ pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>,
         // A computed set has exactly one disjoint-union definition.
         constraints.push(LinearConstraint::eq(choices, 0));
     }
-    for required in problem.subsets() {
-        constraints.push(LinearConstraint::eq(vec![(indices[required], 1)], 1));
+    for set in &required {
+        constraints.push(LinearConstraint::eq(vec![(indices[*set], 1)], 1));
     }
-    let failure = |source| SolveError::IlpSolve {
-        problem: EnsembleComputation::NAME.into(),
-        source,
-    };
     let budget = <EnsembleComputation as crate::rules::ReduceTo<ILP<bool>>>::exact_i64(
         problem.budget(),
         "representing the ensemble operation budget",
@@ -128,8 +185,7 @@ pub(crate) fn solve(problem: &EnsembleComputation) -> Result<Option<Vec<usize>>,
             problem.universe_size() + program.len() / 2 - 1,
         );
     }
-    program.resize(2 * problem.budget(), 0);
-    Ok(Some(program))
+    pad_program(problem, program).map(Some)
 }
 
 #[cfg(test)]
