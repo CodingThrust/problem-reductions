@@ -81,12 +81,17 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
 impl crate::rules::AggregateReductionResult for ReductionPartitionToOpenShopScheduling {}
 
 #[reduction(
-    transform = exact {
-        num_jobs = "num_elements + 1",
-        num_machines = "3",
+    transform = {
+        exact {
+            num_jobs = "num_elements + 1",
+            num_machines = "3",
+        },
+        upper_bound {
+            schedule_horizon_bits = "max_numeric_magnitude_bits + num_elements + 3",
+        },
     },
     unavailable = {
-        schedule_horizon = "depends on the numeric partition sizes, which are not represented by source size parameters",
+        schedule_horizon = "raw horizon requires numeric magnitude values; downstream predictions use schedule_horizon_bits",
     }
 )]
 impl ReduceTo<Decision<OpenShopScheduling>> for Partition {

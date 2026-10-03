@@ -725,7 +725,7 @@
   #block(width: 85%, inset: (x: 1em, y: 0.8em))[
     #set text(size: 9.5pt)
     #set par(justify: true)
-    *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
+    *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof.
   ]
 ]
 
@@ -2437,7 +2437,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let witness = (2, 1, 1, 1, 1, 2, 1)
   [
     #problem-def("UndirectedFlowLowerBounds")[
-      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ^+$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
+      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ_(>= 0)$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
     ][
       Undirected Flow with Lower Bounds appears as ND37 in Garey and Johnson's catalog @garey1979. Itai proved that even this single-commodity undirected feasibility problem is NP-complete, contrasting sharply with the directed lower-bounded case, which reduces to ordinary max-flow machinery @itai1978.
 
@@ -5008,7 +5008,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("ILP")
+  let x = load-model-example("ILP", variant: (bounds: "general", coefficient: "i64", variable: "i64"))
   let nv = x.instance.variables.len()
   let obj = x.instance.objective
   let constraints = x.instance.constraints
@@ -11496,6 +11496,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   This $O(n^2 m)$ reduction constructs an ILP with binary assignment variables $x_(t,p)$, integer completion-time variables $C_t$, and binary ordering variables $y_(i,j)$ for task pairs. Big-M disjunctive constraints enforce non-overlapping execution on shared processors.
 ][
+  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. With $L$ the total processing time, the disjunction rows have magnitudes at most $3L$, and variable endpoints at most $L$. Target `max_constraint_magnitude_bits` is at most $h+n+2$. Objective weights need no parameter.
+
   _Construction._ Let $n = |T|$ and $m$ be the number of processors. Create $n m$ binary assignment variables $x_(t,p) in {0, 1}$ (task $t$ on processor $p$), $n$ integer completion-time variables $C_t$, and $n(n-1)/2$ binary ordering variables $y_(i,j)$ for $i < j$. The constraints are:
   (1) Assignment: $sum_p x_(t,p) = 1$ for each $t$.
   (2) Completion bounds: $C_t >= ell(t)$ for each $t$.
@@ -11583,6 +11585,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 )[
   The radius-threshold relation between centers and dominating sets @hochbaumshmoys1985 is extended here to all signed source bounds using two mandatory isolated centers. This $O(n+m+1)$ construction preserves the existing endpoint variants.
 ][
+  _Numeric magnitude._ Unit vertex weights and edge lengths give target `max_numeric_magnitude_bits` exactly $1$.
+
   _Construction._ For source graph $G=(V,E)$ with $n$ vertices and integer bound $K$, set $q=max(-1,min(K,n))$. Add isolated vertices $a=n$ and $b=n+1$, leaving every original edge record unchanged. Give all vertices and edges unit weights and lengths, and require exactly $k=q+2$ centers. Then $1<=k<=n+2$ for every input, including an empty graph.
 
   _Correctness._ Every finite target placement must select both isolated vertices. If a source dominating set $D$ has $|D|<=K$, then $q>=0$ and $|D|<=q<=n$. Extend $D$ to $q$ original vertices and add $a,b$. This placement has $k$ centers and radius at most $1$, proving the forward direction. Conversely, a target placement of radius at most $1$ selects both isolates and exactly $q$ original vertices. Each original vertex is within one original edge of a selected vertex, so those $q<=K$ vertices dominate $G$. For $K<0$, $k=1$ cannot cover both isolates and the target has no finite placement. For $n=0,K>=0$, the two isolates form a radius-zero placement. Loops and repeated edges preserve this reasoning.
@@ -11629,49 +11633,6 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Boundary cases._ If $K = 0 < n$, one center cannot serve both the isolate and the original graph, so the target is infeasible. If $n = 0$ and $K >= 0$, the sole vertex $z$ is selected and the cost is zero, correctly certifying the empty dominating set. If $K >= n$, selecting all target vertices gives cost zero and extracts all original vertices. Negative bounds give infeasibility as shown above.
 
   _Value and solution extraction._ The target is Decision Minimum Sum Multicenter with bound $B$ (or $-1$ for a negative source bound). Its predicate enforces the cost bound. Decode a YES witness by removing the auxiliary coordinates; completed YES and NO answers pass through unchanged.
-]
-
-#let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
-#let mvc_mmm_sol = mvc_mmm.solutions.at(0)
-#reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",
-  example: true,
-  example-caption: [Cycle $C_5$: the forward implication is exact, but the backward gap is strict],
-  extra: [
-    #{
-      let target-edges = mvc_mmm.target.instance.graph.edges
-      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
-      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => target-edges.at(i))
-      let fmt-edge(e) = "(" + str(e.at(0)) + ", " + str(e.at(1)) + ")"
-      [
-        #pred-commands(
-          "pred create MinimumVertexCover --graph 0-1,1-2,2-3,3-4,4-0 --weights 1,1,1,1,1 -o mvc.json",
-          "pred solve mvc.json",
-          "pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-0 -o mmm.json",
-          "pred solve mmm.json",
-        )
-
-        *Step 1 -- Shared instance.* Both problems use the same 5-cycle, so $n = #graph-num-vertices(mvc_mmm.source.instance)$ and $|E| = #graph-num-edges(mvc_mmm.source.instance)$.
-
-        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#fmt-values(source-cover)}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
-
-        *Step 3 -- Target optimum.* The canonical minimum maximal matching is $M = {#matching.map(fmt-edge).join(", ")}$, so $"mmm"(C_5) = #matching.len() = 2$.
-
-        *Step 4 -- Backward gap.* The endpoint set of $M$ is ${0, 1, 2, 3}$, a valid vertex cover of size $4$. Pruning can recover an optimal cover of size $3$, but not one of size $2$, so the same-bound backward implication fails.
-
-        *Runtime note:* This catalog edge is proof-only. The CLI can solve the two instances separately, but runtime reduction search does not traverse this edge because there is no exact witness or aggregate extractor.
-      ]
-    }
-  ],
-)[
-  This size-preserving identity map records the forward implication used in the classical NP-hardness proof for Minimum Maximal Matching (equivalently, Minimum Edge Dominating Set) on bounded-degree graphs: every unit-weight vertex cover of $G$ can be greedily converted into a maximal matching of size at most the cover size. The converse loses a factor of two in general, so the edge is documented but intentionally disabled for runtime reduction search.
-][
-  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and parameters are unchanged.
-
-  _Correctness._ ($arrow.r.double$) Let $C subset.eq V$ be a vertex cover with $|C| lt.eq K$. Start with $M = emptyset$ and process the vertices of $C$ in arbitrary order. Whenever $v in C$ is unmatched, choose any edge $\{v, u\} in E$ whose other endpoint $u$ is also unmatched, add that edge to $M$, and mark both endpoints matched. Because only unmatched endpoints are paired, $M$ is a matching. If some edge $\{x, y\} in E$ were disjoint from every edge of $M$ at the end, then both $x$ and $y$ would still be unmatched. Since $C$ covers every edge, at least one endpoint, say $x$, lies in $C$, and when the algorithm processed $x$ it could have added $\{x, y\}$, a contradiction. Hence $M$ is maximal and $|M| lt.eq |C| lt.eq K$.
-
-  ($arrow.l.double$) Let $M$ be any maximal matching. The set of all endpoints of edges in $M$ is a vertex cover, so $"mvc"(G) lt.eq 2 dot |M|$. This yields the standard bound $"mmm"(G) lt.eq "mvc"(G) lt.eq 2 dot "mmm"(G)$, but it does not recover an exact same-bound inverse. On $C_5$, the target optimum is $2$ while the source optimum is $3$.
-
-  _Solution extraction._ No runtime extractor is registered. The endpoint map always returns a valid vertex cover and greedy pruning can shrink it, but neither approach guarantees an optimal cover from an optimal maximal matching witness, and the target optimum value does not determine the source optimum value exactly.
 ]
 
 #let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
@@ -11940,7 +11901,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
   A matching selects edges that share no endpoints; set packing selects sets that share no elements. By representing each edge as the 2-element set of its endpoints and using vertices as the universe, two edges conflict (share an endpoint) if and only if their sets overlap. This embeds matching as a special case of set packing where every set has size exactly 2.
 ][
-  _Construction._ Universe $U = V$ (vertices, indexed $0, ..., |V|-1$). For each edge $e = (u, v)$, define $S_e = {u, v}$ with weight $w(S_e) = w(e)$. Variables correspond one-to-one: edge $e$ maps to set $S_e$.
+  _Construction._ For each edge $e = (u, v)$, define $S_e = {u, v}$ with weight $w(S_e) = w(e)$. Variables correspond one-to-one: edge $e$ maps to set $S_e$. The implementation infers the universe size as one plus the largest endpoint label, or zero when there are no edges. Thus the number of sets is exactly $|E|$, while the universe size is at most $|V|$; trailing isolated vertices make this bound strict.
 
   _Correctness._ ($arrow.r.double$) If $M$ is a matching, then for any $e_1, e_2 in M$, the edges share no endpoint, so $S_(e_1) inter S_(e_2) = emptyset$ — the sets are mutually disjoint, forming a valid packing. ($arrow.l.double$) If ${S_e : e in P}$ is a packing, then for any $e_1, e_2 in P$, $S_(e_1) inter S_(e_2) = emptyset$, meaning the edges share no vertex, so $P$ is a valid matching. Weight sums are identical, so optimality is preserved.
 
@@ -12006,7 +11967,14 @@ the displayed rule, extracted from the corresponding `pred path` entry.
     matrix.at(i).at(j) = value
   }
   let bits = cvp_qubo_sol.target_config
-  let lower = (-23, -14)
+  let determinant = basis.at(0).at(0) * basis.at(1).at(1) - basis.at(1).at(0) * basis.at(0).at(1)
+  let adjugate = ((basis.at(1).at(1), -basis.at(1).at(0)), (-basis.at(0).at(1), basis.at(0).at(0)))
+  let center = adjugate.map(row => row.zip(target).fold(0, (acc, pair) => acc + pair.at(0) * pair.at(1)) / determinant)
+  let candidate = center.map(calc.round)
+  let radius-sq = range(target.len()).fold(0, (acc, d) => acc + calc.pow(candidate.enumerate().fold(0, (sum, pair) => sum + pair.at(1) * basis.at(pair.at(0)).at(d)) - target.at(d), 2))
+  let radii = adjugate.map(row => calc.floor(calc.sqrt(row.fold(0, (acc, x) => acc + x*x) * radius-sq)))
+  let lower = center.enumerate().map(((i,x)) => calc.ceil(x - radii.at(i) / calc.abs(determinant)))
+  let upper = center.enumerate().map(((i,x)) => calc.floor(x + radii.at(i) / calc.abs(determinant)))
   let anchor = range(target.len()).map(d => lower.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
   let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
   let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == false { 0.0 } else {
@@ -12029,28 +11997,32 @@ the displayed rule, extracted from the corresponding `pred path` entry.
         )
         *Step 1 -- Source instance.* The canonical CVP example has basis columns $bold(b)_1=#fmt-vec(basis.at(0))$ and $bold(b)_2=#fmt-vec(basis.at(1))$ and target $bold(t)=#fmt-vec(target)$. The source model supplies no coefficient bounds.
 
-        *Step 2 -- Derive a safe box.* Here $A=((2,1),(0,2))$, $norm(bold(t))_1=5$, and the selected-row bounds are $bold(C)=(8,7)$. Since $op("adj")(A)=((2,-1),(0,2))$, the reduction obtains $M_1=23$ and $M_2=14$.
+        *Step 2 -- Derive a safe box.* The inverse-basis center is #fmt-vec(center). Rounding gives #fmt-vec(candidate), whose squared residual is #radius-sq. Exact Cauchy--Schwarz bounds give coefficient intervals from #fmt-vec(lower) to #fmt-vec(upper).
 
-        *Step 3 -- Encode and expand.* The exact-range weights are $(1,2,4,8,16,15)$ for $x_1+23 in [0,46]$ and $(1,2,4,8,13)$ for $x_2+14 in [0,28]$, giving #cvp_qubo.target.instance.num_vars variables. With $G=B^top B=((4,2),(2,5))$ and $h=B^top bold(t)=(6,7)^top$, representative coefficients are $Q_(0,0)=#matrix.at(0).at(0)$, $Q_(0,1)=#matrix.at(0).at(1)$, $Q_(0,6)=#matrix.at(0).at(6)$, and $Q_(6,6)=#matrix.at(6).at(6)$.
+        *Step 3 -- Encode and expand.* Encode each interval's offset using powers of two and one capped final weight. Fixed coordinates need no bits; this target uses #cvp_qubo.target.instance.num_vars variable, with coefficient $Q_(0,0)=#matrix.at(0).at(0)$.
 
-        *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq, so $B bold(x)=bold(t)$ #sym.checkmark.
-
-        *Multiplicity.* Residual final weights make some offsets have multiple encodings, so the fixture stores one canonical bit vector although other optimal QUBO witnesses can decode to the same $bold(x)$.
+        *Step 4 -- Verify a solution.* The fixture stores $bold(z)=(#fmt-values(bits))$, which decodes to $bold(x)=(#fmt-values(coords))$. The QUBO value is #rounded-qubo; adding the dropped constant #rounded-constant gives squared CVP distance #rounded-distance-sq #sym.checkmark.
       ],
     )[
       Following the quadratic formulation of Canale, Qureshi, and Viola @canale2023qubo, this rule derives a finite box containing a global minimizer of standard CVP, then encodes that box and expands the squared-distance objective.
     ][
-      _Construction._ Let $B in ZZ^(m times n)$ have full column rank and $bold(t) in ZZ^m$. Select $n$ rows forming an invertible matrix $A$, with source row indices $r_j$. Since zero is a candidate, every minimizer $bold(x)^*$ satisfies $norm(B bold(x)^*-bold(t))_2 <= norm(bold(t))_2$. For $bold(y)=A bold(x)^*$, define $C_j=abs(t_(r_j))+norm(bold(t))_1$. Then $abs(y_j)<=C_j$, and $bold(x)^*=op("adj")(A)bold(y)/det(A)$ gives
-      $ abs(x_i^*) <= M_i = sum_j abs(op("adj")(A)_(i,j)) C_j $
-      because the nonzero integer determinant has magnitude at least one.
+      _Construction._ Let $B in ZZ^(m times n)$ have full column rank and $bold(t) in ZZ^m$. Select $n$ independent rows forming $A$. Write $D=abs(det(A))$ and $H=op("sign")(det(A))op("adj")(A)$, so $A^(-1)=H/D$. Let $s_i=sum_j H_(i,j)t_(r_j)$. Round $s_i/D$ to integer coefficients $q_i$, and set $R^2=min(norm(B bold(q)-bold(t))_2^2,norm(bold(t))_2^2)$. Both comparison points belong to the lattice, so every minimizer has squared residual at most $R^2$.
 
-      Encode $x_i+M_i in [0,2M_i]$ with powers of two and one capped final weight. If $W$ maps the resulting bits to coefficient offsets, $G=B^top B$, $h=B^top bold(t)$, and $bold(ell)=-bold(M)$, then
+      Cauchy--Schwarz applied to the selected residual coordinates gives
+      $ abs(D x_i^*-s_i)^2 <= (sum_j H_(i,j)^2) R^2. $
+      Set $rho_i=floor(sqrt((sum_j H_(i,j)^2)R^2))$. Because $D x_i^*-s_i$ is integer, all minimizing coefficients lie in
+      $ ell_i=ceil((s_i-rho_i)/D) <= x_i^* <= u_i=floor((s_i+rho_i)/D). $
+      All divisions and square roots in the implementation use exact integer arithmetic.
+
+      Encode $x_i-ell_i in [0,u_i-ell_i]$ with powers of two and one capped final weight. Fixed coordinates contribute no bits. If $W$ maps bits to offsets, $G=B^top B$ and $h=B^top bold(t)$, then
       $ norm(B bold(x)-bold(t))_2^2 = bold(z)^top(W^top G W)bold(z) + 2 bold(z)^top W^top(G bold(ell)-h) + "const". $
-      The constant is dropped. The exact bit count depends on concrete entries, so its symbolic transform is unavailable.
+      Drop the constant.
+
+      _Size bound._ The new intervals lie within the coarse box $[-M_i,M_i]$, where $M_i=sum_j abs(H_(i,j))(abs(t_(r_j))+norm(bold(t))_1)$: the comparison radius never exceeds the zero-vector radius. Let $h >= 1$ be the maximum bit length of the absolute entries of $B$ and $bold(t)$. Each cofactor has magnitude at most $(n-1)! 2^(h(n-1))$, and $C_j < (m+1)2^h$. Thus $M_i < n! (m+1)2^(h n)$. Using $log_2(n!) <= n^2$ and $log_2(m+1) <= m$ for $m >= 1$, each coefficient needs at most $n^2+m+n h+3$ bits. The registered bounds are therefore $V=n(n^2+m+n h+3)$ QUBO variables and $V^2$ quadratic terms. A rank-zero basis gives zero variables. The magnitude parameter describes only the source entries, independently of this encoding.
 
       _Correctness._ ($arrow.r.double$) Every bit vector decodes inside the derived box and has QUBO value equal to its CVP squared distance minus one common constant, so a QUBO minimizer is best within the box. ($arrow.l.double$) The derived box contains a global CVP minimizer, and every point in the box has an exact-range encoding. Therefore the best encoded point is globally optimal for CVP.
 
-      _Solution extraction._ Sum the selected weights for each coefficient and subtract $M_i$.
+      _Solution extraction._ Sum the selected weights for each coefficient and add $ell_i$.
     ]
   ]
 }
@@ -12295,7 +12267,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
       _Solution extraction._ Validate the target configuration once and require squared distance exactly $n$ through the formal aggregate certificate. Return the first $n$ coefficients as Boolean selections, accepting one as true; the remaining coefficients are the specified carries. A larger optimal squared distance proves NO and provides no source witness.
 
-      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. Since bit length is not a registered Subset Sum parameter, the symbolic relations are marked unavailable with that reason. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
+      _Representation._ The target has $2n+b$ coordinates and $n+b-1$ basis columns. The existing source parameter `max_numeric_magnitude_bits` is exactly $b$, so both dimensions are predicted exactly. Target basis entries have magnitude at most two and target coordinates are Boolean, giving target `max_numeric_magnitude_bits` at most two; this supplies the numerical parameter needed by the subsequent CVP-to-QUBO rule. Dimensions and the total dense basis byte count are checked before allocation. The threshold and squared-distance evaluation use checked `i64` arithmetic; overflow is an error, not a NO certificate. The solver uses exact rational sphere-enumeration bounds; runtime limitations are separate from the mathematical equivalence.
     ]
   ]
 }
@@ -12309,7 +12281,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   Write the extended rows as $A' z=b$, where the first $n$ bits of $z$ are $x$ and the remaining bits are row-specific slack. Set $P=1+sum_i |d_i|+sum_k |b_k|$, $C=P sum_k b_k^2$, $L=sum_i min(d_i,0)$, and $U=sum_i max(d_i,0)$. The upper-triangular QUBO matrix has diagonal $Q_(i i)=d_i+P sum_k ((a'_(k i))^2-2 b_k a'_(k i))$ and off-diagonal $Q_(i j)=2P sum_k a'_(k i)a'_(k j)$ for $i<j$; extend $d$ by zeros on slack coordinates. Its energy satisfies
   $ E(z)+C=d^top x+P sum_k (a'_k z-b_k)^2. $
-  Store the energy interval $[L-C,U-C]$, the constant $C$, and the source sense in the reduction result. Dimensions, matrix arithmetic, constant and interval endpoints are checked before use. The target has $n+sum_k S_k$ variables; its registered overhead remains unavailable because the source parameter vector omits coefficient magnitudes and right-hand sides.
+  Store the energy interval $[L-C,U-C]$, the constant $C$, and the source sense in the reduction result. Dimensions, matrix arithmetic, constant and interval endpoints are checked before use. The target has $n+sum_k S_k$ variables. With $m$ source constraints and source parameter $h$ = `max_constraint_magnitude_bits`, the registered upper bounds are $V=n+m(n+h)$ variables and $V^2$ quadratic terms.
 
   _Forward direction._ Every feasible source assignment has a slack extension satisfying every row, with $E+C=d^top x$ in $[L,U]$. Hence its target energy lies in the stored interval. For positive slack range the powers-of-two encoding represents the exact required slack; for zero range no slack is needed.
 
@@ -12372,6 +12344,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   for every $i in {0, dots, n-1}$. Set the knapsack capacity to
   $ C = floor(S / 2). $
   Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
+
+  _Parameter propagation._ If each source size has at most $h$ bits, their sum has at most $h+n$ bits; halving cannot increase this. The target `capacity_bits` is therefore at most $h+n$, including zero capacity. Composing with the Knapsack-to-QUBO rule yields at most $2n+h$ variables and $(2n+h)^2$ quadratic terms. The raw capacity field remains unavailable because these predictions need only its bit length.
 
   _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
 
@@ -12506,6 +12480,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   where $bold(z) = (x_0, dots, x_(n-1), s_0, dots, s_(B-1))$ and $P = 1 + sum_i v_i$. Expanding the quadratic penalty using $z_k^2 = z_k$ (binary):
   $ Q_(k k) = P a_k^2 - 2 P C a_k - [k < n] v_k, quad Q_(i j) = 2 P a_i a_j quad (i < j) $
 
+  _Size bound._ Let $b$ be the source parameter `capacity_bits`, the binary digit count of $C$ with a minimum of one for zero. The encoding uses exactly $b$ slack bits, so the QUBO has exactly $n+b$ variables and at most $(n+b)^2$ quadratic terms.
+
   _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective. Since all values are nonnegative, every feasible assignment has objective in the range $[-sum_i v_i, 0]$, so that penalty exceeds the entire feasible value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(z)[0..n]$.
@@ -12629,13 +12605,13 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   "QUBO",
   "ILP",
   source-variant: (weight: "f64"),
-  target-variant: (coefficient: "f64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "f64", variable: "bool"),
 )
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
 #reduction-rule("QUBO", "ILP",
   example: true,
   example-source-variant: (weight: "f64"),
-  example-target-variant: (coefficient: "f64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "f64", variable: "bool"),
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     #pred-commands(
@@ -13000,6 +12976,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ][
   _Construction._ Given a SAT instance $phi$ with $n$ variables and $m$ clauses, introduce a sentinel variable $s$ (variable index $n + 1$). For each clause $C_j = (ell_1 or dots or ell_k)$, construct the NAE clause $C'_j = (ell_1, dots, ell_k, s)$. The target NAE-SAT instance has $n + 1$ variables and $m$ clauses.
 
+  _Size bound._ An empty source clause is represented by the contradictory NAE clause $(s,s)$. If the source has $L$ literal occurrences and $m$ clauses, the target has at most $L+2m$ literals. The sum of within-clause literal-pair counts is bounded by $(L+2m)^2$.
+
   _Correctness._ ($arrow.r.double$) Given a satisfying assignment $bold(x)$ for $phi$, set $s = 0$. Each clause $C_j$ has at least one true literal $ell_i$ and the false sentinel $s = 0$, so $C'_j$ has both a true and a false literal, satisfying the NAE constraint. ($arrow.l.double$) Given a satisfying NAE assignment $(bold(x), s)$: if $s = 0$, each clause has at least one true literal (or else all literals in $C'_j$ would be false, including $s$, violating NAE); if $s = 1$, complement the entire assignment --- the complemented sentinel is $0$, and each complemented clause still has at least one true literal because the original NAE clause had at least one false non-sentinel literal.
 
   _Solution extraction._ If the sentinel $s = 0$, return the first $n$ variables. If $s = 1$, return the complement of the first $n$ variables.
@@ -13039,6 +13017,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     v_(a xor b) " iff " a xor b
   $
   using the 2-clause NOT gadget, the 3-clause AND/OR gadgets, and the 4-clause XOR gadget. If the simplified right-hand side becomes a variable or auxiliary variable $z_e$, add $(overline(o_i) or z_e)$ and $(o_i or overline(z_e))$ for every output $o_i$. If it simplifies to a constant, add the unit clause $o_i$ or $overline(o_i)$ accordingly. Repeat this independently for every assignment in the circuit.
+
+  _Size bound._ Let $N$ count all source expression nodes and $O$ all assignment outputs. Replacing multi-input gates by binary gates introduces at most $2N$ gates, each with at most four clauses of three literals. Output equalities add at most $2O$ clauses of two literals. Thus the target has at most $n+2N$ variables, $8N+2O$ clauses, and $24N+4O$ literals, including constant expressions and assignments without outputs.
 
   _Correctness._ ($arrow.r.double$) Let $sigma$ be a satisfying CircuitSAT assignment. Set every auxiliary variable $v_alpha$ to the truth value of the corresponding subexpression $alpha$ under $sigma$. Each Tseitin gadget is then satisfied because its output variable matches the gate semantics, and every output-equivalence or unit clause holds because $sigma$ already makes each circuit assignment $o_1, dots, o_t = e$ true. Hence the CNF is satisfiable. ($arrow.l.double$) Let $tau$ satisfy the constructed CNF. Every Tseitin gadget forces its auxiliary variable to equal the truth value of its subexpression, so the root variable $z_e$ equals the value of $e$. The output-equivalence clauses therefore force every output $o_i$ to equal $e$, and unit clauses force the required constants. Restricting $tau$ to the named circuit variables yields an assignment satisfying every original circuit equation.
 
@@ -13132,7 +13112,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ Evaluate the target certificate once and reject it unless all equations hold. Read off factor bits $p = sum_i p_i 2^(i-1)$ and $q = sum_j q_j 2^(j-1)$, then return $(min(p,q), max(p,q))$. The source requires $m <= n$. Sorting preserves the asymmetric bounds: if inputs are exchanged, the new smaller factor is below the old first factor, while both inputs fit the larger width.
 
-  _Size and arithmetic._ Product width and assignment capacity are checked before allocation. At most $6 m n + 2(m+n) + 2$ assignments and $6 m n + 2(m+n) + 1$ variables are generated. Factors and products use exact arbitrary-precision integers; the circuit enforces bit arithmetic without floating-point conversions. The cell and output assignments use only the existing Boolean expression API.
+  _Size and arithmetic._ Product width and assignment capacity are checked before allocation. At most $6 m n + 2(m+n) + 2$ assignments and $6 m n + 2(m+n) + 1$ variables are generated. Factors and products use exact arbitrary-precision integers; the circuit enforces bit arithmetic without floating-point conversions. Each assignment has one output and at most five expression nodes, so the assignment bound also bounds output count, and five times that bound covers expression nodes. The cell and output assignments use only the existing Boolean expression API.
 
 ]
 
@@ -13210,6 +13190,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
+  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. A self-loop merges two endpoint terms, so this is an upper bound rather than an equality.
+
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
@@ -13266,6 +13248,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MultipleChoiceBranching", "ILP")[
   A topological-order formulation makes the branching acyclicity condition linear while retaining the source indegree, partition, and weight inequalities directly.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering signed arc weights and the threshold, and $n$ the vertex count. Order constraints introduce magnitudes at most $n$, so target `max_constraint_magnitude_bits` is at most $h+n$.
+
   _Construction._ For every arc $a$ introduce a nonnegative integer $x_a <= 1$, and for every vertex $v$ introduce an integer order $0 <= p_v <= n-1$. Add $sum_(a in A_i)x_a <= 1$ for each partition group, $sum_(a in delta^-(v))x_a <= 1$ for each vertex, and $sum_a w_a x_a >= K$. For every arc $a=(u,v)$ add $p_u-p_v+n x_a <= n-1$. The target has exactly $m+n$ variables and $2m+2n+g+1$ constraints for $g$ partition groups.
 
   _Correctness._ A source branching admits a topological order, which satisfies the order rows. Conversely, selecting $(u,v)$ forces $p_v >= p_u+1$, so selected arcs cannot contain a directed cycle. All remaining source conditions are represented verbatim by their corresponding rows.
@@ -13464,13 +13448,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumCoKPlex",
   "ILP",
   source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mckp_ilp_sol = mckp_ilp.solutions.at(0)
 #reduction-rule("MaximumCoKPlex", "ILP",
   example: true,
   example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
     #pred-commands(
@@ -13499,12 +13483,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let mces_ilp = load-example(
   "MaximumCommonEdgeSubgraph",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mces_ilp_sol = mces_ilp.solutions.at(0)
 #reduction-rule("MaximumCommonEdgeSubgraph", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
   extra: [
     #pred-commands(
@@ -13537,12 +13521,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cmo_ilp = load-example(
   "MaximumContactMapOverlap",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let cmo_ilp_sol = cmo_ilp.solutions.at(0)
 #reduction-rule("MaximumContactMapOverlap", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
   extra: [
     #pred-commands(
@@ -13576,13 +13560,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   "MaximumEdgeWeightedKClique",
   "ILP",
   source-variant: (weight: "i64"),
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let mewkc_ilp_sol = mewkc_ilp.solutions.at(0)
 #reduction-rule("MaximumEdgeWeightedKClique", "ILP",
   example: true,
   example-source-variant: (weight: "i64"),
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
     #pred-commands(
@@ -13607,6 +13591,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
 
   _Correctness._ ($arrow.r.double$) Any $k$-clique $S subset.eq V$ yields a feasible solution by setting $x_v = 1$ iff $v in S$ and $y_(u v) = 1$ iff $u, v in S$; the non-edge constraints are satisfied because $G[S]$ is a clique, and the McCormick triple enforces $y_(u v) = x_u and x_v$. The objective equals $sum_({u, v} in E(S)) w_(u v)$. ($arrow.l.double$) Any feasible solution with cardinality $k$ selects $k$ vertices forming a clique (the non-edge constraints rule out non-adjacent pairs), and the McCormick lower bound $y_(u v) >= x_u + x_v - 1$ forces $y_(u v) = 1$ whenever both endpoints are selected, even when $w_(u v) < 0$.
+
+  _Parameter bounds._ For $n$ vertices and $m$ stored edge occurrences, there is one cardinality row, at most $n(n-1)/2$ missing-pair rows, and $3m$ product rows. The nonzero count is at most $n+n(n-1)+7m=n^2+7m$. These bounds cover both coefficient variants, including repeated edges and loops; normalization can only reduce the nonzero count.
 
   _Solution extraction._ Take the first $|V|$ entries of the ILP solution as the source selection vector.
 ]
@@ -13641,7 +13627,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#fmt-values(ks_ilp_selected)\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
   ],
 )[
-  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
+  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and at most $n+1$ constraints after fixing oversized items to zero.
 ][
   _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. The ILP is:
   $
@@ -13649,7 +13635,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(i=0)^(n-1) w_i x_i <= C \
     & x_i in {0, 1} quad forall i in {0, dots, n - 1}.
   $
-  The target therefore has exactly $n$ variables and one linear constraint.
+  The implementation omits every weight greater than $C$ from the capacity row and adds $x_i=0$ for that item. This preserves feasibility and gives exactly $n$ variables and at most $n+1$ constraints. Every constraint coefficient and right-hand side has magnitude at most $max(C,1)$, so `capacity_bits` bounds the target `max_constraint_magnitude_bits`.
 
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
 
@@ -13709,6 +13695,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
 
   _Correctness._ ($arrow.r.double$) Any feasible Integer Knapsack multiplicity vector $bold(c)$ already satisfies $sum_i s_i c_i <= B$, and every source multiplicity also satisfies $c_i <= floor.l B / s_i floor.r$, so the same vector is feasible for the ILP and attains exactly the same objective value $sum_i v_i c_i$. ($arrow.l.double$) Any feasible ILP solution satisfies the same capacity inequality and the same per-item multiplicity bounds, so it is a valid Integer Knapsack witness with identical total value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Numeric magnitude._ Items with $s_i>B$ have multiplicity fixed to zero and are omitted from the capacity row. All constraint magnitudes and variable bounds are therefore at most $max(B,1)$. The source `capacity_bits`, defined as the binary digit count of $B$ with a minimum of one, bounds the target `max_constraint_magnitude_bits`.
 
   _Solution extraction._ Identity: return the ILP variable vector $bold(c)$ as the Integer Knapsack multiplicities.
 ]
@@ -13795,6 +13783,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
 
   _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
+
+  _Numeric bounds._ Give each arc the explicit domain $0 <= x_i <= u_i$, where $u_i$ is the minimum capacity of a bundle containing it. With $S = sum_i u_i$, replace $R$ by $min(R, S+1)$: a requirement above $S$ remains infeasible. If $h$ is the maximum bundle-capacity bit length (at least one), all target constraint and domain magnitudes have at most $h + |A| + 1$ bits. No separate requirement parameter is needed.
 ]
 
 #let ola_seqmwct = load-example("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")
@@ -13814,6 +13804,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   @lawler1978 This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
 ][
+  _Numeric magnitude._ Processing lengths are zero or one, so target `max_processing_time_bits` is exactly $1$.
+
   _Construction._ Let the source instance be an undirected graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and maximum degree $d_"max" = max_(v in V) deg(v)$. For each vertex $v in V$, create a job $J_v$ of length 1 and weight $d_"max" - deg(v)$. For each edge $e = {u, v} in E$, create a job $J_e$ of length 0 and weight 2. Add the precedence constraints $J_u prec.eq J_e$ and $J_v prec.eq J_e$ for every edge job $J_e$. There are no other precedences, so the target has $n + m$ jobs and $2m$ precedence arcs.
 
   _Correctness._ Write the source arrangement as a bijection $pi : V -> {0, dots, n - 1}$. Schedule the vertex jobs in increasing $pi$-order, so $J_v$ completes at time $C_v = pi(v) + 1$. Because $J_e$ has length 0 and must follow both endpoints, edge job $J_{ {u, v} }$ completes at time $max(pi(u), pi(v)) + 1$. The total weighted completion time is
@@ -13861,35 +13853,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
-  Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
+  A strict linear order with exact prefix completion times preserves the permutation objective, including zero and signed processing times and weights.
 ][
-  _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
+  _Construction._ Let $p_j$ be task lengths, $w_j$ weights, $L=sum_j min(0,p_j)$ and $U=sum_j max(0,p_j)$. Use integer completion variables with bounds $p_j+L-min(0,p_j) <= C_j <= p_j+U-max(0,p_j)$, and binary $y_(i j)$ for $i<j$, meaning $i$ precedes $j$. For each $i<j<k$, impose $0 <= y_(i j)+y_(j k)-y_(i k) <= 1$. Fix each precedence's corresponding bit to its required orientation; a self precedence emits $0=1$. Define
+  $ C_j - sum_(i<j) p_i y_(i j) + sum_(i>j) p_i y_(j i) = sum_(i>=j) p_i. $
+  Minimize $sum_j w_j C_j$.
 
-  _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
+  _Correctness._ ($arrow.r.double$) A feasible source permutation defines a transitive orientation satisfying every triangle and precedence row. Its prefix sums meet the stated bounds and completion equations, so the objective is unchanged. ($arrow.l.double$) Triangle inequalities exclude both orientations of every directed triangle. A tournament with no directed triangle is a strict total order. The completion equations give precisely the processing prefix sums in that order, even when times are zero or negative. Thus every feasible target decodes to a source permutation with identical objective. Cyclic precedences cannot be hidden by equal completion times.
 
-  _Precedence constraints._ If $i prec.eq j$, require $C_j - C_i >= l_j$.
+  _Solution extraction._ Validate target feasibility, count each task's predecessors from the order bits, and sort by this rank. No temporal tie-breaking or schedule repair is needed.
 
-  _Single-machine disjunction._ For every pair $i < j$, require
-  $C_j - C_i + M (1 - y_(i j)) >= l_j$
-  and
-  $C_i - C_j + M y_(i j) >= l_i$.
-  Exactly one of the two orderings is therefore active.
-
-  _Objective._ Minimize $sum_j w_j C_j$.
-
-  The ILP is:
-  $
-    min quad & sum_j w_j C_j \
-    "subject to" quad & l_j <= C_j <= M quad forall j \
-    & C_j - C_i >= l_j quad forall i prec.eq j \
-    & C_j - C_i + M (1 - y_(i j)) >= l_j quad forall i < j \
-    & C_i - C_j + M y_(i j) >= l_i quad forall i < j \
-    & y_(i j) in {0, 1}, C_j in ZZ_(>=0).
-  $
-
-  _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
-
-  _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
+  _Size and arithmetic._ There are $n+n(n-1)/2$ variables and $n(n-1)(n-2)/3+n+e$ rows, with at most $n(n-1)(n-2)+n^2+e$ nonzeros. If $h$ is `max_processing_time_bits`, constraint magnitudes have at most $h+n$ bits. Signed sums and bounded constraint evaluation are checked before returning a target; arithmetic failure is distinct from infeasibility. Objective coefficients remain the source weights.
 ]
 
 #let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
@@ -14093,12 +14067,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cs_ilp_str = load-example(
   "ClosestString",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let cs_ilp_str_sol = cs_ilp_str.solutions.at(0)
 #reduction-rule("ClosestString", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
@@ -14136,12 +14110,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let css_ilp = load-example(
   "ClosestSubstring",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let css_ilp_sol = css_ilp.solutions.at(0)
 #reduction-rule("ClosestSubstring", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
@@ -14321,6 +14295,164 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
 ]
 
+#reduction-rule("MinimumCodeGenerationUnlimitedRegisters", "ILP", example: true)[
+  For the $k$ internal operations, use integer ranks $p_v in {0, dots, k-1}$,
+  binary copy indicators $y_v$, and a fixed variable $z=1$. For each internal
+  operand $u$ of $v$, impose $p_v-p_u >= 1$. For every distinct other operation
+  $u$ using the left operand of $v$, impose $p_v-p_u+k y_v >= 1$.
+  Minimize $k z + sum_v y_v$ and extract positions by sorting ranks, breaking ties
+  by internal vertex index. With $n$ input vertices, there are at most $2n+1$
+  variables, $n^2+n$ rows, and $3n^2+n$ nonzeros.
+][
+  A valid order supplies ranks and its actual copy indicators, with equal cost.
+  Conversely, strict dependency comparisons survive sorting tied ranks. When
+  $y_v=0$, every other user of its left operand precedes $v$, so no copy is
+  required; otherwise the extracted order charges at most one copy. Its cost is
+  therefore at most the target cost, proving equal optima together with the
+  forward construction. Cyclic dependencies make both problems infeasible.
+  Repeated left/right uses by one operation count as one other user.
+]
+
+#reduction-rule("PartitionIntoPerfectMatchings", "ILP", example: true)[
+  For each vertex use a group label $c_v in {0, dots, K-1}$. Ignore loops and
+  repeated adjacencies. Each remaining edge $e=(u,v)$ has binary variables $s_e$
+  and $y_e$. Require degree one in the selected $s$ edges. Writing $d=c_v-c_u$,
+  impose $d+(K-1)s_e <= K-1$, $-d+(K-1)s_e <= K-1$,
+  $d-K y_e+s_e >= 1-K$, and $-d+K y_e+s_e >= 1$.
+  The objective is zero; extract the group labels. With $n$ vertices and $m$
+  stored edges, at most $n+2m$ variables, $n+4m$ rows, and $16m$ nonzeros suffice.
+][
+  A valid partition sets $s_e=1$ exactly for equal-label endpoints and chooses
+  the direction of unequal labels with $y_e$. Conversely, the first two rows
+  force equal labels when $s_e=1$, while the last two force unequal labels when
+  $s_e=0$. Degree one therefore holds exactly within each induced group. Every
+  nonempty group is a disjoint union of edges and hence a perfect matching.
+  The argument includes $K=1$, empty groups, and isolated vertices.
+]
+
+#reduction-rule("MinimumWeightAndOrGraph", "ILP", example: true)[
+  Use binary arc selections $x_e$, binary reached flags $z_v$, and integer
+  flows $f_e in {0,dots,n-1}$ on gate arcs (zero flow on leaf arcs). Mark the
+  source. Selected tails, and selected gate-arc heads, must be marked. Reached
+  AND gates select every outgoing arc; reached OR gates select at least one.
+  Require $f_e <= (n-1)x_e$ on gate arcs and incoming flow minus outgoing flow
+  at least $z_v$ at every nonsource vertex. Minimize the original selected-arc
+  weight. This uses $n+2m$ variables, at most $2n+4m$ rows and $2n+10m$ nonzeros.
+][
+  A valid source solution supplies its reached flags and sends one flow unit
+  to every reached nonsource vertex along a discovery tree. Conversely, summing
+  flow balances over any unreachable set rules out marked vertices there.
+  The local gate constraints then certify the source selection, with identical
+  cost. This includes cycles, signed weights, shared descendants, and the model's
+  nonpropagating leaf arcs. Integer objective prefixes agree in original arc
+  order, including typed overflow errors.
+]
+
+#reduction-rule("BoundedDiameterSpanningTree", "ILP", example: true)[
+  Clamp the diameter bound to $D' = min(D,n-1)$ and put $q=floor(D'/2)$.
+  Use selected-edge bits, two parent orientations per edge, root flags, and depths
+  in $0, dots, q$. Each nonroot has exactly one incoming parent, roots have depth
+  zero, and a selected parent strictly increases depth using coefficient $q+1$.
+  For even $D'$ choose one root. For odd $D'$ choose one center edge and make its
+  endpoints the two roots. An edge is selected exactly when used as a parent or
+  center edge. Enforce the original weight budget; loops are fixed unselected.
+  The empty graph maps to an empty feasible ILP. At most $4m+2n$ variables,
+  $3m+3n+2$ rows, and $16m+4n$ nonzeros suffice.
+][
+  Every bounded-diameter tree has a midpoint vertex or midpoint edge whose
+  rooted components have depth at most $q$. If its diameter is even but $D'$ is
+  odd, any edge incident to a midpoint vertex supplies the two centers.
+  Conversely, strict depth growth prevents parent cycles, and the parent counts
+  produce one rooted tree or two trees joined by the center edge. Any vertex
+  lies at most $q$ edges from its root, giving diameter at most $D'$.
+  Extraction takes the selected edges, whose weight satisfies the budget.
+]
+
+#reduction-rule("CyclicOrdering", "ILP", example: true)[
+  A sparse bounded-rank formulation uses $n+3t$ variables, $7t$ rows and $21t$ nonzeros for $n$ elements and $t$ cyclic triples. Its zero objective encodes feasibility.
+][
+  _Construction._ Assign each element an integer rank $p_v in [0,n-1]$. For each triple $(a,b,c)$ introduce three binary comparisons $y_(a b),y_(b c),y_(c a)$. For each directed pair $(u,v)$ enforce
+  $p_v-p_u-n y_(u v) >= 1-n, quad p_u-p_v+n y_(u v) >= 1.$
+  Add $y_(a b)+y_(b c)+y_(c a)=2$.
+
+  _Correctness._ ($arrow.r.double$) A valid source permutation sets the three bits to its comparison truth values. Each permitted cyclic orientation has exactly two true comparisons. ($arrow.l.double$) The inequalities force each bit to represent its strict comparison. Their sum restricts each triple to one of the three permitted orientations. Sorting all elements by rank, breaking ties by index, preserves every required strict comparison. No triple contains tied elements, so this produces a valid permutation.
+
+  _Solution extraction._ Return the inverse of that sorted list: each element receives its new position. Unconstrained elements may have equal target ranks.
+]
+
+#reduction-rule("Betweenness", "ILP", example: true)[
+  A bounded-rank formulation uses $n+t$ variables, $4t$ rows and $12t$ nonzeros for $n$ elements and $t$ betweenness triples.
+][
+  _Construction._ Use integer ranks $p_v in [0,n-1]$. For each $(a,b,c)$ introduce one binary $y$ and, for both $(u,v)=(a,b)$ and $(b,c)$, add
+  $p_v-p_u-n y >= 1-n, quad p_u-p_v+n y >= 1.$
+  The objective is zero.
+
+  _Correctness._ ($arrow.r.double$) Copy the positions of a valid source permutation and set $y=1$ for $a<b<c$, or $y=0$ for $c<b<a$. ($arrow.l.double$) Each target selector enforces exactly one of those strict chains. Sorting the ranks and breaking unrelated ties preserves every strict chain and therefore every betweenness triple.
+
+  _Solution extraction._ Assign each element its position in the sorted list, rather than returning the list of elements.
+]
+
+#reduction-rule("TwoDimensionalConsecutiveSets", "ILP", example: true)[
+  Let $P=sum_(S) binom(|S|,2)$ over the input subsets. A bounded-label formulation has $n+P$ variables, $4P$ rows and $10P$ nonzeros. Empty and singleton subsets need no rows.
+][
+  _Construction._ Give each element an integer group label $p_v in [0,n-1]$. For every unordered pair $u<v$ in each subset $S$ of size $k$, create a binary $y$ and enforce
+  $p_v-p_u-n y >= 1-n, quad p_u-p_v+n y >= 1,$
+  $p_v-p_u <= k-1, quad p_u-p_v <= k-1.$
+  Distinct subsets have separate selectors, including repeated subsets. The objective is zero.
+
+  _Correctness._ ($arrow.r.double$) Compress a valid source assignment to dense group labels. Every subset occupies $k$ consecutive labels, so its pairs are distinct and differ by at most $k-1$; choose selectors according to their order. ($arrow.l.double$) The target gives every subset $k$ distinct integer labels with total span at most $k-1$, hence exactly $k$ consecutive labels. Global compression cannot remove a label inside such an interval because the subset itself occupies every label in it. Unrelated elements may share groups.
+
+  _Solution extraction._ Return the first $n$ target labels. The model applies its usual global label compression.
+]
+
+#reduction-rule("OneInThreeSatisfiability", "ILP", example: true)[
+  Encode exact-one clauses directly with binary variables and one equality per clause.
+  The elementary encoding below is derived directly from the literal semantics.
+][
+  _Construction._ Introduce one binary variable $x_i$ per source variable.
+  For each clause let $q$ count its negative literal occurrences. Add
+  $ sum_(i in P) x_i - sum_(i in N) x_i = 1-q, $
+  where $P$ and $N$ retain repeated occurrences. Use a zero minimization objective.
+
+  _Correctness._ The left side plus $q$ counts precisely the true literal
+  occurrences. ($arrow.r.double$) A satisfying source assignment therefore satisfies
+  every equality. ($arrow.l.double$) Every feasible target assignment makes exactly
+  one occurrence true in each clause, including clauses with repeated or opposite
+  literals. The empty formula is handled by the same construction.
+
+  _Overhead._ For $n$ variables and $m$ clauses there are exactly $n$ variables
+  and $m$ rows. Normalization leaves at most $3m$ nonzeros. Coefficients have
+  magnitude at most three and right-hand sides at most two, requiring at most
+  two magnitude bits.
+
+  _Solution extraction._ Validate target feasibility and read each binary variable
+  as its source truth value. Target feasibility maps to the source Boolean value.
+]
+
+#reduction-rule("Kernel", "ILP", example: true)[
+  Encode independence and outgoing absorption with one binary variable per vertex.
+  The elementary encoding below follows the two defining kernel conditions.
+][
+  _Construction._ For each arc occurrence $(u,v)$ add $x_u+x_v<=1$.
+  For each vertex $u$ add $x_u+sum_(v in N^+(u))x_v>=1$, using the set of
+  distinct outgoing neighbors. All variables are binary; the objective is zero.
+
+  _Correctness._ ($arrow.r.double$) A kernel satisfies every independence row;
+  each unselected vertex has a selected outgoing neighbor, so absorption also
+  holds. ($arrow.l.double$) Independence rows forbid two selected arc endpoints,
+  while absorption rows ensure every unselected vertex reaches a selected one.
+  A self-loop gives $2x_u<=1$ and correctly forbids selecting its vertex.
+  Parallel arcs repeat independence rows without changing feasibility.
+
+  _Overhead._ With $n$ vertices and $m$ arc occurrences there are exactly $n$
+  variables and $m+n$ rows. The independence rows contribute at most $2m$
+  nonzeros and absorption at most $n+m$. Normalized coefficients have magnitude
+  at most two, so two magnitude bits suffice.
+
+  _Solution extraction._ Validate target feasibility and return the selected
+  vertices as a Boolean vector. Target feasibility maps to the source Boolean value.
+]
+
 #reduction-rule("NAESatisfiability", "ILP")[
   Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
 ][
@@ -14430,6 +14562,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Construction._ Given Set Splitting instance $(U, cal(C))$, first normalize every subset to size 2 or 3. For a subset $S = {s_1, dots, s_k}$ with $k >= 4$, introduce fresh elements $y^+, y^-$, replace $S$ by the size-3 subset ${s_1, s_2, y^+}$ and the complementarity subset ${y^+, y^-}$, and continue recursively on ${y^-, s_3, dots, s_k}$. Repeating this step yields an equivalent normalized instance $(U', cal(C)')$ in which every subset has size 2 or 3.
 
   Create one Betweenness element $a_u$ for each $u in U'$ and one distinguished pole $p$. For every size-2 subset ${u, v} in cal(C)'$, add triple $(a_u, p, a_v)$. For every size-3 subset ${u, v, w} in cal(C)'$, introduce a fresh auxiliary element $d_(u,v,w)$ and add triples $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$.
+
+  _Size bound._ Write $u$ for the source universe size and $s$ for its number of subsets. After deduplication, each subset has at most $u$ elements and undergoes at most $u$ decomposition steps, each adding two elements and two subsets. Hence the normalized universe has at most $u+2s u$ elements and at most $s(2u+1)$ subsets. Adding one pole and at most one auxiliary per normalized subset gives at most $u+1+s(4u+1)$ elements; at most two triples per subset gives $2s(2u+1)$ triples.
 
   _Correctness._ The normalization identity preserves splittability: a coloring splits ${s_1, dots, s_k}$ if and only if it can be extended to fresh elements $y^+, y^-$ so that ${s_1, s_2, y^+}$, ${y^+, y^-}$, and ${y^-, s_3, dots, s_k}$ are all non-monochromatic. Thus it suffices to reason about normalized subsets.
 
@@ -14681,12 +14815,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   ($arrow.l.double$) Conversely, let $(x, z, y)$ be any feasible ILP solution. For each slot $k$, the vertices with $x_(v,k) = 1$ form a clique because every non-edge pair is forbidden from appearing together in that slot. If $y_({u,v},k) = 1$, the McCormick constraints force both endpoints $u$ and $v$ into slot $k$, so the edge is indeed contained in that clique. The coverage inequalities therefore certify that every source edge lies in at least one clique slot, giving a valid edge-clique cover. Since the objective counts active slots, minimizing it yields a minimum cover.
 
+  _Parameter bounds._ With $n$ vertices and $m$ stored edge occurrences, the four construction blocks contribute $n m$ activation rows, at most $n(n-1)m/2$ missing-pair rows, $3m^2$ product rows, and $m$ coverage rows. Their nonzeros are bounded respectively by $2n m$, $n(n-1)m$, $7m^2$, and $m^2$, giving at most $2n m+n(n-1)m+8m^2$. Repeated edges and loops are retained as occurrences; subtracting $m$ from the number of distinct vertex pairs would not count missing pairs correctly.
+
   _Solution extraction._ For each source edge $e$, choose any slot $k$ with $y_(e,k) = 1$ and output the label $k$. The extracted edge-to-slot labeling is valid because every slot induces a clique and every edge is assigned to at least one covering slot.
 ]
 
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
   Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering item weights and capacity. The capacity row and unit precedence rows give target `max_constraint_magnitude_bits` exactly $h$; item values occur only in the objective.
+
   _Construction._ Variables: $x_i in {0, 1}$ per item. The ILP is:
   $
     max quad & sum_i v_i x_i \
@@ -14719,6 +14857,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("ShortestWeightConstrainedPath", "ILP")[
   Find a minimum-length $s$-$t$ path subject to a weight budget, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering edge weights and the weight bound, and $n$ the vertex count. These numeric inputs and the order-variable bounds give target `max_constraint_magnitude_bits` at most $h+n$. Objective edge lengths require no additional parameter.
+
   _Construction._ Let $A$ contain both orientations of every undirected edge and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
   $
     "minimize" quad & sum_((u,v) in A) l_(u,v) a_(u,v) \
@@ -14774,6 +14914,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinMaxMulticenter", "ILP")[
   Select $k$ centers minimizing the maximum weighted distance from any vertex to its assigned center.
 ][
+  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering vertex weights and edge lengths, and $n$ the vertex count. A shortest simple path uses at most $n-1$ edges. Multiplying its length by a vertex weight gives a magnitude below $n 2^(2h)$, so target `max_constraint_magnitude_bits` is at most $2h+n$.
+
   _Construction._ Same assignment structure as MinimumSumMulticenter (binary $x_j$, $y_(i,j)$), plus an integer variable $z$. The ILP is:
   $
     "minimize" quad & z \
@@ -14802,12 +14944,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
 
+  _Numeric magnitude._ Let $h >= 1$ be the smallest integer such that every task length and the deadline are strictly below $2^h$. At least one processor is present, so the load rows copy all these numbers. All remaining coefficients, right-hand sides, and Boolean endpoints have magnitude at most one. Thus the target's `max_constraint_magnitude_bits` equals the source's `max_numeric_magnitude_bits`, including instances with no tasks.
+
   _Solution extraction._ Task $j$ goes to processor $arg max_p x_(j,p)$.
 ]
 
 #reduction-rule("CapacityAssignment", "ILP")[
   Assign a capacity level to each link to minimize total cost subject to a delay budget.
 ][
+  _Numeric magnitude._ Let $h$ be `max_delay_bits`, covering all delays and the delay budget with absolute values strictly below $2^h$. These values, together with unit assignment rows, give target `max_constraint_magnitude_bits` exactly $h$. Costs occur only in the objective.
+
   _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. The ILP is:
   $
     "minimize" quad & sum_(l,c) "cost"[l][c] x_(l,c) \
@@ -14895,6 +15041,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   This $O(n + m)$ parameter-setting reduction (Hadlock, 1974; Garey and Johnson @garey1979[ND10, p.~208]) constructs a Bounded Component Spanning Forest instance on the same graph with unit vertex weights, $K = |V| slash 3$ components, and weight bound $B = 3$.
 ][
+  _Numeric magnitude._ Unit vertex weights and component bound $3$ give target `max_weight_bits` exactly $2$, including the empty graph.
+
   _Construction._ Given a Partition into Paths of Length 2 instance on graph $G = (V, E)$ with $|V| = 3q$:
   - Graph: use $G$ unchanged.
   - Vertex weights: $w(v) = 1$ for all $v in V$.
@@ -14959,21 +15107,22 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("PreemptiveScheduling", "ILP")[
-  Minimize makespan for preemptive parallel scheduling with variable-length tasks and precedence constraints.
+  Sparse time-indexed activity with a certified horizon preserves the minimum makespan for positive task lengths and precedence constraints.
 ][
-  _Construction._ Let $D = sum_t ell(t)$ be the horizon. Variables: binary $x_(t,u) in {0,1}$ (task $t$ processed at slot $u$) for $t in {0, dots, n-1}$, $u in {0, dots, D-1}$; integer $M in {0, dots, D}$ (makespan). The ILP is:
+  _Construction._ Let $D=sum_j p_j$. On the precedence DAG, compute earliest starts $E_j$ from predecessor paths and critical tails $B_j$ including task $j$. Construct a feasible nonpreemptive list schedule, prioritizing larger critical tails and then smaller task indices; process all simultaneous completions before dispatching ready tasks. Its makespan $H<=D$ certifies a horizon. Retain binary activity variables only for $E_j<=t<H-B_j+p_j$. For cycles set $H=0$ and retain no activity slots; the positive work equations then contradict feasibility. Use integer endpoints $S_j,C_j$ and makespan $M$ in $[0,H]$, with
   $
-    min quad & M \
-    "subject to" quad & sum_u x_(t,u) = ell(t) quad forall t quad "(work)" \
-    & sum_t x_(t,u) <= m quad forall u quad "(capacity)" \
-    & sum_u u dot x_(j,u) - sum_u u dot x_(i,u) >= 1 quad "for each" (i prec j) quad "(precedence)" \
-    & M - (u+1) dot x_(t,u) >= 0 quad forall t, u quad "(makespan)" \
-    & x_(t,u) in {0, 1}, quad M in ZZ_(>= 0).
+    sum_t x_(j,t) &= p_j \
+    sum_j x_(j,t) &<= min(m,n) \
+    S_j+(H-t)x_(j,t) &<= H \
+    C_j-(t+1)x_(j,t) &>= 0 \
+    C_a &<= S_b quad forall (a,b) in P \
+    C_j &<= M.
   $
+  Minimize $M$. Bounds are variable domains, not redundant constraint rows.
 
-  _Correctness._ Work constraints enforce each task runs for exactly $ell(t)$ slots. Capacity limits at most $m$ tasks per slot. Precedences are enforced by weighted time indicators. Makespan lower bounds force $M >= u+1$ whenever task $t$ is active at slot $u$.
+  _Correctness._ ($arrow.r.double$) An optimal schedule has makespan at most the feasible list schedule's $H$. Every predecessor path forces its activity after $E_j$, and every successor path forces it before $H-B_j+p_j$. Its activity is therefore retained. Set endpoints to actual first and last activity and $M$ to its makespan. ($arrow.l.double$) Work and capacity rows ensure valid processing. Active-slot endpoint rows and $C_a<=S_b$ forbid successors from starting before predecessors finish, including interrupted tasks. The decoded makespan is at most $M$; tightening endpoints and $M$ to actual activity proves optimum equality. Positive durations make precedence cycles infeasible on both sides.
 
-  _Solution extraction._ Config$[t dot D + u] = x_(t,u)$ for all $t, u$.
+  _Solution extraction and size._ Validate, project retained activity to the original $n$ by $D$ matrix, and put zero in omitted slots. For $A$ retained slots and $e$ arc occurrences, the target has exactly $A+2n+1$ variables, $2A+2n+H+e$ rows, and $6A+2n+2e$ nonzeros. Since $H <= D$ and $A <= n D$, the registered upper bounds are $n D+2n+1$ variables, $2n+D+2n D+e$ rows, and $6n D+2n+2e$ nonzeros. Constraint magnitudes need at most `max_schedule_magnitude_bits`; endpoint arithmetic is checked before allocation. Empty instances have only $M=0$.
 ]
 
 #reduction-rule("SequencingWithinIntervals", "ILP")[
@@ -15026,6 +15175,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Direction indicators linearize the capacity-sharing constraint. Per-commodity conservation prevents flow from being created or destroyed at another commodity's terminals, as required by the standard multicommodity-flow formulation @garey1979.
 
   _Solution extraction._ Flow variables (first $4|E|$ variables).
+
+  _Numeric bounds._ Bound each flow variable explicitly by its edge capacity. With $S = sum_e "cap"_e$, each sink's net inflow lies in $[-S, S]$, so replace each requirement $R_k$ by $max(-S, min(R_k, S+1))$. This preserves feasibility, including impossible demands. If $h$ is the maximum capacity bit length (at least one), $h + |E| + 1$ bounds the target constraint and domain magnitude bits.
 ]
 
 #reduction-rule("DirectedTwoCommodityIntegralFlow", "ILP")[
@@ -15063,6 +15214,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
 
   _Solution extraction._ Edge orientations: $z_e$ values.
+
+  _Numeric bounds._ Require $0 <= "lower"_e <= "cap"_e$ and give each directional flow the explicit domain $[0, "cap"_e]$. With $S = sum_e "cap"_e$, replace the positive requirement $R$ by $min(R, S+1)$; demands above $S$ remain infeasible. The capacity bit length $h >= 1$ therefore gives the bound $h + |E| + 1$ on target constraint and domain magnitude bits, without a separate lower-bound or requirement parameter.
 ]
 
 // Flow-based
@@ -15100,6 +15253,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid multiplier flow satisfies these linear equalities and inequalities by definition. ($arrow.l.double$) Any feasible ILP solution gives an integral arc flow whose non-terminal outflow equals the prescribed multiple of its inflow and whose sink inflow meets the requirement.
 
   _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$.
+
+  _Numeric bounds._ Give each arc the explicit domain $[0, c_a]$ and let $S = sum_a c_a$. Replace $h(v)$ by $min(h(v), S+1)$. If $h(v)>S$, any positive integral inflow would require outflow above $S$, so both the original and replacement equation force zero inflow and outflow. Replace $R$ by $max(-S, min(R, S+1))$. If $b >= 1$ is the maximum capacity bit length, all target constraint and domain magnitudes have at most $b + |A| + 1$ bits. Thus the prediction needs no multiplier or requirement parameter.
 ]
 
 #reduction-rule("PathConstrainedNetworkFlow", "ILP")[
@@ -15268,6 +15423,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("FlowShopScheduling", "ILP")[
   Order the jobs with pairwise precedence bits and completion-time variables on every machine; the deadline becomes a makespan bound.
 ][
+  _Numeric magnitude._ Let $h$ be `max_time_bits`, covering processing times and the deadline. The disjunction constant is the deadline plus the largest processing time, giving target `max_constraint_magnitude_bits` at most $h+1$.
+
   _Construction._ Let $q in {1, dots, m}$ index the machines, let $p_(j,q) = ell(t_q [j])$ be the processing time of job $j$ on machine $q$, and let $M = D + max_(j, q) p_(j,q)$. Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, and integer completion times $C_(j,q)$. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15285,23 +15442,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("OpenShopScheduling", "ILP")[
-  Binary ordering variables and integer start times encode the disjunctive non-overlap constraints for both machines and jobs; the makespan is the minimized objective.
+  Tight start domains and pairwise order bits encode machine and job conflicts, with symmetry restricted to identical machines.
 ][
-  _Construction._ Let $M = sum_(j,i) p(j,i)$ be the big-$M$ constant (an upper bound on the makespan). For each pair $j < k$ and each machine $i$, let $x_{j k i} in {0,1}$ with $x_{j k i} = 1$ iff job $j$ precedes job $k$ on machine $i$. For each job $j$ and pair of machines $i < i'$, let $y_{j i i'} in {0,1}$ with $y_{j i i'} = 1$ iff machine $i$ is processed before machine $i'$ for job $j$. Let $s_{j,i} in ZZ_{>=0}$ be the start time of job $j$ on machine $i$, and $C$ be the integer makespan variable. The ILP is:
-  $
-    min quad & C \
-    "subject to" quad
-    & s_(k,i) - s_(j,i) - M x_(j k i) >= p(j, i) - M quad forall j < k, i \
-    & s_(j,i) - s_(k,i) + M x_(j k i) >= p(k, i) quad forall j < k, i \
-    & s_(j,i') - s_(j,i) - M y_(j i i') >= p(j, i) - M quad forall j, i < i' \
-    & s_(j,i) - s_(j,i') + M y_(j i i') >= p(j, i') quad forall j, i < i' \
-    & C - s_(j,i) >= p(j, i) quad forall j, i \
-    & x_(j k i), y_(j i i') in {0,1},; s_(j,i), C in ZZ_(>=0).
-  $
+  _Construction._ Let $H=sum_(j,i) p_(j,i)$, and bound each integer start by $0<=s_(j,i)<=H-p_(j,i)$. For every pair of operations $a,b$ sharing a job or machine, introduce a binary $z$ and impose $s_b-s_a-H z>=p_a-H$ and $s_a-s_b+H z>=p_b$. Append makespan $M in [0,H]$, impose $M-s_a>=p_a$ for every operation, and minimize $M$.
 
-  _Correctness._ ($arrow.r.double$) Any feasible open-shop schedule with the given permutations $sigma_i$ induces valid ordering bits $x_{j k i}$ and $y_{j i i'}$ and start times satisfying all non-overlap constraints. ($arrow.l.double$) Any feasible ILP solution defines non-overlapping start times for all tasks, respecting both machine and job constraints.
+  _Symmetry._ Group machines whose processing columns are identical. For each group choose one anchor job of largest duration, breaking ties by job index. Require its operations to visit the group's machines in increasing machine-index order. This adds one row per consecutive pair in the group. Do not impose this order on other jobs.
 
-  _Solution extraction._ Return the $n m$ start-time variables $s_{j,i}$ directly in job-major order.
+  _Correctness._ ($arrow.r.double$) A serial schedule proves the optimum is at most $H$. Permuting entire identical machine columns preserves every job and machine conflict and the makespan. Such a permutation orders the anchor's operations as required, independently in each group. Set each bit to the represented pair order. The inactive inequalities follow from the start domains; choose $M$ equal to makespan. ($arrow.l.double$) Each bit activates one finish-before-start condition, so every conflict is absent. This also matches the source overlap predicate for zero durations. Decreasing $M$ to the actual last finish proves optimum equality.
+
+  _Extraction and size._ Validate and return the job-major start slice. Let $O=n(n-1)m/2+n m(m-1)/2$. The target has exactly $n m+O+1$ variables, at most $2O+n m+m$ rows and $6O+2n m+2m$ nonzeros. Magnitudes are bounded by `schedule_horizon_bits`. All count and normalized-row arithmetic is checked.
 ]
 
 #let doss_ilp = load-example("DecisionOpenShopScheduling", "ILP")
@@ -15315,49 +15464,79 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate schedule.json --config " + cli-config(doss_ilp.solutions.at(0).source_config),
     )
-    The canonical instance has processing times #repr(doss_ilp.source.instance.inner.processing_times) and bound #doss_ilp.source.instance.bound. Add the makespan constraint with this bound and set the objective to zero. The stored feasible ILP assignment decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which satisfy the bound. The fixture stores one witness.
+    The bound is #doss_ilp.source.instance.bound. The stored witness decodes to start times #fmt-values(doss_ilp.solutions.at(0).source_config), which meet that bound.
   ],
 )[
-  Impose the decision bound on the open-shop makespan variable. The optimization formulation gains one constraint and no variables.
+  Incorporate the decision bound in every operation's domain and disjunction, eliminating the makespan variable and its rows.
 ][
-  _Construction._ For bound $B$, use the OpenShopScheduling-to-ILP construction above, add $C <= B$, and replace the objective with zero.
+  _Construction._ For bound $B$, set $H=min(B,D)$, where $D$ is the serial processing sum. If $B<0$ or some duration exceeds $H$, emit $0=1$. Otherwise use the preceding conflict and identical-machine symmetry construction with this $H$, omit $M$ and its rows, and use zero objective.
 
-  _Correctness._ ($arrow.r.double$) A schedule of makespan at most $B$ gives feasible ordering variables and start times, with $C$ equal to its makespan. The existing horizon bounds can be met by removing unnecessary idle time. ($arrow.l.double$) Every feasible target assignment decodes to a schedule whose makespan is at most $C <= B$. Thus target feasibility is equivalent to the source YES answer; no optimum needs to be computed.
+  _Correctness._ ($arrow.r.double$) For $B<=D$, any satisfying source schedule already lies within $H$. For $B>D$, the serial schedule lies within $H=D$. Relabel identical machines as proved above and encode the pair orders. ($arrow.l.double$) Every target pair avoids overlap and all finishes are at most $H<=B$. The contradiction branch is source-infeasible because makespan is nonnegative and at least each operation's duration.
 
-  _Solution extraction._ Check target feasibility, then use the existing job-major start-time decoder. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
+  _Extraction and size._ Validate and decode starts. There are at most $n m+O$ variables, $2O+m+1$ rows and $6O+2m$ nonzeros, including the contradiction branch. The magnitude bound remains `schedule_horizon_bits`.
+]
+
+#reduction-rule("ThreePartition", "ILP")[
+  Direct binary exact cover by legal indexed triples removes group-label symmetry.
+][
+  _Construction._ Enumerate all $i<j<k$ whose sizes sum to the bound $B$, using a size-to-indices lookup for the third item. Allocate one binary variable per such triple and impose, for each item, that exactly one incident triple is selected. Use zero objective.
+
+  _Correctness._ ($arrow.r.double$) Every source group is a legal triple; selecting its column covers each indexed item once. ($arrow.l.double$) Exact coverage makes selected triples disjoint and exhaustive. There are exactly $n/3$ selected triples, each with sum $B$. Assign consecutive group labels to them. Equal-valued items retain distinct indices throughout.
+
+  _Extraction and size._ Validate, then label selected triples in column order. For $t$ legal triples there are $t$ variables, $n$ rows and $3t$ nonzeros, all with magnitude one. Existing source size parameters give $t<=n(n-1)(n-2)/6$; this is an upper bound, not an exact count. Enumeration costs $O(n^2 log n+t)$ independently of the numeric horizon.
+]
+
+#reduction-rule("ProductionPlanning", "ILP")[
+  Bounded production and inventory variables with exact setup indicators encode all periods in one linear integer model.
+][
+  _Construction._ For period $t$ use production $x_t in [0,c_t]$, inventory $I_t in [0,sum_(u<=t)c_u]$ and binary setup $z_t$. Set $I_(-1)=0$ and impose $x_t+I_(t-1)-I_t=d_t$, $x_t-c_t z_t<=0$, and $x_t-z_t>=0$. For production, setup and inventory costs $a_t,b_t,h_t$, impose $sum_t (a_t x_t+b_t z_t+h_t I_t)<=B$. Use zero objective.
+
+  _Correctness._ ($arrow.r.double$) A feasible source plan defines its cumulative inventories and $z_t=1$ exactly when production is positive; every row holds. ($arrow.l.double$) Conservation forces the true inventories, nonnegative inventory forbids backlog, and the two setup links force the same exact indicator. The budget row therefore equals source cost. Since costs are nonnegative, the final budget also enforces every source prefix-budget check.
+
+  _Extraction and arithmetic._ Validate and return the production coordinates. Checked cumulative demands and capacities, domain conversions, and normalized-row partial sums must fit the exact integer representation; failure is an arithmetic error rather than a NO answer. For $T$ periods there are $3T$ variables, $3T+1$ rows and at most $10T$ nonzeros. If $h$ bounds all input magnitudes in bits, $h+T$ also bounds cumulative inventory domains and every constraint magnitude.
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "ILP")[
-  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
+  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each task.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. The ILP is:
+  _Numeric magnitude._ For unit lengths, target `max_constraint_magnitude_bits` is at most $n+1$. For integer lengths let $h$ be `max_processing_time_bits`; then $L<n 2^h$ and every row magnitude is at most $2L$, giving the bound $h+n+1$. Deadline clipping makes a deadline-magnitude parameter unnecessary.
+
+  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. Replace each deadline by $d'_j = min(n,max(0,d_j))$. The ILP is:
   $
     min quad & sum_j u_j \
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
-    & sum_p (p + 1) x_(j,p) - d_j <= M u_j quad forall j \
+    & sum_p (p + 1) x_(j,p) - d'_j <= M u_j quad forall j \
     & x_(j,p), u_j in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and each $u_j$ is forced to record whether task $j$ misses its deadline.
+  For positive integer lengths, let $L = sum_j ell_j$, set $M=L$, and clip deadlines to $[0,L]$. Replace each tardiness row by the position-specific rows
+  $ L x_(j,p) + sum_(q<p) sum_i ell_i x_(i,q) - L u_j <= d'_j - ell_j + L. $
+  At the assigned position this enforces the completion-time comparison; at other positions it is redundant. Clipping preserves tardiness because every nonempty completion time lies in $[1,L]$.
 
-  _Solution extraction._ Decode the permutation from $x_(j,p)$ and encode it as Lehmer code.
+  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and a late task must have $u_j=1$. Minimization sets every other indicator to zero, so the optimum is the minimum number of tardy tasks.
+
+  _Solution extraction._ Decode the permutation directly from $x_(j,p)$.
 ]
 
 #reduction-rule("ResourceConstrainedScheduling", "ILP")[
   The source witness is already a time-slot assignment, so a standard time-indexed ILP suffices.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
+  _Numeric magnitude._ Let $h$ be `max_resource_bits`, covering all resource requirements and capacities. After capping the processor count by $n$, target `max_constraint_magnitude_bits` is at most $h+n$; neither deadline nor processor magnitude needs a new parameter.
+
+  _Construction._ Put $D'=min(D,n)$ and $m'=min(m,n)$, where $n$ is the task count. Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D' - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
   $
     "find" quad & bold(x) \
     "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
-    & sum_j x_(j,t) <= m quad forall t \
+    & sum_j x_(j,t) <= m' quad forall t \
     & sum_j r_(j,q) x_(j,t) <= B_q quad forall q, t \
     & x_(j,t) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any feasible schedule chooses one slot per task while respecting processor and resource capacities in every period. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+  _Correctness._ ($arrow.r.double$) A feasible schedule uses at most $n$ occupied slots. Renumber these in order from zero, preserving each group of simultaneous tasks. This respects the deadline and all capacities, so it yields a feasible assignment within $D'$ slots. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+
+  _Size bound._ There are at most $n^2$ variables, $n(r+2)$ constraints, and $n^3(r+2)$ nonzero coefficients for $r$ resources, independently of the numeric deadline.
 
   _Solution extraction._ Task $j$ is assigned to the unique slot $t$ with $x_(j,t) = 1$.
 ]
@@ -15365,24 +15544,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingToMinimizeMaximumCumulativeCost", "ILP")[
   Assign each task to one position in the permutation and bound the running cumulative cost at every prefix.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$. The ILP is:
+  _Numeric magnitude._ Let $h$ be `max_cost_bits` and $n$ the task count. Signed prefix magnitudes and the objective-variable endpoint are bounded by the sum of absolute costs; position coefficients are at most $n$. Target `max_constraint_magnitude_bits` is at most $h+n$.
+
+  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$, and integer $z$ with $0<=z<=sum_j abs(c_j)$. The lower bound includes the empty prefix. The ILP is:
   $
-    "find" quad & bold(x) \
+    min quad & z \
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
-    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= K quad forall q \
+    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= z quad forall q \
     & x_(j,p) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
+  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and sets $z$ to its maximum prefix cost, including zero for the empty prefix. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded. Minimizing $z$ therefore preserves the optimum.
 
-  _Solution extraction._ Decode the position assignment and convert the resulting permutation to Lehmer code.
+  _Solution extraction._ Decode the permutation directly from the position assignment.
 ]
 
 #reduction-rule("SequencingToMinimizeTardyTaskWeight", "ILP")[
   Use position assignments and exact tardiness indicators, with both implications of each deadline comparison. Prefix bounds supply valid constants for the bounded-disjunction construction @vielma2015, including the signed lengths, signed weights, and arbitrary deadlines accepted by the source model.
 ][
+  _Numeric magnitude._ Let $h$ be `max_processing_time_bits` and $n$ the task count. Prefix bounds have absolute value below $n 2^h$; the clipped comparisons and normalized coefficients require at most two additional bits. Target `max_constraint_magnitude_bits` is at most $h+n+2$. Neither deadlines nor objective weights need a size parameter.
+
   _Construction._ For $n$ tasks introduce binary $x_(j,p)$ (task $j$ occupies position $p$) and binary $u_j$ (task $j$ is tardy), with the two families of assignment equations. Let $P_p = sum_(q<p) sum_j ell_j x_(j,q)$. Define $L_p$ and $U_p$ as the sums of the $p$ smallest and $p$ largest lengths respectively; both are zero for $p=0$. Any permutation satisfies $L_p <= P_p <= U_p$.
 
   For each task and position put
@@ -15403,6 +15586,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingWithDeadlinesAndSetUpTimes", "ILP")[
   Assign tasks to positions with switch-detection auxiliaries that gate per-compiler setup costs into the deadline constraints.
 ][
+  _Numeric magnitude._ Let $h$ be `max_time_bits`, covering lengths, deadlines, and setup times, and $n$ the task count. The disjunction constant is bounded by the sum of lengths plus $(n-1)$ times the largest setup time. Including row right-hand sides gives target `max_constraint_magnitude_bits` at most $h+n+2$.
+
   _Construction._ Let $n$ be the number of tasks. Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ occupies position $p$; binary $"sw"_p$ for $p >= 1$ indicating a compiler switch before position $p$; binary $a_(j,p) = x_(j,p) dot "sw"_p$ (linearised product). Let $M = sum_j ell_j + max_c s(c) dot (n-1)$. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15423,6 +15608,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingToMinimizeWeightedTardiness", "ILP")[
   Encode the single-machine order with pairwise precedence bits and completion times, then linearize the weighted tardiness bound with nonnegative tardiness variables.
 ][
+  _Numeric magnitude._ Let $h$ be `max_numeric_magnitude_bits`, covering lengths, weights, deadlines, and the acceptance bound, and $n$ the task count. Completion and tardiness-variable endpoints are bounded by the total processing time, while the weighted acceptance row copies source weights. Target `max_constraint_magnitude_bits` is at most $h+n$.
+
   _Construction._ Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, integer completion times $C_j$, and nonnegative tardiness variables $T_j$, where $M = sum_j ell_j$ is a valid schedule-horizon bound. The ILP is:
   $
     "find" quad & bold(x) \
@@ -15441,59 +15628,52 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("SequencingWithReleaseTimesAndDeadlines", "ILP")[
-  A time-indexed formulation captures the admissible start window of each task and forbids overlap on the single machine.
+  Bounded starts and pairwise disjunctions encode a source permutation independently of horizon length, including zero-duration tasks.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ starts at time $t$, where $p_j = ell(t_j)$ is the processing time (length) of task $j$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(t = r_j)^(d_j - p_j) x_(j,t) = 1 quad forall j \
-    & sum_(j, t : t <= tau < t + p_j) x_(j,t) <= 1 quad forall tau \
-    & x_(j,t) in {0, 1}.
-  $
+  _Construction._ Durations, releases and deadlines are nonnegative. If any window $[r_j,d_j-p_j]$ is empty, emit $0=1$. Otherwise use bounded integer starts in those windows and a binary $y_(i j)$ for every $i<j$. Let $A_(i j)=max(0,d_i-r_j)$ and $B_(i j)=max(0,d_j-r_i)$. Emit
+  $s_j-s_i-A_(i j)y_(i j)>=p_i-A_(i j)$ and $s_i-s_j+B_(i j)y_(i j)>=p_j$.
+  For identical duration/release/deadline triples, fix $y_(i j)=1$. Relabeling tasks within each identical class into start order preserves all source conditions, including zero-duration ties, so this removes only equivalent representations. Use zero objective. The bounded-integer endpoint is direct; the binary endpoint applies the package's bounded-integer-to-binary encoding uniformly to this same construction.
 
-  _Correctness._ ($arrow.r.double$) Any feasible non-preemptive schedule chooses one valid start time per task and never overlaps two active jobs. ($arrow.l.double$) Any feasible ILP solution gives exactly such a start-time assignment, so executing the jobs in increasing start order solves the source instance.
+  _Correctness._ ($arrow.r.double$) A feasible source permutation's earliest-start schedule lies in the declared windows. Choose each bit according to its task order. The inactive inequalities follow from the window endpoints. ($arrow.l.double$) The disjunctions ensure that one task finishes before the other starts. Sort by start, then duration, then index; at equal starts this places zero-duration tasks before positive tasks. Positive tasks cannot surround a zero-duration task strictly in their interior. The resulting permutation respects all represented intervals, and its earliest-start execution can only finish earlier, meeting every deadline. An empty window certifies NO independently of any solver.
 
-  _Solution extraction._ Read each task's chosen start time, sort the tasks by that order, and encode the resulting permutation as Lehmer code.
+  _Size and extraction._ Validate and sort as above, returning the permutation. For $n$ tasks and horizon bit length $h$, the direct target has at most $n+n(n-1)/2$ variables, $n(n-1)+1$ rows, $3n(n-1)$ nonzeros and $h$ magnitude bits. The binary target has at most $n h+n(n-1)/2$ variables, the same row bound, and $n(n-1)(2h+1)$ nonzeros. Checked exact arithmetic rejects unrepresentable targets without declaring them infeasible.
 ]
 
 #reduction-rule("TimetableDesign", "ILP")[
-  The source witness is a binary craftsman-task-period incidence table, and all feasibility conditions are already linear.
+  Keep only available craftsman-task-period assignments with positive pair demand.
 ][
-  _Construction._ Variables: binary $x_(c,t,h)$ with $x_(c,t,h) = 1$ iff craftsman $c$ works on task $t$ in period $h$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & x_(c,t,h) = 0 quad "whenever either side is unavailable" \
-    & sum_t x_(c,t,h) <= 1 quad forall c, h \
-    & sum_c x_(c,t,h) <= 1 quad forall t, h \
-    & sum_h x_(c,t,h) = r_(c,t) quad forall c, t \
-    & x_(c,t,h) in {0, 1}.
-  $
+  _Construction._ Retain a binary variable for $(c,t,h)$ exactly when $r_(c,t)>0$ and both endpoints are available in period $h$. For each occupied craftsman-period and task-period emit a capacity row with upper bound one. For every nonzero pair demand emit its exact sum row, clipping the RHS to $[-1,H+1]$, where $H$ is the period count. Use zero objective; omit empty capacity rows and zero-demand pairs.
 
-  _Correctness._ ($arrow.r.double$) Any valid timetable satisfies availability, exclusivity, and exact requirement counts. ($arrow.l.double$) Any feasible ILP solution is exactly such a timetable because the variable layout matches the source configuration.
+  _Correctness._ ($arrow.r.double$) Availability and zero demand force every omitted entry of a feasible source tensor to zero. Projection satisfies every retained capacity and demand row. ($arrow.l.double$) Decode retained bits and zero-fill omitted entries. All availability and exclusivity conditions hold. Pair counts lie in $[0,H]$, where equality to the clipped demand is equivalent to equality to the original signed demand. Thus negative and oversized demands remain infeasible; no witness repair is needed.
 
-  _Solution extraction._ Output the flattened binary array $(x_(c,t,h))$ in source order.
+  _Size and extraction._ Validate target feasibility and reconstruct the original tensor. For $A$ available positive-demand assignments and $Q$ nonzero pair demands, there are exactly $A$ variables and $3A$ nonzeros, and at most $2A+Q$ rows. Constraint magnitude bits are at most `period_count_bits + 1`. These source-derived counts describe the emitted sparse matrix, including zero-variable infeasible instances.
 ]
 
 // Position/Assignment
 
 #reduction-rule("HamiltonianPath", "ILP")[
-  Place each vertex in exactly one path position and use auxiliary variables for consecutive pairs so only graph edges may appear between adjacent positions.
+  A binary permutation matrix with direct adjacency rows, using $n^2$ variables.
 ][
-  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ is placed at position $p$, and binary $z_((u,v),p)$ linearizing $x_(u,p) x_(v,p+1)$. The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
-    & sum_v x_(v,p) = 1 quad forall p \
-    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
-    & z_((u,v),p) <= x_(v,p+1) quad forall (u, v), p \
-    & z_((u,v),p) >= x_(u,p) + x_(v,p+1) - 1 quad forall (u, v), p \
-    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
-    & x_(v,p), z_((u,v),p) in {0, 1}.
-  $
+  _Construction._ Let $x_(v,p)$ indicate vertex $v$ at position $p$.
+  Require each vertex and each position to occur exactly once. For every
+  nonfinal position $p$ and vertex $v$, impose
+  $x_(v,p) <= sum_(w in N(v)) x_(w,p+1)$, where $N(v)$ contains distinct
+  non-self neighbors. Minimize zero.
 
-  _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
+  _Correctness._ A Hamiltonian path supplies a permutation matrix satisfying
+  every adjacency row. Conversely, the assignment rows define a permutation.
+  At each nonfinal position its selected vertex forces the next vertex to be
+  a neighbor. Thus every feasible target decodes to a Hamiltonian path.
+  Duplicate edges and loops do not change adjacency between distinct vertices.
+  Empty and singleton paths require no adjacency rows.
 
-  _Solution extraction._ For each position $p$, output the unique vertex $v$ with $x_(v,p) = 1$.
+  _Overhead._ With $q=max(n-1,0)$, there are exactly $n^2$ variables and
+  $n^2+n$ rows. If $e$ is the number of distinct non-loop edges, nonzeros
+  equal $2n^2+q(n+2e)$. Since $q <= n$ and $e <= m$ for the stored edge
+  count $m$, the registered upper bound is $3n^2+2n m$.
+  Coefficients and right-hand sides have magnitude at most one.
+
+  _Solution extraction._ Return the unique selected vertex at each position.
 ]
 
 #reduction-rule("DirectedHamiltonianPath", "ILP")[
@@ -15516,12 +15696,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let hcd_ilp = load-example(
   "HighlyConnectedDeletion",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "bool"),
+  target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
 )
 #let hcd_ilp_sol = hcd_ilp.solutions.at(0)
 #reduction-rule("HighlyConnectedDeletion", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "bool"),
+  example-target-variant: (bounds: "general", coefficient: "i64", variable: "bool"),
   example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
   extra: [
     #pred-commands(
@@ -15533,29 +15713,35 @@ The following reductions to Integer Linear Programming are straightforward formu
     Source deletion witness $(#fmt-values(hcd_ilp_sol.source_config))$, target ILP witness $(#fmt-values(hcd_ilp_sol.target_config))$.
   ],
 )[
-  Enumerate the family of feasible clusters of $G$ and pick a partition of $V$ into feasible clusters maximizing the kept internal edge count; since $|E|$ is fixed, this is equivalent to minimizing deleted edges @HueffnerKomusiewiczLiebtrauNiedermeier2014.
+  Encode cluster membership with one binary variable per unordered vertex pair. Transitivity and minimum-degree constraints describe a partition into singletons and highly connected clusters, maximizing the number of retained edges.
 ][
-  _Construction._ Let the source instance be a simple undirected graph $G = (V, E)$. Call a vertex set $S subset.eq V$ a _feasible cluster_ when either $|S| = 1$, or $|S| >= 3$ and the induced subgraph $G[S]$ is _highly connected_, i.e. its edge connectivity satisfies $lambda(G[S]) > |S| / 2$ (strict). Let $cal(C)(G)$ be the family of all feasible clusters. Introduce binary variables $x_S in {0, 1}$ for each $S in cal(C)(G)$, where $x_S = 1$ iff $S$ is chosen as one block of the final partition. The ILP is:
-  $
-    max quad & sum_(S in cal(C)(G)) |E(G[S])| x_S \
-    "subject to" quad & sum_(S in cal(C)(G), v in S) x_S = 1 quad forall v in V \
-    & x_S in {0, 1}.
-  $
+  _Construction._ Let $G = (V, E)$ have $n$ vertices. Introduce symmetric binary variables $y_(u v) = y_(v u)$ for distinct vertices, meaning that $u$ and $v$ belong to the same cluster, and a binary non-singleton flag $a_v$ for each vertex. For every triple, impose all three inequalities of the form
+  $ y_(u v) + y_(v w) - y_(u w) <= 1. $
+  Together with reflexive membership, these constraints define an equivalence relation. Write
+  $ s_v = sum_(u != v) y_(u v), quad d_v = sum_(u in N(v)) y_(u v), $
+  where $N(v)$ contains distinct neighbors other than $v$. Impose
+  $ s_v <= (n-1) a_v, quad 2 d_v >= s_v + 2 a_v. $
+  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, counting duplicate edges with multiplicity. Self-loops are always retained and contribute only a constant to the retained-edge count.
 
-  _Correctness._ ($arrow.r.double$) Any feasible source partition $cal(P) = {B_1, dots, B_k}$ -- where every block $B_i$ is a singleton or a highly connected component on $>= 3$ vertices -- yields the feasible ILP assignment $x_(B_i) = 1$ for $i = 1, dots, k$ and $0$ elsewhere; the partition constraints hold because each vertex belongs to exactly one block, and the objective value is the number of edges kept by the partition. ($arrow.l.double$) Any feasible ILP solution selects a sub-family of $cal(C)(G)$ that, by the equality constraints, partitions $V$ into feasible clusters; the objective equals the number of intra-cluster edges. Since $|E|$ is constant, maximizing intra-cluster edges is equivalent to minimizing $|E| - sum_S |E(G[S])| x_S$, the number of deleted edges.
+  _Degree characterization._ A simple graph on $k >= 2$ vertices is highly connected exactly when its minimum degree $delta$ exceeds $k/2$. Necessity follows from $lambda <= delta$. For sufficiency, consider any cut with smaller side of size $b <= k/2$. At least $b(delta-b+1)$ edges cross it. Since $(b-1)(delta-b) >= 0$, this is at least $delta > k/2$.
 
-  _Solution extraction._ Decode the chosen clusters $C subset.eq cal(C)(G)$ from $x$. The source configuration is the binary edge-deletion vector: edge $e = {u, v}$ is kept (config bit $0$) iff some chosen cluster $S in C$ contains both $u$ and $v$, otherwise deleted (config bit $1$).
+  _Correctness._ For a singleton, $s_v = d_v = 0$ and the constraints force $a_v = 0$. In a larger cluster of size $k = s_v+1$, the first inequality forces $a_v = 1$, and the second requires $2 d_v >= k+1$. Thus every non-singleton cluster is highly connected by the degree characterization; clusters of size two are excluded automatically. Conversely, every partition into allowed clusters satisfies the constraints with these membership and flag values. Any feasible source deletion can restore all edges internal to its components without decreasing their connectivity or increasing the deletion cost. Hence some source optimum keeps every internal edge, and maximizing the target objective preserves that optimum.
+
+  _Solution extraction._ Delete precisely the non-loop source edges whose membership variable is zero. Keep every self-loop. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
+
+  _Size and running time._ The target has $n(n+1)/2$ binary variables, $3 binom(n,3)+2n$ constraints, and $O(n^3)$ nonzeros. Constraint coefficients have magnitude at most $max(n-1,2)$; objective coefficients count input edge multiplicities. Construction, encoding length, and extraction are polynomial in the source encoding size. All registered parameter bounds use only the source vertex count.
+
 ]
 
 #let ep_ilp = load-example(
   "EulerianPath",
   "ILP",
-  target-variant: (coefficient: "i64", variable: "i64"),
+  target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
 )
 #let ep_ilp_sol = ep_ilp.solutions.at(0)
 #reduction-rule("EulerianPath", "ILP",
   example: true,
-  example-target-variant: (coefficient: "i64", variable: "i64"),
+  example-target-variant: (bounds: "bounded", coefficient: "i64", variable: "i64"),
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
@@ -15641,6 +15827,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   @garey1979 This $O(m)$ reduction copies the graph unchanged and assigns unit weight to every edge ($n$ target vertices, $m$ target edges). A Hamiltonian circuit exists iff the optimal circuit length equals $n$.
 ][
+  _Numeric magnitude._ Every edge has length one, so target `max_length_bits` is exactly $1$.
+
   _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, construct a DecisionLongestCircuit instance with bound $n$ on the same graph $G' = G$ with edge lengths $l(e) = 1$ for every $e in E$. Its decision condition is circuit length $>= n$.
 
   _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then this circuit uses $n$ edges each of length 1, giving total length $n$. Since a simple circuit on $n$ vertices can use at most $n$ edges, this is optimal. ($arrow.l.double$) If the longest circuit in $G'$ has length $n$, it uses $n$ unit-weight edges and therefore visits $n$ distinct vertices, i.e., every vertex exactly once. This circuit is therefore a Hamiltonian circuit in $G$.
@@ -15684,9 +15872,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Impose the decision bound on the selected circuit length. The optimization formulation gains one constraint and no variables.
 ][
-  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, add $sum_(e in E) l_e y_e >= B$, and replace the objective with zero.
+  _Numeric magnitude._ Let $h$ be `max_length_bits` and $m$ the edge count. The nonconstant acceptance row has bound at most $S<m 2^h$, while the original circuit constraints use magnitudes at most $2$. Target `max_constraint_magnitude_bits` is at most $h+m+1$. This needs no parameter for the generic decision threshold.
 
-  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. A graph with no circuit remains infeasible regardless of the bound.
+  _Construction._ For bound $B$, use the LongestCircuit-to-ILP construction above, let $S=sum_(e in E) l_e$. Add $0>=0$ if $B<=0$, $0>=1$ if $B>S$, and $sum_(e in E) l_e y_e >= B$ otherwise, and replace the objective with zero.
+
+  _Correctness._ ($arrow.r.double$) A circuit of length at least $B$ extends to the existing selection and connectivity variables and meets the new constraint. ($arrow.l.double$) Every feasible target assignment selects one simple circuit, and the new constraint guarantees its length is at least $B$. Positive edge lengths make the two constant-row cases equivalent to the original threshold comparison. A graph with no circuit remains infeasible regardless of the bound.
 
   _Solution extraction._ Check target feasibility, then return the existing edge-selection vector. Construction has the same asymptotic cost as the optimization formulation.#footnote[Complexity follows from the implementation; not independently verified from literature.]
 ]
@@ -15766,44 +15956,73 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Return the vertex-assignment prefix $(x_0, dots, x_(n-1))$.
 ]
 
-#reduction-rule("AcyclicPartition", "ILP")[
-  Assign every vertex to a topologically numbered partition class and directly require every arc to have nondecreasing class labels, following the upper-triangular formulation of @ozkayaCatalyurek2022.
+#let hc_ilp = load-example("HamiltonianCircuit", "ILP")
+#reduction-rule("HamiltonianCircuit", "ILP",
+  example: true,
+  example-caption: [One flow certifies connectivity of the selected spanning cycle],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(hc_ilp) + " -o circuit.json",
+      "pred reduce circuit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuit.json --config " + cli-config(hc_ilp.solutions.at(0).source_config),
+    )
+    The source has #hc_ilp.source.instance.graph.num_vertices vertices and
+    #hc_ilp.source.instance.graph.edges.len() edges. Its target has
+    #hc_ilp.target.instance.variables.len() bounded integer variables.
+    The extracted order is #fmt-values(hc_ilp.solutions.at(0).source_config):
+    every source vertex is visited once and the final edge returns to the first.
+  ],
+)[
+  Select a spanning degree-two subgraph and enforce connectivity with one bounded integral flow.
 ][
-  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i64>` with variable order
-  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t$.
-  The indices are
-  $"idx"_x(v,c) = v n + c$,
-  $"idx"_s(t,c) = n^2 + t n + c$,
-  and $"idx"_y(t) = n^2 + m n + t$.
-  There are $n^2 + m n + m$ variables.
+  _Construction._ Discard loops and duplicate undirected edges. For each remaining edge $e$, use a binary selection $y_e$ and two directed flows bounded in $[0,n-1]$. Require degree two at every vertex and $f_(e,eta)<=(n-1)y_e$. Vertex zero supplies $n-1$ units; every other vertex consumes one. Graphs with fewer than three vertices receive a contradictory row, matching the source's cycle definition. All variables belong to the bounded integer ILP variant.
 
-  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to topological class label $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, and $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes.
+  _Correctness._ ($arrow.r.double$) A Hamiltonian cycle has degree two. Send one unit to each other vertex along cycle paths from zero; every directed flow fits the capacity. ($arrow.l.double$) A selected component excluding zero cannot consume one unit per vertex without a selected edge crossing its boundary. Thus the selected graph is connected. A connected simple graph of degree two is one spanning cycle, and the contradictory row excludes the empty and two-vertex cases.
 
-  The constraints are:
-  $sum_(c = 0)^(n - 1) x_(v,c) = 1$ for every vertex $v$;
-  $sum_v w_v x_(v,c) <= B$ for every class $c$;
-  $s_(t,c) <= x_(u_t,c)$, $s_(t,c) <= x_(v_t,c)$, and $s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1$ for every arc $a_t$ and class $c$;
-  $y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1$ for every arc $a_t$, so $y_t = 1$ exactly for crossing arcs;
-  $sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K$;
-  and $sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c)$ for every arc $a_t = (u_t -> v_t)$.
-  The last inequality directly requires every original arc to go from a lower or equal class label to a higher or equal label. Equality represents an internal arc; a crossing arc has distinct labels and therefore strictly increases along the corresponding quotient arc.
+  _Overhead._ With $m'$ distinct non-loop edges, there are $3m'<=3m$ variables, $2n+2m'$ rows plus at most one contradictory row, and at most $10m'$ nonzeros. The largest magnitude is at most $max(n-1,2)$.
 
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_(c = 0)^(n - 1) x_(v,c) = 1 quad forall v in V \
-    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, n - 1} \
-    & s_(t,c) <= x_(u_t,c), s_(t,c) <= x_(v_t,c) quad forall t, c \
-    & s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1 quad forall t, c \
-    & y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1 quad forall t in {0, dots, m - 1} \
-    & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
-    & sum_(c = 0)^(n - 1) c x_(u_t,c) <= sum_(c = 0)^(n - 1) c x_(v_t,c) quad forall t in {0, dots, m - 1} \
-    & x_(v,c), s_(t,c), y_t in {0, 1}.
-  $
+  _Solution extraction._ Walk the selected cycle from zero, returning the visited vertex order. Reject an invalid target or a walk that repeats a vertex before returning to zero after all vertices.
+]
 
-  _Correctness._ ($arrow.r.double$) Given a valid acyclic partition, choose a topological ordering of its quotient digraph and relabel each used class by its position in that ordering. This relabeling preserves class membership, class weights, and crossing cost. Every internal arc has equal endpoint labels, while every quotient arc goes to a strictly larger label, so the direct ordering inequalities hold. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, and charges exactly the inter-class arcs. Along every quotient arc the endpoint classes have distinct, nondecreasing labels and hence the label strictly increases. A directed quotient cycle would require a strict increase around the cycle back to its starting label, which is impossible; therefore the quotient digraph is acyclic.
+#reduction-rule("AcyclicPartition", "ILP")[
+  Binary labels for a certified two-part domain; otherwise bounded topological
+  labels, exact crossing indicators, and one-hot membership for signed weights.
+][
+  _Construction._ Introduce binary memberships $x_(v,j)$ and emptiness bits $e_j$,
+  integer labels $p_v in {0,dots,n-1}$, and binary crossing bits $y_a$.
+  Require $sum_j x_(v,j)=1$ and $p_v=sum_j j x_(v,j)$.
+  For each part impose $x_(v,j)+e_j <= 1$, $sum_v x_(v,j)+e_j >= 1$, and
+  $sum_v w_v x_(v,j)+min(B,0)e_j <= B$. Thus $e_j=1$ exactly for empty
+  parts, which satisfy $min(B,0) <= B$; occupied parts meet their original
+  weight bound without negating or subtracting $B$.
+  For arc $a=(u,v)$, set $d=p_v-p_u$ and
+  impose $d >= y_a$ and $d <= (n-1)y_a$. Finally require
+  $sum_a c_a y_a <= K$, retaining this row even for an empty graph.
 
-  _Solution extraction._ For each vertex $v$, output the unique class label $c$ with $x_(v,c) = 1$.
+  _Correctness._ A feasible source quotient is a DAG, so its occupied parts
+  can be relabeled in topological order without changing weights or crossing
+  costs. This supplies a feasible target. Conversely, a target selects one
+  part per vertex, checks each occupied weight, and forces $y_a=1$ exactly
+  when an arc crosses. Every crossing strictly increases its label, excluding
+  quotient cycles. The cost row therefore measures the exact signed crossing
+  sum; negative costs cannot be exploited by a false crossing indicator.
+
+  _Part bound._ For nonnegative weights and costs, two vertices $r,s$ with $w_r+w_s>B$ must occupy different parts. Suppose every other vertex $v$ has arcs $r arrow.r v arrow.r s$. Let $a_v,b_v$ be the total costs of the respective parallel arcs, and let $d$ be the total direct $r arrow.r s$ cost. Every feasible partition costs at least $L=d+sum_v min(a_v,b_v)$. If $v$ occupies neither anchor part, both path arcs cross, adding at least $max(a_v,b_v)$ above that baseline. Therefore, when $K-L<min_v max(a_v,b_v)$, every vertex belongs to an anchor part. The implementation then uses one binary label $p_v$ per vertex, fixes $p_r=0,p_s=1$, and substitutes these constants. Arc rows require $p_u<=p_v$; crossing cost is exactly $sum_(a=(u,v)) c_a(p_v-p_u)$ and the two weight rows are $sum_v w_v p_v<=B$ and $sum_v w_v(1-p_v)<=B$. Thus no crossing flags or one-hot memberships are needed in this certified domain. Otherwise it retains the general $n$-label construction. This is a certificate from the target instance's own graph and budgets and applies independently of its origin.
+
+  _Cardinality counting rows._ If all ordinary weights are zero or one and the two capacities sum to the total unit weight, exactly $k=B-w_r$ unit-weight vertices occupy the root part. A zero-weight item with two distinct unit-weight predecessors can occupy that part only when both predecessors do. For each unordered predecessor pair retain one representative item, even when several items share those predecessors. For a unit vertex $v$, let $I_v$ contain the representative items incident to it. Then
+  $ sum_(a in I_v)(1-p_a) <= (k-1)(1-p_v). $
+  If $p_v=1$, all its successor items also have label one. If $p_v=0$, its selected neighbors are distinct among the other $k-1$ selected vertices. Thus the row holds for every source witness. It adds no variables and prevents the relaxation from assigning one selected vertex more selected neighbors than the fixed cardinality permits. Other domains retain the original weight rows.
+
+  _Overhead._ The general construction has $n^2+2n+m$ variables and $n^2+4n+2m+1$ rows. The certified two-part construction uses $n$ variables and at most $m+n+3$ rows. Therefore both counts remain upper-bounded by the general formulas. The one-hot, label, emptiness implication, emptiness sum,
+  weight, crossing, and cost blocks contribute at most
+  $n^2+n^2+2n^2+(n^2+n)+(n^2+n)+6m+m=6n^2+2n+7m$ nonzeros.
+  Loops and zero coefficients can reduce nonzeros after normalization.
+  With source numeric magnitude bound $h$, target magnitudes need at most
+  $h+2+log_2(n+m+1)$ bits, covering the substituted weight sums and crossing coefficients. The registered polynomial bound $h+n+m+1$ follows from $1+log_2(n+m+1)<=n+m$ for $n+m>=3$; smaller instances use the unmodified general construction. All integer variables have explicit finite bounds.
+
+  _Solution extraction._ Return the binary labels in the certified two-part
+  domain; otherwise decode the selected part of each one-hot row.
 ]
 
 #reduction-rule("BalancedCompleteBipartiteSubgraph", "ILP")[
@@ -15826,7 +16045,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BiconnectivityAugmentation", "ILP")[
   Select candidate edges under the total budget and certify connectivity of both the original augmented graph and every vertex-deleted graph using bounded integral flow witnesses.
 ][
-  _Construction._ Let $n$ be the vertex count, $m$ the number of base edges, and $p$ the number of candidate edges. Candidate $j$ has cost $w_j$, and the budget is $B$. Use `ILP<i64>` with an empty minimization objective and every variable bounded to $[0,1]$ through `IntegerVariable::binary()`.
+  _Construction._ Let $n$ be the vertex count, $m$ the number of base edges, and $p$ the number of candidate edges. Candidate $j$ has cost $w_j$, and the budget is $B$. Use `ILP<bool>` with an empty minimization objective and every variable bounded to $[0,1]$ through `IntegerVariable::binary()`.
 
   Selection variable $y_j$ has index $j$. Connectivity scenarios are $q in {0, dots, n}$: $q<n$ deletes vertex $q$, whereas $q=n$ deletes nothing. For each scenario and destination $t in {0, dots, n-1}$, reserve two directed flow variables per base edge and per candidate edge. Orientation $eta=0$ follows the stored endpoint order, and $eta=1$ reverses it. The indices are
   $"idx"_f(q,t,i,eta)=p+2((q n+t)m+i)+eta$ and
@@ -15840,11 +16059,15 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Signed costs and arithmetic._ Costs need not be nonnegative. The source checks the final selected total against $B$, rather than rejecting a temporary excess that later negative costs may cancel. The budget row retains candidate order, so source and target perform the same checked i64 accumulation. Overflow remains an evaluation error; the implementation does not widen or reinterpret it as infeasibility. Connectivity coefficients and right-hand sides are in ${-1,0,1}$, and flow variables are bounded to $[0,1]$. Variable-layout arithmetic is checked before allocation.
 
   _Solution extraction._ Validate the target assignment once and require a finite feasible objective value; then decode its first $p$ binary integers as candidate-selection bits. The empty objective equals zero on every feasible target. The constraint count is at most $1+n(n+1)(2m+4p+n)$.
+
+  _Numeric magnitude._ Let $h >= 1$ be the smallest integer such that $abs(w_j) < 2^h$ for every candidate and $abs(B) < 2^h$. The source parameter `max_numeric_magnitude_bits` equals $h$. The budget row copies these values, and all other constraint and variable-bound magnitudes are at most one. Thus the target's `max_constraint_magnitude_bits` equals $h$, including signed budgets and empty candidate lists.
 ]
 
 #reduction-rule("BoundedComponentSpanningForest", "ILP")[
   Assign every vertex to one of at most $K$ components, bound each component's total weight, and certify connectivity inside each used component by a flow witness.
 ][
+  _Numeric magnitude._ Let $h$ be `max_weight_bits`, covering vertex weights and the component bound, and $n$ the vertex count. Weight rows, unit flow rows, and flow-variable endpoints give target `max_constraint_magnitude_bits` at most $h+n$.
+
   _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i64>` with variables ordered as
   $(x_(v,c))_(v,c), (u_c)_c, (r_(v,c))_(v,c), (s_c)_c, (b_(v,c))_(v,c), (f_(i,eta,c))_(i,eta,c)$.
   Their indices are
@@ -15916,7 +16139,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("StrongConnectivityAugmentation", "ILP")[
   Select candidate arcs under the budget and certify strong connectivity by sending flow both from a root to every vertex and back again.
 ][
-  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i64>` with variables ordered as
+  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. Retain the budget constraint even when $n <= 1$. Use `ILP<bool>` with variables ordered as
   $(y_j)_j, (f^t_i)_(t,i), (bar(f)^t_j)_(t,j), (g^t_i)_(t,i), (bar(g)^t_j)_(t,j)$,
   where $f^t$ is the forward root-to-$t$ flow on base arcs, $bar(f)^t$ is the forward flow on candidate arcs, $g^t$ is the backward $t$-to-root flow on base arcs, and $bar(g)^t$ is the backward flow on candidate arcs.
   The indices are
@@ -15958,28 +16181,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A strongly connected augmentation provides both directions of reachability between the root and every other vertex, hence all required flows. ($arrow.l.double$) If those flows exist for every vertex, then every vertex is reachable from the root and can reach the root, so the augmented digraph is strongly connected.
 
   _Solution extraction._ Output the binary candidate-arc selection vector $(y_a)$.
+
+  _Numeric magnitude._ The source parameter `max_numeric_magnitude_bits` is the smallest $h >= 1$ for which every candidate weight and the budget are strictly below $2^h$. The budget row copies these values and the remaining constraint and variable-bound magnitudes are at most one, so the target's `max_constraint_magnitude_bits` equals $h$.
 ]
 
 // Matrix/encoding
 
 #reduction-rule("BMF", "ILP")[
-  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, pin each reconstructed entry to the target, and minimize the total factor weight.
+  Binary factor memberships and sparse coverage witnesses, with factors named by pairwise incompatible matrix entries.
 ][
-  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, and binary $w_(i,j)$ for the reconstructed entry. The ILP is:
-  $
-    min quad & sum_(i,r) b_(i,r) + sum_(r,j) c_(r,j) \
-    "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
-    & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
-    & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
-    & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
-    & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
-    & w_(i,j) = A_(i,j) quad forall i, j \
-    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}.
-  $
+  _Construction._ Retain $B,C$. Choose up to $k$ one entries $(i,j)$ whose pairs $(i,j),(u,v)$ satisfy $A_(i,v)=0$ or $A_(u,j)=0$. Name a distinct factor for each entry, fixing its endpoint memberships to one and its non-neighbors to zero. Skip rows and coverage variables already decided by these fixed memberships. For remaining zeros require $b_(i,r)+c_(r,j)<=1$; for remaining ones use coverage bits $p_(i,j,r)<=b_(i,r),c_(r,j)$ and $sum_r p_(i,j,r)>=1$. Minimize factor weight.
 
-  _Correctness._ ($arrow.r.double$) Any exact factorization $B circle.tiny C = A$ gives a feasible ILP solution with objective equal to $|B|_1 + |C|_1$. ($arrow.l.double$) The McCormick constraints force $p_(i,r,j) = b_(i,r) dot c_(r,j)$; the $w$ constraints then force $w_(i,j) = or.big_r p_(i,r,j)$, so the equality $w_(i,j) = A_(i,j)$ is feasible exactly when $B circle.tiny C = A$. If no exact rank-$k$ factorization exists the ILP is infeasible, matching BMF's infeasibility signal.
+  _Correctness._ Incompatible entries cannot lie in one all-ones rectangle. Any exact factorization therefore covers the chosen entries with distinct factors, which can be permuted into the named positions without changing its weight. Fixing the endpoint memberships and excluding their non-neighbors preserves that permuted factorization. Every omitted row is implied by these fixed values. Remaining coverage rows force exact reconstruction, and extraction retains the identical factor-weight objective. Coverage bits need not equal every true product. Rank zero and empty dimensions retain their original semantics.
 
-  _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+  _Overhead._ There are at most $k(m+n)+k m n$ variables. At most $k(m+n)$ membership pins supplement the original bounds $(2k+1)m n$ rows and $5k m n$ nonzeros. Pruning can only reduce these counts.
+
+  _Solution extraction._ Read the factor-membership prefix in its original layout.
 ]
 
 #reduction-rule("BMF", "BicliqueCover")[
@@ -16023,58 +16240,34 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("ConsecutiveOnesMatrixAugmentation", "ILP")[
-  Choose a column permutation and, for each row, choose the interval that will become its consecutive block of 1s; flips are needed only for zeros inside that interval.
+  A column permutation and two bounded interval endpoints per row, using
+  $n^2+2m$ variables for an $m$ by $n$ Boolean matrix.
 ][
-  _Construction._ Let the matrix have $m$ rows and $n$ columns, and let $A_(r,c) in {0, 1}$ be the given entry. For each row define the constant
-  $beta_r = 1$ if row $r$ contains at least one 1, and $beta_r = 0$ otherwise.
-  Use `ILP<bool>` with variable order
-  $(x_(c,p))_(c,p), (a_(r,p))_(r,p), (ell_(r,p))_(r,p), (u_(r,p))_(r,p), (h_(r,p))_(r,p), (f_(r,p))_(r,p)$.
-  The indices are
-  $"idx"_x(c,p) = c n + p$,
-  $"idx"_a(r,p) = n^2 + r n + p$,
-  $"idx"_ell(r,p) = n^2 + m n + r n + p$,
-  $"idx"_u(r,p) = n^2 + 2 m n + r n + p$,
-  $"idx"_h(r,p) = n^2 + 3 m n + r n + p$,
-  and $ "idx"_f(r,p) = n^2 + 4 m n + r n + p$.
-  There are $n^2 + 5 m n$ binary variables.
+  _Construction._ Binary $x_(c,p)$ places column $c$ at position $p$.
+  Assign every column exactly once with capacity one per position.
+  For each nonempty row $r$, introduce $L_r,R_r in {0,dots,n-1}$ and
+  require every original one-position $sum_p p x_(c,p)$ to lie between them.
+  Empty rows have both endpoints fixed to zero. Let $T$ be the number of
+  ones, $a$ the number of nonempty rows, and $k=min(K,m n-T)$.
+  Require $sum_(r: t_r>0)(R_r-L_r) <= k+T-a$ and minimize zero.
 
-  Here $x_(c,p) = 1$ means original column $c$ is placed at position $p$ of the permutation, $a_(r,p)$ is the value seen in row $r$ at permuted position $p$, $ell_(r,p)$ and $u_(r,p)$ choose the left and right interval boundaries of row $r$, $h_(r,p)$ indicates that position $p$ lies inside that chosen interval, and $f_(r,p)$ indicates that row $r$ flips a 0 to a 1 at position $p$.
+  _Correctness._ A valid ordering supplies its true first and last one positions;
+  the augmentation cost is exactly $sum_(r:t_r>0)(R_r-L_r+1-t_r)$.
+  Conversely, any feasible target gives a column permutation whose true one
+  spans lie inside the chosen intervals. Filling those spans costs no more
+  than the budgeted interval lengths. Enlarging an interval can only increase
+  the cost. All-zero rows contribute zero. Clipping $K$ to the number of
+  zero entries preserves feasibility and prevents artificial budget overflow.
 
-  The constraints are:
-  $sum_p x_(c,p) = 1$ for every column $c$;
-  $sum_c x_(c,p) = 1$ for every position $p$;
-  $a_(r,p) = sum_c A_(r,c) x_(c,p)$ for every row $r$ and position $p$;
-  $sum_p ell_(r,p) = beta_r$ and $sum_p u_(r,p) = beta_r$ for every row $r$;
-  $sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r)$ for every row $r$, which forces the left boundary not to exceed the right boundary when the row is nonzero;
-  for every row $r$ and position $p$,
-  $h_(r,p) <= sum_(q = 0)^p ell_(r,q)$,
-  $h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q)$,
-  and
-  $h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1$;
-  $a_(r,p) <= h_(r,p)$ for every $r, p$, so every original 1 lies inside the chosen interval;
-  $h_(r,p) <= a_(r,p) + f_(r,p)$, $f_(r,p) <= h_(r,p)$, and $f_(r,p) + a_(r,p) <= 1$ for every $r, p$, so $f_(r,p) = 1$ exactly when the position lies inside the interval but the original matrix has a 0 there;
-  and the augmentation budget
-  $sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K$.
-  These are the exact consecutive-ones constraints: after permutation, row $r$ is 1 exactly on the positions with $h_(r,p) = 1$, and the only modifications charged are the zero-to-one flips recorded by $f$.
+  _Overhead._ Variables equal $n^2+2m$; rows equal $2n+2T+1$, bounded by
+  $2n+2m n+1$. Nonzeros equal $2n^2+2n T+2a$, bounded by
+  $2n^2+2m n^2+2m$. Coefficients and endpoints are at most $n$, and the
+  budget right-hand side is at most $m n$, covered by $2m n+n+1$ magnitude
+  bits. Empty-column matrices retain their fixed-zero endpoints and one
+  empty budget row.
 
-  The ILP is:
-  $
-    "find" quad & bold(x) \
-    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
-    & sum_c x_(c,p) = 1 quad forall p \
-    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
-    & sum_p ell_(r,p) = beta_r, sum_p u_(r,p) = beta_r quad forall r \
-    & sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r) quad forall r \
-    & h_(r,p) <= sum_(q = 0)^p ell_(r,q), h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q) quad forall r, p \
-    & h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1 quad forall r, p \
-    & a_(r,p) <= h_(r,p); h_(r,p) <= a_(r,p) + f_(r,p); f_(r,p) <= h_(r,p); f_(r,p) + a_(r,p) <= 1 quad forall r, p \
-    & sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K \
-    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) A feasible augmentation chooses a permutation and flips exactly the zeros lying inside each row's final consecutive-ones interval. ($arrow.l.double$) Any feasible ILP solution yields a permuted matrix whose rows become consecutive-ones after the encoded zero-to-one augmentations, with total augmentation cost at most $K$.
-
-  _Solution extraction._ Decode the column permutation from $x_(c,p)$ and discard the auxiliary flip variables.
+  _Solution extraction._ Return the selected column at each position after
+  validating target feasibility.
 ]
 
 #reduction-rule("ConsecutiveOnesSubmatrix", "ILP")[
@@ -16933,6 +17126,8 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("MinimumCapacitatedSpanningTree", "ILP")[
   Binary edge selectors $y_e$, directed requirement-flow variables $f$, and directed unit-demand connectivity variables $g$. The first flow enforces subtree capacities; the second connects even zero-requirement vertices.
 ][
+  _Numeric magnitude._ Let $h$ be `max_requirement_bits`, covering requirements and capacity, and $n$ the vertex count. Flow bounds and balance rows involve at most the sum of $n$ requirements; target `max_constraint_magnitude_bits` is at most $h+n$. Edge costs occur only in the objective.
+
   _Construction._ $5m$ variables: $m$ edge selectors and two directed flows of $2m$ variables each. Requirement flow sends $r(v)$ units from each non-root vertex to the root and is bounded by capacity $c$. Connectivity flow sends one unit from every non-root vertex to the root and satisfies $g_(u v)+g_(v u) <= (n-1)y_e$. Also impose $sum_e y_e=n-1$ and minimize $sum_e w(e) dot y_e$. This combines the standard non-unit-demand flow model @gouveiaLopes2000 with the standard unit-demand spanning-tree flow.
 
   _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces both flows along its unique root paths. ($arrow.l.double$) Unit-demand flow makes every vertex reachable from the root; together with $n-1$ selected edges this gives a spanning tree. Requirement flow on that tree equals each rooted subtree's total requirement, so its capacity bounds are exactly the source constraints.
@@ -16954,13 +17149,13 @@ The following table shows concrete target-variable counts for example instances,
 // === Non-ILP reduction rules (issue #974) ===
 
 #reduction-rule("ILP", "ILP")[
-  ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. Binary variables embed directly into integer variables. A finitely bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.
+  ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. The independent bounds dimension defaults to general; the bounded integer variant requires finite lower and upper endpoints for every variable. Binary variables embed into bounded integer ILP, which embeds into general integer ILP while retaining all stored bounds. A bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.
 ][
-  _Construction._ For the binary-to-integer edge, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge rejects variables without two finite bounds. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any integer lies outside the exactly representable `f64` integer range.
+  _Construction._ For the binary-to-bounded-integer and bounded-to-general edges, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge is registered only for the bounded integer variant; its constructor requires two finite bounds for every variable. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any integer lies outside the exactly representable `f64` integer range.
 
-  _Correctness._ The binary-to-integer embedding changes no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and objective values. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
+  _Correctness._ The binary-to-bounded-integer and bounded-to-general embeddings change no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and changes the stored objective only by the constant lower-bound contribution, so optimal assignments are preserved. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
 
-  _Solution extraction._ Binary-to-integer and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
+  _Solution extraction._ Binary-to-bounded-integer, bounded-to-general, and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
@@ -17087,6 +17282,8 @@ The following table shows concrete target-variable counts for example instances,
   Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
 ][
   _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
+
+  _Numeric magnitude._ If each source size is below $2^h$, then $S < n dot 2^h <= 2^(h+n)$. Both the copied lengths and $D$ are therefore below $2^(h+n)$, giving the local upper bound `max_numeric_magnitude_bits + num_elements` on the target's `max_numeric_magnitude_bits`.
 
   _Correctness._ ($arrow.r.double$) If $A' subset.eq A$ has $sum_(i in A') a_i = S/2$, assign tasks in $A'$ to processor 0 and the rest to processor 1; both loads equal $S/2 = D$. ($arrow.l.double$) If a feasible schedule exists with both loads $<= D = floor(S/2)$, since both loads sum to $S$ and each is at most $floor(S/2)$, equality holds, giving a balanced partition.
 
@@ -17511,25 +17708,69 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("FeasibleRegisterAssignment", "ILP",
   example: false,
 )[
-  Direct ILP formulation of the feasible register assignment problem: binary permutation matrix variables, topological ordering constraints, and register-conflict constraints via shared-register ordering indicators.
+  Bounded ranks and one binary order selector per pair sharing a register.
+  With $n$ vertices, $m$ arcs, and $S$ such pairs, the construction has
+  $n+S$ variables, at most $n m+2S$ rows, and at most $3n m+6S$ nonzeros.
 ][
-  _Construction._ Binary variables $x_(v,t) in {0,1}$ (vertex $v$ at position $t$). Permutation: each row and column sums to $1$. Topological: for arc $(u,v)$, $sum_(t) t dot x_(v,t) < sum_(t) t dot x_(u,t)$. Register conflict: for vertices $v,w$ sharing a register, an ordering indicator $b_(v,w)$ with big-$M$ constraints ensures all dependents of the first-computed vertex complete before the second uses the register. Feasibility objective (Value $=$ Or).
+  _Construction._ Give each vertex a rank $p_v in {0, dots, n-1}$.
+  An arc $(w,u)$ means $w$ consumes $u$; impose $p_w-p_u >= 1$.
+  For a same-register pair $u<v$, introduce binary $y$ with
+  $p_v-p_u-n y >= 1-n$ and $p_u-p_v+n y >= 1$.
+  For every consumer $w$ of $u$ except $v$, add $p_v-p_w-n y >= 1-n$.
+  For every consumer $w$ of $v$ except $u$, add $p_u-p_w+n y >= 1$.
+  The objective is zero. The empty source gives an empty feasible target.
 
-  _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
+  _Correctness._ A valid source ordering supplies the ranks and pair orientations.
+  The later writer may consume the earlier value itself, but every other
+  consumer must precede it, so all rows hold. Conversely, the pair rows choose
+  a strict orientation. Every dependency and every required consumer-before-overwrite
+  relation is strict; sorting by rank, with vertex index breaking ties, preserves
+  all these relations. Thus every feasible target extracts a valid source ordering.
+  Unrelated vertices can share ranks without hiding an overwrite conflict.
 
-  _Solution extraction._ Read vertex positions from the permutation matrix.
+  _Overhead._ Each arc contributes one dependency row and at most $n-1$
+  conditional rows, in addition to two rows per same-register pair.
+  These have respectively two and three nonzeros. Hence rows are at most
+  $n m+2S$ and nonzeros at most $3n m+6S$. Coefficients and bounds have
+  magnitude at most $max(n,1)$, covered by $n+1$ magnitude bits.
+
+  _Solution extraction._ Sort the vertices by $(p_v,v)$ and return their inverse
+  permutation as evaluation positions.
 ]
 
 #reduction-rule("RegisterSufficiency", "ILP",
   example: false,
 )[
-  Direct ILP formulation of Register Sufficiency: integer evaluation times, latest-use times, binary pair-order selectors, and per-step live-value indicators. For a DAG with $n$ vertices, $m$ arcs, and $s$ sinks, the ILP has $(7n^2 + 3n)/2$ variables and $(21n^2 + 3n)/2 + 2m + s$ constraints.
+  A binary cumulative schedule with live-value indicators. For $n$ vertices,
+  $m$ stored arcs, and $s$ sinks, the ILP has $2n^2-n s$ variables,
+  $n^2+2n m+n$ rows, and $4n^2-2n+5n m-m$ nonzeros.
 ][
-  _Construction._ Let the source DAG use the repository convention that an arc $(v, u)$ means vertex $v$ depends on vertex $u$. Introduce integer variables $t_v in {0, dots, n-1}$ for evaluation positions and $l_v in {0, dots, n}$ for latest-use positions. For every unordered vertex pair ${u, v}$, add a binary selector $b_(u,v)$ with big-$M$ constraints forcing either $t_u < t_v$ or $t_v < t_u$; since all $t_v$ lie in the interval ${0, dots, n-1}$, the positions form a permutation. For every dependency arc $(v, u)$, enforce $t_v >= t_u + 1$ and $l_u >= t_v$. For every sink vertex (no dependents), set $l_u = n$. For each vertex-step pair $(u, s)$ with $s in {0, dots, n-1}$, add binary threshold variables $p_(u,s)$ and $q_(u,s)$ satisfying $p_(u,s) = 1$ iff $t_u <= s$ and $q_(u,s) = 1$ iff $l_u > s$, plus a binary live indicator $h_(u,s) = p_(u,s) and q_(u,s)$. Finally impose $sum_u h_(u,s) <= K$ for every step $s$.
+  _Construction._ A binary $x_(v,t)$ says vertex $v$ has been computed by the
+  end of step $t$. Require $x_(v,t) <= x_(v,t+1)$ and
+  $sum_v x_(v,t)=t+1$. For every arc $(w,u)$ (consumer, dependency), require
+  $x_(w,t) <= x_(u,t-1)$, treating $x_(u,-1)=0$.
+  For each non-sink $u$, introduce binary $h_(u,t)$ and impose
+  $h_(u,t) >= x_(u,t)-x_(w,t)$ for every consumer $w$.
+  At each step, the sum of these live indicators and computed sink indicators
+  must be at most $min(K,n)$. Sinks remain live until the computation ends.
+  Minimize zero; the empty source yields an empty feasible target.
 
-  _Correctness._ ($arrow.r.double$) Any valid computation ordering of the source DAG yields a feasible ILP solution: assign each $t_v$ to the vertex position in the ordering, each $l_v$ to the latest dependent position (or $n$ for sinks), and derive the binary threshold/live variables from those integers. The dependency constraints hold by topological validity, and the live-count inequalities hold because the source witness uses at most $K$ registers. ($arrow.l.double$) Any feasible ILP solution gives distinct positions $t_v$, hence a permutation of the vertices, and the arc constraints make that permutation topological. The live indicators $h_(u,s)$ certify exactly which values remain live after step $s$, so the step constraints prove that no more than $K$ values are simultaneously live. Therefore the extracted ordering is a valid Register Sufficiency witness.
+  _Correctness._ A valid source permutation supplies its cumulative computed
+  bits and actual live bits, satisfying every row. Conversely, monotonicity
+  and column sums force exactly one vertex to become computed at each step.
+  The dependency inequalities make this a topological order. Whenever a
+  computed non-sink has an uncomputed consumer, its live indicator must be
+  one. Extra live indicators only increase the capacity sum. Consequently
+  every feasible target bounds the actual source register usage by $K$.
 
-  _Solution extraction._ Return the first $n$ ILP coordinates $(t_0, dots, t_(n-1))$ as the vertex evaluation positions.
+  _Overhead._ The blocks have $n(n-1)$, $n$, $n m$, $n m$, and $n$ rows,
+  respectively, and $2n(n-1)$, $n^2$, $(2n-1)m$, $3n m$, and $n^2$
+  nonzeros. Self-arcs are rejected by the source, so no terms cancel;
+  duplicate arcs retain their rows. Coefficients have magnitude one and
+  right-hand sides at most $n$, covered by $n+1$ magnitude bits.
+
+  _Solution extraction._ Return the first step $t$ with $x_(v,t)=1$ for each
+  vertex $v$, after validating target feasibility.
 ]
 
 // Removed: Partition → SequencingWithinIntervals (unsound reduction, #1006)
@@ -17763,24 +18004,26 @@ The following table shows concrete target-variable counts for example instances,
 #let ksat_ap_sol = ksat_ap.solutions.at(0)
 #reduction-rule("KSatisfiability", "AcyclicPartition",
   example: true,
-  example-caption: [3-SAT to a partition with two heavy anchors and unit incidence items],
+  example-caption: [3-SAT to a partition with heavy anchors, unit-weight vertices, and zero-weight edge items],
   extra: [
-    The canonical formula $(x_1 or x_1 or x_1)$ gives a clique graph with four vertices, three edges, and threshold two. The incidence construction has seven items and two anchors, capacity $c=3$, magnitude $M=15$, weight bound $B=21$, and cost bound $K=101$. Anchor weights are 18 and 14. The stored partition $(#fmt-values(ksat_ap_sol.target_config))$ puts two clique vertices and their edge item with the source anchor. Its cut cost is $105-2-2=101$. Formal extraction gives $(#fmt-values(ksat_ap_sol.source_config))$.
+    The canonical formula $(x_1 or x_1 or x_1)$ gives a four-vertex clique graph with threshold two. Its partition target has #ksat_ap.target.instance.graph.num_vertices vertices and #ksat_ap.target.instance.graph.arcs.len() arcs, weight bound #ksat_ap.target.instance.weight_bound and cost bound #ksat_ap.target.instance.cost_bound. The final two vertex weights are #fmt-values(ksat_ap.target.instance.vertex_weights.slice(-2)). The stored partition $(#fmt-values(ksat_ap_sol.target_config))$ puts two clique vertices and their edge item with the source anchor; edge items consume no capacity. Formal extraction gives $(#fmt-values(ksat_ap_sol.source_config))$.
   ],
 )[
-  Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. All weights and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
+  Compose the literal-compatibility clique construction @karp1972 with the incidence construction below. Vertex weights are nonnegative integers and arc costs are positive integers of polynomial magnitude. This incidence lemma is proved here; it does not use the digit-encoded Subset Sum chain.
 ][
+  _Numeric magnitude._ For $c$ clauses, incidence count $L$ is at most $5(c+1)^2$, the cluster parameter is $c+1$, and capacity is at most $(c+1)^2$. All constructed magnitudes are below $64(c+1)^4<=2^(4c+6)$. Thus target `max_numeric_magnitude_bits` is at most $4c+6$, including $c=0$.
+
   _Construction._ First obtain a clique instance $H=(V,E)$ with threshold $k$ from the formal 3-SAT-to-KClique rule, including its universal vertex and padding. Write $h=|V|$, $e=|E|$, and $L=h+e$. Here $1 <= k <= h$.
 
-  1. Create one unit-weight item per vertex and edge of $H$. Set $c=k(k+1)/2$, $M=2L+1$, and $B=2(L+c)+1$.
-  2. Add anchors $s,t$ with weights $B-c$ and $B-L$. For every item $i$, add $(s,i)$ of cost $M$ and $(i,t)$ of cost $M-d_i$, where $d_i=deg_H(i)+1$ for vertex items and zero for edge items.
-  3. For every edge $a={u,v}$ add $(u,a)$ and $(v,a)$, each of cost one. Set the weight bound to $B$ and cut-cost bound to $K=M L-k^2$.
+  1. Create one unit-weight item per vertex and one zero-weight item per edge of $H$. Set $M=2L+1$ and $B=2(L+k)+1$.
+  2. Add anchors $s,t$ with weights $B-k$ and $B-(h-k)$. For every item $i$, add $(s,i)$ of cost $M$ and $(i,t)$ of cost $M-d_i$, where $d_i=deg_H(i)$ for vertex items and zero for edge items.
+  3. For every edge $a={u,v}$ add $(u,a)$ and $(v,a)$, each of cost one. Set the weight bound to $B$ and cut-cost bound to $K=M L-k(k-1)$.
 
-  _Forward direction._ Given a clique of at least $k$ vertices, choose exactly $k$ of them. Put these vertex items and their $k(k-1)/2$ edge items with $s$, and all remaining items with $t$. The source block contains exactly $c$ unit items; the sink block contains at most $L$. No dependency arc goes from the sink block to the source block, so the quotient is acyclic. Spoke costs are $M L-sum_(v " selected")(deg_H(v)+1)$, and dependency costs are $sum_(v " selected") deg_H(v)-k(k-1)$. Their sum is $M L-k^2=K$.
+  _Forward direction._ Choose exactly $k$ vertices of a source clique. Put their vertex items and all $k(k-1)/2$ internal edge items with $s$, and the remaining items with $t$. The respective ordinary vertex weights are $k$ and $h-k$, so both blocks meet their capacity exactly. Edge items add no weight. No dependency points from the sink block to the source block. Spoke costs are $M L-sum_(v " selected") deg_H(v)$, and dependency costs are $sum_(v " selected") deg_H(v)-k(k-1)$. The total is $K$.
 
-  _Backward direction._ Each anchor weighs more than $B/2$, so they occupy distinct blocks. If $r>=1$ items lie outside those blocks, spoke costs alone are at least $M(L+r)-(h+2e)>M L>K$, since $h+2e<=2L<M$. Thus every item is in an anchor block. Some spoke induces a source-to-sink quotient arc because $L>=1$. A dependency in the opposite direction would create a cycle, so an edge item in the source block has both endpoints there.
+  _Backward direction._ Each anchor weighs more than $B/2$, so they occupy distinct blocks. If $r>=1$ items lie outside those blocks, spoke costs alone are at least $M(L+r)-2e>M L>=K$, since $2e<=2L<M$. Thus every item lies in an anchor block. A spoke induces a source-to-sink quotient arc; a dependency in the opposite direction would create a cycle. Therefore a source-block edge item has both endpoints in that block.
 
-  Let $p$ and $q$ count vertex and edge items in the source block. Capacity gives $p+q<=c$ and closure gives $q<=p(p-1)/2$. The exact cut cost is $M L-p-2q$, hence $p+2q>=k^2$. If $p<k$, then $p+2q<=p^2<k^2$. If $p>k$, then $p+2q<=2c-p<k^2$. Therefore $p=k$ and $q=k(k-1)/2$: the selected vertices form a clique.
+  Let $p,q$ count ordinary vertex and edge items in the source block. The two independent weight bounds give $p<=k$ and $h-p<=h-k$, hence $p=k$. Closure gives $q<=p(p-1)/2$. The exact cut cost is $M L-2q$, so $q>=k(k-1)/2$. Equality follows, and the selected $k$ vertices form a clique. The explicit vertex cardinality avoids the weaker mixed vertex-plus-edge capacity inequality.
 
   _Solution extraction._ Validate the target partition, select precisely those vertex items sharing the label of $s$, and invoke the formal clique-to-SAT extractor. This mapping is independent of the numerical names of partition blocks.
 
@@ -17822,6 +18065,8 @@ The following table shows concrete target-variable counts for example instances,
   _Correctness._ For $n < 3$, both instances are infeasible. For $n >= 3$, a source Hamiltonian circuit selects $n$ weight-1 edges forming a biconnected cycle of cost $n$. Conversely, a feasible target is connected and every vertex has degree at least two: a degree-zero vertex contradicts connectivity, and a degree-one vertex would be separated from the other surviving vertices by deleting its neighbor. The degree sum therefore forces at least $n$ selected edges. Positive costs and budget $n$ force exactly $n$ edges, all of cost 1. Every degree is exactly two, so connectivity makes these edges a single spanning cycle of the source. All partial selected-weight sums are at most the final sum for feasible targets; evaluation therefore preserves the budget test with exact integer arithmetic.
 
   _Solution extraction._ Validate the target certificate and require its evaluation to be `Or(true)` before decoding. Walk the selected cycle from vertex 0 to recover the circuit order. The negative sentinel has no feasible certificate. The target has at most $n+3$ vertices, no initial edges, and at most $n(n-1)/2$ candidates.
+
+  _Numeric magnitude._ Candidate costs are at most two and the budget is $n$; for $n<3$, the fixed target has budget zero and no candidates. Thus the target's `max_numeric_magnitude_bits` is at most $n+1$, using only the source vertex count.
 ]
 
 #let hc_sca = load-example("HamiltonianCircuit", "StrongConnectivityAugmentation")
@@ -17853,11 +18098,13 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Start with the empty digraph on $n$ vertices. Weight-1 candidate arcs correspond to edges of $G$; weight-2 arcs for non-edges. A budget-$n$ augmentation that achieves strong connectivity must select exactly $n$ weight-1 arcs forming a directed Hamiltonian cycle.
 ][
-  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. If $n<3$, output two isolated vertices, no candidate arcs, and budget zero; both source and target are infeasible. Otherwise build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
 
   _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives $n$ directed arcs of weight 1 forming a strongly-connected cycle. ($arrow.l.double$) Strong connectivity needs $>= n$ arcs; budget $n$ forces all weight 1, hence all from $E$, forming a single $n$-cycle.
 
   _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
+
+  _Numeric magnitude._ Candidate costs are at most two and the budget is $n$; the fixed target for $n<3$ has budget zero and no candidates. The target's `max_numeric_magnitude_bits` is therefore at most $n+1$.
 ]
 
 #let hc_sc = load-example("HamiltonianCircuit", "DecisionStackerCrane")
@@ -18209,59 +18456,6 @@ The following table shows concrete target-variable counts for example instances,
   If $T > Sigma$, then $d > Sigma' \/ 2$, so a single element exceeds the half-sum and the Partition instance is infeasible.
 
   _Solution extraction._ Given a Partition solution $c in {0,1}^m$: if $d = 0$, return $c[0..n]$. If $Sigma > 2T$, the $S$-elements on the same side as the padding form the subset summing to $T$. If $Sigma < 2T$, the $S$-elements on the opposite side from the padding form the subset summing to $T$.
-]
-
-#let ss_ik = load-example("SubsetSum", "IntegerKnapsack")
-#let ss_ik_sol = ss_ik.solutions.at(0)
-#reduction-rule("SubsetSum", "IntegerKnapsack",
-  example: true,
-  example-caption: [#subsetsum-num-elements(ss_ik.source.instance) elements, target $B = #ss_ik.source.instance.target$: exact forward witness, but multiplicities create a backward gap],
-  extra: [
-    #{
-      let sizes = ss_ik.source.instance.sizes.map(s => int(s))
-      let B = int(ss_ik.source.instance.target)
-      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
-      let chosen_sum = chosen.map(i => sizes.at(i)).sum()
-      [
-        #pred-commands(
-          "pred create --example " + rule-spec(ss_ik) + " -o subsetsum.json",
-          "pred solve subsetsum.json",
-          "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
-          "pred solve integer-knapsack.json",
-        )
-
-        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#fmt-values(sizes))$ and target $B = #B$. The stored witness $(#fmt-values(ss_ik_sol.source_config))$ selects elements ${#fmt-values(chosen)}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
-
-        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#fmt-values(ss_ik.target.instance.sizes))$, values $(#fmt-values(ss_ik.target.instance.values))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
-
-        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#fmt-values(ss_ik_sol.target_config))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
-
-        *Step 4 -- Backward gap.* For the source instance $A = {3}$ with target $B = 6$, Subset Sum is NO, but Integer Knapsack can set multiplicity $c_0 = 2$ and achieve total size/value $6$. This is why the catalog records the edge for proof topology only and disables all runtime reduction modes.
-      ]
-    }
-  ],
-)[
-  This size-preserving embedding from Garey and Johnson's Integer Knapsack entry @garey1979[MP10] copies each Subset Sum number into both the size and value of a knapsack item and sets the capacity to the target sum. Any exact subset-sum witness becomes a feasible Integer Knapsack witness of value $B$. The converse fails for the implemented unbounded model because target witnesses may use multiplicities greater than $1$, so the edge is documented but intentionally proof-only.
-][
-  _Construction._ Given Subset Sum instance $(S = {a_1, dots, a_n}, B)$, create $n$ Integer Knapsack items. For each $i$, set the item size and value to the same number:
-  $
-    s_i = a_i, quad v_i = a_i.
-  $
-  Set the knapsack capacity to $B$. The target therefore has the same number of items as the source has elements.
-
-  _Correctness._ ($arrow.r.double$) If $I subset.eq {1, dots, n}$ satisfies $sum_(i in I) a_i = B$, define multiplicities $c_i = 1$ for $i in I$ and $c_i = 0$ otherwise. Then
-  $
-    sum_i c_i s_i = sum_(i in I) a_i = B <= B
-  $
-  and, because $v_i = s_i$, also
-  $
-    sum_i c_i v_i = B.
-  $
-  So every YES instance of Subset Sum maps to an Integer Knapsack witness achieving value $B$.
-
-  ($arrow.l.double$) The backward implication is false for the implemented target model. Integer Knapsack allows arbitrary non-negative multiplicities, while Subset Sum is 0-1. For example, with $S = {3}$ and $B = 6$, the target witness $c_0 = 2$ is feasible and attains value $6$, but the source has no subset summing to $6$. Hence neither exact witness recovery nor exact optimum-value recovery is available from the target side.
-
-  _Solution extraction._ No runtime extractor is registered. The forward map is enough for the NP-hardness proof, but unbounded multiplicities prevent an exact inverse map back to Subset Sum.
 ]
 
 // 2. Satisfiability → NonTautology (#868)
@@ -18826,9 +19020,11 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n^2 + m)$ reduction @stockmeyer1973 assigns each variable $x_i$ a distinct prime $p_i >= 5$, encoding TRUE as residue 1 and FALSE as residue 2 modulo $p_i$. All other residues are forbidden. Each clause is encoded via CRT as a single forbidden residue class modulo the product of its variables' primes. A satisfying assignment exists iff some integer avoids all forbidden classes.
+  This polynomial-time reduction @stockmeyer1973 assigns each variable $x_i$ a distinct prime $p_i >= 3$, encoding TRUE as residue 1 and FALSE as residue 2 modulo $p_i$. All other residues are forbidden. Each clause is encoded via CRT as a single forbidden residue class modulo the product of its variables' primes. A satisfying assignment exists iff some integer avoids all forbidden classes.
 ][
-  _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 5$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
+  _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 3$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
+
+  _Size bound._ There are $sum_(i=1)^n (p_i-2)+m$ forbidden pairs, where $p_i$ is the $i$th odd prime. For the ordinary $k$th prime $q_k$, the standard estimate $q_k < k(ln k+ln ln k)$ for $k >= 6$ @axler2019, together with the first five primes, implies $q_k <= 2k^2$ for every $k >= 1$. Consequently $p_i=q_(i+1) <= 2(n+1)^2$ and $2n(n+1)^2+m$ bounds the pair count.
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment $tau$ defines residues $r_i in {1,2}$ per variable. By CRT, some integer $x$ has these residues. It avoids all variable-forbidden classes and all clause-forbidden classes (since at least one literal is true, the residue triple differs from the falsifying triple). ($arrow.l.double$) Any feasible $x$ has $x mod p_i in {1,2}$ for all $i$. Define $tau(x_i) = "TRUE"$ if residue 1, FALSE if 2. If a clause were false, $x$ would match its forbidden CRT class -- contradiction.
 
@@ -18906,6 +19102,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(n)$ specialization of Karp's common-deadline sequencing construction @karp1972 maps each element $a_i$ to a task with processing time and tardy weight $a_i$. For total $S$, use common deadline $B = floor(S / 2)$. A balanced partition exists exactly when the minimum tardy weight is $B$; other optimum values map to false through the formal aggregate reduction.
 ][
+  _Numeric magnitude._ Task lengths copy the source integers, so target `max_processing_time_bits` equals source `max_numeric_magnitude_bits`.
+
   _Construction._ The source has $n >= 1$ positive sizes with checked total $S$. Create $n$ tasks in source order, each with length and weight $a_i$, and deadline $B = floor(S / 2)$. The construction is identical for odd and even totals. Karp's original paper gives Knapsack to Job Sequencing (p. 100), with equal processing times and penalties and a common deadline; the Partition specialization and its optimization certificate are proved here.
 
   _Correctness._ Let $E$ be the total size of tasks completing by $B$ in any valid permutation. Positive processing times make these tasks a prefix, so $E <= B$. Because weights equal processing times, tardy weight is $W = S - E >= S - B >= B$.
@@ -18961,6 +19159,8 @@ The following table shows concrete target-variable counts for example instances,
   This $O(k)$ construction follows the special-job scheduling argument of Gonzalez and Sahni @gonzalez1976[Lemma 4.1]. Their published construction uses $3k+1$ jobs with one nonzero operation per element copy; the implemented construction instead groups each element's three operations into one job and uses $k+1$ jobs. The independent schedule below proves this grouping preserves the reduction. A balanced partition exists exactly when the target achieves the makespan certificate $3Q$, where $Q=floor(S/2)$ and $S$ is the sum of the input sizes.
 ][
   _Construction._ The source is a nonempty list of positive integers $a_1,...,a_k$, with $S=sum_j a_j$. Set $Q=floor(S/2)$. Use three machines, one job $(a_j,a_j,a_j)$ per element, and one special job $(Q,Q,Q)$. Let $D=3Q$.
+
+  _Numeric magnitude._ Let $h$ be the source `max_numeric_magnitude_bits`. The sum $S$ needs at most $h+k$ bits, and the target schedule horizon is $3S+3Q <= 6S$. Thus `schedule_horizon_bits` is at most $h+k+3$. Raw `schedule_horizon` remains unavailable; its bit-length bound is sufficient to compose polynomial size bounds through bounded ILP and QUBO.
 
   _Forward correctness._ Given a balanced partition into groups $A,B$, each group has total size $Q$ and $S=2Q$. Divide time into three phases $[r Q,(r+1)Q)$, $r=0,1,2$. In phase $r$, run the special job on machine $r$, all jobs of $A$ consecutively on machine $(r+1) mod 3$, and all jobs of $B$ consecutively on machine $(r+2) mod 3$. Each group exactly fills its phase, each element job has one operation per phase, and the machine rotation processes it once on every machine. This is a feasible nonpreemptive schedule of makespan $D$.
 
@@ -19066,6 +19266,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
 ][
+  _Numeric magnitude._ For universe size $q>=1$, the nonconstant gadget has partition bound $42949672960 q^4+964<2^36 q^4$. Since $q<=2^q$, target `max_numeric_magnitude_bits` is at most $4q+36$. The fixed feasible and infeasible outputs also satisfy this bound, including $q=0$.
+
   _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If $q=0$, the empty matching is a solution: return sizes $(1,1,1)$ with bound $3$, and recover the empty matching. Otherwise, if some coordinate of $W union X union Y$ is absent from all triples (including $t=0$), return the fixed infeasible instance $(6,6,6,6,7,9)$ with bound $20$. Including these constant cases, $24t^2-3t+6$ elements and $8t^2-t+2$ groups are upper bounds, not exact counts.
 
   Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
@@ -19213,6 +19415,8 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Each element becomes a unit-length task requiring $a_i$ units of a shared resource with bound $B$. With 3 processors and deadline $m$, every slot receives exactly 3 tasks summing to $B$.
 ][
+  _Numeric magnitude._ Resource requirements copy the element sizes and the resource capacity copies the partition bound. Target `max_resource_bits` therefore equals source `max_numeric_magnitude_bits`.
+
   _Construction._ Given $(S, B)$ with $|S| = 3m$ and $B/4 < a_i < B/2$. Create $3m$ unit-length tasks with resource requirement $r_i = a_i$, $p = 3$ processors, resource bound $B$, deadline $D = m$.
 
   _Correctness._ ($arrow.r.double$) A valid 3-partition assigns each triple to a time slot; each slot uses exactly $B$ resource units. ($arrow.l.double$) $3m$ tasks in $m$ slots with $p = 3$: every slot has exactly 3 tasks. Resource bound $B$ with total $m B$: each slot sums to exactly $B$. Size constraints prevent fewer or more than 3 elements per slot.
@@ -19286,6 +19490,8 @@ The following table shows concrete target-variable counts for example instances,
   Invert edge weights relative to $w_"max"$ on a complete graph $K_N$ with $N = 2n'$. A minimum balanced bisection in the inverted graph corresponds to a maximum cut in the original.
 ][
   _Construction._ Given $G = (V, E, w)$ with $n = |V|$. Set $n' = n + (n mod 2)$, $N = 2n'$, $w_"max" = 1 + max_(e in E) w(e)$. Build $K_N$ with $tilde(w)(i,j) = w_"max" - w(i,j)$ for edges in $E$, else $w_"max"$. Designate $s = n'$, $t = n' + 1$, bound $b = n'$.
+
+  _Parameter bounds._ The target has exactly $2n'$ vertices and $n'(2n'-1)$ edges. Since $n' lt.eq n+1$, these are at most $2n+2$ and $(n+1)(2n+1)$ respectively. Both declared bounds are attained for odd $n$; for even $n$, the actual counts are $2n$ and $n(2n-1)$.
 
   _Correctness._ ($arrow.r.double$) A max-cut extended to a balanced bisection gives a feasible target instance. ($arrow.l.double$) Minimizing $tilde(w)$-cut cost is equivalent to maximizing original weight crossing the cut, since $tilde(w) = w_"max" - w$.
 

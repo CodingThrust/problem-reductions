@@ -70,3 +70,29 @@ fn test_minimumcutintoboundedsets_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
+
+#[test]
+fn test_partition_bound_normalization_preserves_the_optimum() {
+    for bound in [0, 1, 2, 1000] {
+        let source = MinimumCutIntoBoundedSets::new(
+            SimpleGraph::new(2, vec![(0, 1)]),
+            vec![3_i64],
+            0,
+            1,
+            bound,
+        );
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        let solution = crate::solvers::ILPSolver::new().solve(reduction.target_problem());
+        assert_eq!(solution.is_ok(), bound >= 1);
+        if let Ok(solution) = solution {
+            let recovered = reduction.extract_solution(&solution).unwrap();
+            assert_eq!(source.evaluate(&recovered).unwrap().0, Some(3));
+        } else {
+            assert_eq!(
+                solution.unwrap_err(),
+                crate::solvers::ILPSolveError::Infeasible
+            );
+        }
+    }
+}

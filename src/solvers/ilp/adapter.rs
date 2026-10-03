@@ -4,7 +4,9 @@
 //! type-erased dispatch, and reduction-chain extraction belong to the caller.
 //! Optimality and infeasibility follow HiGHS numerical tolerances, not exact proofs.
 
-use crate::models::algebraic::{Comparison, ILPCoefficient, ObjectiveSense, VariableDomain, ILP};
+use crate::models::algebraic::{
+    BoundsPolicy, Comparison, ILPCoefficient, ObjectiveSense, VariableDomain, ILP,
+};
 use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 use highs::{HighsModelStatus, HighsSolutionStatus, RowProblem, Sense};
 
@@ -45,10 +47,11 @@ impl HighsAdapter {
     pub(crate) fn new(time_limit: Option<f64>) -> Self {
         Self { time_limit }
     }
-    pub(crate) fn solve<V, C>(&self, problem: &ILP<V, C>) -> Result<Vec<i64>, ILPSolveError>
+    pub(crate) fn solve<V, C, B>(&self, problem: &ILP<V, C, B>) -> Result<Vec<i64>, ILPSolveError>
     where
         V: VariableDomain,
         C: BackendCoefficient,
+        B: BoundsPolicy,
     {
         if self
             .time_limit
@@ -61,14 +64,15 @@ impl HighsAdapter {
         self.solve_with_objective(problem, problem.objective())
     }
 
-    fn solve_with_objective<V, C>(
+    fn solve_with_objective<V, C, B>(
         &self,
-        problem: &ILP<V, C>,
+        problem: &ILP<V, C, B>,
         objective_terms: &[(usize, C)],
     ) -> Result<Vec<i64>, ILPSolveError>
     where
         V: VariableDomain,
         C: BackendCoefficient,
+        B: BoundsPolicy,
     {
         let n = problem.num_vars();
         if n == 0 {
@@ -171,8 +175,8 @@ impl HighsAdapter {
     }
 }
 
-fn decode_and_validate<V: VariableDomain, C: ILPCoefficient>(
-    problem: &ILP<V, C>,
+fn decode_and_validate<V: VariableDomain, C: ILPCoefficient, B: BoundsPolicy>(
+    problem: &ILP<V, C, B>,
     values: impl IntoIterator<Item = f64>,
 ) -> Result<Vec<i64>, ILPSolveError> {
     let result = values

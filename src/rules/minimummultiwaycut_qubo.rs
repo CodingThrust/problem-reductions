@@ -84,8 +84,13 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     }
 }
 
-#[reduction(transform = exact {
-    num_vars = "num_terminals * num_vertices",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_terminals * num_vertices",
+    },
+    upper_bound {
+        num_quadratic_terms = "(num_terminals * num_vertices) * ((num_terminals * num_vertices) - 1) / 2",
+    },
 })]
 impl ReduceTo<QUBO<i64>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMinimumMultiwayCutToQUBO;

@@ -63,14 +63,14 @@ impl crate::rules::AggregateReductionResult for ReductionXC3SToMaximumSetPacking
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_sets = "num_subsets",
     },
-    unavailable = {
-        universe_size = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        universe_size = "universe_size",
+    },
+})]
 impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMaximumSetPacking;
 

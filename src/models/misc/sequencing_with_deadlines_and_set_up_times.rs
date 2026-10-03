@@ -111,6 +111,17 @@ impl SequencingWithDeadlinesAndSetUpTimes {
         }
     }
 
+    /// Smallest h >= 1 bounding lengths, deadlines, and setup times in magnitude by 2^h.
+    pub fn max_time_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.lengths
+                .iter()
+                .chain(&self.deadlines)
+                .chain(&self.setup_times)
+                .copied(),
+        )
+    }
+
     /// Returns the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.lengths.len()
@@ -211,7 +222,7 @@ impl Problem for SequencingWithDeadlinesAndSetUpTimes {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("num_tasks", num_tasks),];
+    crate::problem_parameters![("max_time_bits", max_time_bits), ("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

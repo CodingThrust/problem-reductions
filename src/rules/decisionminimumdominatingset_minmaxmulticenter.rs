@@ -48,6 +48,7 @@ impl crate::rules::AggregateReductionResult
 
 #[reduction(
     transform = exact {
+        max_numeric_magnitude_bits = "1",
         num_vertices = "num_vertices + 2",
         num_edges = "num_edges",
     }

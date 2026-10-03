@@ -19,7 +19,7 @@ fn small_instance() -> BiconnectivityAugmentation<SimpleGraph, i64> {
 fn test_biconnectivityaugmentation_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionBiconnAugToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Solve source with brute force
@@ -42,7 +42,7 @@ fn test_biconnectivityaugmentation_to_ilp_closed_loop() {
 fn test_extract_solution() {
     let source = small_instance();
     let reduction: ReductionBiconnAugToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
@@ -55,7 +55,7 @@ fn test_extract_solution() {
 fn test_trivial_single_vertex() {
     let source = BiconnectivityAugmentation::new(SimpleGraph::new(1, vec![]), vec![], 0);
     let reduction: ReductionBiconnAugToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("trivial ILP should be solvable");
@@ -72,7 +72,7 @@ fn test_already_biconnected() {
         0,
     );
     let reduction: ReductionBiconnAugToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver
@@ -86,7 +86,7 @@ fn test_already_biconnected() {
 fn test_biconnectivityaugmentation_to_ilp_bf_vs_ilp() {
     let source = small_instance();
     let reduction: ReductionBiconnAugToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -105,7 +105,7 @@ fn test_biconnectivityaugmentation_to_ilp_all_two_vertex_instances() {
                     budget,
                 );
                 let reduction: ReductionBiconnAugToILP =
-                    ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+                    ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
                 let expected = BruteForce::new().solve(&source).unwrap().is_some();
                 match ILPSolver::new().solve(reduction.target_problem()) {
                     Ok(z) => {
@@ -132,7 +132,7 @@ fn test_biconnectivityaugmentation_to_ilp_empty_negative_budget() {
             let source =
                 BiconnectivityAugmentation::<_, i64>::new(SimpleGraph::empty(n), vec![], budget);
             let reduction: ReductionBiconnAugToILP =
-                ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+                ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
             assert_eq!(
                 reduction
                     .target_problem()
@@ -151,7 +151,7 @@ fn test_biconnectivityaugmentation_to_ilp_empty_negative_budget() {
 fn test_biconnectivityaugmentation_to_ilp_signed_cost_and_certificate_bounds() {
     for candidates in [vec![(0, 2, 2), (0, 3, -2)], vec![(0, 3, -2), (0, 2, 2)]] {
         let source = BiconnectivityAugmentation::new(SimpleGraph::path(4), candidates, 0);
-        let reduction: ReductionBiconnAugToILP = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+        let reduction: ReductionBiconnAugToILP = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
         let z = ILPSolver::new().solve(reduction.target_problem()).unwrap();
         assert!(

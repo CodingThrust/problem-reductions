@@ -1,4 +1,4 @@
-//! Polynomial-size circuit-slot reduction from EnsembleComputation to `ILP<i64>`.
+//! Polynomial-size circuit-slot reduction from EnsembleComputation to `ILP<bool>`.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::EnsembleComputation;
@@ -7,7 +7,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionEnsembleComputationToILP {
-    target: ILP<i64>,
+    target: ILP<bool>,
     universe_size: usize,
     budget: usize,
     activity_base: usize,
@@ -32,7 +32,7 @@ impl ReductionEnsembleComputationToILP {
 
 impl ReductionResult for ReductionEnsembleComputationToILP {
     type Source = EnsembleComputation;
-    type Target = ILP<i64>;
+    type Target = ILP<bool>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -80,16 +80,17 @@ impl ReductionResult for ReductionEnsembleComputationToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget",
         num_constraints = "5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets",
     },
-    unavailable = {
-        num_nonzeros = "depends on the cardinalities and duplicate structure of the required subsets",
-    }
-)]
-impl ReduceTo<ILP<i64>> for EnsembleComputation {
+    upper_bound {
+        max_constraint_magnitude_bits = "universe_size + budget + 1",
+        num_nonzeros = "(3 * budget * universe_size + budget * (budget - 1) * (universe_size + 1) + num_subsets * budget + budget) * (5 * budget - 1 + budget * (budget - 1) * (1 + 3 * universe_size) + 2 * budget * universe_size + num_subsets * budget * (universe_size + 2) + num_subsets)",
+    },
+})]
+impl ReduceTo<ILP<bool>> for EnsembleComputation {
     type Result = ReductionEnsembleComputationToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -97,7 +98,7 @@ impl ReduceTo<ILP<i64>> for EnsembleComputation {
         let budget = self.budget();
         let t = self.num_subsets();
         let overflow = |operation| {
-            crate::rules::ReductionError::integer_overflow::<EnsembleComputation, ILP<i64>>(
+            crate::rules::ReductionError::integer_overflow::<EnsembleComputation, ILP<bool>>(
                 operation,
             )
         };
@@ -298,7 +299,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "ensemblecomputation_to_ilp",
         build: || {
             let source = EnsembleComputation::new(4, vec![vec![0, 1], vec![0, 1, 2, 3]], 3);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

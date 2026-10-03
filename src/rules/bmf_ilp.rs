@@ -1,12 +1,7 @@
-//! Reduction from BMF (Boolean Matrix Factorization) to ILP.
-//!
-//! Variables: binary b_{i,r}, c_{r,j}, McCormick product p_{i,r,j} = b_{i,r} * c_{r,j},
-//! reconstructed entry w_{i,j} = OR_r p_{i,r,j}. Pin w_{i,j} = A_{i,j} (exact factorization)
-//! and minimize sum_{i,r} b_{i,r} + sum_{r,j} c_{r,j} (total factor size).
+//! Exact Boolean factorization with coverage indicators only for true entries.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, BMF, ILP};
 use crate::reduction;
-use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
@@ -29,7 +24,12 @@ impl ReductionResult for ReductionBMFToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |v| v.value.is_some(),
+            "target ILP assignment does not reconstruct the Boolean matrix",
+        )?;
 
         let b = (0..self.m)
             .map(|i| {
@@ -50,15 +50,14 @@ impl ReductionResult for ReductionBMFToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
-        num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
-        num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
+#[reduction(transform = {
+    exact { max_constraint_magnitude_bits = "1", },
+    upper_bound {
+        num_vars = "rows * rank + rank * cols + rows * rank * cols",
+        num_constraints = "(2 * rank + 1) * rows * cols + rank * (rows + cols)",
+        num_nonzeros = "5 * rows * rank * cols + rank * (rows + cols)",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+})]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;
 
@@ -66,58 +65,108 @@ impl ReduceTo<ILP<bool>> for BMF {
         let m = self.rows();
         let n = self.cols();
         let k = self.rank();
-
-        // Variable layout:
-        // b_{i,r}: m*k variables at indices [0, m*k)
-        // c_{r,j}: k*n variables at indices [m*k, m*k + k*n)
-        // p_{i,r,j}: m*k*n variables at indices [m*k + k*n, m*k + k*n + m*k*n)
-        // w_{i,j}: m*n variables at indices [m*k + k*n + m*k*n, m*k + k*n + m*k*n + m*n)
-        let b_offset = 0;
-        let c_offset = m * k;
-        let p_offset = m * k + k * n;
-        let w_offset = p_offset + m * k * n;
-        let num_vars = w_offset + m * n;
-
-        let mut constraints = Vec::new();
-
-        for i in 0..m {
-            for j in 0..n {
-                for r in 0..k {
-                    let p_idx = p_offset + i * k * n + r * n + j;
-                    let b_idx = b_offset + i * k + r;
-                    let c_idx = c_offset + r * n + j;
-
-                    // McCormick: p_{i,r,j} = b_{i,r} * c_{r,j}
-                    constraints.extend(mccormick_product(p_idx, b_idx, c_idx));
-                }
-
-                let w_idx = w_offset + i * n + j;
-
-                // w_{i,j} >= p_{i,r,j} for all r
-                for r in 0..k {
-                    let p_idx = p_offset + i * k * n + r * n + j;
-                    constraints.push(LinearConstraint::ge(vec![(w_idx, 1), (p_idx, -1)], 0));
-                }
-
-                // w_{i,j} <= sum_r p_{i,r,j}
-                let mut w_upper_terms = vec![(w_idx, 1)];
-                for r in 0..k {
-                    let p_idx = p_offset + i * k * n + r * n + j;
-                    w_upper_terms.push((p_idx, -1));
-                }
-                constraints.push(LinearConstraint::le(w_upper_terms, 0));
-
-                // Exact factorization: w_{i,j} = A_{i,j}
-                let a_val = if self.matrix()[i][j] { 1 } else { 0 };
-                constraints.push(LinearConstraint::eq(vec![(w_idx, 1)], a_val));
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
+                "counting Boolean factorization variables",
+            )
+        };
+        let c_offset = m.checked_mul(k).ok_or_else(overflow)?;
+        let factor_count = k
+            .checked_mul(n)
+            .and_then(|v| v.checked_add(c_offset))
+            .ok_or_else(overflow)?;
+        <Self as ReduceTo<ILP<bool>>>::exact_i64(factor_count, "bounding Boolean factor size")?;
+        // Pairwise incompatible edges must use distinct factors. Name those
+        // factors first: permuting B columns and C rows preserves every cover
+        // and its objective. Anchor endpoints then exclude non-neighbors.
+        let matrix = self.matrix();
+        let row_degrees: Vec<_> = matrix
+            .iter()
+            .map(|row| row.iter().filter(|&&v| v).count())
+            .collect();
+        let col_degrees: Vec<_> = (0..n)
+            .map(|j| matrix.iter().filter(|row| row[j]).count())
+            .collect();
+        let mut edges: Vec<_> = matrix
+            .iter()
+            .enumerate()
+            .flat_map(|(i, row)| {
+                row.iter()
+                    .enumerate()
+                    .filter_map(move |(j, &v)| v.then_some((i, j)))
+            })
+            .collect();
+        edges.sort_by_key(|&(i, j)| (row_degrees[i], col_degrees[j]));
+        let mut anchors: Vec<(usize, usize)> = Vec::new();
+        for (i, j) in edges {
+            if anchors.len() == k {
+                break;
+            }
+            if anchors.iter().all(|&(u, v)| !matrix[i][v] || !matrix[u][j]) {
+                anchors.push((i, j));
             }
         }
-
-        // Objective: minimize sum_{i,r} b_{i,r} + sum_{r,j} c_{r,j} (total factor size)
-        let mut objective: Vec<(usize, i64)> = (0..m * k).map(|idx| (b_offset + idx, 1)).collect();
-        objective.extend((0..k * n).map(|idx| (c_offset + idx, 1)));
-
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+        let mut fixed = vec![None; factor_count];
+        for (r, &(u, v)) in anchors.iter().enumerate() {
+            for i in 0..m {
+                if !matrix[i][v] {
+                    fixed[i * k + r] = Some(0);
+                }
+            }
+            for j in 0..n {
+                if !matrix[u][j] {
+                    fixed[c_offset + r * n + j] = Some(0);
+                }
+            }
+            fixed[u * k + r] = Some(1);
+            fixed[c_offset + r * n + v] = Some(1);
+        }
+        let mut next = factor_count;
+        let mut constraints: Vec<_> = fixed
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &value)| {
+                value.map(|value| LinearConstraint::eq(vec![(index, 1)], value))
+            })
+            .collect();
+        for (i, row) in self.matrix().iter().enumerate() {
+            for (j, &value) in row.iter().enumerate() {
+                if value {
+                    if (0..k).any(|r| {
+                        fixed[i * k + r] == Some(1) && fixed[c_offset + r * n + j] == Some(1)
+                    }) {
+                        continue;
+                    }
+                    let mut coverage = Vec::new();
+                    for r in 0..k {
+                        if fixed[i * k + r] == Some(0) || fixed[c_offset + r * n + j] == Some(0) {
+                            continue;
+                        }
+                        let bit = next;
+                        next = next.checked_add(1).ok_or_else(overflow)?;
+                        constraints.push(LinearConstraint::le(vec![(bit, 1), (i * k + r, -1)], 0));
+                        constraints.push(LinearConstraint::le(
+                            vec![(bit, 1), (c_offset + r * n + j, -1)],
+                            0,
+                        ));
+                        coverage.push((bit, 1));
+                    }
+                    constraints.push(LinearConstraint::ge(coverage, 1));
+                } else {
+                    for r in 0..k {
+                        if fixed[i * k + r] == Some(0) || fixed[c_offset + r * n + j] == Some(0) {
+                            continue;
+                        }
+                        constraints.push(LinearConstraint::le(
+                            vec![(i * k + r, 1), (c_offset + r * n + j, 1)],
+                            1,
+                        ));
+                    }
+                }
+            }
+        }
+        let objective = (0..factor_count).map(|i| (i, 1)).collect();
+        let target = ILP::new(next, constraints, objective, ObjectiveSense::Minimize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionBMFToILP { target, m, n, k })
     }

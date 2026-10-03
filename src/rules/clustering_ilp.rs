@@ -49,15 +49,12 @@ impl ReductionResult for ReductionClusteringToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionClusteringToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_elements * num_clusters",
-        num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
+    num_vars = "num_elements * num_clusters",
+    num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
+    num_nonzeros = "(num_elements * num_clusters) * (num_elements + num_elements * (num_elements - 1) / 2 * num_clusters)",
+})]
 impl ReduceTo<ILP<bool>> for Clustering {
     type Result = ReductionClusteringToILP;
 

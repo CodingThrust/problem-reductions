@@ -90,3 +90,23 @@ fn test_precedenceconstrainedscheduling_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
+
+#[test]
+fn test_processor_normalization_preserves_scheduling_feasibility() {
+    for processors in [1, 2, 1000] {
+        let source = PrecedenceConstrainedScheduling::new(2, processors, 1, vec![]);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        let solution = ILPSolver::new().solve(reduction.target_problem());
+        assert_eq!(solution.is_ok(), processors >= 2);
+        if let Ok(solution) = solution {
+            let recovered = reduction.extract_solution(&solution).unwrap();
+            assert!(source.evaluate(&recovered).unwrap().0);
+        } else {
+            assert_eq!(
+                solution.unwrap_err(),
+                crate::solvers::ILPSolveError::Infeasible
+            );
+        }
+    }
+}

@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::solvers::ILPSolver;
@@ -140,7 +141,7 @@ fn test_ksatisfiability_to_feasible_register_assignment_closed_loop_via_ilp() {
     let source = issue_example();
     let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
-    let fra_to_ilp = ReduceTo::<ILP<i64>>::reduce_to(reduction.target_problem())
+    let fra_to_ilp = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(reduction.target_problem())
         .expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -167,7 +168,7 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
     );
     let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source)
         .expect("reduction should succeed");
-    let fra_to_ilp = ReduceTo::<ILP<i64>>::reduce_to(reduction.target_problem())
+    let fra_to_ilp = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(reduction.target_problem())
         .expect("reduction should succeed");
 
     assert!(

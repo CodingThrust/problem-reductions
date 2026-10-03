@@ -114,16 +114,19 @@ fn entry_with(declarations: fn() -> ReductionParameterDeclarations) -> Reduction
 }
 
 #[test]
-fn one_relation_applies_to_the_whole_transform() {
+fn declared_field_exposes_its_relation() {
     let entry = entry_with(|| ReductionParameterDeclarations {
-        relation: Some(crate::parameters::ParameterRelation::Exact),
-        fields: vec![("n", Expr::variable("n"))],
+        fields: vec![(
+            "n",
+            crate::parameters::ParameterRelation::Exact,
+            Expr::variable("n"),
+        )],
         unavailable: vec![],
     });
     let contract = entry.parameter_contract().unwrap();
     let transform = contract.transform().unwrap();
     assert_eq!(
-        transform.relation(),
+        transform.relation("n").unwrap(),
         crate::parameters::ParameterRelation::Exact
     );
     assert!(transform.get("n").is_some());
@@ -132,8 +135,11 @@ fn one_relation_applies_to_the_whole_transform() {
 #[test]
 fn unavailable_field_cannot_overlap_a_formula() {
     let entry = entry_with(|| ReductionParameterDeclarations {
-        relation: Some(crate::parameters::ParameterRelation::Exact),
-        fields: vec![("n", Expr::variable("n"))],
+        fields: vec![(
+            "n",
+            crate::parameters::ParameterRelation::Exact,
+            Expr::variable("n"),
+        )],
         unavailable: vec![UnavailableParameterField {
             field: "n",
             reason: "the construction does not expose this statistic",
@@ -148,7 +154,6 @@ fn unavailable_field_cannot_overlap_a_formula() {
 #[test]
 fn unavailable_field_requires_a_reason() {
     let entry = entry_with(|| ReductionParameterDeclarations {
-        relation: None,
         fields: vec![],
         unavailable: vec![UnavailableParameterField {
             field: "n",

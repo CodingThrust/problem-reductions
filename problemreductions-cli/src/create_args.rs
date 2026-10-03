@@ -238,7 +238,7 @@ fn invalid_problem_spec(command: &Command, message: String) -> Error {
 }
 
 fn canonical_problem_spec(problem: &ProblemType, variant: &BTreeMap<String, String>) -> String {
-    let values = problem
+    let mut values = problem
         .dimensions
         .iter()
         .filter_map(|dimension| {
@@ -246,6 +246,20 @@ fn canonical_problem_spec(problem: &ProblemType, variant: &BTreeMap<String, Stri
             (value != dimension.default_value).then_some(value)
         })
         .collect::<Vec<_>>();
+    if values.iter().any(|value| {
+        problem
+            .dimensions
+            .iter()
+            .filter(|dimension| dimension.allowed_values.contains(value))
+            .count()
+            > 1
+    }) {
+        values = problem
+            .dimensions
+            .iter()
+            .map(|dimension| dimension_value(variant, dimension.key, dimension.default_value))
+            .collect();
+    }
     join_spec(problem.canonical_name, &values)
 }
 
@@ -284,6 +298,19 @@ fn add_value_parser(arg: Arg, kind: crate::commands::create::InputValueKind) -> 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn canonical_create_specs_resolve_to_the_original_variant() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        for entry in problemreductions::registry::variant_entries() {
+            let problem = problemreductions::registry::find_problem_type(entry.name).unwrap();
+            let variant = entry.variant_map();
+            let spec = super::canonical_problem_spec(&problem, &variant);
+            let resolved = crate::problem_name::resolve_problem_ref(&spec, &graph)
+                .unwrap_or_else(|error| panic!("{spec}: {error}"));
+            assert_eq!(resolved.variant, variant, "{spec}");
+        }
+    }
+
     #[test]
     fn decision_create_help_includes_field_descriptions_and_bound_direction() {
         for (spec, direction) in [("DecisionMaxCut", ">="), ("DecisionQUBO", "<=")] {

@@ -104,6 +104,17 @@ impl<W: WeightElement> BinPacking<W> {
     pub fn num_items(&self) -> usize {
         self.sizes.len()
     }
+
+    /// Smallest h >= 1 bounding the magnitudes of item sizes and capacity by 2^h
+    /// (strictly). For floating weights, this measures magnitude, not precision.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.sizes
+                .iter()
+                .chain(std::iter::once(&self.capacity))
+                .map(W::to_sum),
+        )
+    }
 }
 
 impl<W> Problem for BinPacking<W>
@@ -115,7 +126,10 @@ where
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_parameters![("num_items", num_items),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_items", num_items),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]

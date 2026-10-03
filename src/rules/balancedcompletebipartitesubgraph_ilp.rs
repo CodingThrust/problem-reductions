@@ -45,15 +45,12 @@ impl ReductionResult for ReductionBCBSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBCBSToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices",
-        num_constraints = "num_vertices^2 + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "k + 1",
+    num_vars = "num_vertices",
+    num_constraints = "num_vertices^2 + 2",
+    num_nonzeros = "num_vertices * (num_vertices^2 + 2)",
+})]
 impl ReduceTo<ILP<bool>> for BalancedCompleteBipartiteSubgraph {
     type Result = ReductionBCBSToILP;
 

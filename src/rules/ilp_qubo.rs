@@ -78,11 +78,13 @@ impl crate::rules::AggregateReductionResult for ReductionILPToQUBO {
     }
 }
 
-#[reduction(
-    transform = unavailable {
-        num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source parameters vector",
-    }
-)]
+// With n variables and magnitude bits h, each positive slack range is less
+// than (n+1)*2^h <= 2^(n+h), so each row adds at most n+h bits. Squaring the
+// resulting variable bound covers every off-diagonal pair, even with cancellation.
+#[reduction(transform = upper_bound {
+    num_vars = "num_vars + num_constraints * (num_vars + max_constraint_magnitude_bits)",
+    num_quadratic_terms = "(num_vars + num_constraints * (num_vars + max_constraint_magnitude_bits))^2",
+})]
 impl ReduceTo<QUBO<i64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 

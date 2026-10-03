@@ -173,6 +173,85 @@ impl PreemptiveScheduling {
         &self.precedences
     }
 
+    /// Bit bound for work, capacity and endpoint coefficients.
+    pub fn max_schedule_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.d_max(), self.num_processors()])
+    }
+
+    pub(crate) fn scheduling_windows(&self) -> (usize, Vec<std::ops::Range<usize>>) {
+        use std::cmp::Reverse;
+        use std::collections::BinaryHeap;
+        let n = self.num_tasks();
+        let lengths: Vec<_> = self
+            .lengths
+            .iter()
+            .map(|&p| usize::try_from(p).expect("validated positive task length fits the horizon"))
+            .collect();
+        let mut successors = vec![Vec::new(); n];
+        let mut indegree = vec![0; n];
+        for &(a, b) in &self.precedences {
+            successors[a].push(b);
+            indegree[b] += 1;
+        }
+        let mut pending = indegree.clone();
+        let mut order: Vec<_> = (0..n).filter(|&j| pending[j] == 0).collect();
+        let mut earliest = vec![0; n];
+        let mut cursor = 0;
+        while cursor < order.len() {
+            let j = order[cursor];
+            cursor += 1;
+            for &k in &successors[j] {
+                earliest[k] = earliest[k].max(earliest[j] + lengths[j]);
+                pending[k] -= 1;
+                if pending[k] == 0 {
+                    order.push(k);
+                }
+            }
+        }
+        if order.len() != n {
+            return (0, vec![0..0; n]);
+        }
+        let mut tail = lengths.clone();
+        for &j in order.iter().rev() {
+            tail[j] += successors[j].iter().map(|&k| tail[k]).max().unwrap_or(0);
+        }
+        let mut ready: BinaryHeap<_> = (0..n)
+            .filter(|&j| indegree[j] == 0)
+            .map(|j| (tail[j], Reverse(j)))
+            .collect();
+        let mut running = BinaryHeap::new();
+        let mut time = 0;
+        loop {
+            while running.len() < self.num_processors {
+                let Some((_, Reverse(j))) = ready.pop() else {
+                    break;
+                };
+                running.push(Reverse((time + lengths[j], j)));
+            }
+            let Some(&Reverse((finish, _))) = running.peek() else {
+                break;
+            };
+            time = finish;
+            while running.peek().is_some_and(|Reverse((end, _))| *end == time) {
+                let Reverse((_, j)) = running.pop().expect("finish event exists");
+                for &k in &successors[j] {
+                    indegree[k] -= 1;
+                    if indegree[k] == 0 {
+                        ready.push((tail[k], Reverse(k)));
+                    }
+                }
+            }
+        }
+        // Every addition above lies on a path or a feasible serial schedule,
+        // hence fits the constructor-validated sum of processing lengths.
+        (
+            time,
+            (0..n)
+                .map(|j| earliest[j]..time - tail[j] + lengths[j])
+                .collect(),
+        )
+    }
+
     /// Compute `D_max = sum of all task lengths` (worst-case makespan).
     pub fn d_max(&self) -> usize {
         let total = self
@@ -209,6 +288,7 @@ impl Problem for PreemptiveScheduling {
 
     crate::problem_parameters![
         ("d_max", d_max),
+        ("max_schedule_magnitude_bits", max_schedule_magnitude_bits),
         ("num_precedences", num_precedences),
         ("num_processors", num_processors),
         ("num_tasks", num_tasks),

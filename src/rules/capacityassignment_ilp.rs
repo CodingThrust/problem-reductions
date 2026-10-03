@@ -49,15 +49,16 @@ impl ReductionResult for ReductionCAToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "max_delay_bits",
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_links * num_capacities) * (num_links + 1)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;
 

@@ -10,16 +10,16 @@ use crate::topology::Graph;
 /// One selected maximum-weight edge carries the exact objective coefficient.
 #[derive(Debug, Clone)]
 pub struct ReductionBTSPToILP {
-    target: ILP<i64>,
+    target: ILP<bool>,
     num_vertices: usize,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionBTSPToILP {
     type Source = BottleneckTravelingSalesman;
-    type Target = ILP<i64>;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -48,7 +48,7 @@ impl ReductionBTSPToILP {
         m: usize,
     ) -> Result<(usize, usize, usize, usize), crate::rules::ReductionError> {
         let overflow = || {
-            crate::rules::ReductionError::integer_overflow::<BottleneckTravelingSalesman, ILP<i64>>(
+            crate::rules::ReductionError::integer_overflow::<BottleneckTravelingSalesman, ILP<bool>>(
                 "sizing the cyclic edge-selection formulation",
             )
         };
@@ -71,7 +71,7 @@ impl ReductionBTSPToILP {
             })
             .and_then(|v| v.checked_add(1))
             .ok_or_else(overflow)?;
-        <BottleneckTravelingSalesman as ReduceTo<ILP<i64>>>::exact_i64(
+        <BottleneckTravelingSalesman as ReduceTo<ILP<bool>>>::exact_i64(
             vars,
             "bounding binary constraint accumulation",
         )?;
@@ -79,16 +79,17 @@ impl ReductionBTSPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + num_edges",
         num_constraints = "num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1",
     },
-    unavailable = {
-        num_nonzeros = "threshold comparisons depend on the ordering of edge weights",
-    }
-)]
-impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+        num_nonzeros = "(num_vertices^2 + 2 * num_edges * num_vertices + num_edges) * (num_vertices^2 + 6 * num_edges * num_vertices + 4 * num_edges + 3 * num_vertices + 1)",
+    },
+})]
+impl ReduceTo<ILP<bool>> for BottleneckTravelingSalesman {
     type Result = ReductionBTSPToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -108,7 +109,7 @@ impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
                 .collect::<Vec<_>>()
         };
         let mut constraints = Vec::with_capacity(num_constraints);
-        // ILP<i64> variables are nonnegative. Check binary bounds before sums.
+        // ILP<bool> variables are nonnegative. Check binary bounds before sums.
         for variable in 0..num_vars {
             constraints.push(LinearConstraint::le(vec![(variable, 1)], 1));
         }
@@ -194,7 +195,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

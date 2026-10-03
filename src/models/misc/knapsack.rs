@@ -132,6 +132,11 @@ impl Knapsack {
         self.capacity
     }
 
+    /// Binary digit count of the capacity, with a minimum of one for zero.
+    pub fn capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.capacity])
+    }
+
     /// Returns the number of items.
     pub fn num_items(&self) -> usize {
         self.weights.len()
@@ -142,11 +147,7 @@ impl Knapsack {
     /// For positive capacity this is `floor(log2(C)) + 1`; for zero capacity we
     /// keep one slack bit so the encoding shape remains uniform.
     pub fn num_slack_bits(&self) -> usize {
-        if self.capacity == 0 {
-            1
-        } else {
-            self.capacity.ilog2() as usize + 1
-        }
+        usize::try_from(self.capacity_bits()).expect("capacity bit length fits usize")
     }
 }
 
@@ -155,7 +156,11 @@ impl Problem for Knapsack {
     type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    crate::problem_parameters![("capacity", capacity), ("num_items", num_items),];
+    crate::problem_parameters![
+        ("capacity", capacity),
+        ("capacity_bits", capacity_bits),
+        ("num_items", num_items),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

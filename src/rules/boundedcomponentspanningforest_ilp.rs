@@ -1,10 +1,10 @@
-//! Reduction from BoundedComponentSpanningForest to `ILP<i64>`.
+//! Reduction from BoundedComponentSpanningForest to `ILP<i64, i64, Bounded>`.
 //!
 //! Assign every vertex to one of K components, bound weight, certify
 //! connectivity inside each used component via flow.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -13,16 +13,16 @@ use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
 pub struct ReductionBCSFToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     n: usize,
     k: usize,
 }
 
 impl ReductionResult for ReductionBCSFToILP {
     type Source = BoundedComponentSpanningForest<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -45,16 +45,17 @@ impl ReductionResult for ReductionBCSFToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionBCSFToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
         num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
+    upper_bound {
+        max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
+        num_nonzeros = "(3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components) * (num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components)",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
     type Result = ReductionBCSFToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -188,7 +189,14 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[2 * n * k + k..3 * n * k + 2 * k]
+            .fill(IntegerVariable::new(Some(0), Some(n_i64)).map_err(Self::target_construction)?);
+        variables[3 * n * k + 2 * k..].fill(
+            IntegerVariable::new(Some(0), Some(cap.max(0))).map_err(Self::target_construction)?,
+        );
+
+        let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;
         Ok(ReductionBCSFToILP { target, n, k })
     }
@@ -207,13 +215,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
             );
             let reduction: ReductionBCSFToILP =
-                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                crate::rules::ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source)
                     .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64, i64, Bounded>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(extracted),

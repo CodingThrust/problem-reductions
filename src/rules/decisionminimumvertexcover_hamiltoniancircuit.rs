@@ -300,12 +300,10 @@ impl crate::rules::AggregateReductionResult
 {
 }
 
-#[reduction(
-    transform = unavailable {
-        num_vertices = "the construction size depends on the decision threshold, which is not a problem parameter",
-        num_edges = "the construction size depends on the decision threshold, which is not a problem parameter",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vertices = "num_vertices + 12 * num_edges + 3",
+    num_edges = "(num_vertices + 12 * num_edges + 3)^2",
+})]
 impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, One>> {
     type Result = ReductionDecisionMinimumVertexCoverToHamiltonianCircuit;
 

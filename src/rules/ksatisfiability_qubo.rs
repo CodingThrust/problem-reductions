@@ -330,8 +330,9 @@ impl crate::rules::AggregateReductionResult for ReductionKSatToQUBO {}
 impl crate::rules::AggregateReductionResult for Reduction3SATToQUBO {}
 
 #[reduction(
-    transform = exact {
-        num_vars = "num_vars",
+    transform = {
+        exact { num_vars = "num_vars" },
+        upper_bound { num_quadratic_terms = "num_vars * (num_vars - 1) / 2" },
     }
 )]
 impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> {
@@ -362,11 +363,14 @@ impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K2> {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vars + num_clauses",
-    }
-)]
+    },
+    upper_bound {
+        num_quadratic_terms = "(num_vars + num_clauses) * ((num_vars + num_clauses) - 1) / 2",
+    },
+})]
 impl ReduceTo<Decision<QUBO<i64>>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;
 

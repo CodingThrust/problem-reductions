@@ -51,11 +51,10 @@ impl ReductionResult for ReductionLCSToILP {
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "max_length * (alphabet_size + 1) + max_length * total_length",
         num_constraints = "max_length + num_transitions + max_length * num_strings + max_length * total_length + num_transitions * sum_triangular_lengths",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
+        num_nonzeros = "max_length * (alphabet_size + 1 + num_strings + 3 * total_length) + 2 * num_transitions * (1 + sum_triangular_lengths)",
     }
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {

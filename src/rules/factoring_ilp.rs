@@ -19,7 +19,7 @@
 //! 4. Binary bounds: p_i ≤ 1, q_j ≤ 1
 //! 5. Carry bounds: 0 ≤ c_k ≤ min(m, n)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -34,7 +34,7 @@ use std::cmp::min;
 /// - Constraints enforce the multiplication equals the target
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     m: usize, // bits for first factor
     n: usize, // bits for second factor
 }
@@ -65,9 +65,9 @@ impl ReductionFactoringToILP {
 
 impl ReductionResult for ReductionFactoringToILP {
     type Source = Factoring;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -113,16 +113,16 @@ impl ReductionResult for ReductionFactoringToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionFactoringToILP {}
 
-#[reduction(
-    transform = upper_bound {
+// With L=max(m+n,target_bits), McCormick rows use 7mn terms; bit equations,
+// final carry, factor bounds and carry bounds use mn+m+n+4L more.
+// Substitute L <= m+n+target_bits to obtain a bound using source parameters.
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_bits_first + num_bits_second + 2",
     num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
     num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for Factoring {
+    num_nonzeros = "8 * num_bits_first * num_bits_second + 5 * num_bits_first + 5 * num_bits_second + 4 * target_bits",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for Factoring {
     type Result = ReductionFactoringToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -212,8 +212,10 @@ impl ReduceTo<ILP<i64>> for Factoring {
         }
 
         // Constraint 5: Carry bounds (0 ≤ c_k ≤ min(m, n))
-        let carry_upper =
-            <Self as ReduceTo<ILP<i64>>>::exact_i64(min(m, n), "encoding a carry bound")?;
+        let carry_upper = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            min(m, n),
+            "encoding a carry bound",
+        )?;
         for k in 0..num_carries {
             let cv = carry_var(k);
             constraints.push(LinearConstraint::ge(vec![(cv, 1)], 0));
@@ -223,8 +225,19 @@ impl ReduceTo<ILP<i64>> for Factoring {
         // Objective: feasibility problem (minimize 0)
         let objective: Vec<(usize, i64)> = vec![];
 
-        let ilp = ILP::<i64>::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_p + num_q + num_z..].fill(
+            IntegerVariable::new(Some(0), Some(carry_upper))
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
+        );
+
+        let ilp = ILP::<i64, i64, Bounded>::with_variables(
+            variables,
+            constraints,
+            objective,
+            ObjectiveSense::Minimize,
+        )
+        .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
 
         Ok(ReductionFactoringToILP { target: ilp, m, n })
     }
@@ -236,7 +249,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "factoring_to_ilp",
         build: || {
             let source = Factoring::with_factor_bits(35, 3, 3);
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

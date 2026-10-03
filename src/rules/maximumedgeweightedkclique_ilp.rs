@@ -138,15 +138,19 @@ where
     })
 }
 
-#[reduction(
-    transform = exact {
+// One cardinality row, at most n(n-1)/2 missing-pair rows, and three
+// product rows per stored edge. Their nonzeros total at most n² + 7m;
+// repeated edges and loops do not subtract from the missing-pair bound.
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_edges",
-        num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 3 * num_edges",
+        max_constraint_magnitude_bits = "num_vertices + 1",
+        num_nonzeros = "num_vertices^2 + 7 * num_edges",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i64>;
 
@@ -155,15 +159,16 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices + num_edges",
-        num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 3 * num_edges",
+        max_constraint_magnitude_bits = "num_vertices + 1",
+        num_nonzeros = "num_vertices^2 + 7 * num_edges",
+    },
+})]
 impl ReduceTo<ILP<bool, f64>> for MaximumEdgeWeightedKClique<f64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<f64>;
 

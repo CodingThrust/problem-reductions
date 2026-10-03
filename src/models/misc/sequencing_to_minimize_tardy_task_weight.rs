@@ -118,6 +118,11 @@ impl SequencingToMinimizeTardyTaskWeight {
         }
     }
 
+    /// Smallest h >= 1 bounding every processing time in magnitude strictly by 2^h.
+    pub fn max_processing_time_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.lengths.iter().copied())
+    }
+
     /// Returns the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.lengths.len()
@@ -190,7 +195,10 @@ impl Problem for SequencingToMinimizeTardyTaskWeight {
     type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    crate::problem_parameters![("num_tasks", num_tasks),];
+    crate::problem_parameters![
+        ("max_processing_time_bits", max_processing_time_bits),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

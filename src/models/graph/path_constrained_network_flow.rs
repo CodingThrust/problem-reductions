@@ -132,7 +132,7 @@ impl PathConstrainedNetworkFlow {
     /// # Panics
     ///
     /// Panics if:
-    /// - `capacities.len() != graph.num_arcs()`
+    /// - `capacities.len() != graph.num_arcs()` or a capacity is negative
     /// - `source` or `sink` are out of range or identical
     /// - any prescribed path is not a valid directed simple s-t path
     pub fn new(
@@ -163,6 +163,9 @@ impl PathConstrainedNetworkFlow {
                 capacities.len(),
                 graph.num_arcs(),
             ));
+        }
+        if capacities.iter().any(|&capacity| capacity < 0) {
+            return Err("capacities must be nonnegative".into());
         }
         if source >= num_vertices {
             return Err(format!("source ({source}) >= num_vertices ({num_vertices})").into());
@@ -224,7 +227,7 @@ impl PathConstrainedNetworkFlow {
         Ok(())
     }
 
-    fn path_bottleneck(&self, path: &[usize]) -> i64 {
+    pub(crate) fn path_bottleneck(&self, path: &[usize]) -> i64 {
         path.iter()
             .map(|&arc_idx| self.capacities[arc_idx])
             .min()

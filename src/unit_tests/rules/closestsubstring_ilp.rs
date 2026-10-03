@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::misc::ClosestSubstring;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -24,7 +24,8 @@ fn issue_instance() -> ClosestSubstring {
 #[test]
 fn test_closestsubstring_to_ilp_structure() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // q = 2, ell = 3, total windows W = 3 + 3 + 3 = 9.
@@ -74,7 +75,8 @@ fn test_closestsubstring_to_ilp_structure() {
 #[test]
 fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars()];
 
     assert_eq!(
@@ -89,7 +91,8 @@ fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
 #[test]
 fn test_closestsubstring_to_ilp_closed_loop() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     let bf_value_solution = BruteForce::new().solve(&source).unwrap().unwrap();
 
@@ -112,7 +115,8 @@ fn test_closestsubstring_to_ilp_closed_loop() {
 #[test]
 fn test_closestsubstring_to_ilp_bf_vs_ilp() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -126,7 +130,8 @@ fn test_closestsubstring_to_ilp_zero_radius_when_common_substring_exists() {
         3,
     )
     .unwrap();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -144,7 +149,8 @@ fn test_closestsubstring_to_ilp_ternary_alphabet() {
     // enough to cross-check via the closed loop.
     let source =
         ClosestSubstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]], 2).unwrap();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // q*ell + W + 1 with W = 2 + 2 + 2 = 6: num_vars = 6 + 6 + 1 = 13.
@@ -162,7 +168,8 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
     // y_{1,0}=y_{2,1}=y_{3,0}=1, R = 1. Then verify the extracted source
     // config matches and gives radius 1.
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let mut target_solution = vec![0_i64; ilp.num_vars()];

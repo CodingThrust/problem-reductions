@@ -10,15 +10,13 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing TimetableDesign to `ILP<bool>`.
-///
-/// Variable layout: x_{c,t,h} at index `((c * num_tasks) + t) * num_periods + h`
-/// exactly matching the source configuration layout.
 #[derive(Debug, Clone)]
 pub struct ReductionTDToILP {
     target: ILP<bool>,
     num_craftsmen: usize,
     num_tasks: usize,
     num_periods: usize,
+    assignments: Vec<(usize, usize, usize)>,
 }
 
 impl ReductionResult for ReductionTDToILP {
@@ -29,8 +27,6 @@ impl ReductionResult for ReductionTDToILP {
         &self.target
     }
 
-    /// Extract: direct identity mapping — the ILP variable layout matches the
-    /// source configuration layout exactly.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
@@ -42,37 +38,28 @@ impl ReductionResult for ReductionTDToILP {
             "target ILP assignment is infeasible",
         )?;
 
-        Ok((0..self.num_craftsmen)
-            .map(|craftsman| {
-                (0..self.num_tasks)
-                    .map(|task| {
-                        (0..self.num_periods)
-                            .map(|period| {
-                                let index = ((craftsman * self.num_tasks) + task)
-                                    * self.num_periods
-                                    + period;
-                                target_solution[index] == 1
-                            })
-                            .collect()
-                    })
-                    .collect()
-            })
-            .collect())
+        let mut timetable =
+            vec![vec![vec![false; self.num_periods]; self.num_tasks]; self.num_craftsmen];
+        for (variable, &(craftsman, task, period)) in self.assignments.iter().enumerate() {
+            timetable[craftsman][task][period] = target_solution[variable] == 1;
+        }
+        Ok(timetable)
     }
 }
 
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionTDToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_craftsmen * num_tasks * num_periods",
-        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks + num_craftsmen * num_tasks * num_periods",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_available_assignments",
+        num_nonzeros = "3 * num_available_assignments",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_constraints = "2 * num_available_assignments + num_nonzero_requirements",
+        max_constraint_magnitude_bits = "period_count_bits + 1",
+    },
+})]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 
@@ -81,53 +68,53 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         let nt = self.num_tasks();
         let nh = self.num_periods();
         let requirements = self.requirements();
-        let num_vars = nc * nt * nh;
-
-        let var = |c: usize, t: usize, h: usize| -> usize { ((c * nt) + t) * nh + h };
-
-        let mut constraints = Vec::new();
-
-        // 1. Availability: x_{c,t,h} = 0 whenever craftsman c or task t is unavailable in h
-        for c in 0..nc {
-            for t in 0..nt {
-                for h in 0..nh {
-                    if !self.craftsman_avail()[c][h] || !self.task_avail()[t][h] {
-                        constraints.push(LinearConstraint::eq(vec![(var(c, t, h), 1)], 0));
-                    }
-                }
-            }
-        }
-
-        // 2. Each craftsman works on at most one task per period: Σ_t x_{c,t,h} <= 1 for all c, h
-        for c in 0..nc {
-            for h in 0..nh {
-                let terms: Vec<(usize, i64)> = (0..nt).map(|t| (var(c, t, h), 1)).collect();
-                constraints.push(LinearConstraint::le(terms, 1));
-            }
-        }
-
-        // 3. Each task worked on by at most one craftsman per period: Σ_c x_{c,t,h} <= 1 for all t, h
-        for t in 0..nt {
-            for h in 0..nh {
-                let terms: Vec<(usize, i64)> = (0..nc).map(|c| (var(c, t, h), 1)).collect();
-                constraints.push(LinearConstraint::le(terms, 1));
-            }
-        }
-
-        // 4. Exact requirements: Σ_h x_{c,t,h} = r_{c,t} for all c, t
+        // A pair can work at most nh periods. Keep out-of-range requirements infeasible.
+        let max_requirement = Self::exact_i64(nh, "encoding the period count")?.saturating_add(1);
+        let mut assignments = Vec::new();
+        let mut craftsmen = std::collections::BTreeMap::<_, Vec<_>>::new();
+        let mut tasks = std::collections::BTreeMap::<_, Vec<_>>::new();
+        let mut pairs = Vec::new();
         for (c, row) in requirements.iter().enumerate() {
             for (t, &requirement) in row.iter().enumerate() {
-                let terms: Vec<(usize, i64)> = (0..nh).map(|h| (var(c, t, h), 1)).collect();
-                constraints.push(LinearConstraint::eq(terms, requirement));
+                if requirement == 0 {
+                    continue;
+                }
+                let mut terms = Vec::new();
+                if requirement > 0 {
+                    for h in 0..nh {
+                        if self.craftsman_avail()[c][h] && self.task_avail()[t][h] {
+                            let term = (assignments.len(), 1);
+                            assignments.push((c, t, h));
+                            terms.push(term);
+                            craftsmen.entry((c, h)).or_default().push(term);
+                            tasks.entry((t, h)).or_default().push(term);
+                        }
+                    }
+                }
+                pairs.push(LinearConstraint::eq(
+                    terms,
+                    requirement.clamp(-1, max_requirement),
+                ));
             }
         }
-
+        let mut constraints: Vec<_> = craftsmen
+            .into_values()
+            .chain(tasks.into_values())
+            .map(|terms| LinearConstraint::le(terms, 1))
+            .collect();
+        constraints.extend(pairs);
         Ok(ReductionTDToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::new(
+                assignments.len(),
+                constraints,
+                vec![],
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_craftsmen: nc,
             num_tasks: nt,
             num_periods: nh,
+            assignments,
         })
     }
 }

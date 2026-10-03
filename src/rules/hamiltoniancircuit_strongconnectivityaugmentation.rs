@@ -87,6 +87,7 @@ impl crate::rules::AggregateReductionResult
 
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "num_vertices + 1",
         num_vertices = "num_vertices + 2",
         num_arcs = "0",
         num_potential_arcs = "num_vertices * (num_vertices - 1)",

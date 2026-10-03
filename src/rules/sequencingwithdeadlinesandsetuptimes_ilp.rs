@@ -60,12 +60,11 @@ impl crate::rules::AggregateReductionResult for ReductionSWDSTToILP {}
 
 #[reduction(
     transform = upper_bound {
-    num_vars = "2 * num_tasks^2 + num_tasks",
-    num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
+        max_constraint_magnitude_bits = "max_time_bits + num_tasks + 2",
+        num_vars = "2 * num_tasks^2 + num_tasks",
+        num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
+        num_nonzeros = "(2 * num_tasks^2 + num_tasks) * (2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks)",
+    },
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;

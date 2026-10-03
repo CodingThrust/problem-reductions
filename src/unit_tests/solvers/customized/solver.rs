@@ -54,6 +54,53 @@ fn all_simple_graphs(num_vertices: usize) -> impl Iterator<Item = SimpleGraph> {
 }
 
 #[test]
+fn subset_sum_customized_search_matches_exhaustive_truth() {
+    use crate::models::misc::SubsetSum;
+    for n in 0..=5 {
+        for encoded in 0..3_usize.pow(n) {
+            let mut digits = encoded;
+            let sizes: Vec<u32> = (0..n)
+                .map(|_| {
+                    let value = u32::try_from(digits % 3 + 1).unwrap();
+                    digits /= 3;
+                    value
+                })
+                .collect();
+            for target in 0..=sizes.iter().sum::<u32>() + 1 {
+                let source = SubsetSum::new(sizes.clone(), target);
+                let expected = crate::solvers::BruteForce::new().solve(&source).unwrap();
+                let actual = CustomizedTestSolver::new().solve_dyn(&source);
+                assert_eq!(
+                    actual.is_some(),
+                    expected.is_some(),
+                    "{sizes:?}, target={target}"
+                );
+                if let Some(witness) = actual {
+                    assert!(source.evaluate(&witness).unwrap().0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn subset_sum_customized_search_preserves_big_integers_and_long_masks() {
+    use crate::models::misc::SubsetSum;
+    use num_bigint::BigUint;
+    let huge = BigUint::from(1_u32) << 200_usize;
+    let mut sizes = vec![&huge * 3_u32; 132];
+    sizes[65] = huge.clone();
+    sizes[131] = &huge + 1_u32;
+    let source = SubsetSum::new(sizes, &huge * 2_u32 + 1_u32);
+    let witness = CustomizedTestSolver::new()
+        .solve_dyn(&source)
+        .expect("exact sum must be found");
+    assert!(source.evaluate(&witness).unwrap().0);
+    assert_eq!(witness.iter().filter(|&&selected| selected).count(), 2);
+    assert!(witness[65] && witness[131]);
+}
+
+#[test]
 fn test_customized_two_coloring_matches_brute_force() {
     use crate::models::graph::KColoring;
     use crate::variant::K2;
@@ -560,4 +607,44 @@ fn test_solve_two_coloring_direct_graph_cases() {
             assert!(problem.evaluate(&solution).unwrap().0, "{name}");
         }
     }
+}
+
+#[test]
+fn customized_clique_cover_and_decision_preserve_optimum() {
+    use crate::models::graph::MinimumCoveringByCliques;
+    use crate::models::Decision;
+    for graph in all_simple_graphs(4).chain([
+        SimpleGraph::new(0, vec![]),
+        SimpleGraph::new(3, vec![(0, 0), (1, 2), (2, 1)]),
+    ]) {
+        let source = MinimumCoveringByCliques::new(graph);
+        let expected = crate::solvers::BruteForce::new()
+            .solve(&source)
+            .unwrap()
+            .unwrap();
+        let actual = CustomizedTestSolver::new()
+            .solve_dyn(&source)
+            .expect("registered clique-cover solver");
+        let value = source.evaluate(&expected).unwrap();
+        assert_eq!(source.evaluate(&actual).unwrap(), value);
+        let optimum = value.0.unwrap();
+        for bound in [optimum - 1, optimum, optimum + 1] {
+            let decision = Decision::new(source.clone(), bound);
+            let actual = CustomizedTestSolver::new().solve_dyn(&decision);
+            assert_eq!(actual.is_some(), bound >= optimum);
+            if let Some(w) = actual {
+                assert!(decision.evaluate(&w).unwrap().0);
+            }
+        }
+    }
+    // Dense graphs need pivoting; all vertices form one maximal clique.
+    let graph = SimpleGraph::new(
+        80,
+        (0..80)
+            .flat_map(|u| (u + 1..80).map(move |v| (u, v)))
+            .collect(),
+    );
+    let source = MinimumCoveringByCliques::new(graph);
+    let witness = CustomizedTestSolver::new().solve_dyn(&source).unwrap();
+    assert_eq!(source.evaluate(&witness).unwrap().0, Some(1));
 }

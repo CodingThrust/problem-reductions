@@ -1,5 +1,7 @@
 use super::*;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::{
+    assert_optimization_round_trip_from_optimization_target, assert_parameter_predictions,
+};
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -75,9 +77,11 @@ fn test_matching_to_setpacking_empty() {
     let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
+    assert_parameter_predictions(&matching, &reduction);
     let sp = reduction.target_problem();
 
     assert_eq!(sp.num_sets(), 0);
+    assert_eq!(sp.universe_size(), 0);
 }
 
 #[test]
@@ -85,6 +89,7 @@ fn test_matching_to_setpacking_single_edge() {
     let matching = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
+    assert_parameter_predictions(&matching, &reduction);
     let sp = reduction.target_problem();
 
     assert_eq!(sp.num_sets(), 1);
@@ -119,10 +124,12 @@ fn test_reduction_structure() {
         MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
+    assert_parameter_predictions(&matching, &reduction);
     let sp = reduction.target_problem();
 
     // SP should have same number of sets as edges in matching
     assert_eq!(sp.num_sets(), 3);
+    assert_eq!(sp.universe_size(), 4);
 }
 
 #[test]

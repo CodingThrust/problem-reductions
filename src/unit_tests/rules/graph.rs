@@ -26,7 +26,6 @@ fn empty_parameter_contract() -> Result<ReductionParameterContract, ParameterCon
     ReductionParameterContract::new(
         "synthetic edge",
         ReductionParameterDeclarations {
-            relation: None,
             fields: vec![],
             unavailable: vec![crate::rules::registry::UnavailableParameterField {
                 field: "size",
@@ -41,10 +40,15 @@ fn symbolic_size_edge(fields: &[(&'static str, &str)], turing: bool) -> Reductio
         parameter_contract: ReductionParameterContract::new(
             "synthetic edge",
             ReductionParameterDeclarations {
-                relation: Some(crate::parameters::ParameterRelation::Exact),
                 fields: fields
                     .iter()
-                    .map(|(field, expression)| (*field, Expr::try_parse(expression).unwrap()))
+                    .map(|(field, expression)| {
+                        (
+                            *field,
+                            crate::parameters::ParameterRelation::Exact,
+                            Expr::try_parse(expression).unwrap(),
+                        )
+                    })
                     .collect(),
                 unavailable: vec![],
             },
@@ -653,10 +657,10 @@ fn path_parameter_contract_errors_are_typed_and_isolated() {
             turing: false,
         },
     );
-    assert!(matches!(
-        unavailable.path_parameter_transforms(&disconnected),
-        Err(PathParameterError::Unavailable { .. })
-    ));
+    let transforms = unavailable
+        .path_parameter_transforms(&disconnected)
+        .unwrap();
+    assert!(transforms[0].unavailable("size").is_some());
 
     let invalid_contract = Err(ParameterContractError::EmptyUnavailableReason {
         edge: "A -> B".into(),
@@ -720,9 +724,13 @@ fn path_size_composition_and_contract_evaluation_report_errors() {
         ],
     );
     let chained = named_path(&["A", "B", "C"]);
+    let composed = invalid_composition
+        .compose_path_parameter_transform(&chained)
+        .unwrap()
+        .unwrap();
     assert!(matches!(
-        invalid_composition.compose_path_parameter_transform(&chained),
-        Err(PathParameterError::Step { .. })
+        composed.unavailable("z"),
+        Some(crate::parameters::ParameterTransformError::MissingCompositionInput { .. })
     ));
 
     let valid = ReductionGraph::from_test_edges(
@@ -1932,7 +1940,7 @@ fn parameter_contract_variables_are_registered_source_fields() {
         let input_vars: std::collections::HashSet<_> = declarations
             .fields
             .iter()
-            .flat_map(|(_, expression)| expression.variables())
+            .flat_map(|(_, _, expression)| expression.variables())
             .collect();
         if input_vars.is_empty() {
             continue;

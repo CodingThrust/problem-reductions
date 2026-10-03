@@ -37,15 +37,18 @@ impl ReductionResult for ReductionPaintShopToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
+// Position rows have two coefficients; each consecutive pair adds two rows
+// of three coefficients, for at most 8 * sequence_len coefficients overall.
+#[reduction(transform = {
+    exact {
         num_vars = "num_cars + 2 * num_sequence",
-        num_constraints = "num_sequence + 2 * num_sequence",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "1",
+        num_constraints = "3 * num_sequence",
+        num_nonzeros = "8 * num_sequence",
+    },
+})]
 impl ReduceTo<ILP<bool>> for PaintShop {
     type Result = ReductionPaintShopToILP;
 

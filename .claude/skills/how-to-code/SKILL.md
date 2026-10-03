@@ -79,7 +79,7 @@ Traits and helpers: `src/rules/traits.rs`, `src/rules/test_helpers.rs`, `src/rul
      (composed extractors delegate to the first direct decoder).
    - `#[reduction(transform = exact { .. })]`, `upper_bound { .. }`, or `unavailable { .. }`, with an
      auxiliary `unavailable = { param = "reason" }` block for unrepresentable target parameters.
-     Every target parameter appears exactly once. There is no `overhead =` form.
+     Every target parameter appears exactly once. Mixed accuracy uses `transform = { exact { .. }, upper_bound { .. }, unavailable { .. } }`. Derive bounds by counting each construction block, including normalization and early returns; use equality only when guaranteed across the accepted domain. There is no `overhead =` form.
    - `reduce_to(&self) -> Result<Self::Result, ReductionError>`; wrap target construction failures
      with `Self::target_construction(e)`, never stringify.
    - Aggregate value mapping: `#[crate::aggregate_reduction] impl AggregateReductionResult` on the
@@ -92,7 +92,7 @@ Traits and helpers: `src/rules/traits.rs`, `src/rules/test_helpers.rs`, `src/rul
    don't duplicate endpoints.
 4. Tests in `src/unit_tests/rules/<source>_<target>.rs`: `test_<source>_to_<target>_closed_loop`
    (use `assert_*_round_trip_*` from `test_helpers.rs`), an infeasible instance, target structure
-   and parameter counts vs the transform, and one test per malformed representation the decoder
+   and parameter counts vs the transform (reuse existing inputs; the shared executable-rule check lives in `src/unit_tests/parameter_formula_validation.rs`), and one test per malformed representation the decoder
    rejects (zero/multiple one-hot bits, duplicate permutation entries, ...). Aggregate edges: test
    `extract_value` against `BruteForce::solve` on both sides.
 5. Paper `reduction-rule` entry — how-to-write-manual (adapt the how-to-verify proof, don't rewrite).

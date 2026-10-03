@@ -239,9 +239,9 @@ impl RegisterSufficiency {
     /// most `self.bound` registers, or returns `None` if no such ordering
     /// exists.  Uses heuristic candidate ordering (prefer vertices that free
     /// the most registers) so that YES instances typically resolve on the
-    /// first greedy path without backtracking.  For NO instances the full
-    /// search tree must be explored, so prefer the ILP solver path for
-    /// infeasibility proofs.
+    /// first greedy path without backtracking. Identical dependency/consumer
+    /// groups are scheduled consecutively, and ready operations that do not
+    /// increase the live set can be performed immediately.
     ///
     /// NOTE: a greedy topological sort is *not* exact — it can miss valid
     /// orderings.  This method is exact because it backtracks when the
@@ -254,11 +254,14 @@ impl RegisterSufficiency {
 
         let mut dependents: Vec<Vec<usize>> = vec![vec![]; n];
         let mut dependencies: Vec<Vec<usize>> = vec![vec![]; n];
-        let mut in_degree = vec![0u32; n];
+        let mut in_degree = vec![0usize; n];
         for &(v, u) in &self.arcs {
             in_degree[v] += 1;
             dependents[u].push(v);
             dependencies[v].push(u);
+        }
+        for neighbors in dependents.iter_mut().chain(dependencies.iter_mut()) {
+            neighbors.sort_unstable();
         }
 
         let mut state = BnBState {
@@ -267,6 +270,8 @@ impl RegisterSufficiency {
             config: vec![0usize; n],
             live: vec![false; n],
             live_count: 0,
+            computed: vec![false; n],
+            failed: std::collections::HashSet::new(),
             remaining_in_degree: in_degree.clone(),
             remaining_deps: dependents.iter().map(|d| d.len()).collect(),
             ready: (0..n).filter(|&v| in_degree[v] == 0).collect(),
@@ -275,7 +280,20 @@ impl RegisterSufficiency {
         };
         state.ready.sort_unstable();
 
-        if state.backtrack(0) {
+        // If every next operation requires all input vertices, their order
+        // cannot matter: no operation can run before the last input and each
+        // input adds one live value. Avoid exploring their permutations.
+        let input_block = if state
+            .dependencies
+            .iter()
+            .filter(|deps| !deps.is_empty() && deps.iter().all(|&v| in_degree[v] == 0))
+            .all(|deps| state.ready.iter().all(|v| deps.contains(v)))
+        {
+            state.ready.clone()
+        } else {
+            Vec::new()
+        };
+        if state.backtrack(0, &input_block) {
             Some(state.config)
         } else {
             None
@@ -289,7 +307,9 @@ struct BnBState {
     config: Vec<usize>,
     live: Vec<bool>,
     live_count: usize,
-    remaining_in_degree: Vec<u32>,
+    computed: Vec<bool>,
+    failed: std::collections::HashSet<Vec<bool>>,
+    remaining_in_degree: Vec<usize>,
     remaining_deps: Vec<usize>,
     ready: Vec<usize>,
     dependents: Vec<Vec<usize>>,
@@ -297,23 +317,89 @@ struct BnBState {
 }
 
 impl BnBState {
-    fn backtrack(&mut self, step: usize) -> bool {
+    fn backtrack(&mut self, step: usize, block: &[usize]) -> bool {
         if step == self.n {
             return true;
         }
+        // Liveness and available operations depend only on the computed set,
+        // so a failed continuation never needs searching under another order.
+        if block.is_empty() && self.failed.contains(&self.computed) {
+            return false;
+        }
 
         // Heuristic: prefer vertices that free the most registers.
-        let mut candidates = self.ready.clone();
-        candidates.sort_by_key(|&v| {
+        let mut candidates = if block.is_empty() {
+            self.ready.clone()
+        } else {
+            vec![block[0]]
+        };
+        candidates.sort_by_cached_key(|&v| {
             let frees = self.dependencies[v]
                 .iter()
                 .filter(|&&dep| self.remaining_deps[dep] == 1 && self.live[dep])
                 .count();
-            std::cmp::Reverse(frees)
+            let group_size = self
+                .ready
+                .iter()
+                .filter(|&&w| {
+                    self.dependencies[v] == self.dependencies[w]
+                        && self.dependents[v] == self.dependents[w]
+                })
+                .count();
+            let unblocks = self.dependents[v].iter().any(|&consumer| {
+                self.remaining_in_degree[consumer]
+                    == group_size
+                        * self.dependents[v]
+                            .iter()
+                            .filter(|&&w| w == consumer)
+                            .count()
+            });
+            // Prefer work that releases values or makes its consumer ready.
+            (
+                std::cmp::Reverse(frees),
+                std::cmp::Reverse(unblocks),
+                group_size,
+                v,
+            )
         });
+        if block.is_empty() {
+            candidates.retain(|&v| {
+                !self.ready.iter().any(|&w| {
+                    w < v
+                        && self.dependencies[v] == self.dependencies[w]
+                        && self.dependents[v] == self.dependents[w]
+                })
+            });
+            // Moving a ready operation that frees at least one value earlier
+            // replaces those live values by one result and cannot raise a peak.
+            if candidates.first().is_some_and(|&v| {
+                self.dependencies[v]
+                    .iter()
+                    .any(|&dep| self.remaining_deps[dep] == 1 && self.live[dep])
+            }) {
+                candidates.truncate(1);
+            }
+        }
 
         for &vertex in &candidates {
+            // No consumer of identical vertices can run until all are done.
+            // Delay partial computation until the last member: a consecutive
+            // block never keeps more values live than the original ordering.
+            let following = if block.is_empty() {
+                self.ready
+                    .iter()
+                    .copied()
+                    .filter(|&v| {
+                        v != vertex
+                            && self.dependencies[v] == self.dependencies[vertex]
+                            && self.dependents[v] == self.dependents[vertex]
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                block[1..].to_vec()
+            };
             self.config[vertex] = step;
+            self.computed[vertex] = true;
 
             let was_live = self.live[vertex];
             if !was_live {
@@ -342,7 +428,7 @@ impl BnBState {
                     }
                 }
 
-                if self.backtrack(step + 1) {
+                if self.backtrack(step + 1, &following) {
                     return true;
                 }
 
@@ -368,8 +454,12 @@ impl BnBState {
                 self.live[vertex] = false;
                 self.live_count -= 1;
             }
+            self.computed[vertex] = false;
         }
 
+        if block.is_empty() {
+            self.failed.insert(self.computed.clone());
+        }
         false
     }
 }

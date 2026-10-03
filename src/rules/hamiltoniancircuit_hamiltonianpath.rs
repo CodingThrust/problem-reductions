@@ -86,12 +86,16 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {}
 
-#[reduction(
-    transform = upper_bound {
+// Both branches allocate n+3 vertices. The main branch copies m edges,
+// at most m neighbor occurrences of vertex 0, and two pendant edges.
+#[reduction(transform = {
+    exact {
         num_vertices = "num_vertices + 3",
-        num_edges = "num_edges + num_vertices + 1",
-    }
-)]
+    },
+    upper_bound {
+        num_edges = "2 * num_edges + 2",
+    },
+})]
 impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToHamiltonianPath;
 

@@ -18,7 +18,7 @@
 //!
 //! Objective: maximize sum(z_v)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -27,15 +27,15 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing MaximumLeafSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMaximumLeafSpanningTreeToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
     type Source = MaximumLeafSpanningTree<SimpleGraph>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -55,16 +55,17 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
+    upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 2",
+        num_nonzeros = "(3 * num_edges + num_vertices) * (3 * num_vertices + 2 * num_edges + 1)",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -156,8 +157,15 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         // Objective: maximize sum(z_v)
         let objective: Vec<(usize, i64)> = (0..n).map(|v| (leaf_var(v), 1)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m + n..].fill(
+            IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
+                .map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Maximize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMaximumLeafSpanningTreeToILP {
             target,
@@ -175,7 +183,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
                 vec![(0, 1), (1, 2), (2, 3), (0, 2)],
             ));
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

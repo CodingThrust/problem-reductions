@@ -95,8 +95,9 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
 impl crate::rules::AggregateReductionResult for ReductionThreePartitionToSRTD {}
 
 #[reduction(
-    transform = exact {
-        num_tasks = "num_elements + num_groups - 1",
+    transform = {
+        exact { num_tasks = "num_elements + num_groups - 1", },
+        upper_bound { time_horizon_bits = "max_numeric_magnitude_bits + num_groups + 1", },
     },
     unavailable = {
         time_horizon = "the exact target parameter is not represented by this reduction's symbolic transform",

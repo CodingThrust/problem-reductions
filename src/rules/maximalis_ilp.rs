@@ -32,15 +32,18 @@ impl ReductionResult for ReductionMxISToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+// Independence uses at most m distinct non-loop pairs (2m coefficients);
+// maximality uses n diagonal terms and at most 2m neighbor incidences.
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices",
-        num_constraints = "num_edges + num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "2 * num_edges + 2",
+        num_constraints = "num_edges + num_vertices",
+        num_nonzeros = "4 * num_edges + num_vertices",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
     type Result = ReductionMxISToILP;
 

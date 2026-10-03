@@ -118,6 +118,17 @@ impl ResourceConstrainedScheduling {
         })
     }
 
+    /// Smallest h >= 1 with every resource requirement and bound strictly below 2^h.
+    pub fn max_resource_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.resource_requirements
+                .iter()
+                .flatten()
+                .copied()
+                .chain(self.resource_bounds.iter().copied()),
+        )
+    }
+
     /// Get the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.resource_requirements.len()
@@ -179,6 +190,7 @@ impl Problem for ResourceConstrainedScheduling {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_resource_bits", max_resource_bits),
         ("deadline", deadline),
         ("num_resources", num_resources),
         ("num_tasks", num_tasks),
@@ -211,31 +223,27 @@ impl Problem for ResourceConstrainedScheduling {
                     ));
                 }
 
-                // Check processor capacity and resource constraints at each time slot
-                for u in 0..d {
-                    // Collect tasks scheduled at time slot u
-                    let mut task_count = 0usize;
+                // Empty slots consume no resources. Keep ascending slot order and
+                // task order within each slot for checked accumulation.
+                let mut tasks: Vec<_> = (0..n).collect();
+                tasks.sort_unstable_by_key(|&task| (config[task], task));
+                for slot_tasks in tasks.chunk_by(|&a, &b| config[a] == config[b]) {
                     let mut resource_usage = vec![0i64; r];
-
-                    for (t, &slot) in config.iter().enumerate() {
-                        if slot == u {
-                            task_count += 1;
-                            // Accumulate resource usage
-                            for (usage, &req) in resource_usage
-                                .iter_mut()
-                                .zip(self.resource_requirements[t].iter())
-                            {
-                                *usage = usage.checked_add(req).ok_or_else(|| {
-                                    crate::traits::EvaluationError::IntegerOverflow(
-                                        "summing scheduled resource usage".to_string(),
-                                    )
-                                })?;
-                            }
+                    for &task in slot_tasks {
+                        for (usage, &req) in resource_usage
+                            .iter_mut()
+                            .zip(self.resource_requirements[task].iter())
+                        {
+                            *usage = usage.checked_add(req).ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "summing scheduled resource usage".to_string(),
+                                )
+                            })?;
                         }
                     }
 
                     // Check processor capacity
-                    if task_count > self.num_processors {
+                    if slot_tasks.len() > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
 

@@ -1,8 +1,16 @@
 use super::*;
 use std::collections::BTreeMap;
 
-const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool"), ("coefficient", "f64")];
-const FLOAT_I64_VARIANT: &[(&str, &str)] = &[("variable", "i64"), ("coefficient", "f64")];
+const FLOAT_BOOL_VARIANT: &[(&str, &str)] = &[
+    ("variable", "bool"),
+    ("coefficient", "f64"),
+    ("bounds", "general"),
+];
+const FLOAT_I64_VARIANT: &[(&str, &str)] = &[
+    ("variable", "i64"),
+    ("coefficient", "f64"),
+    ("bounds", "general"),
+];
 const NO_VARIANT: &[(&str, &str)] = &[];
 
 #[test]
@@ -148,11 +156,24 @@ fn ilp_negative_intermediate_does_not_require_remaining_value_mappings() {
         Err(ILPSolveError::Infeasible)
     ));
     // Exercise completed-value recovery through the explicit optimization route.
-    let mut path = original.path.clone();
-    path.insert(
-        2,
-        ExactProblemKey::new("LongestCircuit", path[1].variant.clone()),
-    );
+    let graph = BTreeMap::from([("graph".into(), "SimpleGraph".into())]);
+    let weighted_graph = BTreeMap::from([
+        ("graph".into(), "SimpleGraph".into()),
+        ("weight".into(), "i64".into()),
+    ]);
+    let path = vec![
+        ExactProblemKey::new("HamiltonianCircuit", graph),
+        ExactProblemKey::new("DecisionLongestCircuit", weighted_graph.clone()),
+        ExactProblemKey::new("LongestCircuit", weighted_graph),
+        ExactProblemKey::new(
+            "ILP",
+            BTreeMap::from([
+                ("variable".into(), "bool".into()),
+                ("coefficient".into(), "i64".into()),
+                ("bounds".into(), "general".into()),
+            ]),
+        ),
+    ];
     let reducers = path
         .windows(2)
         .map(|pair| {
@@ -264,6 +285,7 @@ fn solver_capability_registry_duplicate_ilp_registration_is_rejected_independent
         BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "f64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     )]);
     for pipelines in [
@@ -316,6 +338,7 @@ fn solver_capability_registry_unknown_pipeline_variant_is_rejected() {
         BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     )]);
     let error = build_registry(
@@ -365,6 +388,7 @@ fn solver_capability_registry_pipeline_with_missing_exact_edge_is_rejected() {
             BTreeMap::from([
                 ("variable".to_string(), "bool".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
     ]);
@@ -390,6 +414,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
             BTreeMap::from([
                 ("variable".to_string(), "bool".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
         ExactProblemKey::new(
@@ -397,6 +422,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
             BTreeMap::from([
                 ("variable".to_string(), "i64".to_string()),
                 ("coefficient".to_string(), "f64".to_string()),
+                ("bounds".to_string(), "general".to_string()),
             ]),
         ),
     ]);
@@ -440,10 +466,10 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
         )
     };
 
-    let customized_only = solver_capabilities(&key("TimetableDesign", &[])).unwrap();
+    let customized_only = solver_capabilities(&key("MinimumDecisionTree", &[])).unwrap();
     assert_eq!(
         customized_only.customized.unwrap().implementation,
-        "timetable-required-assignments"
+        "subset-dp"
     );
     assert!(customized_only.ilp.is_none());
 
@@ -455,7 +481,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        ["MaximumClique<SimpleGraph, i64>", "ILP<i64, bool>"]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<general, i64, bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -478,9 +504,19 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
     assert!(brute_force_only.customized.is_none());
     assert!(brute_force_only.ilp.is_none());
 
-    let ilp_itself =
-        solver_capabilities(&key("ILP", &[("variable", "bool"), ("coefficient", "i64")])).unwrap();
-    assert_eq!(ilp_itself.ilp.unwrap().path_labels(), ["ILP<i64, bool>"]);
+    let ilp_itself = solver_capabilities(&key(
+        "ILP",
+        &[
+            ("variable", "bool"),
+            ("coefficient", "i64"),
+            ("bounds", "general"),
+        ],
+    ))
+    .unwrap();
+    assert_eq!(
+        ilp_itself.ilp.unwrap().path_labels(),
+        ["ILP<general, i64, bool>"]
+    );
 }
 
 #[test]

@@ -21,29 +21,29 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ClosestString;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ClosestString to ILP.
 ///
-/// Variable layout (`ILP<i64>`, all non-negative):
+/// Variable layout (`ILP<i64, i64, Bounded>`, all non-negative):
 /// - `x_{j, a}` at index `j * alphabet_size + a` for `j in [0, m)` and
 ///   `a in [0, q)`, bounded to `{0, 1}`.
 /// - `R` (radius) at index `m * q`, an integer in `[0, m]`.
 #[derive(Debug, Clone)]
 pub struct ReductionClosestStringToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     alphabet_size: usize,
     string_length: usize,
 }
 
 impl ReductionResult for ReductionClosestStringToILP {
     type Source = ClosestString;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -78,16 +78,17 @@ impl ReductionResult for ReductionClosestStringToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
+        num_nonzeros = "alphabet_size * string_length + num_strings * (string_length + 1)",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for ClosestString {
+    upper_bound {
+        max_constraint_magnitude_bits = "string_length + 1",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for ClosestString {
     type Result = ReductionClosestStringToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -103,7 +104,7 @@ impl ReduceTo<ILP<i64>> for ClosestString {
         let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(m + n);
 
         // Assignment constraints: exactly one symbol per center position.
-        // Together with the non-negativity built into `ILP<i64>`, this also
+        // Together with the non-negativity built into `ILP<i64, i64, Bounded>`, this also
         // forces every x_{j, a} to lie in {0, 1}.
         for j in 0..m {
             let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(j, a), 1)).collect();
@@ -127,8 +128,17 @@ impl ReduceTo<ILP<i64>> for ClosestString {
         // Objective: minimize R.
         let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        // Every center has Hamming distance at most the string length, so an optimum has R <= m.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[r_idx] = IntegerVariable::new(
+            Some(0),
+            Some(Self::exact_i64(m, "bounding the Hamming radius")?),
+        )
+        .map_err(Self::target_construction)?;
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestStringToILP {
             target,
@@ -150,7 +160,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

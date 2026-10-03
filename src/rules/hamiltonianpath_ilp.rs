@@ -1,26 +1,13 @@
-//! Reduction from HamiltonianPath to ILP (Integer Linear Programming).
-//!
-//! Position-assignment formulation:
-//! - Binary x_{v,p}: vertex v at position p
-//! - Binary z_{(u,v),p,dir}: linearized product for edge (u,v) at consecutive positions
-//! - Assignment: each vertex in exactly one position, each position exactly one vertex
-//! - Adjacency: at least one graph edge between consecutive positions
+//! A permutation matrix with direct consecutive-position adjacency constraints.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::HamiltonianPath;
 use crate::reduction;
-use crate::rules::ilp_helpers::{
-    mccormick_product, one_hot_assignment_constraints, one_hot_decode,
-};
+use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing HamiltonianPath to ILP.
-///
-/// Variable layout (all binary):
-/// - `x_{v,p}` at index `v * n + p` for `v, p in 0..n`
-/// - `z_{e,p,dir}` at index `n^2 + 2*(e*n_pos + p) + dir` for edge `e`, position `p`,
-///   direction `dir in {0=forward, 1=reverse}`
+/// Binary `x[v,p]` at index `v * n + p` selects vertex v at path position p.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianPathToILP {
     target: ILP<bool>,
@@ -53,64 +40,43 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianPathToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
-        num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "1",
+        num_vars = "num_vertices^2",
+        num_constraints = "num_vertices^2 + num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "3 * num_vertices^2 + 2 * num_vertices * num_edges",
+    },
+})]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHamiltonianPathToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let graph = self.graph();
-        let edges = graph.edges();
-        let m = edges.len();
-        let n_pos = if n == 0 { 0 } else { n - 1 }; // number of consecutive-position pairs
-
-        let num_x = n * n;
-        let num_z = 2 * m * n_pos;
-        let num_vars = num_x + num_z;
-
-        let x_idx = |v: usize, p: usize| -> usize { v * n + p };
-        let z_fwd_idx = |e: usize, p: usize| -> usize { num_x + 2 * (e * n_pos + p) };
-        let z_rev_idx = |e: usize, p: usize| -> usize { num_x + 2 * (e * n_pos + p) + 1 };
-
-        let mut constraints = Vec::new();
-
-        // Assignment: one-hot for vertices and positions
-        constraints.extend(one_hot_assignment_constraints(n, n, 0));
-
-        // McCormick linearization for both directions
-        for (e, &(u, v)) in edges.iter().enumerate() {
-            for p in 0..n_pos {
-                // Forward: z_fwd = x_{u,p} * x_{v,p+1}
-                constraints.extend(mccormick_product(
-                    z_fwd_idx(e, p),
-                    x_idx(u, p),
-                    x_idx(v, p + 1),
-                ));
-                // Reverse: z_rev = x_{v,p} * x_{u,p+1}
-                constraints.extend(mccormick_product(
-                    z_rev_idx(e, p),
-                    x_idx(v, p),
-                    x_idx(u, p + 1),
-                ));
+        let num_vars = n.checked_mul(n).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(
+                "counting Hamiltonian permutation variables",
+            )
+        })?;
+        <Self as ReduceTo<ILP<bool>>>::exact_i64(n, "bounding adjacency row sums")?;
+        let mut neighbors = vec![Vec::new(); n];
+        for (u, v) in self.graph().edges() {
+            if u != v {
+                neighbors[u].push(v);
+                neighbors[v].push(u);
             }
         }
-
-        // At least one connecting edge; parallel edges may contribute more than one.
-        for p in 0..n_pos {
-            let mut terms = Vec::new();
-            for e in 0..m {
-                terms.push((z_fwd_idx(e, p), 1));
-                terms.push((z_rev_idx(e, p), 1));
+        let mut constraints = one_hot_assignment_constraints(n, n, 0);
+        for (v, adjacent) in neighbors.iter_mut().enumerate() {
+            adjacent.sort_unstable();
+            adjacent.dedup();
+            for p in 0..n.saturating_sub(1) {
+                let mut terms = vec![(v * n + p, 1)];
+                terms.extend(adjacent.iter().map(|&w| (w * n + p + 1, -1)));
+                constraints.push(LinearConstraint::le(terms, 0));
             }
-            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Feasibility: no objective

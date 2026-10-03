@@ -1,7 +1,7 @@
 //! ILP solver implementation using HiGHS.
 
 use super::adapter::HighsAdapter;
-use crate::models::algebraic::ILP;
+use crate::models::algebraic::{Bounded, ILP};
 use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::ExactProblemKey;
 use crate::traits::Problem;
@@ -118,6 +118,9 @@ impl ILPSolver {
     /// Solve a type-erased supported ILP variant directly.
     pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<i64>, ILPSolveError> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool, i64>>() {
+            return HighsAdapter::new(self.time_limit).solve(ilp);
+        }
+        if let Some(ilp) = any.downcast_ref::<ILP<i64, i64, Bounded>>() {
             return HighsAdapter::new(self.time_limit).solve(ilp);
         }
         if let Some(ilp) = any.downcast_ref::<ILP<i64, i64>>() {

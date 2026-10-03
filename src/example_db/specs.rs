@@ -4,6 +4,9 @@
 //! that can be validated against the catalog and reduction registry.
 
 use crate::export::{ProblemSide, RuleExample, SolutionPair};
+use crate::models::algebraic::{
+    Bounded, BoundsPolicy, General, ILPCoefficient, VariableDomain, ILP,
+};
 use crate::prelude::{Problem, ReduceTo, ReductionResult};
 use crate::registry::DynProblem;
 use serde::Serialize;
@@ -70,34 +73,43 @@ where
 /// the double `reduce_to()` that would occur with `rule_example_with_witness`.
 pub fn rule_example_via_ilp<S, V>(source: S) -> RuleExample
 where
-    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V>>,
-    V: crate::models::algebraic::VariableDomain,
-    <S as ReduceTo<crate::models::algebraic::ILP<V>>>::Result:
-        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
+    S: Problem + Serialize + ReduceTo<ILP<V>>,
+    V: VariableDomain,
+    <S as ReduceTo<ILP<V>>>::Result: ReductionResult<Source = S, Target = ILP<V>>,
     S::Solution: Serialize,
 {
-    rule_example_via_typed_ilp::<S, V, i64>(source)
+    rule_example_via_typed_ilp::<S, V, i64, General>(source)
+}
+
+/// Integer ILP example with explicit finite variable domains.
+pub fn rule_example_via_bounded_ilp<S>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<ILP<i64, i64, Bounded>>,
+    <S as ReduceTo<ILP<i64, i64, Bounded>>>::Result:
+        ReductionResult<Source = S, Target = ILP<i64, i64, Bounded>>,
+    S::Solution: Serialize,
+{
+    rule_example_via_typed_ilp::<S, i64, i64, Bounded>(source)
 }
 
 /// Float-coefficient counterpart of [`rule_example_via_ilp`].
 pub fn rule_example_via_float_ilp<S, V>(source: S) -> RuleExample
 where
-    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, f64>>,
-    V: crate::models::algebraic::VariableDomain,
-    <S as ReduceTo<crate::models::algebraic::ILP<V, f64>>>::Result:
-        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, f64>>,
+    S: Problem + Serialize + ReduceTo<ILP<V, f64>>,
+    V: VariableDomain,
+    <S as ReduceTo<ILP<V, f64>>>::Result: ReductionResult<Source = S, Target = ILP<V, f64>>,
     S::Solution: Serialize,
 {
-    rule_example_via_typed_ilp::<S, V, f64>(source)
+    rule_example_via_typed_ilp::<S, V, f64, General>(source)
 }
 
-fn rule_example_via_typed_ilp<S, V, C>(source: S) -> RuleExample
+fn rule_example_via_typed_ilp<S, V, C, B>(source: S) -> RuleExample
 where
-    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V, C>>,
-    V: crate::models::algebraic::VariableDomain,
-    C: crate::models::algebraic::ILPCoefficient + Serialize,
-    <S as ReduceTo<crate::models::algebraic::ILP<V, C>>>::Result:
-        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V, C>>,
+    S: Problem + Serialize + ReduceTo<ILP<V, C, B>>,
+    V: VariableDomain,
+    C: ILPCoefficient + Serialize,
+    B: BoundsPolicy,
+    <S as ReduceTo<ILP<V, C, B>>>::Result: ReductionResult<Source = S, Target = ILP<V, C, B>>,
     S::Solution: Serialize,
 {
     use crate::export::SolutionPair;

@@ -161,6 +161,16 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
         &self.max_weight
     }
 
+    /// Smallest h >= 1 with every vertex weight and the component weight limit below 2^h.
+    pub fn max_weight_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.weights
+                .iter()
+                .map(|weight| weight.to_sum())
+                .chain(std::iter::once(self.max_weight.clone())),
+        )
+    }
+
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -263,6 +273,7 @@ where
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_weight_bits", max_weight_bits),
         ("max_components", max_components),
         ("num_edges", num_edges),
         ("num_vertices", num_vertices),

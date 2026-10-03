@@ -3588,7 +3588,7 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
-fn test_solve_direct_ilp_i64_problem() {
+fn test_solve_direct_bounded_integer_ilp_problem() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i64_problem.json");
 
     let create_out = pred()
@@ -3599,7 +3599,7 @@ fn test_solve_direct_ilp_i64_problem() {
             "--example",
             "SequencingToMinimizeWeightedCompletionTime",
             "--to",
-            "ILP/variable=i64",
+            "ILP/variable=i64/bounds=bounded",
             "--example-side",
             "target",
         ])
@@ -5536,34 +5536,84 @@ fn test_path_set_has_explicit_parameter_information() {
 #[test]
 fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
     let output = pred()
-        .args(["path", "Factoring", "SpinGlass", "--json"])
+        .args([
+            "path",
+            "ThreePartition",
+            "SequencingWithReleaseTimesAndDeadlines",
+            "--limit",
+            "1",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let overall = &envelope["paths"][0]["overall_parameters"];
     let fields = overall["fields"].as_array().unwrap();
-    assert!(!fields.is_empty());
-    assert!(fields.iter().all(|field| {
-        field["relation"] == "unavailable"
-            && field["field"].is_string()
-            && field["reason"].is_string()
-    }));
+    let horizon = fields
+        .iter()
+        .find(|field| field["field"] == "time_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(horizon["reason"].is_string());
+    let task_count = fields
+        .iter()
+        .find(|field| field["field"] == "num_tasks")
+        .unwrap();
+    assert_eq!(task_count["relation"], "exact");
     assert!(overall.get("exact_composition_error").is_none());
     assert!(overall.get("bound_composition_error").is_none());
 }
 
 #[test]
+fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
+    for target in ["DecisionQUBO", "QUBO"] {
+        let output = pred()
+            .args([
+                "path",
+                "KSatisfiability/K2",
+                target,
+                "--limit",
+                "1",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let fields = envelope["paths"][0]["overall_parameters"]["fields"]
+            .as_array()
+            .unwrap();
+        let relations = fields
+            .iter()
+            .map(|field| {
+                (
+                    field["field"].as_str().unwrap(),
+                    field["relation"].as_str().unwrap(),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        // The reduction preserves variables; distinct off-diagonal pairs bound
+        // quadratic terms even when contributions cancel.
+        assert_eq!(
+            relations,
+            std::collections::BTreeMap::from([
+                ("num_vars", "exact"),
+                ("num_quadratic_terms", "upper_bound"),
+            ]),
+            "prediction relations for {target}"
+        );
+    }
+}
+
+#[test]
 fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
-        .args([
-            "path",
-            "HighlyConnectedDeletion",
-            "ILP/bool",
-            "--limit",
-            "1",
-            "--json",
-        ])
+        .args(["path", "Partition", "Knapsack", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5580,12 +5630,17 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["num_constraints"], "exact");
-    assert_eq!(relations["num_vars"], "unavailable");
+    assert_eq!(relations["num_items"], "exact");
+    assert_eq!(relations["capacity"], "unavailable");
+    let unavailable = fields
+        .iter()
+        .find(|field| field["relation"] == "unavailable")
+        .unwrap();
+    assert!(!unavailable["reason"].as_str().unwrap().is_empty());
 }
 
 #[test]
-fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
+fn test_path_highly_connected_deletion_has_complete_polynomial_predictions() {
     let output = pred()
         .args(["path", "HighlyConnectedDeletion", "ILP/bool", "--json"])
         .output()
@@ -5599,11 +5654,15 @@ fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
         .map(|field| (field["field"].as_str().unwrap(), field))
         .collect::<std::collections::BTreeMap<_, _>>();
 
-    assert_eq!(fields["num_vars"]["relation"], "unavailable");
-    assert!(fields["num_vars"]["reason"]
-        .as_str()
-        .unwrap()
-        .contains("variable exponent unsupported"));
+    assert_eq!(fields.len(), 4);
+    assert_eq!(fields["num_vars"]["relation"], "exact");
+    for field in [
+        "num_constraints",
+        "num_nonzeros",
+        "max_constraint_magnitude_bits",
+    ] {
+        assert_eq!(fields[field]["relation"], "upper_bound");
+    }
 }
 
 #[test]
@@ -6963,7 +7022,8 @@ fn test_inspect_integral_flow_with_multipliers_reports_parameters() {
     assert!(parameters.contains(&"num_vertices"));
     assert!(parameters.contains(&"num_arcs"));
     assert!(parameters.contains(&"max_capacity"));
-    assert!(parameters.contains(&"requirement"));
+    assert!(parameters.contains(&"max_capacity_bits"));
+    assert_eq!(json["parameter_values"]["max_capacity_bits"], 3);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -9705,13 +9765,17 @@ fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible()
     use serde_json::json;
 
     let source = OpenShopScheduling::new(1, vec![vec![1]]);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction =
+        ReduceTo::<ILP<i64, i64, problemreductions::models::algebraic::Bounded>>::reduce_to(
+            &source,
+        )
+        .unwrap();
     let bundle = std::env::temp_dir().join(format!(
         "pred-extract-target-feasibility-{}.json",
         std::process::id()
     ));
     let source_key = json!({"name":"OpenShopScheduling","variant":{}});
-    let target_variant = json!({"variable":"i64","coefficient":"i64"});
+    let target_variant = json!({"variable":"i64","coefficient":"i64","bounds":"bounded"});
     std::fs::write(
         &bundle,
         json!({

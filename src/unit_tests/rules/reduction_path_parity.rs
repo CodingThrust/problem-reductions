@@ -2,6 +2,7 @@
 //! Verifies that explicit chained reductions via `reduce_along_path`
 //! produce correct solutions matching direct source solves.
 
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
@@ -141,7 +142,8 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     use crate::models::algebraic::ILP;
     use crate::rules::traits::{ReduceTo, ReductionResult};
     let ilp_solver = ILPSolver::new();
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&factoring).expect("reduction should succeed");
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&factoring)
+        .expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver
         .solve(ilp)

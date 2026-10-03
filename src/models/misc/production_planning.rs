@@ -173,6 +173,20 @@ impl ProductionPlanning {
         self.cost_bound
     }
 
+    /// Bit bound for every numeric construction input.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.demands
+                .iter()
+                .chain(&self.capacities)
+                .chain(&self.setup_costs)
+                .chain(&self.production_costs)
+                .chain(&self.inventory_costs)
+                .copied()
+                .chain(std::iter::once(self.cost_bound)),
+        )
+    }
+
     pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
@@ -183,7 +197,11 @@ impl Problem for ProductionPlanning {
     type Solution = Vec<usize>;
     type Value = Or;
 
-    crate::problem_parameters![("max_capacity", max_capacity), ("num_periods", num_periods),];
+    crate::problem_parameters![
+        ("max_capacity", max_capacity),
+        ("num_periods", num_periods),
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+    ];
 
     fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({

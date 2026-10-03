@@ -38,8 +38,13 @@ impl ReductionResult for ReductionPaintShopToQUBO {
     }
 }
 
-#[reduction(transform = exact {
-    num_vars = "num_cars",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_cars",
+    },
+    upper_bound {
+        num_quadratic_terms = "num_cars * (num_cars - 1) / 2",
+    },
 })]
 impl ReduceTo<QUBO<i64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;

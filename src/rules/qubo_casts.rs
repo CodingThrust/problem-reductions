@@ -8,7 +8,7 @@ use crate::types::i64_to_exact_f64;
 impl_variant_reduction!(
     QUBO,
     <i64> => <f64>,
-    fields: [num_vars],
+    fields: [num_vars, num_quadratic_terms],
     |src| {
         let entries = src
             .entries()

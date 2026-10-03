@@ -50,12 +50,13 @@ impl ExactProblemKey {
     fn is_supported_ilp(&self) -> bool {
         self.name == "ILP"
             && matches!(
-                self.variant.get("variable").map(String::as_str),
-                Some("bool" | "i64")
-            )
-            && matches!(
-                self.variant.get("coefficient").map(String::as_str),
-                Some("i64" | "f64")
+                (
+                    self.variant.get("variable").map(String::as_str),
+                    self.variant.get("coefficient").map(String::as_str),
+                    self.variant.get("bounds").map(String::as_str),
+                ),
+                (Some("bool" | "i64"), Some("i64" | "f64"), Some("general"))
+                    | (Some("i64"), Some("i64"), Some("bounded"))
             )
     }
 }

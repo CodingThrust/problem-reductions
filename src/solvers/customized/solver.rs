@@ -10,7 +10,7 @@ use crate::models::graph::{
 };
 use crate::models::misc::{
     AdditionalKey, BoyceCoddNormalFormViolation, GroupingBySwapping, MinimumDecisionTree,
-    ShortestCommonSuperstring, TimetableDesign,
+    ShortestCommonSuperstring,
 };
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::solvers::registry::CustomizedSolverRegistration;
@@ -73,6 +73,11 @@ register_customized_solver!(GroupingBySwapping, "symbol-block-order", |problem| 
 register_customized_solver!(ShortestCommonSuperstring, "subset-dp", |problem| {
     super::shortest_common_superstring::solve(problem).map(Some)
 });
+register_customized_solver!(
+    crate::models::misc::SubsetSum,
+    "meet-in-the-middle",
+    super::subset_sum::solve
+);
 register_customized_solver!(MinimumDecisionTree, "subset-dp", |problem| {
     super::minimum_decision_tree::solve(problem).map(Some)
 });
@@ -87,15 +92,48 @@ register_customized_solver!(
     |problem| Ok(super::minimum_intersection_graph_basis::solve(problem))
 );
 register_customized_solver!(
-    TimetableDesign,
-    "timetable-required-assignments",
-    |problem| Ok(TimetableDesign::solve_via_required_assignments(problem))
+    crate::models::graph::MinimumCoveringByCliques<SimpleGraph>,
+    "maximal-clique-edge-cover",
+    |problem| Ok(Some(super::minimum_intersection_graph_basis::solve_cover(
+        problem
+    )))
 );
-
+register_customized_solver!(
+    crate::models::Decision<crate::models::graph::MinimumCoveringByCliques<SimpleGraph>>,
+    "maximal-clique-edge-cover",
+    |problem: &crate::models::Decision<
+        crate::models::graph::MinimumCoveringByCliques<SimpleGraph>,
+    >| {
+        let solution = super::minimum_intersection_graph_basis::solve_cover(problem.inner());
+        Ok(problem.evaluate(&solution)?.0.then_some(solution))
+    }
+);
 register_customized_solver!(
     crate::models::algebraic::ClosestVectorProblem,
     "cvp-sphere-enumeration",
     |problem| super::closest_vector_problem::solve(problem).map(Some)
+);
+
+register_customized_solver!(
+    crate::models::algebraic::QuadraticCongruences,
+    "prime-power-crt",
+    super::quadratic_congruences::solve
+);
+register_customized_solver!(
+    crate::models::algebraic::QuadraticDiophantineEquations,
+    "prime-power-crt",
+    super::quadratic_congruences::solve_diophantine
+);
+
+register_customized_solver!(
+    crate::models::misc::RegisterSufficiency,
+    "register-topological-search",
+    |problem: &crate::models::misc::RegisterSufficiency| Ok(problem.solve_exact())
+);
+register_customized_solver!(
+    crate::models::misc::EnsembleComputation,
+    "useful-union-ilp",
+    super::ensemble_computation::solve
 );
 
 register_customized_solver!(

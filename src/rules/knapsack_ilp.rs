@@ -4,6 +4,8 @@
 //! - Variables: one binary variable per item
 //! - Constraint: the total selected weight must not exceed capacity
 //! - Objective: maximize the total selected value
+//!
+//! Items exceeding capacity are fixed to zero and omitted from the capacity row.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Knapsack;
@@ -34,15 +36,16 @@ impl ReductionResult for ReductionKnapsackToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_items",
-        num_constraints = "1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "capacity_bits",
+        num_constraints = "num_items + 1",
+        num_nonzeros = "num_items",
+    },
+})]
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;
 
@@ -51,14 +54,21 @@ impl ReduceTo<ILP<bool>> for Knapsack {
         let weights = self.weights();
         let values = self.values();
         let capacity = self.capacity();
-        let constraints = vec![LinearConstraint::le(
+        let mut constraints = vec![LinearConstraint::le(
             weights
                 .iter()
                 .enumerate()
+                .filter(|&(_, &weight)| weight <= capacity)
                 .map(|(item, &weight)| (item, weight))
                 .collect(),
             capacity,
         )];
+        // Oversized items are impossible choices; their magnitudes need not enter the ILP.
+        for (item, &weight) in weights.iter().enumerate() {
+            if weight > capacity {
+                constraints.push(LinearConstraint::eq(vec![(item, 1)], 0));
+            }
+        }
         let objective = values.iter().copied().enumerate().collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
             .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;

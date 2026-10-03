@@ -72,6 +72,18 @@ fn test_reduction_structure() {
 }
 
 #[test]
+fn sparse_qubo_interactions_match_nonzero_quadratic_terms() {
+    let qubo = QUBO::<f64>::from_entries(
+        4,
+        vec![(0, 0, 2.0), (0, 1, 1e-11), (1, 3, -2.0), (3, 3, 4.0)],
+    )
+    .unwrap();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo).unwrap();
+    assert_eq!(qubo.num_quadratic_terms(), 2);
+    assert_eq!(reduction.target_problem().num_interactions(), 2);
+}
+
+#[test]
 fn test_jl_parity_spinglass_to_qubo() {
     let data: serde_json::Value = serde_json::from_str(include_str!(
         "../../../tests/data/jl/spinglass_to_qubo.json"

@@ -46,15 +46,16 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
         num_constraints = "1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
+        num_nonzeros = "(num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2) * (1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
     type Result = ReductionOptimumCommunicationSpanningTreeToILP;
 

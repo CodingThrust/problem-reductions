@@ -1,159 +1,165 @@
-//! Reduction from PreemptiveScheduling to `ILP<i64>`.
+//! Time-indexed preemptive scheduling with bounded start and completion variables.
 //!
-//! Time-indexed formulation with an auxiliary integer makespan variable:
-//! - Variables: binary x_{t,u} for t in 0..n, u in 0..D_max (task t processed at slot u),
-//!   plus integer M (the makespan), indexed at position n*D_max.
-//! - Variable index for x_{t,u}: t * D_max + u.
-//! - Variable index for M: n * D_max.
-//! - Constraints:
-//!   1. Work: Σ_u x_{t,u} = l(t) for each task t
-//!   2. Capacity: Σ_t x_{t,u} ≤ m for each time slot u
-//!   3. Precedence: for each (pred, succ) and each slot u,
-//!      `l(pred) * x_{succ,u} ≤ Σ_{v=0}^{u-1} x_{pred,v}`
-//!      This ensures succ can only be active at slot u if pred has already
-//!      completed all l(pred) units of work in slots 0..u-1.
-//!   4. Makespan lower bound: M ≥ (u+1) when x_{t,u}=1:
-//!      `M - (u+1)*x_{t,u} ≥ 0` for all t,u
-//!   5. Binary bounds: x_{t,u} ≤ 1 for each t,u
-//!      (since `ILP<i64>` uses non-negative integer domain)
-//! - Objective: Minimize M.
+//! Binary x(t,u) records task activity. Start S(t) is no later than any active
+//! slot; completion C(t) is later than every active slot. Each precedence
+//! (a,b) requires C(a) <= S(b), so interrupted tasks still finish before their
+//! successors start. Minimize M with M >= C(t) for every task.
 //!
-//! Note: `ILP<i64>` treats all variables as non-negative integers. Binary constraints
-//! on x_{t,u} are enforced by x_{t,u} ≤ 1.
+//! Using task endpoints avoids repeating all earlier time slots for every
+//! precedence edge: the matrix has 6*A + 2*p + 2*n nonzeros for A admissible
+//! activity slots, p precedence edges, and n tasks.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PreemptiveScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing PreemptiveScheduling to `ILP<i64>`.
-///
-/// Variable layout:
-/// - x_{t,u} at index t * D_max + u for t in 0..n, u in 0..D_max  (n*D_max vars)
-/// - M at index n * D_max  (1 integer var)
-///
-/// Total: n * D_max + 1 variables.
+/// Result of reducing PreemptiveScheduling to `ILP<i64, i64, Bounded>`.
 #[derive(Debug, Clone)]
 pub struct ReductionPSToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
     d_max: usize,
+    slots: Vec<(usize, usize)>,
 }
 
 impl ReductionResult for ReductionPSToILP {
     type Source = PreemptiveScheduling;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
     /// Extract schedule from ILP solution.
     ///
-    /// Returns a binary config of length n * D_max: `config[t * D_max + u] = x_{t,u}`.
+    /// Returns the task-by-time activity matrix, restoring omitted slots to false.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.value.is_some(),
+            "target ILP assignment is infeasible",
+        )?;
 
-        Ok((0..self.num_tasks)
-            .map(|task| {
-                (0..self.d_max)
-                    .map(|time| target_solution[task * self.d_max + time] == 1)
-                    .collect()
-            })
-            .collect())
+        let mut schedule = vec![vec![false; self.d_max]; self.num_tasks];
+        for (variable, &(task, time)) in self.slots.iter().enumerate() {
+            schedule[task][time] = target_solution[variable] == 1;
+        }
+        Ok(schedule)
     }
 }
 
-#[reduction(
-    transform = exact {
-        num_vars = "num_tasks * d_max + 1",
-        num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
+#[reduction(transform = upper_bound {
+    num_vars = "num_tasks * d_max + 2 * num_tasks + 1",
+    num_constraints = "2 * num_tasks + d_max + 2 * num_tasks * d_max + num_precedences",
+    num_nonzeros = "6 * num_tasks * d_max + 2 * num_precedences + 2 * num_tasks",
+    max_constraint_magnitude_bits = "max_schedule_magnitude_bits",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let d = self.d_max();
-        let num_task_vars = n * d;
+        let (d, windows) = self.scheduling_windows();
+        let num_task_vars: usize = windows.iter().map(|window| window.len()).sum();
         let m_var = num_task_vars; // index of the makespan variable M
-        let num_vars = num_task_vars + 1;
+        let num_vars = n
+            .checked_mul(2)
+            .and_then(|endpoints| num_task_vars.checked_add(endpoints))
+            .and_then(|total| total.checked_add(1))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                    "counting scheduling variables",
+                )
+            })?;
+        let horizon = Self::exact_i64(d, "bounding the scheduling horizon")?;
         let lengths = self.lengths();
-        let processor_count =
-            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
+        let processor_count = Self::exact_i64(
+            self.num_processors().min(n),
+            "encoding the processor capacity",
+        )?;
 
-        let x = |t: usize, u: usize| t * d + u;
+        // Check endpoint arithmetic before allocating the time-indexed matrix.
+        horizon.checked_mul(2).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<i64, i64, Bounded>>(
+                "bounding endpoint constraint evaluation",
+            )
+        })?;
+        let slots: Vec<_> = windows
+            .into_iter()
+            .enumerate()
+            .flat_map(|(task, window)| window.map(move |time| (task, time)))
+            .collect();
+        let mut task_terms = vec![Vec::new(); n];
+        let mut time_terms = vec![Vec::new(); d];
+        for (variable, &(task, time)) in slots.iter().enumerate() {
+            task_terms[task].push((variable, 1));
+            time_terms[time].push((variable, 1));
+        }
+        let start = |t: usize| num_task_vars + 1 + t;
+        let completion = |t: usize| num_task_vars + 1 + n + t;
 
         let mut constraints = Vec::new();
 
-        // 1. Work constraints: Σ_u x_{t,u} = l(t) for each task t
-        for (t, &length) in lengths.iter().enumerate() {
-            let terms: Vec<(usize, i64)> = (0..d).map(|u| (x(t, u), 1)).collect();
+        for (terms, &length) in task_terms.into_iter().zip(lengths) {
             constraints.push(LinearConstraint::eq(terms, length));
         }
-
-        // 2. Capacity constraints: Σ_t x_{t,u} ≤ m for each time slot u
-        for u in 0..d {
-            let terms: Vec<(usize, i64)> = (0..n).map(|t| (x(t, u), 1)).collect();
+        for terms in time_terms {
             constraints.push(LinearConstraint::le(terms, processor_count));
         }
-
-        // 3. Precedence constraints: for each (pred, succ) and each slot u:
-        //    l(pred) * x_{succ,u} ≤ Σ_{v=0}^{u-1} x_{pred,v}
-        //    i.e. l(pred) * x_{succ,u} - Σ_{v=0}^{u-1} x_{pred,v} ≤ 0
-        //
-        //    Interpretation: succ can only be active at slot u once pred has
-        //    accumulated all l(pred) units of work in strictly earlier slots.
+        for (variable, &(t, u)) in slots.iter().enumerate() {
+            constraints.push(LinearConstraint::le(
+                vec![
+                    (start(t), 1),
+                    (variable, Self::exact_i64(d - u, "encoding a start bound")?),
+                ],
+                horizon,
+            ));
+            constraints.push(LinearConstraint::ge(
+                vec![
+                    (completion(t), 1),
+                    (
+                        variable,
+                        -Self::exact_i64(u + 1, "encoding a completion bound")?,
+                    ),
+                ],
+                0,
+            ));
+        }
         for &(pred, succ) in self.precedences() {
-            let l_pred = lengths[pred];
-            for u in 0..d {
-                // Σ_{v=0}^{u-1} x_{pred,v} - l(pred)*x_{succ,u} ≥ 0
-                // i.e. l(pred)*x_{succ,u} - Σ_{v<u} x_{pred,v} ≤ 0
-                let mut terms: Vec<(usize, i64)> = Vec::new();
-                // Cumulative pred work up to u-1
-                for v in 0..u {
-                    terms.push((x(pred, v), -1));
-                }
-                terms.push((x(succ, u), l_pred));
-                constraints.push(LinearConstraint::le(terms, 0));
-            }
+            constraints.push(LinearConstraint::le(
+                vec![(completion(pred), 1), (start(succ), -1)],
+                0,
+            ));
         }
-
-        // 4. Makespan lower bound: M - (u+1)*x_{t,u} ≥ 0 for all t,u
         for t in 0..n {
-            for u in 0..d {
-                constraints.push(LinearConstraint::ge(
-                    vec![
-                        (m_var, 1),
-                        (x(t, u), -Self::exact_i64(u + 1, "encoding a time slot")?),
-                    ],
-                    0,
-                ));
-            }
-        }
-
-        // 5. Binary upper bound: x_{t,u} ≤ 1 for all t,u
-        for t in 0..n {
-            for u in 0..d {
-                constraints.push(LinearConstraint::le(vec![(x(t, u), 1)], 1));
-            }
+            constraints.push(LinearConstraint::le(
+                vec![(completion(t), 1), (m_var, -1)],
+                0,
+            ));
         }
 
         // Objective: minimize M
         let objective = vec![(m_var, 1)];
 
+        // Slot domains enforce binary values without redundant bound rows.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_task_vars..]
+            .fill(IntegerVariable::new(Some(0), Some(horizon)).map_err(Self::target_construction)?);
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
+        crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
         Ok(ReductionPSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target,
             num_tasks: n,
-            d_max: d,
+            d_max: self.d_max(),
+            slots,
         })
     }
 }
@@ -165,7 +171,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 3 tasks, lengths [2,1,2], 2 processors, precedence (0,2)
             let source = PreemptiveScheduling::new(vec![2, 1, 2], 2, vec![(0, 2)]).unwrap();
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

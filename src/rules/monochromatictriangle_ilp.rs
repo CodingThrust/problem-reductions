@@ -43,15 +43,12 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionMonochromaticTriangleToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_edges",
-        num_constraints = "2 * num_triangles + num_vertices^5 / 8",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
+    num_vars = "num_edges",
+    num_constraints = "2 * num_triangles + num_vertices^5 / 8",
+    num_nonzeros = "num_edges * (2 * num_triangles + num_vertices^5 / 8)",
+})]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;
 

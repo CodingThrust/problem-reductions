@@ -4,7 +4,7 @@
 //! connectivity flow constraints to encode an Eulerian connected subgraph
 //! covering all required edges within the length bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -14,15 +14,15 @@ use crate::types::WeightElement;
 /// Result of reducing RuralPostman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionRPToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionRPToILP {
     type Source = RuralPostman<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -40,16 +40,17 @@ impl ReductionResult for ReductionRPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
-        num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
-        num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
+// The nonempty-required-set branch allocates 4m+2n variables and 8m+4n+r rows;
+// the empty branch allocates none. Coefficients by block are bounded by:
+// linking 4m, required r, parity 2m+n, edge activation 4m, vertex activation
+// 2m+n, flow capacity 4m, conservation 4m+2n, and upper bounds 2m+n.
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_vertices + num_edges + 2",
+    num_vars = "4 * num_edges + 2 * num_vertices",
+    num_constraints = "8 * num_edges + 4 * num_vertices + num_required_edges",
+    num_nonzeros = "22 * num_edges + 5 * num_vertices + num_required_edges",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for RuralPostman<SimpleGraph, i64> {
     type Result = ReductionRPToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -204,8 +205,22 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
         let objective: Vec<(usize, i64)> = (0..m)
             .map(|e| (t_idx(e), edge_lengths[e].to_sum()))
             .collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[..m]
+            .fill(IntegerVariable::new(Some(0), Some(2)).map_err(Self::target_construction)?);
+        variables[m..m + n].fill(
+            IntegerVariable::new(
+                Some(0),
+                Some(Self::exact_i64(m, "bounding half the traversal degree")?),
+            )
+            .map_err(Self::target_construction)?,
+        );
+        variables[2 * m + 2 * n..]
+            .fill(IntegerVariable::new(Some(0), Some(big_m)).map_err(Self::target_construction)?);
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionRPToILP {
             target,
@@ -225,7 +240,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 1, 1],
                 vec![0],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -96,6 +96,14 @@ fn test_num_variables() {
 }
 
 #[test]
+fn quadratic_term_count_excludes_diagonal_coefficients() {
+    let problem =
+        QUBO::<f64>::from_entries(4, vec![(0, 0, 2.0), (0, 1, 3.0), (1, 3, -1.0), (3, 3, 4.0)])
+            .unwrap();
+    assert_eq!(problem.parameters().get("num_quadratic_terms"), Some(2));
+}
+
+#[test]
 fn test_matrix_access() {
     let problem = QUBO::from_matrix(vec![
         vec![1.0, 2.0, 3.0],

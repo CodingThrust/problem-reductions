@@ -189,15 +189,11 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {}
 
-#[reduction(
-    transform = exact {
-        num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
-        num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
-    },
-    unavailable = {
-        max_capacity = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = exact {
+    num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
+    num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
+    max_capacity = "1",
+})]
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 

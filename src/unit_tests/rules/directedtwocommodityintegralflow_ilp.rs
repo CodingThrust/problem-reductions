@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -16,7 +16,7 @@ fn sink_self_loop_cannot_supply_commodity_flow() {
         1,
         0,
     );
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     assert!(!source.evaluate(&vec![1, 0]).unwrap().0);
     assert!(reduction
         .target_problem()
@@ -73,7 +73,7 @@ fn infeasible_instance() -> DirectedTwoCommodityIntegralFlow {
 fn test_directedtwocommodityintegralflow_to_ilp_structure() {
     let problem = feasible_instance();
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 8 arcs → 2*8 = 16 variables
@@ -103,7 +103,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     );
 
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -119,7 +119,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
 fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should produce infeasible ILP"
@@ -132,7 +132,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
     let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
 
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
@@ -143,7 +143,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
 fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
     let problem = feasible_instance();
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // f1 routes via (0,2),(2,4): arcs 0,4 = 1; rest 0 for commodity 1
     // f2 routes via (1,3),(3,5): arcs 3,7 = 1; rest 0 for commodity 2
@@ -165,7 +165,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
 fn test_directedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
     let reduction: ReductionD2CIFToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -183,8 +183,37 @@ fn test_directedtwocommodityintegralflow_to_ilp_preserves_large_exact_capacity()
         1,
     );
 
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).unwrap();
     let capacity_constraint = &reduction.target_problem().constraints()[0];
     assert_eq!(capacity_constraint.terms(), vec![(0, 1), (1, 1)]);
     assert_eq!(capacity_constraint.rhs(), capacity);
+}
+
+#[test]
+fn test_flow_requirement_normalization_preserves_feasibility() {
+    for requirement in [0, 1, 2, i64::MAX] {
+        let source = DirectedTwoCommodityIntegralFlow::new(
+            DirectedGraph::new(4, vec![(0, 1), (2, 3)]),
+            vec![1, 1],
+            0,
+            1,
+            2,
+            3,
+            requirement,
+            requirement,
+        );
+        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+        assert!(reduction.target_problem().max_constraint_magnitude_bits() <= 2);
+        match ILPSolver::new().solve(reduction.target_problem()) {
+            Ok(solution) => {
+                assert!(requirement <= 1);
+                let recovered = reduction.extract_solution(&solution).unwrap();
+                assert!(source.evaluate(&recovered).unwrap().0);
+            }
+            Err(error) => {
+                assert!(requirement > 1);
+                assert_eq!(error, crate::solvers::ILPSolveError::Infeasible);
+            }
+        }
+    }
 }

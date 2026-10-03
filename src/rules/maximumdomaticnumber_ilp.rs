@@ -58,15 +58,16 @@ impl ReductionResult for ReductionDomaticNumberToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "num_vertices * num_vertices + num_vertices",
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_nonzeros = "(num_vertices * num_vertices + num_vertices) * (num_vertices + num_vertices * num_vertices + num_vertices * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
     type Result = ReductionDomaticNumberToILP;
 
@@ -84,12 +85,13 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         // Domination constraints: for each v, i: x_{v,i} + Σ_{u ∈ N(v)} x_{u,i} >= y_i
         // Rewritten as: x_{v,i} + Σ_{u ∈ N(v)} x_{u,i} - y_i >= 0
         for v in 0..n {
-            let neighbors = self.graph().neighbors(v);
+            let mut neighborhood = self.graph().neighbors(v);
+            neighborhood.push(v);
+            neighborhood.sort_unstable();
+            neighborhood.dedup();
             for i in 0..n {
-                let mut terms: Vec<(usize, i64)> = vec![(v * n + i, 1)];
-                for &u in &neighbors {
-                    terms.push((u * n + i, 1));
-                }
+                let mut terms: Vec<(usize, i64)> =
+                    neighborhood.iter().map(|&u| (u * n + i, 1)).collect();
                 // -y_i
                 terms.push((n * n + i, -1));
                 constraints.push(LinearConstraint::ge(terms, 0));

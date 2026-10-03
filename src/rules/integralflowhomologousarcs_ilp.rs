@@ -3,7 +3,7 @@
 //! One integer flow variable per arc. Capacity bounds, conservation at
 //! non-terminals, homologous-pair equality, and sink inflow requirement.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowHomologousArcs;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -11,14 +11,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing IntegralFlowHomologousArcs to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionIFHAToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionIFHAToILP {
     type Source = IntegralFlowHomologousArcs;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -42,19 +42,17 @@ impl crate::rules::AggregateReductionResult for ReductionIFHAToILP {}
 
 #[reduction(
     transform = upper_bound {
+        max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
         num_vars = "num_arcs",
         num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
+        num_nonzeros = "num_arcs * (num_arcs^2 + num_arcs + num_vertices + 1)",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
-impl ReduceTo<ILP<i64>> for IntegralFlowHomologousArcs {
+impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowHomologousArcs {
     type Result = ReductionIFHAToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
-        let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
         let mut constraints = Vec::new();
 
@@ -96,10 +94,24 @@ impl ReduceTo<ILP<i64>> for IntegralFlowHomologousArcs {
                 sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
+        constraints.push(LinearConstraint::ge(
+            sink_terms,
+            crate::rules::ilp_helpers::bounded_flow_requirement(
+                self.requirement(),
+                self.capacities().iter().copied(),
+            ),
+        ));
+
+        let variables = self
+            .capacities()
+            .iter()
+            .copied()
+            .map(|capacity| IntegerVariable::new(Some(0), Some(capacity)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionIFHAToILP {
-            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
         })
     }
@@ -120,7 +132,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![(0, 1)],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -1,4 +1,4 @@
-use crate::models::algebraic::{IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
 
@@ -7,7 +7,7 @@ fn integer_ilp(
     constraints: Vec<LinearConstraint>,
     objective: Vec<(usize, i64)>,
     sense: ObjectiveSense,
-) -> ILP<i64> {
+) -> ILP<i64, i64, Bounded> {
     ILP::with_variables(
         bounds
             .iter()
@@ -20,7 +20,7 @@ fn integer_ilp(
     .unwrap()
 }
 
-fn solve_via_bool(source: &ILP<i64>) -> Option<(Vec<i64>, i64)> {
+fn solve_via_bool(source: &ILP<i64, i64, Bounded>) -> Option<(Vec<i64>, i64)> {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(source).expect("reduction should succeed");
     let witness = ILPSolver::new().solve(reduction.target_problem()).ok()?;
     let source_solution = reduction.extract_solution(&witness).unwrap();
@@ -59,7 +59,7 @@ fn test_ilp_i64_to_ilp_bool_maximize() {
 
 #[test]
 fn test_ilp_i64_to_ilp_bool_empty() {
-    let source = ILP::<i64>::empty();
+    let source = ILP::<i64, i64, Bounded>::empty();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert_eq!(reduction.target_problem().num_vars(), 0);
     assert!(reduction.target_problem().constraints().is_empty());

@@ -8,6 +8,34 @@ use crate::traits::Problem;
 use crate::variant::K3;
 
 #[test]
+fn incidence_capacity_counts_selected_vertices_independently_of_edges() {
+    let source = KSatisfiability::<K3>::new(
+        2,
+        vec![
+            CNFClause::new(vec![1, 2, 1]),
+            CNFClause::new(vec![-1, 2, 2]),
+        ],
+    );
+    let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
+    let clique = reduction.sat_to_clique.target_problem();
+    let target = reduction.target_problem();
+    let n = clique.num_vertices();
+    let items = target.num_vertices() - 2;
+    // Vertex count is the clique budget. Edge items certify adjacency and
+    // must not weaken that independent cardinality constraint.
+    assert_eq!(&target.vertex_weights()[..n], &vec![1; n]);
+    assert_eq!(&target.vertex_weights()[n..items], &vec![0; items - n]);
+    assert_eq!(
+        *target.weight_bound() - target.vertex_weights()[items],
+        clique.k() as i64
+    );
+    assert_eq!(
+        *target.weight_bound() - target.vertex_weights()[items + 1],
+        (n - clique.k()) as i64
+    );
+}
+
+#[test]
 fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
     let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
@@ -143,10 +171,10 @@ fn test_ksatisfiability_to_acyclicpartition_multi_variable_closed_loop() {
 
 #[test]
 fn test_incidence_parameters_checked_arithmetic() {
-    assert_eq!(incidence_parameters(1, 0, 1).unwrap(), (3, 2, 1, 3, 5, 2));
+    assert_eq!(incidence_parameters(1, 0, 1).unwrap(), (3, 2, 1, 3, 5, 3));
     assert_eq!(
         incidence_parameters(4, 3, 2).unwrap(),
-        (9, 20, 3, 15, 21, 101)
+        (9, 20, 2, 15, 19, 103)
     );
     for (n, e, k) in [
         (usize::MAX, 1, 1),

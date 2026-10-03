@@ -236,6 +236,16 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
         self.k
     }
 
+    /// Smallest h >= 1 with every vertex weight and edge length strictly below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.vertex_weights
+                .iter()
+                .chain(&self.edge_lengths)
+                .map(|value| value.to_sum()),
+        )
+    }
+
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph().num_vertices()
@@ -258,11 +268,11 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// Correct because all edge lengths are non-negative.
     ///
     /// Returns `None` if any vertex is unreachable from all centers.
-    fn shortest_distances(&self, config: &[bool]) -> Option<Vec<W::Sum>> {
+    fn shortest_distances(
+        &self,
+        config: &[bool],
+    ) -> Result<Option<Vec<W::Sum>>, crate::traits::EvaluationError> {
         let n = self.graph.num_vertices();
-        if config.len() != n {
-            return None;
-        }
         let edges = self.graph.edges();
 
         let mut adj: Vec<Vec<(usize, W::Sum)>> = vec![Vec::new(); n];
@@ -312,7 +322,11 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
                 if visited[next] {
                     continue;
                 }
-                let new_dist = du.clone() + len.clone();
+                let new_dist = W::checked_add_to_sum(
+                    du.clone(),
+                    len.clone(),
+                    "adding min-max multicenter path lengths",
+                )?;
                 let update = match &dist[next] {
                     None => true,
                     Some(d) => new_dist < *d,
@@ -323,7 +337,7 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
             }
         }
 
-        dist.into_iter().collect()
+        Ok(dist.into_iter().collect())
     }
 }
 
@@ -336,7 +350,11 @@ where
     type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    crate::problem_parameters![("num_edges", num_edges), ("num_vertices", num_vertices),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -360,7 +378,7 @@ where
             }
 
             // Compute shortest distances to nearest center
-            let distances = match self.shortest_distances(config) {
+            let distances = match self.shortest_distances(config)? {
                 Some(d) => d,
                 None => {
                     return Ok(Min(None));

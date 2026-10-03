@@ -46,15 +46,16 @@ impl ReductionResult for ReductionSetSplittingToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSetSplittingToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "universe_size",
         num_constraints = "2 * num_subsets",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "universe_size + 1",
+        num_nonzeros = "universe_size * (2 * num_subsets)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;
 
@@ -63,6 +64,9 @@ impl ReduceTo<ILP<bool>> for SetSplitting {
         let mut constraints = Vec::new();
 
         for subset in self.subsets() {
+            let mut subset = subset.clone();
+            subset.sort_unstable();
+            subset.dedup();
             let terms: Vec<(usize, i64)> = subset.iter().map(|&e| (e, 1)).collect();
             let k = <Self as ReduceTo<ILP<bool>>>::exact_i64(
                 subset.len() - 1,
@@ -72,7 +76,7 @@ impl ReduceTo<ILP<bool>> for SetSplitting {
             // At least one element in S2: sum >= 1
             constraints.push(LinearConstraint::ge(terms.clone(), 1));
 
-            // At least one element in S1: sum <= k - 1
+            // At least one element in S1: sum <= |S| - 1
             constraints.push(LinearConstraint::le(terms, k));
         }
 

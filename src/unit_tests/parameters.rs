@@ -3,6 +3,101 @@ use crate::expr::Expr;
 use crate::types::ProblemParameters;
 
 #[test]
+fn composition_preserves_fields_with_available_dependencies() {
+    let first = ParameterTransform::new(
+        "A -> B",
+        ParameterRelation::Exact,
+        [("variables", Expr::parse("n"))],
+    )
+    .unwrap();
+    let next = ParameterTransform::new(
+        "B -> C",
+        ParameterRelation::Exact,
+        [
+            ("variables", Expr::parse("variables")),
+            ("terms", Expr::parse("terms")),
+        ],
+    )
+    .unwrap();
+    let composed = first.compose(&next, "A -> C").unwrap();
+    assert_eq!(
+        composed
+            .evaluate(&ProblemParameters::new(vec![("n", 4)]))
+            .unwrap()
+            .get("variables"),
+        Some(4)
+    );
+    assert!(composed.get("terms").is_none());
+}
+
+#[test]
+fn composition_tracks_only_each_fields_dependencies() {
+    let first = ParameterTransform::from_fields(
+        "A -> B",
+        [
+            ("vertices", ParameterRelation::Exact, Expr::parse("n")),
+            ("edges", ParameterRelation::UpperBound, Expr::parse("n^2")),
+        ],
+    )
+    .unwrap();
+    let next = ParameterTransform::new(
+        "B -> C",
+        ParameterRelation::Exact,
+        [
+            ("vertices", Expr::parse("vertices")),
+            ("edges", Expr::parse("edges")),
+            ("reciprocal", Expr::parse("1 / edges")),
+        ],
+    )
+    .unwrap();
+    let composed = first.compose(&next, "A -> C").unwrap();
+    assert_eq!(
+        composed.relation("vertices"),
+        Some(ParameterRelation::Exact)
+    );
+    assert_eq!(
+        composed.relation("edges"),
+        Some(ParameterRelation::UpperBound)
+    );
+    assert!(matches!(
+        composed.unavailable("reciprocal"),
+        Some(ParameterTransformError::CannotPropagateUpperBound { .. })
+    ));
+    let values = composed
+        .evaluate(&ProblemParameters::new(vec![("n", 3)]))
+        .unwrap();
+    assert_eq!(values.get("vertices"), Some(3));
+    assert_eq!(values.get("edges"), Some(9));
+}
+
+#[test]
+fn constants_survive_unavailable_inputs_and_dependent_fields_keep_the_cause() {
+    let mut first =
+        ParameterTransform::from_fields("A -> B", Vec::<(&str, ParameterRelation, Expr)>::new())
+            .unwrap();
+    first.declare_unavailable("size", "input magnitudes are not registered");
+    let next = ParameterTransform::new(
+        "B -> C",
+        ParameterRelation::Exact,
+        [("fixed", Expr::parse("3")), ("size", Expr::parse("size"))],
+    )
+    .unwrap();
+    let composed = first.compose(&next, "A -> C").unwrap();
+    assert_eq!(
+        composed
+            .evaluate(&ProblemParameters::default())
+            .unwrap()
+            .get("fixed"),
+        Some(3)
+    );
+    assert!(
+        matches!(composed.unavailable("size"), Some(ParameterTransformError::UnavailableInput { cause, .. })
+        if matches!(cause.as_ref(), ParameterTransformError::Unavailable { edge, field, .. }
+            if edge.as_ref() == "A -> B" && field.as_ref() == "size"))
+    );
+}
+
+#[test]
 fn exact_transform_evaluates_exactly() {
     let transform = ParameterTransform::new(
         "A -> B",
@@ -31,7 +126,10 @@ fn upper_bound_relation_survives_evaluation_and_composition() {
     )
     .unwrap();
     let composed = first.compose(&second, "A -> C").unwrap();
-    assert_eq!(composed.relation(), ParameterRelation::UpperBound);
+    assert_eq!(
+        composed.relation("k").unwrap(),
+        ParameterRelation::UpperBound
+    );
     let result = composed
         .evaluate(&ProblemParameters::new(vec![("n", 4)]))
         .unwrap();
@@ -109,10 +207,12 @@ fn symbolic_upper_bound_composition_rejects_non_polynomial_formulas() {
     )
     .unwrap();
 
+    let composed = bounded_transform.compose(&reciprocal, "A -> C").unwrap();
     assert!(matches!(
-        bounded_transform.compose(&reciprocal, "A -> C"),
-        Err(ParameterTransformError::CannotPropagateUpperBound { .. })
+        composed.unavailable("k"),
+        Some(ParameterTransformError::CannotPropagateUpperBound { .. })
     ));
+    assert!(composed.get("k").is_none());
 }
 
 #[test]

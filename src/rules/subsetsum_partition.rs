@@ -68,8 +68,10 @@ impl ReductionResult for ReductionSubsetSumToPartition {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionSubsetSumToPartition {}
 
+// The padding |sum(sizes) - 2*target| is below (n+2)*2^h <= 2^(h+n+1).
 #[reduction(
     transform = upper_bound {
+        max_numeric_magnitude_bits = "max_numeric_magnitude_bits + num_elements + 1",
         num_elements = "num_elements + 1",
     })]
 impl ReduceTo<Partition> for SubsetSum {

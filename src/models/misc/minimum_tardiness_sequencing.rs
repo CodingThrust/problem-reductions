@@ -201,6 +201,11 @@ fn validate_task_data(
 }
 
 impl<W: WeightElement> MinimumTardinessSequencing<W> {
+    /// Smallest h >= 1 with every processing time strictly below 2^h.
+    pub fn max_processing_time_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.lengths.iter().map(|length| length.to_sum()))
+    }
+
     /// Returns the number of tasks.
     pub fn num_tasks(&self) -> usize {
         self.deadlines.len()
@@ -253,6 +258,7 @@ impl Problem for MinimumTardinessSequencing<One> {
     type Value = Min<i64>;
 
     crate::problem_parameters![
+        ("max_processing_time_bits", max_processing_time_bits),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];
@@ -318,6 +324,7 @@ impl Problem for MinimumTardinessSequencing<i64> {
     type Value = Min<i64>;
 
     crate::problem_parameters![
+        ("max_processing_time_bits", max_processing_time_bits),
         ("num_precedences", num_precedences),
         ("num_tasks", num_tasks),
     ];

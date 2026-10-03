@@ -954,14 +954,22 @@ impl ReductionGraph {
                             target_problem: path.steps[index + 1].name.clone(),
                             error: Box::new(error.clone()),
                         })?;
-                contract
-                    .transform()
-                    .cloned()
-                    .ok_or_else(|| PathParameterError::Unavailable {
-                        step: index + 1,
-                        source_problem: path.steps[index].name.clone(),
-                        target_problem: path.steps[index + 1].name.clone(),
-                    })
+                let mut transform = contract.transform().cloned().unwrap_or_else(|| {
+                    crate::parameters::ParameterTransform::new(
+                        format!(
+                            "{} -> {}",
+                            path.steps[index].name,
+                            path.steps[index + 1].name
+                        ),
+                        crate::parameters::ParameterRelation::Exact,
+                        Vec::<(&str, crate::expr::Expr)>::new(),
+                    )
+                    .expect("empty transform is valid")
+                });
+                for field in contract.unavailable() {
+                    transform.declare_unavailable(field.field, field.reason);
+                }
+                Ok(transform)
             })
             .collect()
     }
@@ -1370,14 +1378,13 @@ impl ReductionGraph {
             let mut parameters = Vec::new();
             if let Ok(contract) = contract {
                 if let Some(transform) = contract.transform() {
-                    let relation = match transform.relation() {
-                        crate::parameters::ParameterRelation::Exact => "exact",
-                        crate::parameters::ParameterRelation::UpperBound => "upper_bound",
-                    };
                     parameters.extend(transform.expressions().map(|(field, expression)| {
                         ParameterFieldJson {
                             field: field.to_string(),
-                            contract: relation,
+                            contract: match transform.relation(field).expect("declared formula") {
+                                crate::parameters::ParameterRelation::Exact => "exact",
+                                crate::parameters::ParameterRelation::UpperBound => "upper_bound",
+                            },
                             formula: Some(expression.to_string()),
                             reason: None,
                         }

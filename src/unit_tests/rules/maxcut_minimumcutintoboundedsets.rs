@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::graph::{MaxCut, MinimumCutIntoBoundedSets};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::{
+    assert_optimization_round_trip_from_optimization_target, assert_parameter_predictions,
+};
 use crate::rules::traits::ReduceTo;
 use crate::topology::SimpleGraph;
 
@@ -74,6 +76,7 @@ fn test_maxcut_to_minimumcutintoboundedsets_target_structure() {
     );
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
+    assert_parameter_predictions(&source, &reduction);
     let target = reduction.target_problem();
 
     // n=3, n'=3+1=4, N=8
@@ -96,6 +99,7 @@ fn test_maxcut_to_minimumcutintoboundedsets_even_vertices() {
     );
     let reduction = ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
+    assert_parameter_predictions(&source, &reduction);
     let target = reduction.target_problem();
 
     // n=4, n'=4, N=8

@@ -206,6 +206,11 @@ impl IntegralFlowWithMultipliers {
         self.requirement
     }
 
+    /// Maximum bit length of the arc capacities, with a minimum of one.
+    pub fn max_capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.capacities.iter().copied())
+    }
+
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
     }
@@ -296,9 +301,9 @@ impl Problem for IntegralFlowWithMultipliers {
 
     crate::problem_parameters![
         ("max_capacity", max_capacity),
+        ("max_capacity_bits", max_capacity_bits),
         ("num_arcs", num_arcs),
         ("num_vertices", num_vertices),
-        ("requirement", requirement),
     ];
 
     fn evaluate(

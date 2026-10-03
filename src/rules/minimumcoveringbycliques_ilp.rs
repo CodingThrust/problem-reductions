@@ -61,15 +61,19 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+// With n vertices and m stored edges, activation, missing-pair, product, and
+// coverage blocks contribute nm, at most n(n-1)m/2, 3m², and m rows.
+// Their nonzeros are bounded by 2nm, n(n-1)m, 7m², and m². Stored edges may repeat.
+#[reduction(transform = {
+    exact {
         num_vars = "num_vertices * num_edges + num_edges + num_edges * num_edges",
-        num_constraints = "num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        num_constraints = "num_vertices * num_edges + num_vertices * (num_vertices - 1) / 2 * num_edges + 3 * num_edges^2 + num_edges",
+        max_constraint_magnitude_bits = "2",
+        num_nonzeros = "2 * num_vertices * num_edges + num_vertices * (num_vertices - 1) * num_edges + 8 * num_edges^2",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
     type Result = ReductionMinimumCoveringByCliquesToILP;
 

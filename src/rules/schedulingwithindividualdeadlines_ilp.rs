@@ -57,15 +57,16 @@ impl ReductionResult for ReductionSWIDToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSWIDToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_tasks * max_deadline",
         num_constraints = "num_tasks + max_deadline + num_precedences + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "num_tasks + max_deadline + 1",
+        num_nonzeros = "(num_tasks * max_deadline) * (num_tasks + max_deadline + num_precedences + 1)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
     type Result = ReductionSWIDToILP;
 
@@ -80,8 +81,10 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
         let num_vars = n * max_d;
 
         let var = |j: usize, t: usize| j * max_d + t;
-        let processor_count =
-            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
+        let processor_count = Self::exact_i64(
+            self.num_processors().min(n),
+            "encoding the processor capacity",
+        )?;
 
         let mut constraints = Vec::new();
 

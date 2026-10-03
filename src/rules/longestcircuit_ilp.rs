@@ -56,15 +56,16 @@ impl ReductionResult for ReductionLongestCircuitToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + 2 * num_vertices + 2 * num_edges * num_vertices",
         num_constraints = "2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
     type Result = ReductionLongestCircuitToILP;
 
@@ -209,25 +210,38 @@ impl ReductionResult for ReductionDecisionLongestCircuitToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitToILP {}
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges + 2 * num_vertices + 2 * num_edges * num_vertices",
         num_constraints = "3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices",
     },
-    unavailable = {
-        num_nonzeros = "depends on the graph and nonzero edge lengths",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "max_length_bits + num_edges + 1",
+        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
     type Result = ReductionDecisionLongestCircuitToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut inner = ReduceTo::<ILP<bool>>::reduce_to(self.inner())?;
         let mut constraints = inner.target.constraints().to_vec();
-        constraints.push(LinearConstraint::ge(
-            inner.target.objective().to_vec(),
-            *self.bound(),
-        ));
+        // Positive edge lengths bound every circuit by their total. Normalize
+        // thresholds outside that range while retaining one acceptance row.
+        let total_length: i128 = self
+            .inner()
+            .edge_lengths()
+            .iter()
+            .map(|&length| i128::from(length))
+            .sum();
+        let acceptance = if *self.bound() <= 0 {
+            LinearConstraint::ge(vec![], 0)
+        } else if i128::from(*self.bound()) > total_length {
+            LinearConstraint::ge(vec![], 1)
+        } else {
+            LinearConstraint::ge(inner.target.objective().to_vec(), *self.bound())
+        };
+        constraints.push(acceptance);
         inner.target = ILP::with_variables(
             inner.target.variables().to_vec(),
             constraints,

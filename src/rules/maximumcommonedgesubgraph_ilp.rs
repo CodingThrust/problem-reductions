@@ -66,15 +66,12 @@ impl ReductionResult for ReductionMCESToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
-        num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "2",
+    num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
+    num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
+    num_nonzeros = "(num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2) * (num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2)",
+})]
 impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
     type Result = ReductionMCESToILP;
 

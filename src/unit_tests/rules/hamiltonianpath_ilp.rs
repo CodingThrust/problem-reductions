@@ -11,9 +11,9 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    // n=3, m=2, n_pos=2
-    // num_x = 9, num_z = 2*2*2 = 8, total = 17
-    assert_eq!(ilp.num_vars(), 17);
+    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.num_constraints(), 12);
+    assert_eq!(ilp.num_nonzeros(), 32);
     assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 

@@ -48,15 +48,19 @@ impl ReductionResult for ReductionMMMToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+// At most n nonempty incidence rows and exactly m maximality rows. Incidence
+// contributes at most 2m coefficients; each maximality row lists at most m
+// distinct edge variables. Normalizing loop incidences can only lower the count.
+#[reduction(transform = {
+    exact {
         num_vars = "num_edges",
-        num_constraints = "num_vertices + num_edges",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+        num_constraints = "num_vertices + num_edges",
+        num_nonzeros = "2 * num_edges + num_edges^2",
+    },
+})]
 impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
     type Result = ReductionMMMToILP;
 

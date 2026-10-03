@@ -68,7 +68,7 @@ impl crate::rules::AggregateReductionResult for ReductionX3CToSubsetProduct {}
 
 #[reduction(
     transform = exact {
-        num_elements = "num_sets",
+        num_elements = "num_subsets",
     })]
 impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
     type Result = ReductionX3CToSubsetProduct;

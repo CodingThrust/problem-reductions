@@ -285,6 +285,7 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
         variant: BTreeMap::from([
             ("variable".to_string(), "i64".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "bounded".to_string()),
         ]),
     };
 
@@ -315,6 +316,7 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
         variant: BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
     };
 
@@ -660,31 +662,10 @@ fn rule_specs_solution_pairs_are_consistent() {
                 )
                 .iter()
                 .any(|path| path.len() == 1);
-            if !has_aggregate_path {
-                assert!(
-                    graph.has_direct_reduction_by_name(
-                        &example.source.problem,
-                        &example.target.problem
-                    ),
-                    "No direct witness, aggregate, or proof-only reduction for {label}"
-                );
-                assert!(
-                    !graph.has_direct_reduction_by_name_mode(
-                        &example.source.problem,
-                        &example.target.problem,
-                        crate::rules::ReductionMode::Witness,
-                    ),
-                    "Proof-only edge unexpectedly exposed witness mode for {label}"
-                );
-                assert!(
-                    !graph.has_direct_reduction_by_name_mode(
-                        &example.source.problem,
-                        &example.target.problem,
-                        crate::rules::ReductionMode::Aggregate,
-                    ),
-                    "Proof-only edge unexpectedly exposed aggregate mode for {label}"
-                );
-            }
+            assert!(
+                has_aggregate_path,
+                "No direct witness or aggregate reduction for {label}"
+            );
         }
 
         // Only do witness round-trip when a witness path exists
@@ -1130,7 +1111,7 @@ fn test_find_rule_example_minimumvertexcover_to_minimumhittingset() {
 }
 
 #[test]
-fn test_find_rule_example_minimumvertexcover_to_minimummaximalmatching() {
+fn invalid_embeddings_have_no_canonical_rule_examples() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
         variant: BTreeMap::from([
@@ -1142,9 +1123,17 @@ fn test_find_rule_example_minimumvertexcover_to_minimummaximalmatching() {
         name: "MinimumMaximalMatching".to_string(),
         variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "MinimumVertexCover");
-    assert_eq!(example.target.problem, "MinimumMaximalMatching");
+    assert!(find_rule_example(&source, &target).is_err());
+
+    let source = ProblemRef {
+        name: "SubsetSum".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "IntegerKnapsack".to_string(),
+        variant: BTreeMap::new(),
+    };
+    assert!(find_rule_example(&source, &target).is_err());
 }
 
 #[test]

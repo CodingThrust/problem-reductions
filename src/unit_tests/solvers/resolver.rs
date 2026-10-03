@@ -5,6 +5,271 @@ use crate::traits::Problem;
 use std::collections::BTreeMap;
 
 #[test]
+fn arithmetic_solvers_check_small_witness_ranges_before_large_moduli() {
+    let cases = [
+        (
+            "QuadraticCongruences",
+            1u64,
+            1_000_000_007u64,
+            2u64,
+            Some(1u64),
+        ),
+        ("QuadraticCongruences", 4, 1_000_000_007, 2, None),
+        ("QuadraticCongruences", 4, 1_000_000_007, 3, Some(2)),
+        ("QuadraticCongruences", 1, 1_000_000_007, 4098, Some(1)),
+        // Exhausting factorization's work budget resumes the witness search.
+        (
+            "QuadraticCongruences",
+            4100 * 4100,
+            1_000_000_007,
+            4101,
+            Some(4100),
+        ),
+        (
+            "QuadraticCongruences",
+            4101 * 4101,
+            1_000_000_007,
+            4101,
+            None,
+        ),
+        // Factoring finishes, but scanning all prime roots would cost more.
+        (
+            "QuadraticCongruences",
+            4500 * 4500 % 10_007,
+            10_007,
+            4501,
+            Some(4500),
+        ),
+        (
+            "QuadraticCongruences",
+            4501 * 4501 % 10_007,
+            10_007,
+            4501,
+            None,
+        ),
+        // Zero and nonunit root classes stay compact above the prefix.
+        ("QuadraticCongruences", 0, 1 << 28, 20_000, Some(16_384)),
+        (
+            "QuadraticCongruences",
+            12_288 * 12_288,
+            1 << 30,
+            13_000,
+            Some(12_288),
+        ),
+        ("QuadraticCongruences", 0, 1, 2, Some(1)),
+        ("QuadraticCongruences", 0, 7, 7, None),
+        ("QuadraticCongruences", 0, 7, 8, Some(7)),
+        (
+            "QuadraticDiophantineEquations",
+            1,
+            1_000_000_007,
+            1_000_000_008,
+            Some(1),
+        ),
+        (
+            "QuadraticDiophantineEquations",
+            1,
+            1_000_000_007,
+            1_000_000_009,
+            None,
+        ),
+    ];
+    for (name, a, b, c, expected) in cases {
+        let problem = load_dyn(
+            name,
+            &BTreeMap::new(),
+            serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+        )
+        .unwrap();
+        let result = solve(&problem, SolverRequest::Default).unwrap();
+        match (result.outcome, expected) {
+            (SolveOutcome::Optimal { solution, .. }, Some(witness)) => {
+                assert_eq!(
+                    solution,
+                    serde_json::to_value(num_bigint::BigUint::from(witness)).unwrap()
+                );
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            }
+            (SolveOutcome::Infeasible, None) => {}
+            (actual, expected) => {
+                panic!("{name}({a}, {b}, {c}): {actual:?}, expected {expected:?}")
+            }
+        }
+    }
+}
+
+#[test]
+fn arithmetic_solver_search_boundary_matches_integer_enumeration() {
+    for b in [5005u64, 6561, 8192] {
+        for a in [0u64, 1, 2, 9, 16, 49] {
+            for c in [4097u64, 4098, 10_000] {
+                let expected = (1..c).any(|x| x * x % b == a);
+                let problem = load_dyn(
+                    "QuadraticCongruences",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let result = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(result.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "x² = {a} mod {b}, x < {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = result.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn arithmetic_solvers_find_large_bounded_roots() {
+    use num_bigint::BigUint;
+
+    let x = (BigUint::from(1u8) << 60usize) + BigUint::from(1u8);
+    let modulus = BigUint::from(3u8).pow(100);
+    let cases = [
+        (
+            "QuadraticCongruences",
+            serde_json::json!({"a": (&x * &x).to_string(), "b": modulus.to_string(), "c": (&x + BigUint::from(1u8)).to_string()}),
+        ),
+        (
+            "QuadraticDiophantineEquations",
+            serde_json::json!({"a": "6", "b": (&modulus * 6u8).to_string(), "c": ((&x * &x + &modulus) * 6u8).to_string()}),
+        ),
+    ];
+    for (name, data) in cases {
+        let problem = load_dyn(name, &BTreeMap::new(), data).unwrap();
+        let result = solve(&problem, SolverRequest::Customized).unwrap();
+        let SolveOutcome::Optimal { solution, .. } = result.outcome else {
+            panic!("expected the independently constructed root for {name}");
+        };
+        assert_eq!(solution, serde_json::to_value(&x).unwrap());
+        assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+    }
+}
+
+#[test]
+fn arithmetic_solvers_match_integer_enumeration() {
+    for b in 1u64..=20 {
+        for a in 0..b {
+            for c in [1u64, 2, 4, 9] {
+                let expected = (1..c).any(|x| x * x % b == a);
+                let problem = load_dyn(
+                    "QuadraticCongruences",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let actual = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "x² = {a} mod {b}, x < {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+    for a in 1u64..=4 {
+        for b in 1u64..=12 {
+            for c in 1u64..=30 {
+                let expected = (1..c).any(|x| a * x * x < c && (c - a * x * x) % b == 0);
+                let problem = load_dyn(
+                    "QuadraticDiophantineEquations",
+                    &BTreeMap::new(),
+                    serde_json::json!({"a": a.to_string(), "b": b.to_string(), "c": c.to_string()}),
+                )
+                .unwrap();
+                let actual = solve(&problem, SolverRequest::Customized).unwrap();
+                assert_eq!(
+                    matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                    expected,
+                    "{a}x² + {b}y = {c}"
+                );
+                if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn register_solver_matches_exhaustive_ordering_search() {
+    use crate::models::misc::RegisterSufficiency;
+    for mask in 0..64 {
+        let arcs: Vec<_> = [(1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2)]
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, edge)| (mask & (1 << i) != 0).then_some(edge))
+            .collect();
+        for bound in 0..=4 {
+            let model = RegisterSufficiency::new(4, arcs.clone(), bound);
+            let problem = load_dyn(
+                RegisterSufficiency::NAME,
+                &BTreeMap::new(),
+                serde_json::to_value(model).unwrap(),
+            )
+            .unwrap();
+            let expected = solve(&problem, SolverRequest::BruteForce).unwrap();
+            let actual = solve(&problem, SolverRequest::Customized).unwrap();
+            assert_eq!(
+                matches!(actual.outcome, SolveOutcome::Optimal { .. }),
+                matches!(expected.outcome, SolveOutcome::Optimal { .. }),
+                "DAG {mask}, bound {bound}"
+            );
+            if let SolveOutcome::Optimal { solution, .. } = actual.outcome {
+                assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Or(true)");
+            }
+        }
+    }
+}
+
+#[test]
+fn register_solver_checks_identical_dependency_groups() {
+    use crate::models::misc::RegisterSufficiency;
+    // Each consumer needs twelve inputs simultaneously. The final consumer
+    // requires both results, so thirteen registers suffice and eleven cannot.
+    let arcs = (0..12)
+        .map(|v| (24, v))
+        .chain((12..24).map(|v| (25, v)))
+        .chain([(26, 24), (26, 25)])
+        .collect::<Vec<_>>();
+    for (bound, expected) in [(11, false), (13, true)] {
+        let model = RegisterSufficiency::new(27, arcs.clone(), bound);
+        let actual = model.solve_exact();
+        assert_eq!(actual.is_some(), expected);
+        if let Some(solution) = actual {
+            assert!(model.evaluate(&solution).unwrap().0);
+        }
+    }
+}
+
+#[test]
+fn ensemble_solver_returns_a_minimum_shared_union_program() {
+    use crate::models::misc::EnsembleComputation;
+    let model = EnsembleComputation::new(5, vec![vec![0, 1, 2], vec![0, 1, 3], vec![0, 1, 4]], 8);
+    let problem = load_dyn(
+        EnsembleComputation::NAME,
+        &BTreeMap::new(),
+        serde_json::to_value(model).unwrap(),
+    )
+    .unwrap();
+    let actual = solve(&problem, SolverRequest::Customized).unwrap();
+    let SolveOutcome::Optimal { solution, .. } = actual.outcome else {
+        panic!("shared union program exists");
+    };
+    // Three distinct triples each need a gate and all triples can share {0,1}.
+    // No triple is a disjoint union of two available singletons: optimum = 4.
+    assert_eq!(problem.evaluate_dyn(&solution).unwrap(), "Min(4)");
+}
+
+#[test]
 fn tree_and_weighted_sequencing_default_to_ilp() {
     let tree_variant = BTreeMap::from([
         ("graph".into(), "SimpleGraph".into()),
@@ -70,12 +335,6 @@ fn decision_ilp_paths_respect_bounds_and_return_valid_witnesses() {
             ]),
             serde_json::json!({"graph": graph, "weights": [1,1,1]}),
             1,
-        ),
-        (
-            "DecisionMinimumCoveringByCliques",
-            BTreeMap::from([("graph".into(), "SimpleGraph".into())]),
-            serde_json::json!({"graph": graph}),
-            2,
         ),
         (
             "DecisionOpenShopScheduling",
@@ -435,6 +694,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
         &BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -444,7 +704,7 @@ fn deterministic_solver_dispatch_integer_ilp_uses_native_terminal() {
     assert_eq!(
         result.solver,
         SolverExecution::Ilp {
-            reduction_path: vec!["ILP<i64, bool>".to_string()]
+            reduction_path: vec!["ILP<general, i64, bool>".to_string()]
         }
     );
     assert!(matches!(
@@ -470,6 +730,7 @@ fn deterministic_solver_dispatch_ilp_infeasibility_does_not_fall_back() {
         &BTreeMap::from([
             ("variable".to_string(), "bool".to_string()),
             ("coefficient".to_string(), "i64".to_string()),
+            ("bounds".to_string(), "general".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -494,12 +755,12 @@ fn deterministic_solver_execution_has_stable_tagged_json_contract() {
     );
     assert_eq!(
         serde_json::to_value(SolverExecution::Ilp {
-            reduction_path: vec!["Source".to_string(), "ILP<i64, bool>".to_string()]
+            reduction_path: vec!["Source".to_string(), "ILP<general, i64, bool>".to_string()]
         })
         .unwrap(),
         serde_json::json!({
             "kind": "ilp",
-            "reduction_path": ["Source", "ILP<i64, bool>"]
+            "reduction_path": ["Source", "ILP<general, i64, bool>"]
         })
     );
     assert_eq!(
@@ -560,7 +821,7 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
             "MaximumIndependentSet<SimpleGraph, One>",
             "MaximumIndependentSet<SimpleGraph, i64>",
             "MaximumSetPacking<i64>",
-            "ILP<i64, bool>",
+            "ILP<general, i64, bool>",
         ]
     );
 }

@@ -189,6 +189,11 @@ impl OpenShopScheduling {
             .expect("processing times must fit the brute-force schedule horizon")
     }
 
+    /// Binary digit count of the schedule horizon, with a minimum of one for zero.
+    pub fn schedule_horizon_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.schedule_horizon()])
+    }
+
     fn finish_time(
         &self,
         config: &[usize],
@@ -238,6 +243,7 @@ impl Problem for OpenShopScheduling {
         ("num_jobs", num_jobs),
         ("num_machines", num_machines),
         ("schedule_horizon", schedule_horizon),
+        ("schedule_horizon_bits", schedule_horizon_bits),
     ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {

@@ -144,6 +144,18 @@ impl SequencingToMinimizeWeightedTardiness {
         self.bound
     }
 
+    /// Smallest h >= 1 with all lengths, weights, deadlines, and the cost bound below 2^h.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.lengths
+                .iter()
+                .chain(&self.weights)
+                .chain(&self.deadlines)
+                .copied()
+                .chain(std::iter::once(self.bound)),
+        )
+    }
+
     /// Returns the number of jobs.
     pub fn num_tasks(&self) -> usize {
         self.lengths.len()
@@ -208,7 +220,10 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
     type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    crate::problem_parameters![("num_tasks", num_tasks),];
+    crate::problem_parameters![
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

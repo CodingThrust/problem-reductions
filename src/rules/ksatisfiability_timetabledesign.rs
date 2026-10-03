@@ -797,6 +797,9 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToTimetableDesign {
 #[reduction(
     transform = upper_bound {
         num_periods = "4 * num_literals + 4",
+        period_count_bits = "4 * num_literals + 4",
+        num_available_assignments = "(24 * num_literals + num_clauses + 1)^2 * (4 * num_literals + 4)",
+        num_nonzero_requirements = "(24 * num_literals + num_clauses + 1)^2",
         num_craftsmen = "24 * num_literals + num_clauses + 1",
         num_tasks = "24 * num_literals + num_clauses + 1",
     }

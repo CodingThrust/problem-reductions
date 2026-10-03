@@ -1,24 +1,24 @@
-//! Reduction from IntegerKnapsack to `ILP<i64>`.
+//! Reduction from IntegerKnapsack to `ILP<i64, i64, Bounded>`.
 //!
 //! Each item multiplicity becomes a non-negative integer ILP variable. The
-//! capacity inequality is kept directly, and explicit upper bounds
+//! capacity inequality omits oversized items (whose multiplicities are zero), and explicit upper bounds
 //! `c_i <= floor(B / s_i)` preserve the exact witness domain of the source.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::IntegerKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionIntegerKnapsackToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
 }
 
 impl ReductionResult for ReductionIntegerKnapsackToILP {
     type Source = IntegerKnapsack;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -32,16 +32,17 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_items",
         num_constraints = "num_items + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for IntegerKnapsack {
+    upper_bound {
+        max_constraint_magnitude_bits = "capacity_bits",
+        num_nonzeros = "2 * num_items",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for IntegerKnapsack {
     type Result = ReductionIntegerKnapsackToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -54,6 +55,8 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
             sizes
                 .iter()
                 .enumerate()
+                // Oversized items already have multiplicity fixed to zero by their bounds.
+                .filter(|&(_, &size)| size <= self.capacity())
                 .map(|(item, &size)| (item, size))
                 .collect(),
             self.capacity(),
@@ -66,9 +69,21 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
 
         let objective = values.iter().copied().enumerate().collect();
 
+        let variables = self
+            .sizes()
+            .iter()
+            .map(|&size| IntegerVariable::new(Some(0), Some(self.capacity() / size)))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Self::target_construction)?;
+
         Ok(ReductionIntegerKnapsackToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Maximize,
+            )
+            .map_err(Self::target_construction)?,
         })
     }
 }
@@ -79,7 +94,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "integerknapsack_to_ilp",
         build: || {
             let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

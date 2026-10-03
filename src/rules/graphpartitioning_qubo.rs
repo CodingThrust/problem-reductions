@@ -36,6 +36,7 @@ impl ReductionResult for ReductionGraphPartitioningToQUBO {
 
 #[reduction(transform = exact {
     num_vars = "num_vertices",
+    num_quadratic_terms = "num_vertices * (num_vertices - 1) / 2",
 })]
 impl ReduceTo<QUBO<i64>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGraphPartitioningToQUBO;

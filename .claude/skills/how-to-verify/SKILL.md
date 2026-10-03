@@ -56,7 +56,7 @@ per (n, m) where full enumeration is infeasible). Seven sections, none empty:
 1. symbolic (sympy) check of every overhead formula — "trivial" is no excuse;
 2. exhaustive forward + backward: source feasible ⇔ target feasible (optimum preserved);
 3. extraction from every feasible target witness (the most skipped section);
-4. measured target size vs formula;
+4. measured target size vs formula; first derive each bound from the construction, covering branches, omitted rows, and coefficient normalization; equality requires a full-domain argument, not agreement on examples;
 5. structural well-formedness of the target (gadget invariants, no degenerate cases);
 6. YES example reproduced number-for-number;
 7. NO example reproduced, both sides infeasible.

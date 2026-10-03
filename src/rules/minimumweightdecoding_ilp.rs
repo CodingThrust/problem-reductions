@@ -1,4 +1,4 @@
-//! Reduction from MinimumWeightDecoding to `ILP<i64>`.
+//! Reduction from MinimumWeightDecoding to `ILP<i64, i64, Bounded>`.
 //!
 //! The GF(2) constraint Hx ≡ s (mod 2) is linearized by introducing integer
 //! slack variables k_i for each row:
@@ -16,26 +16,26 @@
 //! Objective: minimize Σ x_j (Hamming weight).
 
 use crate::models::algebraic::MinimumWeightDecoding;
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing MinimumWeightDecoding to `ILP<i64>`.
+/// Result of reducing MinimumWeightDecoding to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - x_j at index j for j in 0..num_cols (binary codeword bits)
 /// - k_i at index num_cols + i for i in 0..num_rows (integer slack)
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumWeightDecodingToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_cols: usize,
 }
 
 impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     type Source = MinimumWeightDecoding;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -53,16 +53,17 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
+    upper_bound {
+        max_constraint_magnitude_bits = "num_cols + 2",
+        num_nonzeros = "(num_cols + num_rows) * (num_rows + num_cols)",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -96,9 +97,23 @@ impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
         // Objective: minimize Σ x_j
         let objective: Vec<(usize, i64)> = (0..m).map(|j| (x(j), 1)).collect();
 
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m..].fill(
+            IntegerVariable::new(
+                Some(0),
+                Some(Self::exact_i64(m / 2, "bounding parity quotients")?),
+            )
+            .map_err(Self::target_construction)?,
+        );
+
         Ok(ReductionMinimumWeightDecodingToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+            target: ILP::with_variables(
+                variables,
+                constraints,
+                objective,
+                ObjectiveSense::Minimize,
+            )
+            .map_err(Self::target_construction)?,
             num_cols: m,
         })
     }
@@ -117,7 +132,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 vec![true, true, false],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

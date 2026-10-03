@@ -38,8 +38,8 @@ impl crate::rules::AggregateReductionResult for ReductionX3CToAlgebraicEquations
 
 #[reduction(
     transform = upper_bound {
-    num_variables = "num_sets",
-    num_equations = "universe_size + 9 * num_sets^2",
+    num_variables = "num_subsets",
+    num_equations = "universe_size + 9 * num_subsets^2",
 })]
 impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
     type Result = ReductionX3CToAlgebraicEquationsOverGF2;

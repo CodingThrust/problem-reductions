@@ -154,3 +154,37 @@ fn test_bin_packing_rejects_non_finite_values() {
     assert!(BinPacking::new(vec![f64::NAN], 1.0).is_err());
     assert!(BinPacking::new(vec![1.0], f64::INFINITY).is_err());
 }
+
+#[test]
+fn numeric_magnitude_bits_cover_sizes_capacity_and_float_boundaries() {
+    for (sizes, capacity, expected) in [
+        (vec![], 0_i64, 1),
+        (vec![1], 8, 4),
+        (vec![8], 1, 4),
+        (vec![(1_i64 << 54) - 1], 1, 54),
+        (vec![i64::MIN], 1, 64),
+        (vec![1], i64::MAX, 63),
+    ] {
+        let source = BinPacking::new(sizes, capacity).unwrap();
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(expected)
+        );
+    }
+    for (sizes, capacity, expected) in [
+        (vec![f64::from_bits(1)], 0.5, 1),
+        (vec![], f64::from_bits(8.0_f64.to_bits() - 1), 3),
+        (vec![-8.0], 1.0, 4),
+        (vec![1.0], f64::MAX, 1024),
+    ] {
+        let source = BinPacking::new(sizes, capacity).unwrap();
+        assert_eq!(
+            source.parameters().get("max_numeric_magnitude_bits"),
+            Some(expected)
+        );
+    }
+    assert_eq!(
+        BinPacking::<i64>::parameter_names(),
+        BinPacking::<f64>::parameter_names()
+    );
+}

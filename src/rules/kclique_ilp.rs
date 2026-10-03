@@ -57,15 +57,12 @@ impl ReductionResult for ReductionKCliqueToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionKCliqueToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_vertices",
-        num_constraints = "num_vertices^2 + 1",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "k + 1",
+    num_vars = "num_vertices",
+    num_constraints = "num_vertices^2 + 1",
+    num_nonzeros = "num_vertices * (num_vertices^2 + 1)",
+})]
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToILP;
 

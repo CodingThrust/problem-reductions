@@ -224,6 +224,11 @@ impl IntegralFlowBundles {
         &self.bundle_capacities
     }
 
+    /// Maximum bit length of the bundle capacities, with a minimum of one.
+    pub fn max_capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.bundle_capacities.iter().copied())
+    }
+
     /// Get the required net inflow at the sink.
     pub fn requirement(&self) -> i64 {
         self.requirement
@@ -252,7 +257,7 @@ impl IntegralFlowBundles {
         Ok(self.evaluate_solution(config)?.0)
     }
 
-    fn arc_upper_bounds(&self) -> Vec<i64> {
+    pub(crate) fn arc_upper_bounds(&self) -> Vec<i64> {
         let mut upper_bounds = vec![i64::MAX; self.num_arcs()];
         for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
             for &arc_index in bundle {
@@ -350,6 +355,7 @@ impl Problem for IntegralFlowBundles {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_capacity_bits", max_capacity_bits),
         ("num_arcs", num_arcs),
         ("num_bundles", num_bundles),
         ("num_vertices", num_vertices),

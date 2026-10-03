@@ -74,12 +74,11 @@ impl ReductionResult for ReductionMaximumLikelihoodRankingToILP {
 
 #[reduction(
     transform = exact {
+        max_constraint_magnitude_bits = "1",
         num_vars = "num_items * (num_items - 1) / 2",
         num_constraints = "num_items * (num_items - 1) * (num_items - 2) / 3",
+        num_nonzeros = "num_items * (num_items - 1) * (num_items - 2)",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
     type Result = ReductionMaximumLikelihoodRankingToILP;

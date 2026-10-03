@@ -46,14 +46,18 @@ fn test_reduction_path_graph() {
 
 #[test]
 fn runtime_color_count_controls_exact_ilp_parameters() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    for colors in [1, 2, 3, 4, 5] {
-        let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
-        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
-        let target = reduction.target_problem();
+    // A loop merges the two edge coefficients without changing allocation counts.
+    for edges in [vec![(0, 1), (1, 2)], vec![(0, 0), (1, 2)]] {
+        let graph = SimpleGraph::new(3, edges);
+        for colors in [1, 2, 3, 4, 5] {
+            let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
+            let target = reduction.target_problem();
 
-        assert_eq!(target.num_vars(), 3 * colors);
-        assert_eq!(target.num_constraints(), 3 + 2 * colors);
+            assert_eq!(target.num_vars(), 3 * colors);
+            assert_eq!(target.num_constraints(), 3 + 2 * colors);
+            crate::rules::test_helpers::assert_parameter_predictions(&problem, &reduction);
+        }
     }
 }
 

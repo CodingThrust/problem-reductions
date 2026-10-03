@@ -47,15 +47,17 @@ impl ReductionResult for ReductionBPToILP {
     }
 }
 
-#[reduction(
-    transform = exact {
+// Rows copy item sizes and capacity (up to sign). Binary endpoints require only one bit.
+#[reduction(transform = {
+    exact {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+    upper_bound {
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
+        num_nonzeros = "(num_items * num_items + num_items) * (2 * num_items)",
+    },
+})]
 impl ReduceTo<ILP<bool>> for BinPacking<i64> {
     type Result = ReductionBPToILP;
 

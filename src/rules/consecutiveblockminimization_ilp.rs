@@ -44,12 +44,11 @@ impl crate::rules::AggregateReductionResult for ReductionCBMToILP {}
 
 #[reduction(
     transform = upper_bound {
+        max_constraint_magnitude_bits = "num_rows * num_cols + 1",
         num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+        num_nonzeros = "(num_cols * num_cols + num_rows * num_cols + num_rows * num_cols) * (num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1)",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
     type Result = ReductionCBMToILP;
@@ -119,7 +118,13 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
                 bound_terms.push((b_offset + r * n + p, 1));
             }
         }
-        constraints.push(LinearConstraint::le(bound_terms, self.bound()));
+        // The sum is nonnegative and at most the number of Boolean indicators.
+        // All negative thresholds are equivalent to -1 (infeasible).
+        let max_blocks = Self::exact_i64(bound_terms.len(), "encoding the block-count bound")?;
+        constraints.push(LinearConstraint::le(
+            bound_terms,
+            self.bound().clamp(-1, max_blocks),
+        ));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
             .map_err(Self::target_construction)?;

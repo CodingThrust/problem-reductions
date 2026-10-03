@@ -1,4 +1,5 @@
 use super::*;
+use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -7,7 +8,8 @@ use crate::traits::Problem;
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
     let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Brute-force the source to get the optimal value
     let bf = BruteForce::new();
@@ -34,7 +36,8 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_bf_vs_ilp() {
     let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
         .solve(&problem)
@@ -52,7 +55,8 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_no_precedences() {
     let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![3, -2, 1], vec![]);
-    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+    let reduction =
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");

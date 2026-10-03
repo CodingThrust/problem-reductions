@@ -130,3 +130,26 @@ fn test_knapsack_to_ilp_canonical_example_spec() {
         }]
     );
 }
+
+#[test]
+fn test_knapsack_normalization_excludes_oversized_items_through_qubo() {
+    use crate::models::algebraic::QUBO;
+    for capacity in [0, 1] {
+        let source = Knapsack::new(vec![0, 1, i64::MAX], vec![2, 3, 4], capacity);
+        let ilp = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        assert_eq!(ilp.target_problem().max_constraint_magnitude_bits(), 1);
+        let qubo = ReduceTo::<QUBO<i64>>::reduce_to(ilp.target_problem()).unwrap();
+        let solution = BruteForce::new()
+            .solve(qubo.target_problem())
+            .unwrap()
+            .unwrap();
+        let recovered = ilp
+            .extract_solution(&qubo.extract_solution(&solution).unwrap())
+            .unwrap();
+        assert_eq!(recovered, vec![true, capacity == 1, false]);
+        assert_eq!(
+            source.evaluate(&recovered).unwrap().0,
+            Some(2 + 3 * capacity)
+        );
+    }
+}

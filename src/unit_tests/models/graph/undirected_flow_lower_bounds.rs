@@ -3,6 +3,13 @@ use super::*;
 #[test]
 fn test_undirected_flow_lower_bounds_invalid_inputs() {
     let valid = serde_json::to_value(canonical_yes_instance()).unwrap();
+    let mut negative = valid.clone();
+    negative["capacities"][0] = serde_json::json!(-1);
+    negative["lower_bounds"][0] = serde_json::json!(-1);
+    let spec =
+        serde_json::from_value::<UndirectedFlowLowerBoundsCreateSpec>(negative.clone()).unwrap();
+    assert!(UndirectedFlowLowerBounds::try_from(spec).is_err());
+    assert!(serde_json::from_value::<UndirectedFlowLowerBounds>(negative).is_err());
     for (field, value) in [
         ("capacities", serde_json::json!([])),
         ("lower_bounds", serde_json::json!([])),
@@ -12,6 +19,8 @@ fn test_undirected_flow_lower_bounds_invalid_inputs() {
         ("requirement", serde_json::json!(0)),
         ("requirement", serde_json::json!(-1)),
         ("lower_bounds", serde_json::json!([3, 1, 0, 0, 1, 0, 1])),
+        ("lower_bounds", serde_json::json!([-1, 1, 0, 0, 1, 0, 1])),
+        ("capacities", serde_json::json!([-1, 2, 2, 2, 1, 3, 2])),
     ] {
         let mut invalid = valid.clone();
         invalid[field] = value;

@@ -16,8 +16,7 @@ pub struct UnavailableParameterField {
 /// Raw symbolic declaration emitted by the reduction proc macro.
 #[derive(Clone, Debug, Default)]
 pub struct ReductionParameterDeclarations {
-    pub relation: Option<ParameterRelation>,
-    pub fields: Vec<(&'static str, Expr)>,
+    pub fields: Vec<(&'static str, ParameterRelation, Expr)>,
     pub unavailable: Vec<UnavailableParameterField>,
 }
 
@@ -37,7 +36,7 @@ impl ReductionParameterContract {
         let formula_names: HashSet<_> = declarations
             .fields
             .iter()
-            .map(|(field, _)| *field)
+            .map(|(field, _, _)| *field)
             .collect();
         let mut unavailable_names = HashSet::new();
         for unavailable in &declarations.unavailable {
@@ -56,16 +55,13 @@ impl ReductionParameterContract {
                 });
             }
         }
-        let transform = match (declarations.relation, declarations.fields.is_empty()) {
-            (Some(relation), false) => Some(ParameterTransform::new(
-                edge,
-                relation,
-                declarations.fields,
-            )?),
-            (None, true) if !declarations.unavailable.is_empty() => None,
-            (None, true) => return Err(ParameterContractError::EmptyContract { edge }),
-            (Some(_), true) => return Err(ParameterContractError::EmptyTransform { edge }),
-            (None, false) => return Err(ParameterContractError::MissingRelation { edge }),
+        let transform = if declarations.fields.is_empty() {
+            if declarations.unavailable.is_empty() {
+                return Err(ParameterContractError::EmptyContract { edge });
+            }
+            None
+        } else {
+            Some(ParameterTransform::from_fields(edge, declarations.fields)?)
         };
         Ok(Self {
             transform,
@@ -86,8 +82,6 @@ impl ReductionParameterContract {
 pub enum ParameterContractError {
     Transform(ParameterTransformError),
     EmptyContract { edge: Box<str> },
-    EmptyTransform { edge: Box<str> },
-    MissingRelation { edge: Box<str> },
     DuplicateClassification { edge: Box<str>, field: Box<str> },
     EmptyUnavailableReason { edge: Box<str>, field: Box<str> },
 }
@@ -99,16 +93,6 @@ impl std::fmt::Display for ParameterContractError {
             Self::EmptyContract { edge } => write!(
                 formatter,
                 "reduction `{edge}` has no parameter formulas or unavailable fields"
-            ),
-            Self::EmptyTransform { edge } => {
-                write!(
-                    formatter,
-                    "reduction `{edge}` declares an empty parameter transform"
-                )
-            }
-            Self::MissingRelation { edge } => write!(
-                formatter,
-                "reduction `{edge}` declares parameter formulas without a relation"
             ),
             Self::DuplicateClassification { edge, field } => {
                 write!(
@@ -181,7 +165,7 @@ pub struct ReductionEntry {
     pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to derive target variant attributes from `Problem::variant()`.
     pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-    /// The rule's single parameter relation, formulas, and unavailable target fields.
+    /// The rule's per-field parameter relations, formulas, and unavailable target fields.
     pub parameter_declarations_fn: fn() -> ReductionParameterDeclarations,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
@@ -353,7 +337,7 @@ pub fn validate_reduction_parameter_schemas() -> Result<(), Vec<String>> {
         for field in declarations
             .fields
             .iter()
-            .flat_map(|(_, expression)| expression.variables())
+            .flat_map(|(_, _, expression)| expression.variables())
         {
             if !source_fields.contains(field) {
                 errors.push(format!(
@@ -366,7 +350,7 @@ pub fn validate_reduction_parameter_schemas() -> Result<(), Vec<String>> {
         let declared_target_fields = declarations
             .fields
             .iter()
-            .map(|(field, _)| *field)
+            .map(|(field, _, _)| *field)
             .chain(declarations.unavailable.iter().map(|field| field.field))
             .collect::<std::collections::BTreeSet<_>>();
         for field in &declared_target_fields {

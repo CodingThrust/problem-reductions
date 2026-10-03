@@ -243,7 +243,10 @@ fn test_acyclic_partition_declares_problem_parameters() {
         .iter()
         .copied()
         .collect();
-    assert_eq!(fields, HashSet::from(["num_vertices", "num_arcs"]));
+    assert_eq!(
+        fields,
+        HashSet::from(["num_vertices", "num_arcs", "max_numeric_magnitude_bits"])
+    );
 }
 #[test]
 fn create_spec_maps_weight_inputs_to_canonical_fields() {

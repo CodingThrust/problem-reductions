@@ -5,7 +5,7 @@
 //! within the length bound. Uses connectivity flow constraints on both
 //! forward and reverse directions.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -14,15 +14,15 @@ use crate::types::WeightElement;
 /// Result of reducing MixedChinesePostman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMCPToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_undirected_edges: usize,
 }
 
 impl ReductionResult for ReductionMCPToILP {
     type Source = MixedChinesePostman<i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -42,16 +42,13 @@ impl ReductionResult for ReductionMCPToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
-        num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "(num_arcs + num_edges + 1) * (num_vertices + 1) + 1",
+    num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
+    num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
+    num_nonzeros = "(num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1) * (num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2)",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;
 
     #[allow(clippy::needless_range_loop)]
@@ -119,14 +116,16 @@ impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
         let n_i64 = Self::exact_i64(n, "encoding the active-vertex count")?;
         let r_count_i64 = Self::exact_i64(r_count, "encoding the required-arc count")?;
         let big_g = r_count_i64.checked_mul(n_i64 - 1).ok_or_else(|| {
-            crate::rules::ReductionError::integer_overflow::<MixedChinesePostman<i64>, ILP<i64>>(
-                "computing the extra-traversal bound",
-            )
+            crate::rules::ReductionError::integer_overflow::<
+                MixedChinesePostman<i64>,
+                ILP<i64, i64, Bounded>,
+            >("computing the extra-traversal bound")
         })?;
         let m_use = big_g.checked_add(1).ok_or_else(|| {
-            crate::rules::ReductionError::integer_overflow::<MixedChinesePostman<i64>, ILP<i64>>(
-                "computing the arc-use bound",
-            )
+            crate::rules::ReductionError::integer_overflow::<
+                MixedChinesePostman<i64>,
+                ILP<i64, i64, Bounded>,
+            >("computing the arc-use bound")
         })?;
 
         let mut constraints = Vec::new();
@@ -297,7 +296,7 @@ impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
                 vec![(b_idx(v), 1), (s_idx, -1), (rho_idx(v), -n_i64)],
                 -n_i64,
             ));
-            // b_v >= 0 is implied by `ILP<i64>` non-negativity
+            // b_v >= 0 is implied by `ILP<i64, i64, Bounded>` non-negativity
         }
 
         // Flow bounds: 0 <= f_j, h_j <= (n-1) * y_j
@@ -371,8 +370,18 @@ impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[q..q + l]
+            .fill(IntegerVariable::new(Some(0), Some(big_g)).map_err(Self::target_construction)?);
+        variables[s_idx..q + 2 * l + 3 * n + 1]
+            .fill(IntegerVariable::new(Some(0), Some(n_i64)).map_err(Self::target_construction)?);
+        variables[q + 2 * l + 3 * n + 1..].fill(
+            IntegerVariable::new(Some(0), Some(flow_big_m)).map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMCPToILP {
             target,
@@ -394,7 +403,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1],
                 vec![1, 1],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -8,7 +8,7 @@ use num_traits::{One, Signed, Zero};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
-/// What one reduction rule promises about all of its declared parameter formulas.
+/// What a reduction promises about one parameter formula.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterRelation {
@@ -16,28 +16,19 @@ pub enum ParameterRelation {
     UpperBound,
 }
 
-impl ParameterRelation {
-    fn compose(self, next: Self) -> Self {
-        if self == Self::Exact && next == Self::Exact {
-            Self::Exact
-        } else {
-            Self::UpperBound
-        }
-    }
-}
-
-/// One rule-level symbolic transformation. Its relation applies to every formula.
+/// Symbolic predictions with independent accuracy and availability per field.
 #[derive(Clone, Debug)]
 pub struct ParameterTransform {
     edge: Box<str>,
-    relation: ParameterRelation,
     fields: Vec<ParameterField>,
+    unavailable: BTreeMap<Box<str>, ParameterTransformError>,
 }
 
 #[derive(Clone, Debug)]
 struct ParameterField {
     name: Box<str>,
     expression: Expr,
+    relation: ParameterRelation,
     plan: Plan,
 }
 
@@ -69,10 +60,27 @@ impl ParameterTransform {
         I: IntoIterator<Item = (N, Expr)>,
         N: Into<Box<str>>,
     {
+        Self::from_fields(
+            edge,
+            fields
+                .into_iter()
+                .map(|(name, expression)| (name, relation, expression)),
+        )
+    }
+
+    /// Construct predictions whose relations may differ by target field.
+    pub fn from_fields<I, N>(
+        edge: impl Into<Box<str>>,
+        fields: I,
+    ) -> Result<Self, ParameterTransformError>
+    where
+        I: IntoIterator<Item = (N, ParameterRelation, Expr)>,
+        N: Into<Box<str>>,
+    {
         let edge = edge.into();
         let mut names = HashSet::new();
         let mut raw_fields = Vec::new();
-        for (name, expression) in fields {
+        for (name, relation, expression) in fields {
             let name = name.into();
             if let Err(error) = Symbol::new(name.clone()) {
                 return Err(ParameterTransformError::InvalidTargetField {
@@ -84,24 +92,25 @@ impl ParameterTransform {
             if !names.insert(name.clone()) {
                 return Err(ParameterTransformError::DuplicateTargetField { edge, field: name });
             }
-            raw_fields.push((name, expression));
+            raw_fields.push((name, relation, expression));
         }
 
         let expressions = raw_fields
             .iter()
-            .map(|(_, expression)| expression)
+            .map(|(_, _, expression)| expression)
             .collect::<Vec<_>>();
         let analysis = AlgebraicAnalysis::new(&expressions);
         let mut plans = HashMap::new();
         let fields = raw_fields
             .into_iter()
-            .map(|(name, expression)| {
+            .map(|(name, relation, expression)| {
                 let plan = compile(&expression, &analysis, &mut plans).map_err(|failure| {
                     validation_error(edge.clone(), name.clone(), expression.to_string(), failure)
                 })?;
                 Ok(ParameterField {
                     name,
                     expression,
+                    relation,
                     plan,
                 })
             })
@@ -109,8 +118,8 @@ impl ParameterTransform {
 
         Ok(Self {
             edge,
-            relation,
             fields,
+            unavailable: BTreeMap::new(),
         })
     }
 
@@ -118,8 +127,27 @@ impl ParameterTransform {
         &self.edge
     }
 
-    pub fn relation(&self) -> ParameterRelation {
-        self.relation
+    pub fn relation(&self, target_field: &str) -> Option<ParameterRelation> {
+        self.fields
+            .iter()
+            .find(|field| field.name.as_ref() == target_field)
+            .map(|field| field.relation)
+    }
+
+    /// Why this target field could not be predicted, including upstream causes.
+    pub fn unavailable(&self, target_field: &str) -> Option<&ParameterTransformError> {
+        self.unavailable.get(target_field)
+    }
+
+    pub(crate) fn declare_unavailable(&mut self, field: &str, reason: &str) {
+        self.unavailable.insert(
+            field.into(),
+            ParameterTransformError::Unavailable {
+                edge: self.edge.clone(),
+                field: field.into(),
+                reason: reason.into(),
+            },
+        );
     }
 
     pub fn expressions(&self) -> impl Iterator<Item = (&str, &Expr)> {
@@ -152,7 +180,7 @@ impl ParameterTransform {
                     value,
                 });
             }
-            let value = if self.relation == ParameterRelation::Exact {
+            let value = if field.relation == ParameterRelation::Exact {
                 if !value.is_integer() {
                     return Err(ParameterTransformError::NonIntegralResult {
                         edge: self.edge.clone(),
@@ -181,11 +209,23 @@ impl ParameterTransform {
     ) -> Result<ParameterTransform, ParameterTransformError> {
         let edge = edge.into();
         let replacements: HashMap<&str, &Expr> = self.expressions().collect();
-        let fields = next
-            .fields
-            .iter()
-            .map(|field| {
-                let expression = if self.relation == ParameterRelation::UpperBound {
+        let mut fields = Vec::new();
+        let mut unavailable = next.unavailable.clone();
+        for field in &next.fields {
+            let result = (|| {
+                let mut bounded_input = false;
+                for input in field.expression.variables() {
+                    if let Some(cause) = self.unavailable(input) {
+                        return Err(ParameterTransformError::UnavailableInput {
+                            edge: next.edge.clone(),
+                            field: field.name.clone(),
+                            input_field: input.into(),
+                            cause: Box::new(cause.clone()),
+                        });
+                    }
+                    bounded_input |= self.relation(input) == Some(ParameterRelation::UpperBound);
+                }
+                let expression = if bounded_input {
                     positive_polynomial_hull(&field.expression).ok_or_else(|| {
                         ParameterTransformError::CannotPropagateUpperBound {
                             edge: next.edge.clone(),
@@ -200,14 +240,27 @@ impl ParameterTransform {
                     expression
                         .substitute_complete(&replacements)
                         .map_err(|error| ParameterTransformError::MissingCompositionInput {
-                            edge: edge.clone(),
+                            edge: next.edge.clone(),
                             field: field.name.clone(),
                             input_fields: error.missing_variables().map(Box::<str>::from).collect(),
                         })?;
-                Ok((field.name.clone(), expression))
-            })
-            .collect::<Result<Vec<_>, ParameterTransformError>>()?;
-        Self::new(edge, self.relation.compose(next.relation), fields)
+                let relation = if bounded_input {
+                    ParameterRelation::UpperBound
+                } else {
+                    field.relation
+                };
+                Ok((field.name.clone(), relation, expression))
+            })();
+            match result {
+                Ok(prediction) => fields.push(prediction),
+                Err(error) => {
+                    unavailable.insert(field.name.clone(), error);
+                }
+            }
+        }
+        let mut composed = Self::from_fields(edge, fields)?;
+        composed.unavailable = unavailable;
+        Ok(composed)
     }
 }
 
@@ -477,6 +530,22 @@ fn evaluation_error(
 /// Validation, composition, or evaluation failure for a [`ParameterTransform`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ParameterTransformError {
+    #[error("reduction `{edge}` target field `{field}` is unavailable: {reason}")]
+    Unavailable {
+        edge: Box<str>,
+        field: Box<str>,
+        reason: Box<str>,
+    },
+    #[error(
+        "reduction `{edge}` target field `{field}` depends on unavailable `{input_field}`: {cause}"
+    )]
+    UnavailableInput {
+        edge: Box<str>,
+        field: Box<str>,
+        input_field: Box<str>,
+        #[source]
+        cause: Box<ParameterTransformError>,
+    },
     #[error("reduction `{edge}` has invalid target parameter field `{field}`: {reason}")]
     InvalidTargetField {
         edge: Box<str>,

@@ -108,3 +108,32 @@ fn test_overhead_dimensions() {
     assert_eq!(ilp.num_vars(), 5);
     assert_eq!(ilp.constraints().len(), 6); // 2 per subset
 }
+
+#[test]
+fn test_set_splitting_normalization_preserves_all_colorings() {
+    for subset in [vec![0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 0]] {
+        let source = SetSplitting::new(2, vec![subset]);
+        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+        for a in [false, true] {
+            for b in [false, true] {
+                let expected = source.evaluate(&vec![a, b]).unwrap().0;
+                let solution = vec![i64::from(a), i64::from(b)];
+                assert_eq!(
+                    reduction
+                        .target_problem()
+                        .evaluate(&solution)
+                        .unwrap()
+                        .is_valid(),
+                    expected
+                );
+                if expected {
+                    assert_eq!(reduction.extract_solution(&solution).unwrap(), vec![a, b]);
+                }
+            }
+        }
+        assert_eq!(
+            reduction.target_problem().max_constraint_magnitude_bits(),
+            1
+        );
+    }
+}

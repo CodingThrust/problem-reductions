@@ -1,15 +1,15 @@
-//! Reduction from SequencingToMinimizeWeightedTardiness to `ILP<i64>`.
+//! Reduction from SequencingToMinimizeWeightedTardiness to `ILP<i64, i64, Bounded>`.
 //!
 //! Pairwise order variables y_{i,j}, integer completion times C_j,
 //! and nonnegative tardiness variables T_j. Big-M disjunctive constraints
 //! force a single-machine order; the weighted tardiness sum is bounded by K.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedTardiness;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing SequencingToMinimizeWeightedTardiness to `ILP<i64>`.
+/// Result of reducing SequencingToMinimizeWeightedTardiness to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout:
 /// - `y_{i,j}` for i < j: pairwise order bits (n*(n-1)/2 vars)
@@ -19,16 +19,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n*(n-1)/2 + 2*n variables.
 #[derive(Debug, Clone)]
 pub struct ReductionSTMWTToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_tasks: usize,
     num_order_vars: usize,
 }
 
 impl ReductionResult for ReductionSTMWTToILP {
     type Source = SequencingToMinimizeWeightedTardiness;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -59,14 +59,13 @@ impl crate::rules::AggregateReductionResult for ReductionSTMWTToILP {}
 
 #[reduction(
     transform = upper_bound {
-    num_vars = "num_tasks^2 + 2 * num_tasks",
-    num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
-},
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
+        max_constraint_magnitude_bits = "max_numeric_magnitude_bits + num_tasks",
+        num_vars = "num_tasks^2 + 2 * num_tasks",
+        num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
+        num_nonzeros = "(num_tasks^2 + 2 * num_tasks) * (2 * num_tasks^2 + 3 * num_tasks + 1)",
+    },
 )]
-impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
+impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -93,7 +92,7 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
             .ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     SequencingToMinimizeWeightedTardiness,
-                    ILP<i64>,
+                    ILP<i64, i64, Bounded>,
                 >("summing task processing times")
             })?;
         let big_m = horizon;
@@ -156,8 +155,13 @@ impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
         let terms: Vec<(usize, i64)> = (0..n).map(|j| (t_var(j), weights[j])).collect();
         constraints.push(LinearConstraint::le(terms, bound));
 
+        // Left-justify the job order: completion and tardiness are <= horizon, with no increase in cost.
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[num_order_vars..]
+            .fill(IntegerVariable::new(Some(0), Some(horizon)).map_err(Self::target_construction)?);
+
         Ok(ReductionSTMWTToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
                 .map_err(Self::target_construction)?,
             num_tasks: n,
             num_order_vars,
@@ -176,7 +180,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![5, 8, 4],
                 10,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

@@ -76,15 +76,12 @@ impl ReductionResult for ReductionSWIToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionSWIToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "num_start_slots",
-        num_constraints = "num_start_slots^2 + num_tasks",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "1",
+    num_vars = "num_start_slots",
+    num_constraints = "num_start_slots^2 + num_tasks",
+    num_nonzeros = "num_start_slots * (num_start_slots^2 + num_tasks)",
+})]
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
     type Result = ReductionSWIToILP;
 

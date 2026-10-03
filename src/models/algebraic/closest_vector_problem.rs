@@ -86,6 +86,13 @@ impl ClosestVectorProblem {
         self.target.len()
     }
 
+    /// Maximum bit length of an absolute basis or target entry, at least one.
+    pub fn max_numeric_magnitude_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(
+            self.basis.iter().flatten().chain(&self.target).copied(),
+        )
+    }
+
     /// Integer basis columns.
     pub fn basis(&self) -> &[Vec<i64>] {
         &self.basis
@@ -167,6 +174,7 @@ impl Problem for ClosestVectorProblem {
     crate::problem_parameters![
         ("ambient_dimension", ambient_dimension),
         ("num_basis_vectors", num_basis_vectors),
+        ("max_numeric_magnitude_bits", max_numeric_magnitude_bits),
     ];
 
     fn evaluate(&self, solution: &Self::Solution) -> Result<Min<i64>, EvaluationError> {

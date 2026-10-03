@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -45,7 +45,7 @@ fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
 fn test_reduction_creates_expected_ilp_shape() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // m=5: num_vars = 5*5 = 25
@@ -57,7 +57,7 @@ fn test_reduction_creates_expected_ilp_shape() {
 fn test_minimumcapacitatedspanningtree_to_ilp_closed_loop() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -76,7 +76,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_closed_loop() {
 fn test_minimumcapacitatedspanningtree_to_ilp_canonical_closed_loop() {
     let problem = canonical_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -94,7 +94,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_canonical_closed_loop() {
 fn test_solution_extraction_reads_edge_selector_prefix() {
     let problem = small_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
 
     // 25 variables total, first 5 are edge selectors
     let mut target_solution = vec![0; 25];
@@ -112,7 +112,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_minimumcapacitatedspanningtree_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -128,7 +128,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_star_tree() {
         1, // capacity = 1 forces star tree
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
@@ -148,7 +148,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
         3,
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
@@ -166,6 +166,6 @@ fn test_zero_requirement_vertex_still_must_be_connected() {
         2,
     );
     let reduction: ReductionMinimumCapacitatedSpanningTreeToILP =
-        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
+        ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }

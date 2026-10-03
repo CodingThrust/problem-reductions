@@ -23,12 +23,12 @@
 //! Bang-Jensen and Gutin, *Digraphs: Theory, Algorithms and Applications*,
 //! 2nd ed., Springer (2009).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing EulerianPath to `ILP<i64>`.
+/// Result of reducing EulerianPath to `ILP<i64, i64, Bounded>`.
 ///
 /// Variable layout (all in the non-negative integer domain, with explicit
 /// upper bounds enforcing the intended `0/1` and `0..m-1` ranges):
@@ -42,7 +42,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// where `p = pairs.len()` is the number of compatible ordered pairs.
 #[derive(Debug, Clone)]
 pub struct ReductionEulerianPathToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     /// Compatible ordered pairs `(a, b)` in the order their `y_{a,b}` variables
     /// appear in the ILP, for `m > 0`. Empty when `m = 0`.
     pairs: Vec<(usize, usize)>,
@@ -58,9 +58,9 @@ impl ReductionEulerianPathToILP {
 
 impl ReductionResult for ReductionEulerianPathToILP {
     type Source = EulerianPath;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -147,16 +147,15 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionEulerianPathToILP {}
 
-#[reduction(
-    transform = upper_bound {
-        num_vars = "3 * num_arcs + num_arcs * num_arcs",
-        num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
-    },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for EulerianPath {
+// For m arcs and P compatible distinct ordered pairs, row counts give exactly
+// 7m+6P nonzeros when m>0. P<=m(m-1), and the empty construction has zero.
+#[reduction(transform = upper_bound {
+    max_constraint_magnitude_bits = "num_arcs + 1",
+    num_vars = "3 * num_arcs + num_arcs * num_arcs",
+    num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
+    num_nonzeros = "num_arcs + 6 * num_arcs * num_arcs",
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for EulerianPath {
     type Result = ReductionEulerianPathToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -239,8 +238,14 @@ impl ReduceTo<ILP<i64>> for EulerianPath {
         constraints.push(LinearConstraint::eq(start_sum, 1));
         constraints.push(LinearConstraint::eq(end_sum, 1));
 
-        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[p + 2 * m..].fill(
+            IntegerVariable::new(Some(0), Some(m_i64 - 1)).map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, Vec::new(), ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionEulerianPathToILP {
             target,
@@ -261,7 +266,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
             let source =
                 EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

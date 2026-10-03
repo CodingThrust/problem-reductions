@@ -29,14 +29,14 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ClosestSubstring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ClosestSubstring to ILP.
 ///
-/// Variable layout (`ILP<i64>`, all non-negative):
+/// Variable layout (`ILP<i64, i64, Bounded>`, all non-negative):
 /// - `x_{r, a}` at index `r * alphabet_size + a` for `r in [0, ell)` and
 ///   `a in [0, q)`, forced into `{0, 1}` by the assignment constraints.
 /// - `y_{i, p}` at index `q * ell + window_offsets[i] + p` for input string
@@ -46,7 +46,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 ///   integer in `[0, ell]`.
 #[derive(Debug, Clone)]
 pub struct ReductionClosestSubstringToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     alphabet_size: usize,
     substring_length: usize,
     /// Prefix sums of per-string window counts: `window_offsets[i]` is the
@@ -58,9 +58,9 @@ pub struct ReductionClosestSubstringToILP {
 
 impl ReductionResult for ReductionClosestSubstringToILP {
     type Source = ClosestSubstring;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -118,16 +118,17 @@ fn decode_one_hot(
     Ok(index)
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for ClosestSubstring {
+    upper_bound {
+        max_constraint_magnitude_bits = "substring_length + 1",
+        num_nonzeros = "(alphabet_size * substring_length + total_num_windows + 1) * (substring_length + num_strings + total_num_windows + 1)",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for ClosestSubstring {
     type Result = ReductionClosestSubstringToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -158,7 +159,7 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
             Vec::with_capacity(ell + n + total_windows + 1);
 
         // Assignment constraints: exactly one symbol per center position.
-        // Together with the non-negativity built into `ILP<i64>`, this also
+        // Together with the non-negativity built into `ILP<i64, i64, Bounded>`, this also
         // forces every x_{r, a} to lie in {0, 1}.
         for r in 0..ell {
             let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(r, a), 1)).collect();
@@ -200,8 +201,13 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         // Objective: minimize R.
         let objective = vec![(r_idx, 1)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[r_idx] =
+            IntegerVariable::new(Some(0), Some(ell_i64)).map_err(Self::target_construction)?;
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestSubstringToILP {
             target,
@@ -232,7 +238,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
             )
             .unwrap();
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

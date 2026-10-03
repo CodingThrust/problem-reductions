@@ -212,6 +212,11 @@ impl UndirectedTwoCommodityIntegralFlow {
         &self.capacities
     }
 
+    /// Maximum bit length of the edge capacities, with a minimum of one.
+    pub fn max_capacity_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits(self.capacities.iter().copied())
+    }
+
     pub fn source_1(&self) -> usize {
         self.source_1
     }
@@ -423,6 +428,7 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_capacity_bits", max_capacity_bits),
         ("num_edges", num_edges),
         ("num_conservation_constraints", num_conservation_constraints),
         ("num_vertices", num_vertices),

@@ -5,7 +5,7 @@
 //! - Flow on each edge is bounded by the capacity constraint
 //! - Flow-edge linking ensures flow only travels on selected edges
 //!
-//! Variable layout (all non-negative integers, `ILP<i64>`):
+//! Variable layout (all non-negative integers, `ILP<i64, i64, Bounded>`):
 //! - `y_e` for each undirected edge `e` (indices `0..m`): edge selector (binary)
 //! - `f_{2e}`, `f_{2e+1}` for each edge `e=(u,v)` (indices `m..3m`):
 //!   directed requirement flow from u to v and v to u respectively
@@ -24,7 +24,7 @@
 //!
 //! Objective: minimize sum(w_e * y_e)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -34,15 +34,15 @@ use crate::types::WeightElement;
 /// Result of reducing MinimumCapacitatedSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumCapacitatedSpanningTreeToILP {
-    target: ILP<i64>,
+    target: ILP<i64, i64, Bounded>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i64>;
-    type Target = ILP<i64>;
+    type Target = ILP<i64, i64, Bounded>;
 
-    fn target_problem(&self) -> &ILP<i64> {
+    fn target_problem(&self) -> &ILP<i64, i64, Bounded> {
         &self.target
     }
 
@@ -62,16 +62,19 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
     }
 }
 
-#[reduction(
-    transform = upper_bound {
+// Five edge variables per edge; all row blocks are unconditional. Nonzeros:
+// cardinality m, binary m, two conservation blocks 8m, linking 6m, capacity 2m.
+#[reduction(transform = {
+    exact {
         num_vars = "5 * num_edges",
         num_constraints = "5 * num_edges + 2 * num_vertices + 1",
     },
-    unavailable = {
-        num_nonzeros = "the exact target parameter is not represented by this reduction's symbolic transform",
-    }
-)]
-impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
+    upper_bound {
+        max_constraint_magnitude_bits = "max_requirement_bits + num_vertices",
+        num_nonzeros = "18 * num_edges",
+    },
+})]
+impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
@@ -98,7 +101,7 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 total.checked_add(requirement.to_sum()).ok_or_else(|| {
                     crate::rules::ReductionError::integer_overflow::<
                         MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
-                        ILP<i64>,
+                        ILP<i64, i64, Bounded>,
                     >("summing vertex requirements")
                 })
             })?;
@@ -208,8 +211,19 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
             .map(|(edge_idx, weight)| (edge_var(edge_idx), weight.to_sum()))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+        let mut variables = vec![IntegerVariable::binary(); num_vars];
+        variables[m..3 * m].fill(
+            IntegerVariable::new(Some(0), Some(cap.min(total_req).max(0)))
+                .map_err(Self::target_construction)?,
+        );
+        variables[3 * m..].fill(
+            IntegerVariable::new(Some(0), Some(connectivity_total))
+                .map_err(Self::target_construction)?,
+        );
+
+        let target =
+            ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
 
         Ok(ReductionMinimumCapacitatedSpanningTreeToILP {
             target,
@@ -230,7 +244,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![0, 1, 1, 1],    // requirements
                 2,                   // capacity
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
+            crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]
 }

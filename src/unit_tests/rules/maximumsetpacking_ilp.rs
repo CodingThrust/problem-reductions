@@ -12,7 +12,8 @@ fn constraint_count_is_only_an_upper_bound() {
             .unwrap()
             .transform()
             .unwrap()
-            .relation(),
+            .relation("num_constraints")
+            .unwrap(),
         crate::parameters::ParameterRelation::UpperBound
     );
     let problem = MaximumSetPacking::new(vec![vec![0], vec![1]]);
@@ -161,4 +162,19 @@ fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
     let reduction: ReductionSPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+#[test]
+fn test_set_packing_normalization_preserves_repeated_membership() {
+    let source =
+        MaximumSetPacking::with_weights(vec![vec![0, 0], vec![0], vec![1, 1]], vec![3, 2, 4])
+            .unwrap();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let recovered = reduction.extract_solution(&solution).unwrap();
+    assert_eq!(source.evaluate(&recovered).unwrap(), Max(Some(7)));
+    assert_eq!(
+        reduction.target_problem().max_constraint_magnitude_bits(),
+        1
+    );
 }

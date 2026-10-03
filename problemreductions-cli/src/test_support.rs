@@ -399,7 +399,6 @@ problemreductions::inventory::submit! {
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: AggregateValueTarget::variant,
         parameter_declarations_fn: || ReductionParameterDeclarations {
-            relation: None,
             fields: vec![],
             unavailable: vec![problemreductions::rules::registry::UnavailableParameterField {
                 field: "num_values",
@@ -430,9 +429,12 @@ problemreductions::inventory::submit! {
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: ILP::<bool>::variant,
         parameter_declarations_fn: || ReductionParameterDeclarations {
-            relation: None,
             fields: vec![],
             unavailable: vec![
+                problemreductions::rules::registry::UnavailableParameterField {
+                    field: "max_constraint_magnitude_bits",
+                    reason: "the synthetic aggregate-to-ILP reduction has no parameter model",
+                },
                 problemreductions::rules::registry::UnavailableParameterField {
                     field: "num_vars",
                     reason: "the synthetic aggregate-to-ILP reduction has no parameter model",

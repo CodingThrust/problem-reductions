@@ -39,7 +39,7 @@ impl ReductionResult for ReductionQUBOToSG {
 #[reduction(
     transform = exact {
         num_spins = "num_vars",
-        num_interactions = "num_vars^2",
+        num_interactions = "num_quadratic_terms",
     },
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
@@ -63,10 +63,6 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
         let mut onsite = vec![0.0; n];
 
         for &(i, j, q) in self.entries() {
-            if q.abs() < 1e-10 {
-                continue;
-            }
-
             if i == j {
                 // Diagonal: Q_ii * x_i = Q_ii/2 * s_i + Q_ii/2 (constant)
                 onsite[i] += q / 2.0;
@@ -74,9 +70,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
                 // Off-diagonal: Q_ij * x_i * x_j
                 // J_ij contribution
                 let j_ij = q / 4.0;
-                if j_ij.abs() > 1e-10 {
-                    interactions.push(((i, j), j_ij));
-                }
+                interactions.push(((i, j), j_ij));
                 // h_i and h_j contributions
                 onsite[i] += q / 4.0;
                 onsite[j] += q / 4.0;
@@ -126,11 +120,15 @@ where
     }
 }
 
-#[reduction(
-    transform = exact {
+// Each source interaction contributes to at most one quadratic coefficient.
+#[reduction(transform = {
+    exact {
         num_vars = "num_spins",
-    }
-)]
+    },
+    upper_bound {
+        num_quadratic_terms = "num_interactions",
+    },
+})]
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     type Result = ReductionSGToQUBO<f64>;
 
@@ -170,11 +168,14 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     }
 }
 
-#[reduction(
-    transform = exact {
+#[reduction(transform = {
+    exact {
         num_vars = "num_spins",
-    }
-)]
+    },
+    upper_bound {
+        num_quadratic_terms = "num_interactions",
+    },
+})]
 impl ReduceTo<QUBO<i64>> for SpinGlass<SimpleGraph, i64> {
     type Result = ReductionSGToQUBO<i64>;
 

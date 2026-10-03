@@ -55,3 +55,16 @@ fn test_minimum_cover_improves_a_redundant_initial_cover() {
     assert_eq!(best.len(), 2);
     assert!((0..3).all(|edge| best.iter().any(|&clique| covers[clique][edge])));
 }
+
+#[test]
+fn intersection_basis_covers_isolated_loops_and_parallel_edges() {
+    for (n, edges, expected) in [
+        (1, vec![(0, 0)], 1),
+        (3, vec![(0, 0), (1, 2), (2, 1)], 2),
+        (2, vec![(0, 0), (0, 1), (1, 1)], 1),
+    ] {
+        let source = MinimumIntersectionGraphBasis::new(SimpleGraph::new(n, edges));
+        let witness = solve(&source).unwrap();
+        assert_eq!(source.evaluate(&witness).unwrap().0, Some(expected));
+    }
+}

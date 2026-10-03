@@ -136,6 +136,9 @@ pub use problemreductions_macros::{
 pub use inventory;
 
 #[cfg(all(test, feature = "example-db"))]
+#[path = "unit_tests/parameter_formula_validation.rs"]
+mod parameter_formula_validation;
+#[cfg(all(test, feature = "example-db"))]
 #[path = "unit_tests/symbolic_parameter_contracts.rs"]
 mod symbolic_parameter_contracts;
 #[cfg(test)]
@@ -156,3 +159,7 @@ mod test_reduction_graph;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
+
+#[cfg(test)]
+#[path = "unit_tests/ilp_overhead.rs"]
+mod ilp_overhead;

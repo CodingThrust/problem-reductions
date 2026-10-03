@@ -1,22 +1,46 @@
 //! Exact intersection-basis solver via maximal cliques and edge-cover branch and bound.
 
-use crate::models::graph::MinimumIntersectionGraphBasis;
+use crate::models::graph::{MinimumCoveringByCliques, MinimumIntersectionGraphBasis};
 use crate::topology::{Graph, SimpleGraph};
 
 pub(crate) fn solve(
     problem: &MinimumIntersectionGraphBasis<SimpleGraph>,
 ) -> Option<Vec<Vec<bool>>> {
-    let n = problem.num_vertices();
-    let edges = problem.graph().edges();
-    if edges.is_empty() {
-        return Some(vec![Vec::new(); n]);
+    let cliques = minimum_covering_cliques(problem.graph());
+    let mut solution = vec![vec![false; problem.num_edges()]; problem.num_vertices()];
+    for (element, clique) in cliques.into_iter().enumerate() {
+        for vertex in clique {
+            solution[vertex][element] = true;
+        }
     }
+    Some(solution)
+}
 
+pub(crate) fn solve_cover(problem: &MinimumCoveringByCliques<SimpleGraph>) -> Vec<usize> {
+    let cliques = minimum_covering_cliques(problem.graph());
+    problem
+        .graph()
+        .edges()
+        .iter()
+        .map(|&(u, v)| {
+            cliques
+                .iter()
+                .position(|clique| clique.contains(&u) && clique.contains(&v))
+                .expect("the chosen cliques cover every edge")
+        })
+        .collect()
+}
+
+fn minimum_covering_cliques(graph: &SimpleGraph) -> Vec<Vec<usize>> {
+    let edges = graph.edges();
+    if edges.is_empty() {
+        return Vec::new();
+    }
     let mut cliques = Vec::new();
     maximal_cliques(
-        problem.graph(),
+        graph,
         Vec::new(),
-        (0..n).collect(),
+        (0..graph.num_vertices()).collect(),
         Vec::new(),
         &mut cliques,
     );
@@ -29,10 +53,14 @@ pub(crate) fn solve(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-
-    // One maximal clique per edge is a feasible initial cover with at most |E| cliques.
+    // Every edge, including a loop, lies in a nonempty maximal clique.
     let mut chosen = (0..edges.len())
-        .map(|edge| covers.iter().position(|cover| cover[edge]).unwrap())
+        .map(|edge| {
+            covers
+                .iter()
+                .position(|cover| cover[edge])
+                .expect("every edge belongs to a maximal clique")
+        })
         .collect::<Vec<_>>();
     chosen.sort_unstable();
     chosen.dedup();
@@ -42,13 +70,7 @@ pub(crate) fn solve(
         &mut Vec::new(),
         &mut chosen,
     );
-    let mut solution = vec![vec![false; edges.len()]; n];
-    for (element, clique) in chosen.into_iter().enumerate() {
-        for &vertex in &cliques[clique] {
-            solution[vertex][element] = true;
-        }
-    }
-    Some(solution)
+    chosen.into_iter().map(|i| cliques[i].clone()).collect()
 }
 
 fn minimum_cover(
@@ -86,13 +108,30 @@ fn maximal_cliques(
     output: &mut Vec<Vec<usize>>,
 ) {
     if candidates.is_empty() && excluded.is_empty() {
-        if clique.len() >= 2 {
+        if !clique.is_empty() {
             output.push(clique);
         }
         return;
     }
 
-    while let Some(vertex) = candidates.pop() {
+    let pivot = candidates
+        .iter()
+        .chain(&excluded)
+        .copied()
+        .max_by_key(|&v| {
+            candidates
+                .iter()
+                .filter(|&&u| u != v && graph.has_edge(u, v))
+                .count()
+        })
+        .expect("a nonterminal clique has a candidate or excluded vertex");
+    let branches: Vec<_> = candidates
+        .iter()
+        .copied()
+        .filter(|&v| v == pivot || !graph.has_edge(v, pivot))
+        .collect();
+    for vertex in branches {
+        candidates.retain(|&v| v != vertex);
         let mut next_clique = clique.clone();
         next_clique.push(vertex);
         maximal_cliques(

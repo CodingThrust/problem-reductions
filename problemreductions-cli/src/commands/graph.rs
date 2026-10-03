@@ -2,6 +2,7 @@ use crate::dispatch::{load_problem, read_input, ProblemJson};
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::Result;
+use problemreductions::parameters::ParameterRelation;
 use problemreductions::registry::collect_schemas;
 use problemreductions::registry::ProblemCategory;
 use problemreductions::rules::{ExecutedPath, ReductionGraph, ReductionPath, TraversalFlow};
@@ -584,13 +585,9 @@ fn strongest_contract_fields(
     let mut fields = BTreeMap::new();
     if let Some(transform) = contract.transform() {
         for (field, expression) in transform.expressions() {
-            let relation = match transform.relation() {
-                problemreductions::parameters::ParameterRelation::Exact => {
-                    StrongestContractRelation::Exact(expression)
-                }
-                problemreductions::parameters::ParameterRelation::UpperBound => {
-                    StrongestContractRelation::UpperBound(expression)
-                }
+            let relation = match transform.relation(field).expect("declared formula") {
+                ParameterRelation::Exact => StrongestContractRelation::Exact(expression),
+                ParameterRelation::UpperBound => StrongestContractRelation::UpperBound(expression),
             };
             fields.insert(field, relation);
         }
@@ -670,11 +667,11 @@ pub(crate) fn parameter_contract_to_json(
 ) -> serde_json::Value {
     match contract {
         Ok(contract) => serde_json::json!({
-            "relation": contract.transform().map(|transform| transform.relation()),
             "fields": contract.transform().map(|transform| transform.expressions().map(|(field, expression)| {
                 serde_json::json!({
                     "field": field,
                     "formula": expression.to_string(),
+                    "relation": transform.relation(field),
                     "big_o": big_o_of(expression),
                 })
             }).collect::<Vec<_>>()).unwrap_or_default(),
@@ -731,88 +728,50 @@ struct PreparedParameterField {
     relation: PreparedParameterRelation,
 }
 
-fn terminal_parameter_contract(
-    graph: &ReductionGraph,
-    path: &ReductionPath,
-) -> Option<problemreductions::rules::ReductionParameterContract> {
-    path.steps
-        .windows(2)
-        .last()
-        .and_then(|pair| {
-            graph.find_entry(
-                &pair[0].name,
-                &pair[0].variant,
-                &pair[1].name,
-                &pair[1].variant,
-            )
-        })
-        .and_then(|entry| entry.parameter_contract.ok())
-}
-
 fn prepare_overall_parameters(
     graph: &ReductionGraph,
     path: &ReductionPath,
 ) -> Vec<PreparedParameterField> {
-    let Some(target) = path.target() else {
+    let Some(target) = path.steps.last() else {
         return Vec::new();
     };
     let composed = graph.compose_path_parameter_transform(path);
-    let terminal_contract = terminal_parameter_contract(graph, path);
-
-    graph
-        .parameter_names(target)
-        .into_iter()
-        .map(|field| {
-            let expression = composed
-                .as_ref()
-                .ok()
-                .and_then(|transform| transform.as_ref())
-                .and_then(|transform| {
-                    transform
-                        .get(&field)
-                        .map(|expression| (transform.relation(), expression))
-                });
-            let relation = if let Some((relation, expression)) = expression {
-                match relation {
-                    problemreductions::parameters::ParameterRelation::Exact => {
-                        PreparedParameterRelation::Exact(expression.to_string())
-                    }
-                    problemreductions::parameters::ParameterRelation::UpperBound => {
-                        PreparedParameterRelation::UpperBound(expression.to_string())
+    let fields = problemreductions::registry::find_variant_entry(&target.name, &target.variant)
+        .map(|entry| entry.parameter_names())
+        .unwrap_or_default();
+    fields
+        .iter()
+        .map(|&field| {
+            let relation = match &composed {
+                Ok(Some(transform)) => {
+                    if let Some(expression) = transform.get(field) {
+                        match transform.relation(field).expect("declared formula") {
+                            ParameterRelation::Exact => {
+                                PreparedParameterRelation::Exact(expression.to_string())
+                            }
+                            ParameterRelation::UpperBound => {
+                                PreparedParameterRelation::UpperBound(expression.to_string())
+                            }
+                        }
+                    } else {
+                        let reason = transform
+                            .unavailable(field)
+                            .map(ToString::to_string)
+                            .unwrap_or_else(|| {
+                                format!("no symbolic parameter relation is registered for target field {field}")
+                            });
+                        PreparedParameterRelation::Unavailable(reason)
                     }
                 }
-            } else if let Some(unavailable) = terminal_contract.as_ref().and_then(|contract| {
-                contract
-                    .unavailable()
-                    .iter()
-                    .find(|unavailable| unavailable.field == field)
-            }) {
-                PreparedParameterRelation::Unavailable(unavailable.reason.to_string())
-            } else if terminal_contract
-                .as_ref()
-                .and_then(|contract| contract.transform())
-                .is_some_and(|transform| transform.get(&field).is_some())
-            {
-                PreparedParameterRelation::Unavailable(match &composed {
-                    Err(error) => error.to_string(),
-                    Ok(_) => {
-                        format!(
-                            "no composed parameter relation is available for target field {field}"
-                        )
-                    }
-                })
-            } else {
-                let reason = match &composed {
-                    Err(error) => error.to_string(),
-                    Ok(_) => {
-                        format!(
-                            "no symbolic parameter relation is registered for target field {field}"
-                        )
-                    }
-                };
-                PreparedParameterRelation::Unavailable(reason)
+                Err(error) => PreparedParameterRelation::Unavailable(error.to_string()),
+                Ok(None) => PreparedParameterRelation::Unavailable(format!(
+                    "no composed parameter relation is available for target field {field}"
+                )),
             };
-            PreparedParameterField { field, relation }
+            PreparedParameterField {
+                field: field.to_string(),
+                relation,
+            }
         })
         .collect()
 }

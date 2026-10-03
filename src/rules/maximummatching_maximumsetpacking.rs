@@ -40,10 +40,12 @@ where
     }
 }
 
+// Each edge contributes exactly one set. The target universe ends at the largest
+// endpoint label (or is empty), so trailing isolated vertices make its size < n.
 #[reduction(
-    transform = exact {
-        num_sets = "num_edges",
-        universe_size = "num_vertices",
+    transform = {
+        exact { num_sets = "num_edges" },
+        upper_bound { universe_size = "num_vertices" },
     }
 )]
 impl ReduceTo<MaximumSetPacking<i64>> for MaximumMatching<SimpleGraph, i64> {
