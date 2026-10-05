@@ -75,7 +75,7 @@ class WebsiteTests(unittest.TestCase):
         registry = self.page.request.get(self.base + 'open-questions/registry.json').json()
         question = next(entry for entry in registry['questions'] if entry['id'] == 'Q001')
         expect(self.page.get_by_role('link', name='Edit registry entry on GitHub')).to_have_attribute(
-            'href', f"https://github.com/GiggleLiu/autoresearch-gadgets/edit/main/website/questions/{question['slug']}.json")
+            'href', f"https://github.com/GiggleLiu/autoresearch-gadgets/edit/main/registry/{question['slug']}.json")
 
     def test_graph_navigation_opens_question_board(self):
         self.page.goto(self.base + 'graph.html')
