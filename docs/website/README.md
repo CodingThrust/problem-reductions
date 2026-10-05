@@ -127,7 +127,30 @@ clipboard actions, the mathematical example, legacy docs, and mobile overflow.
 
 ## Documentation
 
-Open questions has its own website navigation tab at `index.html#open-questions`.
+The homepage and graph's **Open questions** link opens `open-questions/`.
+The board is generated from the registry and shared templates in
+[`GiggleLiu/autoresearch-gadgets`](https://github.com/GiggleLiu/autoresearch-gadgets),
+then included in the same Pages artifact. Legacy `#open-questions` and
+`open-problems.html` links redirect to the board.
+
+The deployment workflow reads that private repository's `main` branch with the
+existing `PROJECT_READ_TOKEN` secret. That token needs **Contents: read** access
+to `GiggleLiu/autoresearch-gadgets`; the default `GITHUB_TOKEN` cannot read another
+private repository. Only the generated `website/dist/` is published. Registry
+changes appear on the next documentation deployment; use **Run workflow** on
+`main` to refresh the board without changing this repository. Feature-branch
+runs build and verify the artifact without deploying it.
+
+To include the board in a local preview, clone its source beside this repository,
+build it with its committed lockfile, and run the website overlay after mdBook:
+
+```sh
+uv run --project ../autoresearch-gadgets/website --locked python ../autoresearch-gadgets/website/build.py
+python3 scripts/build_website.py --open-questions ../autoresearch-gadgets/website/dist
+```
+
+Include the board when running the browser suite. Without `--open-questions`,
+the builder previews the main website and guide only.
 
 The guide has seven pages listed in `docs/src/SUMMARY.md`: an overview, the CLI
 (quick start, command reference), agent skills, the Rust library

@@ -18,6 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read Open Question Board source
+        uses: actions/checkout@v4
+        with:
+          repository: GiggleLiu/autoresearch-gadgets
+          ref: main
+          path: open-questions-source
+          token: ${{ secrets.PROJECT_READ_TOKEN }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Build Open Question Board
+        run: uv run --project open-questions-source/website --locked python open-questions-source/website/build.py
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: actions/setup-node@v4
@@ -68,7 +82,7 @@ jobs:
           cp -r target/doc/* book/api/
 
       - name: Build research website
-        run: python3 scripts/build_website.py
+        run: python3 scripts/build_website.py --open-questions open-questions-source/website/dist
 
       - name: Verify deployment artifact
         run: |
@@ -88,6 +102,7 @@ jobs:
           path: './book'
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     permissions:
       pages: write
       id-token: write

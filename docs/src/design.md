@@ -583,4 +583,4 @@ accept full matrices; evaluation and serialization ignore their lower triangle.
 
 ## Contributing
 
-See [Call for Contributions](index.html#open-questions) for the recommended issue-based workflow (no coding required).
+See the [Open Question Board](open-questions/) to browse problems and register a problem or solution through a GitHub pull request.
