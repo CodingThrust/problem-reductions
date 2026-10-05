@@ -115,7 +115,16 @@ def build_markdown(output):
         summary.removeprefix("# Summary\n").lstrip())
 
 
-def build(output, graph_path, schemas_path):
+def publish_open_questions(source, output):
+    """Publish the board with its own assets, preserving repository evidence paths."""
+    registry = (source / "registry.json").read_bytes()
+    shutil.copytree(source, output)
+    finalize(output)
+    # Registry paths refer to proof repositories, not this site's asset release.
+    (output / "registry.json").write_bytes(registry)
+
+
+def build(output, graph_path, schemas_path, open_questions=None):
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
     nodes, edges = graph["nodes"], graph["edges"]
@@ -127,6 +136,9 @@ def build(output, graph_path, schemas_path):
         raise ValueError("The atlas requires nodes and valid edge endpoints")
     source = ROOT / "docs/website"
     output.mkdir(parents=True, exist_ok=True)
+    # Replace the board on rebuild before finalizing the main site's assets.
+    if (output / "open-questions").exists():
+        shutil.rmtree(output / "open-questions")
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
     shutil.copyfile(ROOT / "node_modules/cytoscape/dist/cytoscape.min.js", output / "assets/cytoscape.min.js")
     shutil.copyfile(ROOT / "node_modules/cytoscape/LICENSE", output / "assets/cytoscape.LICENSE")
@@ -234,6 +246,8 @@ def build(output, graph_path, schemas_path):
     (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
         {**summary, "layout": layout}, separators=(",", ":")) + ";\n")
     finalize(output)
+    if open_questions is not None:
+        publish_open_questions(open_questions, output / "open-questions")
     print(f"Built website in {output}: {counts['PROBLEM_COUNT']} families, "
           f"{len(nodes)} variants, {len(edges)} directed reductions")
 
@@ -245,9 +259,11 @@ if __name__ == "__main__":
                         default=ROOT / "docs/src/reductions/reduction_graph.json")
     parser.add_argument("--schemas", type=Path,
                         default=ROOT / "docs/src/reductions/problem_schemas.json")
+    parser.add_argument("--open-questions", type=Path,
+                        help="Built Open Question Board directory (website/dist)")
     args = parser.parse_args()
     try:
-        build(args.output, args.graph, args.schemas)
+        build(args.output, args.graph, args.schemas, args.open_questions)
     except FileNotFoundError as error:
         parser.exit(1, f"{error}\nGenerate atlas data with cargo run --example "
                     "export_graph and cargo run --example export_schemas first.\n")

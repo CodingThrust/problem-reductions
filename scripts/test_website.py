@@ -59,25 +59,29 @@ class WebsiteTests(unittest.TestCase):
         expect(home).to_have_attribute('aria-current', 'page')
         expect(self.page.locator('main .hero')).to_be_visible()
 
-    def test_open_questions_has_its_own_navigation_tab(self):
+    def test_home_navigation_opens_question_board(self):
         self.visit()
         tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open questions', exact=True)
         tab.click()
-        expect(tab).to_have_attribute('aria-current', 'page')
-        self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
-        expect(tab.locator('span')).to_have_text('↗')
-        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
-        expect(self.page.locator('main')).to_contain_text('To be released.')
-        self.page.goto(self.base + 'introduction.html')
-        expect(self.page.locator('.sidebar')).not_to_contain_text('Open questions')
-        expect(self.page.locator('.sidebar').get_by_text('Research', exact=True)).to_have_count(0)
+        expect(self.page).to_have_url(self.base + 'open-questions/')
+        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
+        self.page.get_by_role('link', name='All questions', exact=False).click()
+        self.page.get_by_role('searchbox', name='Search the collection').fill('Q001')
+        expect(self.page.locator('.question-item:visible')).to_have_count(1)
+        expect(self.page.locator('.question-item:visible .question-id')).to_have_text('Q001')
+        self.page.locator('.question-item:visible .question-link').click()
+        self.page.get_by_role('link', name='Submit a solution', exact=True).click()
+        expect(self.page.get_by_label('Registry entry', exact=True)).to_have_value('Q001')
+        registry = self.page.request.get(self.base + 'open-questions/registry.json').json()
+        question = next(entry for entry in registry['questions'] if entry['id'] == 'Q001')
+        expect(self.page.get_by_role('link', name='Edit registry entry on GitHub')).to_have_attribute(
+            'href', f"https://github.com/GiggleLiu/autoresearch-gadgets/edit/main/website/questions/{question['slug']}.json")
+
+    def test_graph_navigation_opens_question_board(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        tab = self.page.get_by_role('link', name='Open questions', exact=True)
-        self.assertEqual(tab.locator('xpath=following-sibling::a').count(), 0)
-        expect(tab.locator('span')).to_have_text('↗')
-        tab.click()
-        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
+        self.page.get_by_role('link', name='Open questions', exact=True).click()
+        expect(self.page).to_have_url(self.base + 'open-questions/')
+        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
 
     def test_home_formulas_load_as_typeset_vectors(self):
         self.visit()
@@ -231,13 +235,13 @@ class WebsiteTests(unittest.TestCase):
             !link.textContent.includes('Result recovery') && !link.textContent.includes('See contract'))'''))
         self.visit('reduction/MaximumIndependentSet/DecisionMaximumIndependentSet')
         expect(self.page.locator('.reading-aside .rule-kind')).to_have_text('Turing reduction')
-        self.visit('reduction/CircuitSAT/SpinGlass')
+        self.visit('reduction/CircuitSAT/DecisionSpinGlass')
         expect(self.page.locator('.reading-aside .rule-kind')).to_have_count(0)
         expect(self.page.locator('.reading-aside')).not_to_contain_text('Status')
         expect(self.page.locator('.reading-aside')).not_to_contain_text('Capabilities')
 
     def test_rule_parameter_upper_bounds_use_inequalities(self):
-        self.visit('reduction/CircuitSAT/SpinGlass')
+        self.visit('reduction/CircuitSAT/DecisionSpinGlass')
         expect(self.page.locator('.parameter-operator')).to_have_text(['≤', '≤'])
         expect(self.page.locator('.parameter-relation math')).to_have_count(2)
         self.page.set_viewport_size({'width': 390, 'height': 900})
@@ -306,8 +310,13 @@ class WebsiteTests(unittest.TestCase):
         self.page.wait_for_url(self.base + 'graph.html')
         expect(self.page.locator("#cy canvas").first).to_be_visible()
         self.page.goto(self.base + 'open-problems.html')
-        self.page.wait_for_url(self.base + 'index.html#open-questions')
-        expect(self.page.get_by_role('heading', name='Open questions', exact=True)).to_be_visible()
+        self.page.wait_for_url(self.base + 'open-questions/')
+        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
+
+    def test_legacy_open_questions_hash_opens_question_board(self):
+        self.visit('open-questions')
+        expect(self.page).to_have_url(self.base + 'open-questions/')
+        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
 
     def test_docs_sidebar_drag_resizes_content(self):
         self.page.goto(self.base + 'introduction.html')
@@ -403,18 +412,20 @@ class WebsiteTests(unittest.TestCase):
         """)
         self.page.locator('#graph-search').fill('ILP')
         self.page.locator('#graph-search').press('Enter')
-        self.assertEqual(self.page.evaluate("""() => {
+        graph = self.page.request.get(self.base + 'reductions/reduction_graph.json').json()
+        expected_variants = sum(node['name'] == 'ILP' for node in graph['nodes'])
+        self.assertEqual(self.page.evaluate("""expectedVariants => {
             const cy = document.querySelector('#cy')._cyreg.cy;
             const parent = cy.getElementById('ILP');
             const box = parent.boundingBox();
             const neighbors = parent.children().connectedEdges().connectedNodes()
                 .difference(parent.children());
-            if (parent.children().length !== 4 || neighbors.length <= 50) return ['Missing variants or neighbors'];
+            if (parent.children().length !== expectedVariants || neighbors.length <= 50) return ['Missing variants or neighbors'];
             return neighbors.filter(node => {
                     const {x, y} = node.position();
                     return x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2;
                 }).map(node => node.id());
-        }"""), [])
+        }""", expected_variants), [])
         displaced = self.page.evaluate("""() =>
             document.querySelector('#cy')._cyreg.cy.nodes()
                 .filter(node => !node.isParent() && !node.data('isVariant'))
@@ -597,7 +608,7 @@ class WebsiteTests(unittest.TestCase):
         self.assertEqual(self.page.evaluate('document.activeElement.tagName'), 'BODY')
 
     def test_atlas_ilp_prioritizes_documentation_over_metadata(self):
-        self.visit('problem/ILP')
+        self.visit('problem/ILP?variant=bounds=general,coefficient=f64,variable=bool')
         expect(self.page.locator('article.typst-detail')).to_contain_text('Lenstra')
         expect(self.page.locator('.relation-title > span').filter(
             has_text='Expected Retrieval Cost')).to_have_text('Expected Retrieval Cost →')
