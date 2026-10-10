@@ -141,6 +141,33 @@ fn test_lcs_to_mis_selects_by_vertices_and_edges() {
 }
 
 #[test]
+fn test_lcs_to_mis_removes_impossible_anchor_letters() {
+    let source = LongestCommonSubsequence::new(
+        3,
+        vec![
+            vec![0, 0, 1, 2],
+            [vec![1; 3], vec![0; 5]].concat(),
+            [vec![1; 4], vec![0; 6]].concat(),
+        ],
+    );
+    // Only 001 remains in the anchor: 9 anchor vertices + 29 matches + 6 skips.
+    // Anchor edges 6, embedding cliques 88, consistency 41, crossings 114.
+    let reduction =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_vertices(), 44);
+    assert_eq!(reduction.target_problem().num_edges(), 249);
+    assert_round_trip(&source, 2, 11);
+
+    // After removing the absent 1, both other strings contain the whole anchor.
+    let source = LongestCommonSubsequence::new(2, vec![vec![0, 0, 1], vec![0; 5], vec![0; 6]]);
+    let reduction =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    assert_eq!(reduction.target_problem().num_vertices(), 2);
+    assert_eq!(reduction.target_problem().num_edges(), 0);
+    assert_round_trip(&source, 2, 2);
+}
+
+#[test]
 fn test_lcs_to_mis_ordering_and_empty_common_subsequences() {
     for (alphabet, strings, length) in [
         (2, vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 1]], 2),

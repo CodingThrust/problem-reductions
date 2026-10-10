@@ -1,9 +1,9 @@
 //! Capped match-tuple graph with a polynomial anchored fallback.
 //!
-//! Redundant strings are removed first. Tuple vertices preserve the LCS value;
-//! for k retained strings, anchored graphs have L * k plus the LCS value.
-//! The cap is L * (k + 2) + F,
-//! where F counts equal-symbol position pairs against a shortest input string.
+//! Remove redundant strings and impossible anchor letters first. Tuple graphs
+//! preserve LCS; anchored optima are L * k + LCS for k retained strings.
+//! Both graphs have at most L * (k + 2) + F vertices, where L is the filtered
+//! anchor length and F counts matches against it. Original input counts bound these.
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::misc::{is_subsequence, LongestCommonSubsequence};
@@ -114,13 +114,16 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
             .map(Vec::as_slice)
             .unwrap_or_default();
         let mut seen = HashSet::new();
-        let retained = std::iter::once(anchor).chain(
-            self.strings()
-                .iter()
-                .map(Vec::as_slice)
-                .filter(|string| !is_subsequence(anchor, string) && seen.insert(*string)),
-        );
+        let retained = std::iter::once(anchor)
+            .chain(
+                self.strings()
+                    .iter()
+                    .map(Vec::as_slice)
+                    .filter(|string| !is_subsequence(anchor, string) && seen.insert(*string)),
+            )
+            .collect::<Vec<_>>();
         let positions = retained
+            .iter()
             .map(|string| {
                 let mut map = BTreeMap::<usize, Vec<usize>>::new();
                 for (j, &symbol) in string.iter().enumerate() {
@@ -129,11 +132,30 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
                 map
             })
             .collect::<Vec<_>>();
+        let common_symbols = positions[0]
+            .keys()
+            .copied()
+            .filter(|symbol| positions.iter().all(|map| map.contains_key(symbol)))
+            .collect::<HashSet<_>>();
+        let anchor = anchor
+            .iter()
+            .copied()
+            .filter(|symbol| common_symbols.contains(symbol))
+            .collect::<Vec<_>>();
+        let positions = positions
+            .into_iter()
+            .zip(retained)
+            .enumerate()
+            .filter(|(r, (_, string))| *r == 0 || !is_subsequence(&anchor, string))
+            .map(|(_, (map, _))| map)
+            .collect::<Vec<_>>();
 
         // Only nonempty position lists enter the product; a later absent symbol
         // must contribute zero before any multiplication can exceed the cap.
         let common = positions[0]
             .keys()
+            // Removing a constraint must not reintroduce an impossible letter.
+            .filter(|symbol| common_symbols.contains(symbol))
             .filter_map(|&symbol| {
                 let lists = positions
                     .iter()
@@ -144,7 +166,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
             .collect::<Vec<_>>();
         let mut cap = anchor.len().checked_mul(3).ok_or_else(overflow)?;
         for map in &positions[1..] {
-            for symbol in anchor {
+            for symbol in &anchor {
                 cap = cap
                     .checked_add(map.get(symbol).map_or(0, Vec::len))
                     .and_then(|count| count.checked_add(1))
@@ -194,13 +216,13 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
             }
             Encoding::Tuples(nodes)
         } else {
-            let (anchor_edges, anchor_encoding) = anchored_graph(anchor, &positions, cap)?;
+            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
             edges = anchor_edges;
             anchor_encoding
         };
         // A tuple graph costing at most the anchor's vertices alone cannot lose.
         if tuple_count.is_some() && edges.len() > cap - num_vertices {
-            let (anchor_edges, anchor_encoding) = anchored_graph(anchor, &positions, cap)?;
+            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
             if edges.len() > anchor_edges.len()
                 && edges.len() - anchor_edges.len() > cap - num_vertices
             {
