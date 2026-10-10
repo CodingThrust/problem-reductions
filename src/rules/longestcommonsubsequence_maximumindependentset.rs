@@ -1,33 +1,33 @@
-//! Polynomial-size LCS reduction using symbol and embedding choice groups.
+//! Capped match-tuple graph with a polynomial anchored fallback.
 //!
-//! Each choice is an independent cluster: two vertices for a position or padding,
-//! three for an active symbol. Conflicts enforce one choice per group, matching
-//! characters, increasing positions, and a padding suffix. Every optimum fills
-//! all groups; its size is 2 * max_length * (num_strings + 1) plus the LCS length.
+//! Redundant strings are removed first. Tuple vertices preserve the LCS value;
+//! for k retained strings, anchored graphs have L * k plus the LCS value.
+//! The cap is L * (k + 2) + F,
+//! where F counts equal-symbol position pairs against a shortest input string.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::models::misc::LongestCommonSubsequence;
+use crate::models::misc::{is_subsequence, LongestCommonSubsequence};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::One;
+use std::collections::{BTreeMap, HashSet};
 use std::ops::Range;
 
 #[derive(Debug, Clone)]
-struct Choice {
-    group: usize,
-    slot: usize,
-    string: Option<usize>,
-    value: Option<usize>,
-    vertices: Range<usize>,
+enum Encoding {
+    Tuples(Vec<(usize, Vec<usize>)>),
+    Anchored {
+        anchor: Vec<usize>,
+        embeddings: Vec<Vec<Range<usize>>>,
+    },
 }
 
-/// Stores the choice clusters needed to decode a complete independent set.
+/// Target graph and the selected mathematical witness mapping.
 #[derive(Debug, Clone)]
 pub struct ReductionLCSToIS {
     target: MaximumIndependentSet<SimpleGraph, One>,
-    choices: Vec<Choice>,
-    num_groups: usize,
+    encoding: Encoding,
     max_length: usize,
 }
 
@@ -49,149 +49,164 @@ impl ReductionResult for ReductionLCSToIS {
             |value| value.0.is_some(),
             "selected vertices do not form an independent set",
         )?;
-        let mut selected_groups = vec![false; self.num_groups];
-        let mut decoded = vec![None; self.max_length];
-        for choice in &self.choices {
-            let selected = solution[choice.vertices.clone()]
-                .iter()
-                .filter(|&&bit| bit)
-                .count();
-            if selected == 0 {
-                continue;
+        let mut decoded = Vec::with_capacity(self.max_length);
+        match &self.encoding {
+            Encoding::Tuples(nodes) => {
+                let mut selected = nodes
+                    .iter()
+                    .zip(solution)
+                    .filter(|(_, bit)| **bit)
+                    .map(|((symbol, positions), _)| (positions[0], *symbol))
+                    .collect::<Vec<_>>();
+                selected.sort_unstable_by_key(|&(position, _)| position);
+                decoded.extend(selected.into_iter().map(|(_, symbol)| Some(symbol)));
             }
-            if selected != choice.vertices.len() {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "selected choice cluster is incomplete",
-                ));
-            }
-            selected_groups[choice.group] = true;
-            if choice.group < self.max_length {
-                decoded[choice.group] = choice.value;
+            Encoding::Anchored { anchor, embeddings } => {
+                for (p, &symbol) in anchor.iter().enumerate() {
+                    if solution[3 * p] != solution[3 * p + 1] {
+                        return Err(crate::rules::ExtractionError::invalid(
+                            "active anchor twins are incomplete",
+                        ));
+                    }
+                    if solution[3 * p]
+                        && embeddings.iter().all(|groups| {
+                            let group = &groups[p];
+                            solution[group.start..group.end - 1].iter().any(|&bit| bit)
+                        })
+                    {
+                        decoded.push(Some(symbol));
+                    }
+                }
             }
         }
-        if let Some(group) = selected_groups.iter().position(|&selected| !selected) {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "choice group {group} has no selected choice"
-            )));
+        while decoded.len() < self.max_length {
+            decoded.push(None);
         }
         Ok(decoded)
     }
 }
 
-#[reduction(
-    transform = {
-        exact {
-            num_vertices = "max_length * (3 * num_distinct_symbols + 2 + 2 * (total_length + num_strings))",
-        },
-        upper_bound {
-            num_edges = "(max_length * (3 * num_distinct_symbols + 2 + 2 * (total_length + num_strings)))^2",
-        },
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vertices = "max_length * (num_strings + 2) + anchor_matching_pairs",
+    num_edges = "(max_length * (num_strings + 2) + anchor_matching_pairs)^2",
+})]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubsequence {
     type Result = ReductionLCSToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        if self.max_length() == 0 {
+            return Ok(ReductionLCSToIS {
+                target: MaximumIndependentSet::new(SimpleGraph::new(0, vec![]), vec![]),
+                encoding: Encoding::Tuples(vec![]),
+                max_length: 0,
+            });
+        }
         let overflow = || {
             crate::rules::ReductionError::integer_overflow::<
                 Self,
                 MaximumIndependentSet<SimpleGraph, One>,
-            >("counting choice vertices")
+            >("counting anchored vertices")
         };
-        let total_length = self
+        let anchor = self
             .strings()
             .iter()
-            .try_fold(0usize, |total, string| total.checked_add(string.len()))
-            .ok_or_else(overflow)?;
-        let symbols = self
-            .strings()
-            .iter()
-            .flatten()
-            .copied()
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let per_slot = symbols
-            .len()
-            .checked_mul(3)
-            .and_then(|value| value.checked_add(2))
-            .and_then(|value| {
-                total_length
-                    .checked_add(self.num_strings())?
-                    .checked_mul(2)?
-                    .checked_add(value)
+            .min_by_key(|s| s.len())
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let mut seen = HashSet::new();
+        let retained = std::iter::once(anchor).chain(
+            self.strings()
+                .iter()
+                .map(Vec::as_slice)
+                .filter(|string| !is_subsequence(anchor, string) && seen.insert(*string)),
+        );
+        let positions = retained
+            .map(|string| {
+                let mut map = BTreeMap::<usize, Vec<usize>>::new();
+                for (j, &symbol) in string.iter().enumerate() {
+                    map.entry(symbol).or_default().push(j);
+                }
+                map
             })
-            .ok_or_else(overflow)?;
-        let num_vertices = self
-            .max_length()
-            .checked_mul(per_slot)
-            .ok_or_else(overflow)?;
+            .collect::<Vec<_>>();
+
+        // Only nonempty position lists enter the product; a later absent symbol
+        // must contribute zero before any multiplication can exceed the cap.
+        let common = positions[0]
+            .keys()
+            .filter_map(|&symbol| {
+                let lists = positions
+                    .iter()
+                    .map(|map| map.get(&symbol).map(Vec::as_slice))
+                    .collect::<Option<Vec<_>>>()?;
+                Some((symbol, lists))
+            })
+            .collect::<Vec<_>>();
+        let mut cap = anchor.len().checked_mul(3).ok_or_else(overflow)?;
+        for map in &positions[1..] {
+            for symbol in anchor {
+                cap = cap
+                    .checked_add(map.get(symbol).map_or(0, Vec::len))
+                    .and_then(|count| count.checked_add(1))
+                    .ok_or_else(overflow)?;
+            }
+        }
+        let tuple_count = common.iter().try_fold(0usize, |total, (_, lists)| {
+            let product = lists.iter().try_fold(1usize, |product, list| {
+                product
+                    .checked_mul(list.len())
+                    .filter(|&count| count <= cap)
+            })?;
+            total.checked_add(product).filter(|&count| count <= cap)
+        });
+        let mut num_vertices = tuple_count.unwrap_or(cap);
         <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
             num_vertices,
             "representing the independent-set objective",
         )?;
-        let mut choices = Vec::new();
-        let mut cursor = 0usize;
-        let mut num_groups = 0;
-        let mut add_group = |slot, string: Option<usize>, values: &[usize]| {
-            for value in values
-                .iter()
-                .copied()
-                .map(Some)
-                .chain(std::iter::once(None))
-            {
-                let count = if string.is_none() && value.is_some() {
-                    3
-                } else {
-                    2
-                };
-                let end = cursor.checked_add(count).ok_or_else(overflow)?;
-                choices.push(Choice {
-                    group: num_groups,
-                    slot,
-                    string,
-                    value,
-                    vertices: cursor..end,
-                });
-                cursor = end;
-            }
-            num_groups += 1;
-            Ok::<_, crate::rules::ReductionError>(())
-        };
-        for slot in 0..self.max_length() {
-            add_group(slot, None, &symbols)?;
-        }
-        for (string, input) in self.strings().iter().enumerate() {
-            let positions = (0..input.len()).collect::<Vec<_>>();
-            for slot in 0..self.max_length() {
-                add_group(slot, Some(string), &positions)?;
-            }
-        }
         let mut edges = Vec::new();
-        for (i, left) in choices.iter().enumerate() {
-            for right in &choices[i + 1..] {
-                let conflict = if left.group == right.group {
-                    true
-                } else {
-                    // Groups are generated in slot order, with symbols before embeddings.
-                    match (left.string, right.string) {
-                        (None, None) => left.value.is_none() && right.value.is_some(),
-                        (Some(a), Some(b)) if a == b => right
-                            .value
-                            .is_some_and(|j| left.value.is_none_or(|i| i >= j)),
-                        (None, Some(string)) if left.slot == right.slot => {
-                            left.value != right.value.map(|j| self.strings()[string][j])
-                        }
-                        _ => false,
-                    }
-                };
-                if conflict {
-                    for a in left.vertices.clone() {
-                        for b in right.vertices.clone() {
-                            edges.push((a, b));
-                        }
+        let mut encoding = if tuple_count.is_some() {
+            let mut nodes = Vec::with_capacity(num_vertices);
+            for (symbol, lists) in common {
+                let mut tuples = vec![Vec::new()];
+                for list in lists {
+                    tuples = tuples
+                        .into_iter()
+                        .flat_map(|prefix| {
+                            list.iter().map(move |&position| {
+                                let mut tuple = prefix.clone();
+                                tuple.push(position);
+                                tuple
+                            })
+                        })
+                        .collect();
+                }
+                nodes.extend(tuples.into_iter().map(|tuple| (symbol, tuple)));
+            }
+            for (i, (_, left)) in nodes.iter().enumerate() {
+                for (j, (_, right)) in nodes.iter().enumerate().skip(i + 1) {
+                    if !left.iter().zip(right).all(|(a, b)| a < b)
+                        && !left.iter().zip(right).all(|(a, b)| a > b)
+                    {
+                        edges.push((i, j));
                     }
                 }
+            }
+            Encoding::Tuples(nodes)
+        } else {
+            let (anchor_edges, anchor_encoding) = anchored_graph(anchor, &positions, cap)?;
+            edges = anchor_edges;
+            anchor_encoding
+        };
+        // A tuple graph costing at most the anchor's vertices alone cannot lose.
+        if tuple_count.is_some() && edges.len() > cap - num_vertices {
+            let (anchor_edges, anchor_encoding) = anchored_graph(anchor, &positions, cap)?;
+            if edges.len() > anchor_edges.len()
+                && edges.len() - anchor_edges.len() > cap - num_vertices
+            {
+                num_vertices = cap;
+                edges = anchor_edges;
+                encoding = anchor_encoding;
             }
         }
         let target = MaximumIndependentSet::new(
@@ -200,11 +215,61 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
         );
         Ok(ReductionLCSToIS {
             target,
-            choices,
-            num_groups,
+            encoding,
             max_length: self.max_length(),
         })
     }
+}
+
+fn anchored_graph(
+    anchor: &[usize],
+    positions: &[BTreeMap<usize, Vec<usize>>],
+    cap: usize,
+) -> Result<(Vec<(usize, usize)>, Encoding), crate::rules::ReductionError> {
+    <LongestCommonSubsequence as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
+        cap,
+        "representing the anchored independent-set objective",
+    )?;
+    let mut edges = Vec::new();
+    let mut cursor = anchor.len() * 3;
+    let mut embeddings = Vec::with_capacity(positions.len() - 1);
+    for p in 0..anchor.len() {
+        edges.extend([(3 * p, 3 * p + 2), (3 * p + 1, 3 * p + 2)]);
+    }
+    for map in &positions[1..] {
+        let mut groups = Vec::<(&[usize], Range<usize>)>::with_capacity(anchor.len());
+        for (p, symbol) in anchor.iter().enumerate() {
+            let matches = map.get(symbol).map(Vec::as_slice).unwrap_or_default();
+            let group = cursor..cursor + matches.len() + 1;
+            cursor = group.end;
+            for a in group.clone() {
+                for b in a + 1..group.end {
+                    edges.push((a, b));
+                }
+            }
+            let skip = group.end - 1;
+            edges.extend([(3 * p, skip), (3 * p + 1, skip)]);
+            edges.extend((group.start..skip).map(|j| (3 * p + 2, j)));
+            // Only this string's earlier slots can cross. Sorted matches let
+            // us emit exactly the conflicting prefix of each group.
+            for (earlier, previous) in &groups {
+                for (i, &position) in earlier.iter().enumerate() {
+                    let conflicts = matches.partition_point(|&j| j <= position);
+                    edges.extend((0..conflicts).map(|j| (previous.start + i, group.start + j)));
+                }
+            }
+            groups.push((matches, group));
+        }
+        embeddings.push(groups.into_iter().map(|(_, range)| range).collect());
+    }
+    debug_assert_eq!(cursor, cap);
+    Ok((
+        edges,
+        Encoding::Anchored {
+            anchor: anchor.to_vec(),
+            embeddings,
+        },
+    ))
 }
 
 #[cfg(feature = "example-db")]
@@ -215,36 +280,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
             let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
-            let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source)
-                .expect("reduction should succeed");
-            // BAC, then padding; its positions are (1,2,3) and (0,1,2).
-            let assignments = [
-                Some(1),
-                Some(0),
-                Some(2),
-                None,
-                Some(1),
-                Some(2),
-                Some(3),
-                None,
-                Some(0),
-                Some(1),
-                Some(2),
-                None,
-            ];
-            let mut target_config = vec![false; reduction.target.num_vertices()];
-            for choice in &reduction.choices {
-                if assignments[choice.group] == choice.value {
-                    target_config[choice.vertices.clone()].fill(true);
-                }
-            }
-            crate::example_db::specs::assemble_rule_example(
-                &source,
-                reduction.target_problem(),
-                vec![SolutionPair {
-                    source_config: serde_json::json!(&assignments[..source.max_length()]),
-                    target_config: serde_json::json!(target_config),
-                }],
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MaximumIndependentSet<SimpleGraph, One>,
+            >(
+                source,
+                SolutionPair {
+                    source_config: serde_json::json!(vec![Some(1), Some(0), Some(2), None]),
+                    target_config: serde_json::json!(vec![false, false, true, false, true, true]),
+                },
             )
         },
     }]

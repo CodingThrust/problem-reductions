@@ -41,6 +41,8 @@ pub struct LongestCommonSubsequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+    #[serde(skip)]
+    anchor_matching_pairs: u64,
 }
 
 #[derive(Deserialize)]
@@ -122,10 +124,32 @@ impl LongestCommonSubsequence {
         {
             return Err("input symbols must be less than alphabet_size".into());
         }
+        let mut anchor_matching_pairs = 0u64;
+        if let Some((anchor, input)) = strings
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, s)| s.len())
+            .filter(|(_, s)| !s.is_empty())
+        {
+            let mut frequencies = std::collections::HashMap::<usize, u64>::new();
+            for &symbol in input {
+                *frequencies.entry(symbol).or_default() += 1;
+            }
+            for (r, string) in strings.iter().enumerate() {
+                if r != anchor {
+                    for symbol in string {
+                        anchor_matching_pairs = anchor_matching_pairs
+                            .checked_add(frequencies.get(symbol).copied().unwrap_or(0))
+                            .ok_or("anchor matching-pair count exceeds u64")?;
+                    }
+                }
+            }
+        }
         Ok(Self {
             alphabet_size,
             strings,
             max_length,
+            anchor_matching_pairs,
         })
     }
 
@@ -167,13 +191,10 @@ impl LongestCommonSubsequence {
             .sum()
     }
 
-    /// Returns the number of distinct symbols occurring in the input strings.
-    pub fn num_distinct_symbols(&self) -> usize {
-        self.strings
-            .iter()
-            .flatten()
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
+    /// Equal-symbol position pairs between the first shortest string and all others.
+    /// Counts the original input strings before a reduction removes redundancy.
+    pub fn anchor_matching_pairs(&self) -> u64 {
+        self.anchor_matching_pairs
     }
 
     /// Returns the number of adjacent position transitions.
@@ -188,7 +209,8 @@ impl LongestCommonSubsequence {
     /// where count(c, s) is the number of occurrences of symbol c in string s.
     ///
     /// This statistic describes the legacy match-tuple expansion, not the
-    /// polynomial-size choice graph used by the LCS → MaxIS reduction.
+    /// capped hybrid used by the LCS → MaxIS reduction. This uncapped getter
+    /// is not a canonical parameter and can overflow for many repeated strings.
     pub fn cross_frequency_product(&self) -> usize {
         (0..self.alphabet_size)
             .map(|c| {
@@ -203,7 +225,7 @@ impl LongestCommonSubsequence {
 
 /// Check whether `candidate` is a subsequence of `target` using greedy
 /// left-to-right matching.
-fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
+pub(crate) fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
     let mut it = target.iter();
     for &symbol in candidate {
         loop {
@@ -226,7 +248,7 @@ impl Problem for LongestCommonSubsequence {
         ("alphabet_size", alphabet_size),
         ("max_length", max_length),
         ("num_strings", num_strings),
-        ("num_distinct_symbols", num_distinct_symbols),
+        ("anchor_matching_pairs", anchor_matching_pairs),
         ("num_transitions", num_transitions),
         ("sum_triangular_lengths", sum_triangular_lengths),
         ("total_length", total_length),

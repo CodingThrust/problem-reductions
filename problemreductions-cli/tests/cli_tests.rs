@@ -5696,8 +5696,8 @@ fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
         String::from_utf8_lossy(&reduced.stderr)
     );
     let data: serde_json::Value = serde_json::from_slice(&std::fs::read(&bundle).unwrap()).unwrap();
-    // L=3, A=3, k=3, T=11: V=3*(9+2+28)=117.
-    assert_eq!(data["target"]["data"]["graph"]["num_vertices"], 117);
+    // Vertex-symbol frequencies give 2 alignments for 0, 1 for 1, and 2 for 2.
+    assert_eq!(data["target"]["data"]["graph"]["num_vertices"], 5);
     let solved = pred()
         .args([
             "solve",
