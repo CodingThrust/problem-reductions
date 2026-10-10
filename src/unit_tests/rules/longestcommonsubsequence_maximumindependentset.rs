@@ -137,7 +137,14 @@ fn test_lcs_to_mis_ignores_unused_declared_symbols() {
         ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
     assert_eq!(source.parameters().get("num_distinct_symbols"), Some(1));
     assert_eq!(reduction.target_problem().num_vertices(), 9);
-    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
+    let solution = BruteForce::new()
+        .solve(reduction.target_problem())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        reduction.target_problem().evaluate(&solution).unwrap(),
+        Max(Some(5))
+    );
     assert_eq!(
         reduction.extract_solution(&solution).unwrap(),
         vec![Some(usize::MAX - 1)]
