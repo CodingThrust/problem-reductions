@@ -167,6 +167,15 @@ impl LongestCommonSubsequence {
             .sum()
     }
 
+    /// Returns the number of distinct symbols occurring in the input strings.
+    pub fn num_distinct_symbols(&self) -> usize {
+        self.strings
+            .iter()
+            .flatten()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+    }
+
     /// Returns the number of adjacent position transitions.
     pub fn num_transitions(&self) -> usize {
         self.max_length.saturating_sub(1)
@@ -178,8 +187,8 @@ impl LongestCommonSubsequence {
     /// Formally: Σ_{c ∈ 0..alphabet_size} Π_{i=1..k} count(c, strings\[i\])
     /// where count(c, s) is the number of occurrences of symbol c in string s.
     ///
-    /// This equals the exact number of match-node vertices in the LCS → MaxIS
-    /// reduction graph.
+    /// This statistic describes the legacy match-tuple expansion, not the
+    /// polynomial-size choice graph used by the LCS → MaxIS reduction.
     pub fn cross_frequency_product(&self) -> usize {
         (0..self.alphabet_size)
             .map(|c| {
@@ -215,9 +224,9 @@ impl Problem for LongestCommonSubsequence {
 
     crate::problem_parameters![
         ("alphabet_size", alphabet_size),
-        ("cross_frequency_product", cross_frequency_product),
         ("max_length", max_length),
         ("num_strings", num_strings),
+        ("num_distinct_symbols", num_distinct_symbols),
         ("num_transitions", num_transitions),
         ("sum_triangular_lengths", sum_triangular_lengths),
         ("total_length", total_length),

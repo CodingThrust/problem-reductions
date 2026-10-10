@@ -14036,9 +14036,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
 #let lcs_mis_sol = lcs_mis.solutions.at(0)
+#let lcs_mis_length = lcs_mis_sol.source_config.filter(x => x != none).len()
+#let lcs_mis_slots = lcs_mis_sol.source_config.len()
+#let lcs_mis_baseline = 2 * lcs_mis_slots * (lcs_mis.source.instance.strings.len() + 1)
 #reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
   example: true,
-  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  example-caption: [Polynomial choice encoding of two strings over a 3-symbol alphabet],
   extra: [
     #pred-commands(
       "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
@@ -14046,22 +14049,24 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
     )
-    Source LCS: config $(#fmt-values(lcs_mis_sol.source_config))$ \
-    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x).len()) \
-    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x).len()$ #sym.checkmark
+    The strings #fmt-values(lcs_mis.source.instance.strings.at(0)) and #fmt-values(lcs_mis.source.instance.strings.at(1)) have #lcs_mis_slots slots. There are #lcs_mis.source.instance.strings.len() strings and #lcs_mis.target.instance.graph.num_vertices vertices in the target. Source witness $(#fmt-values(lcs_mis_sol.source_config))$ selects #lcs_mis_length active symbol clusters; filling every group gives MIS size $= #lcs_mis_baseline + #lcs_mis_length = #lcs_mis_sol.target_config.filter(x => x).len()$.
   ],
 )[
-  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+  Symbol and embedding choice groups give a polynomial-size unweighted conflict graph. With $k$ strings, minimum length $L$, total length $T$, and $A$ distinct symbols occurring in the input, the graph has exactly $L(3A+2+2(T+k))$ vertices and at most the square of this count in edges. Its maximum independent set has size $2L(k+1)$ plus the LCS length. Since $A <= T$, unused declared alphabet symbols cannot inflate the graph.
 ][
-  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+  _Construction._ Let $s_1, dots, s_k$ be the input strings and $L = min_i |s_i|$, with $L=0$ for no strings. Let $Sigma'$ be the set of symbols occurring in these strings, $A=|Sigma'|$, $T=sum_i |s_i|$, and $G=L(k+1)$.
 
-  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+  For every slot $p in {0, dots, L-1}$ create a symbol group $X_p$ with choices $Sigma' union {bot}$, where $bot$ means padding. For every string $r$ and slot $p$, create an embedding group $Y_(r,p)$ with choices $0, dots, |s_r|-1$ and padding. Replace each active symbol choice by three mutually nonadjacent vertices, and every embedding or padding choice by two mutually nonadjacent vertices. All vertices of a choice have identical external neighbours.
 
-  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+  For every incompatible pair of choices, add all edges between their clusters. Choices conflict when: (1) they are distinct choices in the same group; (2) they belong to symbol groups at $p<q$, with padding at $p$ and an active symbol at $q$; (3) they belong to $X_p$ and $Y_(r,p)$ and disagree, where padding agrees only with padding and symbol $a$ agrees with position $j$ precisely when $s_r[j]=a$; or (4) they belong to embedding groups for the same string at $p<q$, with padding followed by an active position, or active positions $j,j'$ with $j >= j'$. Check all slot pairs, including nonadjacent slots. There are no other edges.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+  _Correctness._ ($arrow.r.double$) Any common subsequence of length $ell$ selects its symbols in the first $ell$ slots and increasing embedding positions in every string, followed by padding. Taking every vertex of each selected choice cluster gives an independent set of size $2G+ell$.
 
-  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+  ($arrow.l.double$) A maximum independent set fills every cluster it touches: any omitted vertex of that cluster can be added. It touches at most one choice per group. Suppose $d_X$ symbol groups and $d_Y$ embedding groups are missing, and $q$ active symbol choices are selected. Discard each active slot lacking an embedding group; this removes at most $d_Y$ letters. The remaining letters match strictly increasing positions in every string, so $q <= "LCS" + d_Y$. Its size is at most
+  $2(G-d_X-d_Y)+q <= 2G+"LCS"-2d_X-d_Y.$
+  Missing any group makes this strictly smaller than the full encoding of an optimal common subsequence. Therefore every optimum fills all groups, its symbols form a valid padded common subsequence, and its size is exactly $2G+"LCS"$. If $L=0$, both optima are zero and the graph is empty.
+
+  _Solution extraction._ Validate independence, reject partial clusters or missing groups, then read the original symbol labels selected in $X_0, dots, X_(L-1)$. Every optimum passes these checks. A complete nonoptimal encoding also decodes to a valid source witness. The metadata parameter `num_distinct_symbols` supplies $A$; construction uses $O(V^2+T log(T+1)+k)$ time and extraction $O(V+E)$ time including validation.
 ]
 
 #let cs_ilp_str = load-example(

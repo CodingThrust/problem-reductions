@@ -1,14 +1,9 @@
-//! Reduction from LongestCommonSubsequence to MaximumIndependentSet.
+//! Polynomial-size LCS reduction using symbol and embedding choice groups.
 //!
-//! Constructs a conflict graph where vertices are match-node k-tuples
-//! (positions in each string that share the same character) and edges
-//! connect conflicting tuples that cannot both appear in a valid common
-//! subsequence. A maximum independent set in this graph corresponds to
-//! a longest common subsequence.
-//!
-//! Reference: Santini, Blum, Djukanovic et al. (2021),
-//! "Solving Longest Common Subsequence Problems via a Transformation
-//! to the Maximum Clique Problem," Computers & Operations Research.
+//! Each choice is an independent cluster: two vertices for a position or padding,
+//! three for an active symbol. Conflicts enforce one choice per group, matching
+//! characters, increasing positions, and a padding suffix. Every optimum fills
+//! all groups; its size is 2 * max_length * (num_strings + 1) plus the LCS length.
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::misc::LongestCommonSubsequence;
@@ -16,21 +11,23 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::One;
+use std::ops::Range;
 
-/// Result of reducing LongestCommonSubsequence to MaximumIndependentSet.
-///
-/// Each vertex in the target graph corresponds to a match-node k-tuple
-/// `(p_1, ..., p_k)` where all strings have the same character at their
-/// respective positions.
+#[derive(Debug, Clone)]
+struct Choice {
+    group: usize,
+    slot: usize,
+    string: Option<usize>,
+    value: Option<usize>,
+    vertices: Range<usize>,
+}
+
+/// Stores the choice clusters needed to decode a complete independent set.
 #[derive(Debug, Clone)]
 pub struct ReductionLCSToIS {
-    /// The target MaximumIndependentSet problem.
     target: MaximumIndependentSet<SimpleGraph, One>,
-    /// Match-node k-tuples: `match_nodes[v]` gives the position tuple for vertex v.
-    match_nodes: Vec<Vec<usize>>,
-    /// Character for each match node.
-    match_chars: Vec<usize>,
-    /// Maximum possible subsequence length in the source problem.
+    choices: Vec<Choice>,
+    num_groups: usize,
     max_length: usize,
 }
 
@@ -42,185 +39,212 @@ impl ReductionResult for ReductionLCSToIS {
         &self.target
     }
 
-    /// Extract an LCS solution from a MaximumIndependentSet solution.
-    ///
-    /// Selected vertices correspond to match nodes. Sort by position in
-    /// the first string to get the subsequence order, then pad to `max_length`.
     fn extract_solution(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+        solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            // Collect selected match nodes with their characters
-            let mut selected: Vec<(usize, usize)> = target_solution
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            solution,
+            |value| value.0.is_some(),
+            "selected vertices do not form an independent set",
+        )?;
+        let mut selected_groups = vec![false; self.num_groups];
+        let mut decoded = vec![None; self.max_length];
+        for choice in &self.choices {
+            let selected = solution[choice.vertices.clone()]
                 .iter()
-                .enumerate()
-                .filter(|(_, &v)| v)
-                .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
-                .collect();
-            // Sort by position in the first string
-            selected.sort_by_key(|&(pos, _)| pos);
-
-            // Build config: characters followed by padding
-            let mut config = Vec::with_capacity(self.max_length);
-            for &(_, ch) in &selected {
-                config.push(Some(ch));
+                .filter(|&&bit| bit)
+                .count();
+            if selected == 0 {
+                continue;
             }
-            // Pad with alphabet_size (the padding symbol)
-            while config.len() < self.max_length {
-                config.push(None);
+            if selected != choice.vertices.len() {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected choice cluster is incomplete",
+                ));
             }
-            config
-        })
+            selected_groups[choice.group] = true;
+            if choice.group < self.max_length {
+                decoded[choice.group] = choice.value;
+            }
+        }
+        if let Some(group) = selected_groups.iter().position(|&selected| !selected) {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "choice group {group} has no selected choice"
+            )));
+        }
+        Ok(decoded)
     }
 }
 
 #[reduction(
-    transform = upper_bound {
-        num_vertices = "cross_frequency_product",
-        num_edges = "cross_frequency_product^2",
+    transform = {
+        exact {
+            num_vertices = "max_length * (3 * num_distinct_symbols + 2 + 2 * (total_length + num_strings))",
+        },
+        upper_bound {
+            num_edges = "(max_length * (3 * num_distinct_symbols + 2 + 2 * (total_length + num_strings)))^2",
+        },
     }
 )]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubsequence {
     type Result = ReductionLCSToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let strings = self.strings();
-        let k = self.num_strings();
-
-        // Step 1: Build match nodes.
-        // For each character c, find all k-tuples of positions where every
-        // string has character c at its respective position.
-        let mut match_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut match_chars: Vec<usize> = Vec::new();
-
-        for c in 0..self.alphabet_size() {
-            // For each string, collect positions where character c appears
-            let positions_per_string: Vec<Vec<usize>> = strings
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<
+                Self,
+                MaximumIndependentSet<SimpleGraph, One>,
+            >("counting choice vertices")
+        };
+        let total_length = self
+            .strings()
+            .iter()
+            .try_fold(0usize, |total, string| total.checked_add(string.len()))
+            .ok_or_else(overflow)?;
+        let symbols = self
+            .strings()
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let per_slot = symbols
+            .len()
+            .checked_mul(3)
+            .and_then(|value| value.checked_add(2))
+            .and_then(|value| {
+                total_length
+                    .checked_add(self.num_strings())?
+                    .checked_mul(2)?
+                    .checked_add(value)
+            })
+            .ok_or_else(overflow)?;
+        let num_vertices = self
+            .max_length()
+            .checked_mul(per_slot)
+            .ok_or_else(overflow)?;
+        <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
+            num_vertices,
+            "representing the independent-set objective",
+        )?;
+        let mut choices = Vec::new();
+        let mut cursor = 0usize;
+        let mut num_groups = 0;
+        let mut add_group = |slot, string: Option<usize>, values: &[usize]| {
+            for value in values
                 .iter()
-                .map(|s| {
-                    s.iter()
-                        .enumerate()
-                        .filter(|(_, &sym)| sym == c)
-                        .map(|(i, _)| i)
-                        .collect()
-                })
-                .collect();
-
-            // Generate all k-tuples (Cartesian product of position lists)
-            let tuples = cartesian_product(&positions_per_string);
-            for tuple in tuples {
-                match_nodes.push(tuple);
-                match_chars.push(c);
+                .copied()
+                .map(Some)
+                .chain(std::iter::once(None))
+            {
+                let count = if string.is_none() && value.is_some() {
+                    3
+                } else {
+                    2
+                };
+                let end = cursor.checked_add(count).ok_or_else(overflow)?;
+                choices.push(Choice {
+                    group: num_groups,
+                    slot,
+                    string,
+                    value,
+                    vertices: cursor..end,
+                });
+                cursor = end;
+            }
+            num_groups += 1;
+            Ok::<_, crate::rules::ReductionError>(())
+        };
+        for slot in 0..self.max_length() {
+            add_group(slot, None, &symbols)?;
+        }
+        for (string, input) in self.strings().iter().enumerate() {
+            let positions = (0..input.len()).collect::<Vec<_>>();
+            for slot in 0..self.max_length() {
+                add_group(slot, Some(string), &positions)?;
             }
         }
-
-        let num_vertices = match_nodes.len();
-
-        // Step 2: Build conflict edges.
-        // Two nodes u = (a_1, ..., a_k) and v = (b_1, ..., b_k) conflict when
-        // they cannot both appear in a valid common subsequence: NOT(all a_i < b_i)
-        // AND NOT(all a_i > b_i).
-        let mut edges: Vec<(usize, usize)> = Vec::new();
-
-        for i in 0..num_vertices {
-            for j in (i + 1)..num_vertices {
-                if nodes_conflict(&match_nodes[i], &match_nodes[j], k) {
-                    edges.push((i, j));
+        let mut edges = Vec::new();
+        for (i, left) in choices.iter().enumerate() {
+            for right in &choices[i + 1..] {
+                let conflict = if left.group == right.group {
+                    true
+                } else {
+                    // Groups are generated in slot order, with symbols before embeddings.
+                    match (left.string, right.string) {
+                        (None, None) => left.value.is_none() && right.value.is_some(),
+                        (Some(a), Some(b)) if a == b => right
+                            .value
+                            .is_some_and(|j| left.value.is_none_or(|i| i >= j)),
+                        (None, Some(string)) if left.slot == right.slot => {
+                            left.value != right.value.map(|j| self.strings()[string][j])
+                        }
+                        _ => false,
+                    }
+                };
+                if conflict {
+                    for a in left.vertices.clone() {
+                        for b in right.vertices.clone() {
+                            edges.push((a, b));
+                        }
+                    }
                 }
             }
         }
-
         let target = MaximumIndependentSet::new(
             SimpleGraph::new(num_vertices, edges),
             vec![One; num_vertices],
         );
-
         Ok(ReductionLCSToIS {
             target,
-            match_nodes,
-            match_chars,
+            choices,
+            num_groups,
             max_length: self.max_length(),
         })
     }
-}
-
-/// Check whether two match nodes conflict (cannot both be in a common subsequence).
-///
-/// Two nodes `u = (a_1, ..., a_k)` and `v = (b_1, ..., b_k)` conflict when
-/// NOT (all a_i < b_i) AND NOT (all a_i > b_i).
-fn nodes_conflict(u: &[usize], v: &[usize], k: usize) -> bool {
-    let mut all_less = true;
-    let mut all_greater = true;
-    for i in 0..k {
-        if u[i] >= v[i] {
-            all_less = false;
-        }
-        if u[i] <= v[i] {
-            all_greater = false;
-        }
-    }
-    !all_less && !all_greater
-}
-
-/// Compute the Cartesian product of a list of position vectors.
-fn cartesian_product(lists: &[Vec<usize>]) -> Vec<Vec<usize>> {
-    if lists.is_empty() {
-        return vec![vec![]];
-    }
-
-    let mut result = vec![vec![]];
-    for list in lists {
-        let mut new_result = Vec::new();
-        for prefix in &result {
-            for &item in list {
-                let mut new_tuple = prefix.clone();
-                new_tuple.push(item);
-                new_result.push(new_tuple);
-            }
-        }
-        result = new_result;
-    }
-    result
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    /// Build the example from the issue: k=2, s1="ABAC", s2="BACA", alphabet={A,B,C}.
-    fn lcs_abac_baca() -> LongestCommonSubsequence {
-        // A=0, B=1, C=2
-        LongestCommonSubsequence::new(
-            3,
-            vec![
-                vec![0, 1, 0, 2], // ABAC
-                vec![1, 0, 2, 0], // BACA
-            ],
-        )
-    }
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
-            // Issue example: MIS solution {v2, v4, v5} gives LCS "BAC" (length 3).
-            // Match nodes (ordered by character):
-            //   c=A(0): v0=(0,1), v1=(0,3), v2=(2,1), v3=(2,3)
-            //   c=B(1): v4=(1,0)
-            //   c=C(2): v5=(3,2)
-            // MIS {v2, v4, v5} => positions B@(1,0), A@(2,1), C@(3,2)
-            // source_config = [1, 0, 2, null] (B, A, C, padding)
-            crate::example_db::specs::rule_example_with_witness::<
-                _,
-                MaximumIndependentSet<SimpleGraph, One>,
-            >(
-                lcs_abac_baca(),
-                SolutionPair {
-                    source_config: serde_json::json!(vec![Some(1), Some(0), Some(2), None]),
-                    target_config: serde_json::json!(vec![false, false, true, false, true, true]),
-                },
+            let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
+            let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source)
+                .expect("reduction should succeed");
+            // BAC, then padding; its positions are (1,2,3) and (0,1,2).
+            let assignments = [
+                Some(1),
+                Some(0),
+                Some(2),
+                None,
+                Some(1),
+                Some(2),
+                Some(3),
+                None,
+                Some(0),
+                Some(1),
+                Some(2),
+                None,
+            ];
+            let mut target_config = vec![false; reduction.target.num_vertices()];
+            for choice in &reduction.choices {
+                if assignments[choice.group] == choice.value {
+                    target_config[choice.vertices.clone()].fill(true);
+                }
+            }
+            crate::example_db::specs::assemble_rule_example(
+                &source,
+                reduction.target_problem(),
+                vec![SolutionPair {
+                    source_config: serde_json::json!(&assignments[..source.max_length()]),
+                    target_config: serde_json::json!(target_config),
+                }],
             )
         },
     }]
