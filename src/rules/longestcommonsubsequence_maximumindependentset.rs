@@ -1,36 +1,33 @@
-//! Reduction from LongestCommonSubsequence to MaximumIndependentSet.
+//! Capped match-tuple graph with a polynomial anchored fallback.
 //!
-//! Constructs a conflict graph where vertices are match-node k-tuples
-//! (positions in each string that share the same character) and edges
-//! connect conflicting tuples that cannot both appear in a valid common
-//! subsequence. A maximum independent set in this graph corresponds to
-//! a longest common subsequence.
-//!
-//! Reference: Santini, Blum, Djukanovic et al. (2021),
-//! "Solving Longest Common Subsequence Problems via a Transformation
-//! to the Maximum Clique Problem," Computers & Operations Research.
+//! Remove redundant strings and impossible anchor letters first. Tuple graphs
+//! preserve LCS; anchored optima are L * k + LCS for k retained strings.
+//! Both graphs have at most L * (k + 2) + F vertices, where L is the filtered
+//! anchor length and F counts matches against it. Original input counts bound these.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::models::misc::LongestCommonSubsequence;
+use crate::models::misc::{is_subsequence, LongestCommonSubsequence};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::One;
+use std::collections::{BTreeMap, HashSet};
+use std::ops::Range;
 
-/// Result of reducing LongestCommonSubsequence to MaximumIndependentSet.
-///
-/// Each vertex in the target graph corresponds to a match-node k-tuple
-/// `(p_1, ..., p_k)` where all strings have the same character at their
-/// respective positions.
+#[derive(Debug, Clone)]
+enum Encoding {
+    Tuples(Vec<(usize, Vec<usize>)>),
+    Anchored {
+        anchor: Vec<usize>,
+        embeddings: Vec<Vec<Range<usize>>>,
+    },
+}
+
+/// Target graph and the selected mathematical witness mapping.
 #[derive(Debug, Clone)]
 pub struct ReductionLCSToIS {
-    /// The target MaximumIndependentSet problem.
     target: MaximumIndependentSet<SimpleGraph, One>,
-    /// Match-node k-tuples: `match_nodes[v]` gives the position tuple for vertex v.
-    match_nodes: Vec<Vec<usize>>,
-    /// Character for each match node.
-    match_chars: Vec<usize>,
-    /// Maximum possible subsequence length in the source problem.
+    encoding: Encoding,
     max_length: usize,
 }
 
@@ -42,181 +39,274 @@ impl ReductionResult for ReductionLCSToIS {
         &self.target
     }
 
-    /// Extract an LCS solution from a MaximumIndependentSet solution.
-    ///
-    /// Selected vertices correspond to match nodes. Sort by position in
-    /// the first string to get the subsequence order, then pad to `max_length`.
     fn extract_solution(
         &self,
-        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+        solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok({
-            // Collect selected match nodes with their characters
-            let mut selected: Vec<(usize, usize)> = target_solution
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v)
-                .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
-                .collect();
-            // Sort by position in the first string
-            selected.sort_by_key(|&(pos, _)| pos);
-
-            // Build config: characters followed by padding
-            let mut config = Vec::with_capacity(self.max_length);
-            for &(_, ch) in &selected {
-                config.push(Some(ch));
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            solution,
+            |value| value.0.is_some(),
+            "selected vertices do not form an independent set",
+        )?;
+        let mut decoded = Vec::with_capacity(self.max_length);
+        match &self.encoding {
+            Encoding::Tuples(nodes) => {
+                let mut selected = nodes
+                    .iter()
+                    .zip(solution)
+                    .filter(|(_, bit)| **bit)
+                    .map(|((symbol, positions), _)| (positions[0], *symbol))
+                    .collect::<Vec<_>>();
+                selected.sort_unstable_by_key(|&(position, _)| position);
+                decoded.extend(selected.into_iter().map(|(_, symbol)| Some(symbol)));
             }
-            // Pad with alphabet_size (the padding symbol)
-            while config.len() < self.max_length {
-                config.push(None);
+            Encoding::Anchored { anchor, embeddings } => {
+                for (p, &symbol) in anchor.iter().enumerate() {
+                    if solution[3 * p] != solution[3 * p + 1] {
+                        return Err(crate::rules::ExtractionError::invalid(
+                            "active anchor twins are incomplete",
+                        ));
+                    }
+                    if solution[3 * p]
+                        && embeddings.iter().all(|groups| {
+                            let group = &groups[p];
+                            solution[group.start..group.end - 1].iter().any(|&bit| bit)
+                        })
+                    {
+                        decoded.push(Some(symbol));
+                    }
+                }
             }
-            config
-        })
+        }
+        while decoded.len() < self.max_length {
+            decoded.push(None);
+        }
+        Ok(decoded)
     }
 }
 
-#[reduction(
-    transform = upper_bound {
-        num_vertices = "cross_frequency_product",
-        num_edges = "cross_frequency_product^2",
-    }
-)]
+#[reduction(transform = upper_bound {
+    num_vertices = "max_length * (num_strings + 2) + anchor_matching_pairs",
+    num_edges = "(max_length * (num_strings + 2) + anchor_matching_pairs)^2",
+})]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubsequence {
     type Result = ReductionLCSToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let strings = self.strings();
-        let k = self.num_strings();
+        if self.max_length() == 0 {
+            return Ok(ReductionLCSToIS {
+                target: MaximumIndependentSet::new(SimpleGraph::new(0, vec![]), vec![]),
+                encoding: Encoding::Tuples(vec![]),
+                max_length: 0,
+            });
+        }
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<
+                Self,
+                MaximumIndependentSet<SimpleGraph, One>,
+            >("counting anchored vertices")
+        };
+        let anchor = self
+            .strings()
+            .iter()
+            .min_by_key(|s| s.len())
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let mut seen = HashSet::new();
+        let retained = std::iter::once(anchor)
+            .chain(
+                self.strings()
+                    .iter()
+                    .map(Vec::as_slice)
+                    .filter(|string| !is_subsequence(anchor, string) && seen.insert(*string)),
+            )
+            .collect::<Vec<_>>();
+        let positions = retained
+            .iter()
+            .map(|string| {
+                let mut map = BTreeMap::<usize, Vec<usize>>::new();
+                for (j, &symbol) in string.iter().enumerate() {
+                    map.entry(symbol).or_default().push(j);
+                }
+                map
+            })
+            .collect::<Vec<_>>();
+        let common_symbols = positions[0]
+            .keys()
+            .copied()
+            .filter(|symbol| positions.iter().all(|map| map.contains_key(symbol)))
+            .collect::<HashSet<_>>();
+        let anchor = anchor
+            .iter()
+            .copied()
+            .filter(|symbol| common_symbols.contains(symbol))
+            .collect::<Vec<_>>();
+        let positions = positions
+            .into_iter()
+            .zip(retained)
+            .enumerate()
+            .filter(|(r, (_, string))| *r == 0 || !is_subsequence(&anchor, string))
+            .map(|(_, (map, _))| map)
+            .collect::<Vec<_>>();
 
-        // Step 1: Build match nodes.
-        // For each character c, find all k-tuples of positions where every
-        // string has character c at its respective position.
-        let mut match_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut match_chars: Vec<usize> = Vec::new();
-
-        for c in 0..self.alphabet_size() {
-            // For each string, collect positions where character c appears
-            let positions_per_string: Vec<Vec<usize>> = strings
-                .iter()
-                .map(|s| {
-                    s.iter()
-                        .enumerate()
-                        .filter(|(_, &sym)| sym == c)
-                        .map(|(i, _)| i)
-                        .collect()
-                })
-                .collect();
-
-            // Generate all k-tuples (Cartesian product of position lists)
-            let tuples = cartesian_product(&positions_per_string);
-            for tuple in tuples {
-                match_nodes.push(tuple);
-                match_chars.push(c);
+        // Only nonempty position lists enter the product; a later absent symbol
+        // must contribute zero before any multiplication can exceed the cap.
+        let common = positions[0]
+            .keys()
+            // Removing a constraint must not reintroduce an impossible letter.
+            .filter(|symbol| common_symbols.contains(symbol))
+            .filter_map(|&symbol| {
+                let lists = positions
+                    .iter()
+                    .map(|map| map.get(&symbol).map(Vec::as_slice))
+                    .collect::<Option<Vec<_>>>()?;
+                Some((symbol, lists))
+            })
+            .collect::<Vec<_>>();
+        let mut cap = anchor.len().checked_mul(3).ok_or_else(overflow)?;
+        for map in &positions[1..] {
+            for symbol in &anchor {
+                cap = cap
+                    .checked_add(map.get(symbol).map_or(0, Vec::len))
+                    .and_then(|count| count.checked_add(1))
+                    .ok_or_else(overflow)?;
             }
         }
-
-        let num_vertices = match_nodes.len();
-
-        // Step 2: Build conflict edges.
-        // Two nodes u = (a_1, ..., a_k) and v = (b_1, ..., b_k) conflict when
-        // they cannot both appear in a valid common subsequence: NOT(all a_i < b_i)
-        // AND NOT(all a_i > b_i).
-        let mut edges: Vec<(usize, usize)> = Vec::new();
-
-        for i in 0..num_vertices {
-            for j in (i + 1)..num_vertices {
-                if nodes_conflict(&match_nodes[i], &match_nodes[j], k) {
-                    edges.push((i, j));
+        let tuple_count = common.iter().try_fold(0usize, |total, (_, lists)| {
+            let product = lists.iter().try_fold(1usize, |product, list| {
+                product
+                    .checked_mul(list.len())
+                    .filter(|&count| count <= cap)
+            })?;
+            total.checked_add(product).filter(|&count| count <= cap)
+        });
+        let mut num_vertices = tuple_count.unwrap_or(cap);
+        <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
+            num_vertices,
+            "representing the independent-set objective",
+        )?;
+        let mut edges = Vec::new();
+        let mut encoding = if tuple_count.is_some() {
+            let mut nodes = Vec::with_capacity(num_vertices);
+            for (symbol, lists) in common {
+                let mut tuples = vec![Vec::new()];
+                for list in lists {
+                    tuples = tuples
+                        .into_iter()
+                        .flat_map(|prefix| {
+                            list.iter().map(move |&position| {
+                                let mut tuple = prefix.clone();
+                                tuple.push(position);
+                                tuple
+                            })
+                        })
+                        .collect();
+                }
+                nodes.extend(tuples.into_iter().map(|tuple| (symbol, tuple)));
+            }
+            for (i, (_, left)) in nodes.iter().enumerate() {
+                for (j, (_, right)) in nodes.iter().enumerate().skip(i + 1) {
+                    if !left.iter().zip(right).all(|(a, b)| a < b)
+                        && !left.iter().zip(right).all(|(a, b)| a > b)
+                    {
+                        edges.push((i, j));
+                    }
                 }
             }
+            Encoding::Tuples(nodes)
+        } else {
+            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
+            edges = anchor_edges;
+            anchor_encoding
+        };
+        // A tuple graph costing at most the anchor's vertices alone cannot lose.
+        if tuple_count.is_some() && edges.len() > cap - num_vertices {
+            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
+            if edges.len() > anchor_edges.len()
+                && edges.len() - anchor_edges.len() > cap - num_vertices
+            {
+                num_vertices = cap;
+                edges = anchor_edges;
+                encoding = anchor_encoding;
+            }
         }
-
         let target = MaximumIndependentSet::new(
             SimpleGraph::new(num_vertices, edges),
             vec![One; num_vertices],
         );
-
         Ok(ReductionLCSToIS {
             target,
-            match_nodes,
-            match_chars,
+            encoding,
             max_length: self.max_length(),
         })
     }
 }
 
-/// Check whether two match nodes conflict (cannot both be in a common subsequence).
-///
-/// Two nodes `u = (a_1, ..., a_k)` and `v = (b_1, ..., b_k)` conflict when
-/// NOT (all a_i < b_i) AND NOT (all a_i > b_i).
-fn nodes_conflict(u: &[usize], v: &[usize], k: usize) -> bool {
-    let mut all_less = true;
-    let mut all_greater = true;
-    for i in 0..k {
-        if u[i] >= v[i] {
-            all_less = false;
-        }
-        if u[i] <= v[i] {
-            all_greater = false;
-        }
+fn anchored_graph(
+    anchor: &[usize],
+    positions: &[BTreeMap<usize, Vec<usize>>],
+    cap: usize,
+) -> Result<(Vec<(usize, usize)>, Encoding), crate::rules::ReductionError> {
+    <LongestCommonSubsequence as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
+        cap,
+        "representing the anchored independent-set objective",
+    )?;
+    let mut edges = Vec::new();
+    let mut cursor = anchor.len() * 3;
+    let mut embeddings = Vec::with_capacity(positions.len() - 1);
+    for p in 0..anchor.len() {
+        edges.extend([(3 * p, 3 * p + 2), (3 * p + 1, 3 * p + 2)]);
     }
-    !all_less && !all_greater
-}
-
-/// Compute the Cartesian product of a list of position vectors.
-fn cartesian_product(lists: &[Vec<usize>]) -> Vec<Vec<usize>> {
-    if lists.is_empty() {
-        return vec![vec![]];
-    }
-
-    let mut result = vec![vec![]];
-    for list in lists {
-        let mut new_result = Vec::new();
-        for prefix in &result {
-            for &item in list {
-                let mut new_tuple = prefix.clone();
-                new_tuple.push(item);
-                new_result.push(new_tuple);
+    for map in &positions[1..] {
+        let mut groups = Vec::<(&[usize], Range<usize>)>::with_capacity(anchor.len());
+        for (p, symbol) in anchor.iter().enumerate() {
+            let matches = map.get(symbol).map(Vec::as_slice).unwrap_or_default();
+            let group = cursor..cursor + matches.len() + 1;
+            cursor = group.end;
+            for a in group.clone() {
+                for b in a + 1..group.end {
+                    edges.push((a, b));
+                }
             }
+            let skip = group.end - 1;
+            edges.extend([(3 * p, skip), (3 * p + 1, skip)]);
+            edges.extend((group.start..skip).map(|j| (3 * p + 2, j)));
+            // Only this string's earlier slots can cross. Sorted matches let
+            // us emit exactly the conflicting prefix of each group.
+            for (earlier, previous) in &groups {
+                for (i, &position) in earlier.iter().enumerate() {
+                    let conflicts = matches.partition_point(|&j| j <= position);
+                    edges.extend((0..conflicts).map(|j| (previous.start + i, group.start + j)));
+                }
+            }
+            groups.push((matches, group));
         }
-        result = new_result;
+        embeddings.push(groups.into_iter().map(|(_, range)| range).collect());
     }
-    result
+    debug_assert_eq!(cursor, cap);
+    Ok((
+        edges,
+        Encoding::Anchored {
+            anchor: anchor.to_vec(),
+            embeddings,
+        },
+    ))
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    /// Build the example from the issue: k=2, s1="ABAC", s2="BACA", alphabet={A,B,C}.
-    fn lcs_abac_baca() -> LongestCommonSubsequence {
-        // A=0, B=1, C=2
-        LongestCommonSubsequence::new(
-            3,
-            vec![
-                vec![0, 1, 0, 2], // ABAC
-                vec![1, 0, 2, 0], // BACA
-            ],
-        )
-    }
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
-            // Issue example: MIS solution {v2, v4, v5} gives LCS "BAC" (length 3).
-            // Match nodes (ordered by character):
-            //   c=A(0): v0=(0,1), v1=(0,3), v2=(2,1), v3=(2,3)
-            //   c=B(1): v4=(1,0)
-            //   c=C(2): v5=(3,2)
-            // MIS {v2, v4, v5} => positions B@(1,0), A@(2,1), C@(3,2)
-            // source_config = [1, 0, 2, null] (B, A, C, padding)
+            let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MaximumIndependentSet<SimpleGraph, One>,
             >(
-                lcs_abac_baca(),
+                source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![Some(1), Some(0), Some(2), None]),
                     target_config: serde_json::json!(vec![false, false, true, false, true, true]),

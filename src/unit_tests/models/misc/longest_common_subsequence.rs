@@ -4,6 +4,32 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 
+#[test]
+fn test_lcs_anchor_matching_pairs_uses_first_shortest_string() {
+    let source =
+        LongestCommonSubsequence::new(2, vec![vec![0, 0, 1], vec![0, 1, 1], vec![0, 0, 0, 1]]);
+    assert_eq!(source.parameters().get("anchor_matching_pairs"), Some(11));
+    let reordered =
+        LongestCommonSubsequence::new(2, vec![vec![0, 1, 1], vec![0, 0, 1], vec![0, 0, 0, 1]]);
+    assert_eq!(reordered.parameters().get("anchor_matching_pairs"), Some(9));
+    let restored: LongestCommonSubsequence =
+        serde_json::from_value(serde_json::to_value(&source).unwrap()).unwrap();
+    assert_eq!(restored.parameters(), source.parameters());
+    for strings in [
+        vec![],
+        vec![vec![]],
+        vec![vec![0]],
+        vec![vec![], vec![0, 1]],
+    ] {
+        assert_eq!(
+            LongestCommonSubsequence::new(2, strings)
+                .parameters()
+                .get("anchor_matching_pairs"),
+            Some(0)
+        );
+    }
+}
+
 fn issue_yes_instance() -> LongestCommonSubsequence {
     LongestCommonSubsequence::new(
         2,

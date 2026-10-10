@@ -14036,9 +14036,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
 #let lcs_mis_sol = lcs_mis.solutions.at(0)
+#let lcs_mis_length = lcs_mis_sol.source_config.filter(x => x != none).len()
+#let lcs_mis_slots = lcs_mis_sol.source_config.len()
 #reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
   example: true,
-  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  example-caption: [Capped tuple encoding of two strings over a 3-symbol alphabet],
   extra: [
     #pred-commands(
       "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
@@ -14046,22 +14048,28 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
     )
-    Source LCS: config $(#fmt-values(lcs_mis_sol.source_config))$ \
-    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x).len()) \
-    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x).len()$ #sym.checkmark
+    The strings #fmt-values(lcs_mis.source.instance.strings.at(0)) and #fmt-values(lcs_mis.source.instance.strings.at(1)) have #lcs_mis_slots slots. Their tuple count fits the cap, giving #lcs_mis.target.instance.graph.num_vertices vertices. Source witness $(#fmt-values(lcs_mis_sol.source_config))$ decodes from target vertices ${#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$, with MIS size $= #lcs_mis_sol.target_config.filter(x => x).len() = #lcs_mis_length$.
   ],
 )[
-  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+  A capped match-tuple graph with a compact anchored fallback gives polynomial overhead while preserving small tuple graphs. Let $s_a$ be the first shortest input string, $L=|s_a|$, $k$ the number of input strings, $T$ their total length, and $F=sum_(r != a) sum_(p=0)^(L-1) |{j:s_r[j]=s_a[p]}|$. With $B=L(k+2)+F$, both target parameters have complete polynomial bounds: $V<=B$ and $E<=B^2$. Since $F<=L(T-L)$, unused declared alphabet symbols cannot inflate the bound.
 ][
-  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+  _Construction._ Return the empty graph when $L=0$. Otherwise keep $s_a$ first, remove exact duplicate strings and every other string containing $s_a$ as a subsequence, and preserve the remaining input order. Build sparse lists of matching positions over occurring symbols. Keep only letters present in every remaining string in the anchor, giving length $L'<=L$, then remove other remaining strings containing this filtered anchor. Keep the common-symbol set fixed so removing a constraint cannot reintroduce an unavailable letter. Write $k'$ and $F'$ for the final retained counts, $G=L' k'$, and $B'=L'(k'+2)+F'$.
 
-  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+  For symbols present in every retained string, count $C'=sum_c product_r "freq"(c,s_r)$ with arithmetic capped at $B'$, before enumeration. When $C'<=B'$, create one vertex for each matching position tuple. Join two tuples unless all coordinates increase strictly in one direction. This is the match-node construction; its optimum equals LCS. Every intermediate Cartesian prefix is bounded by the final tuple count because all participating lists are nonempty.
 
-  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+  The alternative polynomial encoding creates an anchor group $X_p$ at every anchor position $p$: two nonadjacent active twins and one skip vertex adjacent to both. For each other retained string $r$, create a clique $Y_(r,p)$ with one vertex per matching position $j$ and one skip vertex. Join the anchor twins to the embedding skip, and the anchor skip to every matching position. Between slots $p<q$ in the same string, join matching vertices $j,j'$ exactly when $j>=j'$. Check all slot pairs, including nonadjacent ones. There are no other edges. Anchor groups contribute $3L'$ vertices and embeddings $L'(k'-1)+F'$, exactly $B'$ in total. If $C'>B'$, use this encoding without enumerating tuples. Otherwise choose the graph with fewer vertices plus edges, preferring tuples on a tie. A tuple graph with $C'+E_T<=B'$ wins without constructing the alternative. For other admitted tuple graphs, compare $E_T-E_A>B'-C'$ without adding potentially overflowing totals.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+  _Correctness._ Removing a containing string preserves every candidate by transitivity of subsequence inclusion; duplicates repeat the same constraint. Every common word uses only symbols present in all strings, so filtering the anchor preserves every candidate; the filtered anchor is itself a subsequence of the original. Thus preprocessing preserves the entire feasible source set. For tuples, pairwise compatibility is a strictly increasing chain in every string, so selecting tuples and reading their common symbols maps common subsequences to independent sets and conversely, preserving length.
 
-  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+  For the anchored branch ($arrow.r.double$), a common subsequence of length $ell$ selects both active twins at its anchor positions and increasing matching positions in every retained string, using skips elsewhere. It gives an independent set of size $G+ell$.
+
+  ($arrow.l.double$) Any maximum independent set saturates the active twins, since they have identical external neighbours. Let $q$ be its active anchor choices and $d_X,d_Y$ its empty anchor and embedding groups. Its size is $G-d_X-d_Y+q$. Discard active anchor positions with any missing embedding; each discarded position has a distinct empty embedding group, so at most $d_Y$ are discarded. The remaining $ell>=q-d_Y$ letters embed in strictly increasing positions in every retained string. Hence
+  $G-d_X-d_Y+q<=G+ell-d_X<=G+"LCS".$
+  Forward construction attains equality, so every optimum has $d_X=0$ and decodes an optimal common subsequence, even when embedding groups are empty. The anchored optimum is $G+"LCS"$.
+
+  _Solution extraction._ Validate independence once. In the tuple branch sort selected tuples by anchor position and read their symbols. In the anchored branch reject partial twin pairs; retain only active anchor positions with a selected matching position in every embedding group. Read the original symbols in anchor order and pack them before trailing padding. Every optimal target witness decodes optimally; accepted nonoptimal witnesses decode feasibly.
+
+  _Overhead._ The selected graph has either $C'$ or $B'$ vertices, in both cases at most $B$, and edges are at most $B^2$. Selection minimizes vertices plus edges among the admitted constructions; it may use more vertices to save edges. Thus the registered relations are upper bounds. Removing anchor letters and strings cannot increase $L'$, $k'$ or $F'$, and removes only positive frequency factors from each common-symbol tuple count. Metadata `anchor_matching_pairs` supplies the original $F$. For MVC-derived inputs with $N$ vertices and $M$ edges, $L=N$, $k=M+1$, $F=2M(N-1)$, giving $V<=3N+3 M N-2M$. Construction uses sparse input positions and no declared-alphabet iteration; validated extraction takes $O(V log(V+1)+E)$ time.
 ]
 
 #let cs_ilp_str = load-example(
