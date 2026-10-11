@@ -25,6 +25,69 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+#[test]
+fn polynomial_comparison_default_layout_and_opt_in_proofs() {
+    let args = ["path", "MIS", "QUBO", "--compare", "--limit", "3"];
+    let output = pred().args(args).output().unwrap();
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    let semantics = text.find("generic order").unwrap();
+    let front = text.find("Candidate front").unwrap();
+    let pairs = text.find("Pair verdicts").unwrap();
+    let unresolved = text.find("Unresolved pairs").unwrap();
+    assert!(semantics < pairs && pairs < unresolved && unresolved < front);
+    assert!(text.contains("Path 1") && text.contains("num_vars"));
+    assert!(!text.contains("[upper bound]") && !text.contains("[exact]"));
+    assert!(text[pairs..unresolved]
+        .contains("0 dominated, 1 equivalent, 2 proven incomparable, 0 unresolved"));
+    assert!(!text.contains("worst case:") && !text.contains("Generic candidate front"));
+    assert!(text.contains("Paths 1, 2: proven incomparable"));
+    assert!(text.contains("Paths 2, 3: Path 2 ≡ Path 3"));
+    assert!(
+        text.contains("Ignores exact-cancellation families") && text.contains("bounded strata")
+    );
+    assert!(text.contains("2 proven incomparable, 0 unresolved"));
+    assert!(
+        !text.contains("Field proofs") && !text.contains("Witness {") && !text.contains("f/g → ∞")
+    );
+
+    let output = pred().args(args).arg("--proofs").output().unwrap();
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        text.contains("Paths 1, 2: proven incomparable")
+            && text.contains("Paths 2, 3: Path 2 ≡ Path 3")
+    );
+    assert!(text.contains("Field proofs") && text.contains("f/g → ∞"));
+    assert!(text.contains("f ≡ g after expansion"));
+    assert!(text.contains("No (regular and positive across the batch)") && text.contains("Yes:"));
+
+    let output = pred().args(args).arg("--json").output().unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let view = &json["polynomial_comparison"];
+    assert_eq!(view["schema_version"], 5);
+    assert_eq!(view["mode"], "generic");
+    assert_eq!(view["counts"]["Incomparable"], 2);
+    assert!(view.get("generic_counts").is_none());
+    assert!(view.get("generic_candidate_front").is_none());
+    assert!(view["pairs"][0]["fields"]["num_vars"]["forward"]["certificate"].is_object());
+    let identity = &view["pairs"][2]["fields"]["num_vars"]["forward"]["certificate"];
+    assert_eq!(identity["kind"], "identity");
+    assert_eq!(identity.as_object().unwrap().len(), 1);
+    assert!(view["pairs"][2]["fields"]["num_vars"]
+        .get("generic")
+        .is_none());
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--proofs"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stderr)
+        .unwrap()
+        .contains("--compare"));
+}
+
 fn extract_target_config(
     bundle: &std::path::Path,
     config: serde_json::Value,

@@ -32,6 +32,8 @@ pub mod growth;
 pub mod io;
 pub mod models;
 pub mod parameters;
+pub mod poly_compare;
+pub mod polynomial;
 pub mod random;
 pub mod registry;
 pub mod rules;

@@ -974,6 +974,36 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Polynomial profile of a path: the composed transform's certificates over the
+    /// full source box, with nominal signed formulas kept for audit.
+    pub fn path_polynomial_profile(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<crate::poly_compare::Profile, PathParameterError> {
+        let source = path.steps.first().ok_or(PathParameterError::EmptyPath)?;
+        let names = self.parameter_names(&source.name);
+        let steps = self.path_parameter_transforms(path)?;
+        let composed = match self.compose_transforms(path, &steps)? {
+            Some(composed) => composed,
+            None => crate::parameters::ParameterTransform::new(
+                source.name.clone(),
+                crate::parameters::ParameterRelation::Exact,
+                names
+                    .iter()
+                    .map(|name| (name.as_str(), crate::expr::Expr::variable(name.as_str()))),
+            )
+            .map_err(|error| PathParameterError::Step {
+                step: 0,
+                source_problem: source.name.clone(),
+                target_problem: source.name.clone(),
+                error: Box::new(error),
+            })?,
+        };
+        Ok(crate::poly_compare::Profile::from_path(
+            &names, &steps, &composed,
+        ))
+    }
+
     /// Compose symbolic parameter transforms along a path.
     pub fn compose_path_parameter_transform(
         &self,
@@ -982,19 +1012,23 @@ impl ReductionGraph {
         if path.steps.is_empty() {
             return Err(PathParameterError::EmptyPath);
         }
-        if path.steps.len() == 1 {
-            return Ok(None);
-        }
+        self.compose_transforms(path, &self.path_parameter_transforms(path)?)
+    }
 
-        let mut transforms = self.path_parameter_transforms(path)?.into_iter();
-        let Some(mut composed) = transforms.next() else {
+    fn compose_transforms(
+        &self,
+        path: &ReductionPath,
+        transforms: &[crate::parameters::ParameterTransform],
+    ) -> Result<Option<crate::parameters::ParameterTransform>, PathParameterError> {
+        let Some((first, rest)) = transforms.split_first() else {
             return Ok(None);
         };
-        for (offset, transform) in transforms.enumerate() {
+        let mut composed = first.clone();
+        for (offset, transform) in rest.iter().enumerate() {
             let edge_index = offset + 1;
             composed = composed
                 .compose(
-                    &transform,
+                    transform,
                     format!(
                         "{} -> {}",
                         path.steps[0].name,

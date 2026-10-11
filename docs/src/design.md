@@ -541,13 +541,18 @@ Output: ProblemParameters { num_vars: 25 }
 ```
 
 For multi-step paths, `compose_path_parameter_transform` substitutes each step into the next.
-When only upper bounds are known for the intermediate fields, a downstream polynomial is
-first fully expanded and like monomials are combined; terms with non-positive coefficients
-are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
-produces the sound bound `k <= 10`, while
-`e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
-propagate symbolic upper bounds and makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
-Big-O display; it does not rank or filter paths.
+The shared `ParameterTransform::compose` engine first expands downstream polynomials
+and combines like monomials, so cancelled dependencies disappear. Its partial hull
+removes a negative monomial only if it involves an upper-bounded intermediate field;
+negative terms involving exclusively exact inputs are retained. For example,
+`v = n`, `e <= n^2` followed by `e' = v(v - 1)/2 - e` produces
+`e' <= n(n - 1)/2`, keeping the exact `-n/2` term. With `v <= n` instead,
+that term is also dropped and the certificate is `e' <= n^2/2`.
+Likewise, `m <= n^2` followed by `k = 10 - m` produces `k <= 10`.
+A non-polynomial downstream formula cannot propagate symbolic upper bounds and
+makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
+Big-O display; it does not rank or filter paths. Certified polynomial comparison and
+conservative final-front filtering live in [Polynomial comparator V1](polynomial-comparator.md).
 
 </details>
 
