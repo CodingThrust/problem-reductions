@@ -1,34 +1,33 @@
-//! Capped match-tuple graph with a polynomial anchored fallback.
+//! Polynomial reduction from LCS to unweighted independent set.
 //!
-//! Remove redundant strings and impossible anchor letters first. Tuple graphs
-//! preserve LCS; anchored optima are L * k + LCS for k retained strings.
-//! Both graphs have at most L * (k + 2) + F vertices, where L is the filtered
-//! anchor length and F counts matches against it. Original input counts bound these.
+//! Use match tuples when they dominate the normalized reward-anchored graph.
+//! The target optimum is LCS for tuples, or h * m + LCS for h slots and m strings.
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::misc::{is_subsequence, LongestCommonSubsequence};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::types::One;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::ops::Range;
 
+/// Both encodings decode the same way: vertex `i < symbols.len()` selects
+/// `symbols[i]` when every embedding group `i` is nonempty. Tuple vertices,
+/// ordered by anchor slot, have no embedding groups.
 #[derive(Debug, Clone)]
-enum Encoding {
-    Tuples(Vec<(usize, Vec<usize>)>),
-    Anchored {
-        anchor: Vec<usize>,
-        embeddings: Vec<Vec<Range<usize>>>,
-    },
+struct Encoding {
+    symbols: Vec<usize>,
+    // Matching vertices per string and slot; the skip vertex is range.end.
+    embeddings: Vec<Vec<Range<usize>>>,
 }
 
-/// Target graph and the selected mathematical witness mapping.
+/// Target graph and witness mapping for the selected encoding.
 #[derive(Debug, Clone)]
 pub struct ReductionLCSToIS {
     target: MaximumIndependentSet<SimpleGraph, One>,
-    encoding: Encoding,
     max_length: usize,
+    encoding: Encoding,
 }
 
 impl ReductionResult for ReductionLCSToIS {
@@ -49,249 +48,175 @@ impl ReductionResult for ReductionLCSToIS {
             |value| value.0.is_some(),
             "selected vertices do not form an independent set",
         )?;
-        let mut decoded = Vec::with_capacity(self.max_length);
-        match &self.encoding {
-            Encoding::Tuples(nodes) => {
-                let mut selected = nodes
-                    .iter()
-                    .zip(solution)
-                    .filter(|(_, bit)| **bit)
-                    .map(|((symbol, positions), _)| (positions[0], *symbol))
-                    .collect::<Vec<_>>();
-                selected.sort_unstable_by_key(|&(position, _)| position);
-                decoded.extend(selected.into_iter().map(|(_, symbol)| Some(symbol)));
-            }
-            Encoding::Anchored { anchor, embeddings } => {
-                for (p, &symbol) in anchor.iter().enumerate() {
-                    if solution[3 * p] != solution[3 * p + 1] {
-                        return Err(crate::rules::ExtractionError::invalid(
-                            "active anchor twins are incomplete",
-                        ));
-                    }
-                    if solution[3 * p]
-                        && embeddings.iter().all(|groups| {
-                            let group = &groups[p];
-                            solution[group.start..group.end - 1].iter().any(|&bit| bit)
-                        })
-                    {
-                        decoded.push(Some(symbol));
-                    }
-                }
-            }
-        }
-        while decoded.len() < self.max_length {
-            decoded.push(None);
-        }
+        let Encoding {
+            symbols,
+            embeddings,
+        } = &self.encoding;
+        let mut decoded = symbols
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| {
+                solution[i]
+                    && embeddings
+                        .iter()
+                        .all(|groups| solution[groups[i].clone()].iter().any(|&bit| bit))
+            })
+            .map(|(_, &symbol)| Some(symbol))
+            .collect::<Vec<_>>();
+        decoded.resize(self.max_length, None);
         Ok(decoded)
     }
 }
 
+fn tuple_graph(
+    anchor: &[usize],
+    matches: &[Vec<Vec<usize>>],
+    vertex_cap: usize,
+    edge_cap: usize,
+) -> Option<(SimpleGraph, Encoding)> {
+    let count = (0..anchor.len()).try_fold(0usize, |total, p| {
+        let product = matches.iter().try_fold(1usize, |product, slots| {
+            product
+                .checked_mul(slots[p].len())
+                .filter(|&n| n <= vertex_cap)
+        })?;
+        total.checked_add(product).filter(|&n| n <= vertex_cap)
+    })?;
+    let mut tuples = Vec::with_capacity(count);
+    for p in 0..anchor.len() {
+        let mut product = vec![vec![p]];
+        for slots in matches {
+            product = product
+                .iter()
+                .flat_map(|prefix| {
+                    slots[p].iter().map(|&j| {
+                        let mut tuple = prefix.clone();
+                        tuple.push(j);
+                        tuple
+                    })
+                })
+                .collect();
+        }
+        tuples.extend(product);
+    }
+    let mut edges = Vec::new();
+    for (i, left) in tuples.iter().enumerate() {
+        for (j, right) in tuples.iter().enumerate().skip(i + 1) {
+            let before = left[0] < right[0];
+            if left
+                .iter()
+                .zip(right)
+                .any(|(a, b)| a == b || (a < b) != before)
+            {
+                if edges.len() == edge_cap {
+                    return None;
+                }
+                edges.push((i, j));
+            }
+        }
+    }
+    let encoding = Encoding {
+        symbols: tuples.iter().map(|tuple| anchor[tuple[0]]).collect(),
+        embeddings: vec![],
+    };
+    Some((SimpleGraph::new(count, edges), encoding))
+}
+
+fn anchored_graph(anchor: Vec<usize>, matches: &[Vec<Vec<usize>>]) -> (SimpleGraph, Encoding) {
+    let mut edges = Vec::new();
+    let mut cursor = anchor.len();
+    let mut embeddings = Vec::new();
+    for slots in matches {
+        let mut groups = Vec::<Range<usize>>::new();
+        for (p, positions) in slots.iter().enumerate() {
+            let group = cursor..cursor + positions.len();
+            let skip = group.end;
+            cursor = skip + 1;
+            for a in group.start..=skip {
+                edges.extend((a + 1..=skip).map(|b| (a, b)));
+            }
+            edges.push((p, skip));
+            for (earlier, previous) in slots.iter().zip(&groups) {
+                for (i, &position) in earlier.iter().enumerate() {
+                    let conflicts = positions.partition_point(|&j| j <= position);
+                    edges.extend((0..conflicts).map(|j| (previous.start + i, group.start + j)));
+                }
+            }
+            groups.push(group);
+        }
+        embeddings.push(groups);
+    }
+    (
+        SimpleGraph::new(cursor, edges),
+        Encoding {
+            symbols: anchor,
+            embeddings,
+        },
+    )
+}
+
 #[reduction(transform = upper_bound {
-    num_vertices = "max_length * (num_strings + 2) + anchor_matching_pairs",
-    num_edges = "(max_length * (num_strings + 2) + anchor_matching_pairs)^2",
+    num_vertices = "max_length * (num_strings + total_length - max_length)",
+    num_edges = "max_length * (max_length + 1) / 2 * (sum_triangular_lengths - max_length * (max_length + 1) / 2) + max_length * (num_strings - 1)",
 })]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubsequence {
     type Result = ReductionLCSToIS;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        if self.max_length() == 0 {
-            return Ok(ReductionLCSToIS {
-                target: MaximumIndependentSet::new(SimpleGraph::new(0, vec![]), vec![]),
-                encoding: Encoding::Tuples(vec![]),
-                max_length: 0,
-            });
-        }
-        let overflow = || {
-            crate::rules::ReductionError::integer_overflow::<
-                Self,
-                MaximumIndependentSet<SimpleGraph, One>,
-            >("counting anchored vertices")
-        };
         let anchor = self
             .strings()
             .iter()
             .min_by_key(|s| s.len())
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        let mut seen = HashSet::new();
-        let retained = std::iter::once(anchor)
-            .chain(
-                self.strings()
-                    .iter()
-                    .map(Vec::as_slice)
-                    .filter(|string| !is_subsequence(anchor, string) && seen.insert(*string)),
-            )
-            .collect::<Vec<_>>();
-        let positions = retained
-            .iter()
-            .map(|string| {
-                let mut map = BTreeMap::<usize, Vec<usize>>::new();
-                for (j, &symbol) in string.iter().enumerate() {
-                    map.entry(symbol).or_default().push(j);
-                }
-                map
-            })
-            .collect::<Vec<_>>();
-        let common_symbols = positions[0]
-            .keys()
-            .copied()
-            .filter(|symbol| positions.iter().all(|map| map.contains_key(symbol)))
-            .collect::<HashSet<_>>();
-        let anchor = anchor
-            .iter()
-            .copied()
-            .filter(|symbol| common_symbols.contains(symbol))
-            .collect::<Vec<_>>();
-        let positions = positions
             .into_iter()
-            .zip(retained)
-            .enumerate()
-            .filter(|(r, (_, string))| *r == 0 || !is_subsequence(&anchor, string))
-            .map(|(_, (map, _))| map)
+            .flatten()
+            .copied()
+            .filter(|symbol| self.strings().iter().all(|s| s.contains(symbol)))
             .collect::<Vec<_>>();
-
-        // Only nonempty position lists enter the product; a later absent symbol
-        // must contribute zero before any multiplication can exceed the cap.
-        let common = positions[0]
-            .keys()
-            // Removing a constraint must not reintroduce an impossible letter.
-            .filter(|symbol| common_symbols.contains(symbol))
-            .filter_map(|&symbol| {
-                let lists = positions
+        let symbols = anchor.iter().copied().collect::<HashSet<_>>();
+        let strings = self
+            .strings()
+            .iter()
+            .map(|s| {
+                s.iter()
+                    .copied()
+                    .filter(|c| symbols.contains(c))
+                    .collect::<Vec<_>>()
+            })
+            .filter(|string| !is_subsequence(&anchor, string))
+            .collect::<BTreeSet<_>>();
+        let matches = strings
+            .iter()
+            .map(|s| {
+                anchor
                     .iter()
-                    .map(|map| map.get(&symbol).map(Vec::as_slice))
-                    .collect::<Option<Vec<_>>>()?;
-                Some((symbol, lists))
+                    .map(|symbol| {
+                        (0..s.len())
+                            .filter(|&j| s[j] == *symbol)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let mut cap = anchor.len().checked_mul(3).ok_or_else(overflow)?;
-        for map in &positions[1..] {
-            for symbol in &anchor {
-                cap = cap
-                    .checked_add(map.get(symbol).map_or(0, Vec::len))
-                    .and_then(|count| count.checked_add(1))
-                    .ok_or_else(overflow)?;
-            }
-        }
-        let tuple_count = common.iter().try_fold(0usize, |total, (_, lists)| {
-            let product = lists.iter().try_fold(1usize, |product, list| {
-                product
-                    .checked_mul(list.len())
-                    .filter(|&count| count <= cap)
-            })?;
-            total.checked_add(product).filter(|&count| count <= cap)
-        });
-        let mut num_vertices = tuple_count.unwrap_or(cap);
+        let anchored = anchored_graph(anchor.clone(), &matches);
         <Self as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
-            num_vertices,
+            anchored.0.num_vertices(),
             "representing the independent-set objective",
         )?;
-        let mut edges = Vec::new();
-        let mut encoding = if tuple_count.is_some() {
-            let mut nodes = Vec::with_capacity(num_vertices);
-            for (symbol, lists) in common {
-                let mut tuples = vec![Vec::new()];
-                for list in lists {
-                    tuples = tuples
-                        .into_iter()
-                        .flat_map(|prefix| {
-                            list.iter().map(move |&position| {
-                                let mut tuple = prefix.clone();
-                                tuple.push(position);
-                                tuple
-                            })
-                        })
-                        .collect();
-                }
-                nodes.extend(tuples.into_iter().map(|tuple| (symbol, tuple)));
-            }
-            for (i, (_, left)) in nodes.iter().enumerate() {
-                for (j, (_, right)) in nodes.iter().enumerate().skip(i + 1) {
-                    if !left.iter().zip(right).all(|(a, b)| a < b)
-                        && !left.iter().zip(right).all(|(a, b)| a > b)
-                    {
-                        edges.push((i, j));
-                    }
-                }
-            }
-            Encoding::Tuples(nodes)
-        } else {
-            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
-            edges = anchor_edges;
-            anchor_encoding
-        };
-        // A tuple graph costing at most the anchor's vertices alone cannot lose.
-        if tuple_count.is_some() && edges.len() > cap - num_vertices {
-            let (anchor_edges, anchor_encoding) = anchored_graph(&anchor, &positions, cap)?;
-            if edges.len() > anchor_edges.len()
-                && edges.len() - anchor_edges.len() > cap - num_vertices
-            {
-                num_vertices = cap;
-                edges = anchor_edges;
-                encoding = anchor_encoding;
-            }
-        }
-        let target = MaximumIndependentSet::new(
-            SimpleGraph::new(num_vertices, edges),
-            vec![One; num_vertices],
-        );
+        let (graph, encoding) = tuple_graph(
+            &anchor,
+            &matches,
+            anchored.0.num_vertices(),
+            anchored.0.num_edges(),
+        )
+        .unwrap_or(anchored);
+        let weights = vec![One; graph.num_vertices()];
+        let target = MaximumIndependentSet::new(graph, weights);
         Ok(ReductionLCSToIS {
             target,
-            encoding,
             max_length: self.max_length(),
+            encoding,
         })
     }
-}
-
-fn anchored_graph(
-    anchor: &[usize],
-    positions: &[BTreeMap<usize, Vec<usize>>],
-    cap: usize,
-) -> Result<(Vec<(usize, usize)>, Encoding), crate::rules::ReductionError> {
-    <LongestCommonSubsequence as ReduceTo<MaximumIndependentSet<SimpleGraph, One>>>::exact_i64(
-        cap,
-        "representing the anchored independent-set objective",
-    )?;
-    let mut edges = Vec::new();
-    let mut cursor = anchor.len() * 3;
-    let mut embeddings = Vec::with_capacity(positions.len() - 1);
-    for p in 0..anchor.len() {
-        edges.extend([(3 * p, 3 * p + 2), (3 * p + 1, 3 * p + 2)]);
-    }
-    for map in &positions[1..] {
-        let mut groups = Vec::<(&[usize], Range<usize>)>::with_capacity(anchor.len());
-        for (p, symbol) in anchor.iter().enumerate() {
-            let matches = map.get(symbol).map(Vec::as_slice).unwrap_or_default();
-            let group = cursor..cursor + matches.len() + 1;
-            cursor = group.end;
-            for a in group.clone() {
-                for b in a + 1..group.end {
-                    edges.push((a, b));
-                }
-            }
-            let skip = group.end - 1;
-            edges.extend([(3 * p, skip), (3 * p + 1, skip)]);
-            edges.extend((group.start..skip).map(|j| (3 * p + 2, j)));
-            // Only this string's earlier slots can cross. Sorted matches let
-            // us emit exactly the conflicting prefix of each group.
-            for (earlier, previous) in &groups {
-                for (i, &position) in earlier.iter().enumerate() {
-                    let conflicts = matches.partition_point(|&j| j <= position);
-                    edges.extend((0..conflicts).map(|j| (previous.start + i, group.start + j)));
-                }
-            }
-            groups.push((matches, group));
-        }
-        embeddings.push(groups.into_iter().map(|(_, range)| range).collect());
-    }
-    debug_assert_eq!(cursor, cap);
-    Ok((
-        edges,
-        Encoding::Anchored {
-            anchor: anchor.to_vec(),
-            embeddings,
-        },
-    ))
 }
 
 #[cfg(feature = "example-db")]
@@ -301,15 +226,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
-            let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
+            let source = LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0]]);
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MaximumIndependentSet<SimpleGraph, One>,
             >(
                 source,
                 SolutionPair {
-                    source_config: serde_json::json!(vec![Some(1), Some(0), Some(2), None]),
-                    target_config: serde_json::json!(vec![false, false, true, false, true, true]),
+                    source_config: serde_json::json!(vec![Some(0), None]),
+                    target_config: serde_json::json!(vec![true, false]),
                 },
             )
         },

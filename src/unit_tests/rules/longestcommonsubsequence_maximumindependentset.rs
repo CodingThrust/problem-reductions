@@ -1,263 +1,254 @@
 use super::*;
+use crate::rules::test_helpers::{
+    assert_optimization_round_trip_from_optimization_target, assert_parameter_predictions,
+};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Max;
 
-fn assert_round_trip(source: &LongestCommonSubsequence, length: i64, target_value: i64) {
+fn reduce(source: &LongestCommonSubsequence) -> ReductionLCSToIS {
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(source).unwrap();
+    assert_parameter_predictions(source, &reduction);
+    reduction
+}
+
+fn assert_round_trip(source: &LongestCommonSubsequence, length: i64) {
     let source_solution = BruteForce::new().solve(source).unwrap().unwrap();
     assert_eq!(
         source.evaluate(&source_solution).unwrap(),
         Max(Some(length))
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(source).unwrap();
+    let reduction = reduce(source);
     let target = reduction.target_problem();
-    let solution = if target.num_vertices() <= 12 {
-        BruteForce::new().solve(target).unwrap().unwrap()
-    } else {
-        ILPSolver::new().solve(target).unwrap()
-    };
-    assert_eq!(target.evaluate(&solution).unwrap(), Max(Some(target_value)));
+    // Brute force over every optimal target witness stays fast up to 13 vertices.
+    if target.num_vertices() <= 13 {
+        assert_optimization_round_trip_from_optimization_target(source, &reduction, "LCS to MIS");
+    }
+    let solution = ILPSolver::new().solve(target).unwrap();
     let decoded = reduction.extract_solution(&solution).unwrap();
     assert_eq!(source.evaluate(&decoded).unwrap(), Max(Some(length)));
 }
 
+fn repetition_pair() -> LongestCommonSubsequence {
+    LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0, 0], vec![1, 0, 0, 0]])
+}
+
+fn opposite_pair() -> LongestCommonSubsequence {
+    LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0]])
+}
+
 #[test]
 fn test_longestcommonsubsequence_to_maximumindependentset_closed_loop() {
-    let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    // Four A alignments, one B alignment, and one C alignment.
-    assert_eq!(reduction.target_problem().num_vertices(), 6);
-    assert_round_trip(&source, 3, 3);
-}
-
-#[test]
-fn test_lcs_to_mis_removes_redundant_strings() {
-    let repeated = LongestCommonSubsequence::new(1, vec![vec![0, 0]; 64]);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&repeated).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 2);
-    assert_eq!(reduction.target_problem().num_edges(), 0);
-    assert_round_trip(&repeated, 2, 2);
-
-    let source = LongestCommonSubsequence::new(
-        3,
-        vec![vec![2, 0, 1, 2], vec![0, 1], vec![0, 1], vec![1, 0]],
-    );
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let source = opposite_pair();
+    assert_round_trip(&source, 1);
+    let reduction = reduce(&source);
     assert_eq!(reduction.target_problem().num_vertices(), 2);
     assert_eq!(reduction.target_problem().num_edges(), 1);
-    assert_eq!(source.parameters().get("anchor_matching_pairs"), Some(6));
-    assert_round_trip(&source, 1, 1);
-}
-
-fn crossing_strings(longer: usize) -> LongestCommonSubsequence {
-    let blocks = |count| [vec![1; count], vec![0; count]].concat();
-    LongestCommonSubsequence::new(2, vec![vec![0, 1], blocks(3), blocks(longer)])
-}
-
-#[test]
-fn test_lcs_to_mis_caps_tuple_expansion_before_allocation() {
-    // At the 24-vertex cap, the tuple graph is a clique (276 edges).
-    // The anchored graph has the same vertices and only 83 edges.
-    let at_cap = crossing_strings(4);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&at_cap).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 24);
-    assert_eq!(reduction.target_problem().num_edges(), 83);
-    assert_round_trip(&at_cap, 1, 7);
-
-    // 30 tuples exceed the cap: 6 anchor vertices + (6+2)+(10+2) embeddings.
-    let source = crossing_strings(5);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 26);
-    assert_round_trip(&source, 1, 7);
-
-    // Sixty-four distinct balanced binary strings would have 2*4^64 tuples.
-    let strings = (0u8..=u8::MAX)
-        .filter(|bits| bits.count_ones() == 4)
-        .take(64)
-        .map(|bits| (0..8).map(|p| usize::from((bits >> p) & 1)).collect())
-        .collect();
-    let source = LongestCommonSubsequence::new(2, strings);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 2544);
-    assert_eq!(source.parameters().get("anchor_matching_pairs"), Some(2016));
-}
-
-#[test]
-fn test_lcs_to_mis_polynomial_parameter_bound() {
-    let source = crossing_strings(5);
-    let graph = crate::rules::ReductionGraph::new();
-    let entry = graph
-        .find_entry(
-            "LongestCommonSubsequence",
-            &crate::export::variant_to_map(LongestCommonSubsequence::variant()),
-            "MaximumIndependentSet",
-            &crate::export::variant_to_map(MaximumIndependentSet::<SimpleGraph, One>::variant()),
-        )
-        .unwrap();
-    let transform = entry
-        .parameter_contract
-        .as_ref()
-        .unwrap()
-        .transform()
-        .unwrap();
-    let predicted = transform.evaluate(&source.parameters()).unwrap();
-    assert_eq!(predicted.get("num_vertices"), Some(26));
-    assert_eq!(predicted.get("num_edges"), Some(676));
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert!(u64::try_from(reduction.target_problem().num_edges()).unwrap() <= 676);
-}
-
-#[test]
-fn test_lcs_to_mis_selects_by_vertices_and_edges() {
-    // There are 24 zero-tuples (3*2*2*2), but almost every pair conflicts.
-    // The 36-vertex anchored graph is smaller when its 96 edges are included.
-    let source = LongestCommonSubsequence::new(
-        2,
-        vec![vec![0, 0, 0], vec![0, 0, 1], vec![0, 1, 0], vec![1, 0, 0]],
+    let witness = vec![true, false];
+    assert_eq!(
+        reduction.target_problem().evaluate(&witness).unwrap(),
+        Max(Some(1))
     );
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 36);
-    assert_eq!(reduction.target_problem().num_edges(), 96);
-    assert_round_trip(&source, 2, 14);
-
-    // Both constructions cost 133 vertices plus edges; keep the tuple graph.
-    let source = LongestCommonSubsequence::new(
-        2,
-        vec![vec![0, 0, 0, 1], vec![0, 1, 0, 1], vec![1, 1, 0, 0]],
+    assert_eq!(
+        reduction.extract_solution(&witness).unwrap(),
+        vec![Some(0), None]
     );
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 16);
-    assert_eq!(reduction.target_problem().num_edges(), 117);
-    assert_round_trip(&source, 2, 2);
 }
 
 #[test]
-fn test_lcs_to_mis_removes_impossible_anchor_letters() {
+fn test_lcs_to_mis_filters_before_deduplicating_tuple_inputs() {
     let source = LongestCommonSubsequence::new(
-        3,
-        vec![
-            vec![0, 0, 1, 2],
-            [vec![1; 3], vec![0; 5]].concat(),
-            [vec![1; 4], vec![0; 6]].concat(),
-        ],
+        4,
+        vec![vec![0, 1], vec![1, 2, 0], vec![1, 3, 0], vec![1, 0]],
     );
-    // Only 001 remains in the anchor: 9 anchor vertices + 29 matches + 6 skips.
-    // Anchor edges 6, embedding cliques 88, consistency 41, crossings 114.
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 44);
-    assert_eq!(reduction.target_problem().num_edges(), 249);
-    assert_round_trip(&source, 2, 11);
+    let reduction = reduce(&source);
+    assert_eq!(reduction.target_problem().num_vertices(), 2);
+    assert_eq!(reduction.target_problem().num_edges(), 1);
+    assert_round_trip(&source, 1);
+}
 
-    // After removing the absent 1, both other strings contain the whole anchor.
-    let source = LongestCommonSubsequence::new(2, vec![vec![0, 0, 1], vec![0; 5], vec![0; 6]]);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+#[test]
+fn test_lcs_to_mis_uses_tuples_for_the_repeated_symbol_example() {
+    let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
+    let reduction = reduce(&source);
+    assert_eq!(reduction.target_problem().num_vertices(), 6);
+    assert_eq!(reduction.target_problem().num_edges(), 9);
+    assert_round_trip(&source, 3);
+}
+
+#[test]
+fn test_lcs_to_mis_normalization_preserves_original_padding() {
+    let source = LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![0; 3], vec![0; 2]]);
+    let reduction = reduce(&source);
+    assert_eq!(reduction.target_problem().num_vertices(), 1);
+    assert_eq!(reduction.target_problem().num_edges(), 0);
+    assert_eq!(
+        reduction.extract_solution(&vec![true]).unwrap(),
+        vec![Some(0), None]
+    );
+    assert_round_trip(&source, 1);
+}
+
+#[test]
+fn test_lcs_to_mis_polynomial_size_for_many_repeated_strings() {
+    // Containing strings add no constraints, even when there would be 2^64 tuples.
+    let source = LongestCommonSubsequence::new(1, vec![vec![0, 0]; 64]);
+    let reduction = reduce(&source);
     assert_eq!(reduction.target_problem().num_vertices(), 2);
     assert_eq!(reduction.target_problem().num_edges(), 0);
-    assert_round_trip(&source, 2, 2);
+    assert_round_trip(&source, 2);
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == LongestCommonSubsequence::NAME
+                && entry.target_name == "MaximumIndependentSet"
+        })
+        .unwrap();
+    assert!(entry.reduce_aggregate_fn.is_none());
+    let contract = entry.parameter_contract().unwrap();
+    let predicted = contract
+        .transform()
+        .unwrap()
+        .evaluate(&source.parameters())
+        .unwrap();
+    // A=3, S-A=63*3: embedding cliques/crossings <= 567, reward links <= 126.
+    assert_eq!(predicted.get("num_vertices"), Some(380));
+    assert_eq!(predicted.get("num_edges"), Some(693));
 }
 
 #[test]
-fn test_lcs_to_mis_ordering_and_empty_common_subsequences() {
+fn test_lcs_to_mis_ordering_repetition_and_empty_common_subsequences() {
     for (alphabet, strings, length) in [
         (2, vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 1]], 2),
         (2, vec![vec![0, 1], vec![1, 0], vec![0, 1], vec![1, 0]], 1),
+        (
+            3,
+            vec![vec![2, 0, 1, 2], vec![0, 1], vec![0, 1], vec![1, 0]],
+            1,
+        ),
+        (2, vec![vec![0, 0, 1], vec![0; 5], vec![0; 6]], 2),
+        (2, vec![vec![0, 1, 0], vec![0, 0, 1]], 2),
         (2, vec![vec![0, 1, 0]], 3),
-        (2, vec![vec![0, 0], vec![1, 1]], 0),
+        (2, vec![vec![0], vec![1]], 0),
         (2, vec![vec![0, 1], vec![]], 0),
+        (0, vec![vec![], vec![]], 0),
         (0, vec![], 0),
     ] {
-        assert_round_trip(
-            &LongestCommonSubsequence::new(alphabet, strings),
-            length,
-            length,
-        );
+        assert_round_trip(&LongestCommonSubsequence::new(alphabet, strings), length);
     }
 }
 
 #[test]
-fn test_lcs_to_mis_rejects_invalid_and_partial_twin_witnesses() {
-    let source = crossing_strings(5);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    let target = reduction.target_problem();
-    assert!(reduction
-        .extract_solution(&vec![false; target.num_vertices() - 1])
-        .is_err());
-    assert!(reduction
-        .extract_solution(&vec![true; target.num_vertices()])
-        .is_err());
-    let mut partial = vec![false; target.num_vertices()];
-    partial[0] = true;
-    assert_eq!(target.evaluate(&partial).unwrap(), Max(Some(1)));
-    assert!(reduction.extract_solution(&partial).is_err());
+fn test_lcs_to_mis_rejects_malformed_witnesses() {
+    for source in [opposite_pair(), repetition_pair()] {
+        let reduction = reduce(&source);
+        let n = reduction.target_problem().num_vertices();
+        for witness in [vec![false; n - 1], vec![false; n + 1], vec![true; n]] {
+            assert!(reduction.extract_solution(&witness).is_err());
+        }
+    }
+}
+
+#[test]
+fn test_lcs_to_mis_keeps_anchored_when_tuples_have_more_edges() {
+    let source = repetition_pair();
+    let reduction = reduce(&source);
+    // Seven tuples have 21 edges; the anchored graph has 13 vertices but only 20 edges.
+    assert_eq!(reduction.target_problem().num_vertices(), 13);
+    assert_eq!(reduction.target_problem().num_edges(), 20);
+    assert_round_trip(&source, 1);
+}
+
+#[test]
+fn test_lcs_to_mis_caps_many_string_tuple_products() {
+    let mut strings = vec![vec![0, 1]];
+    strings.extend((1..=64).map(|n| {
+        let mut string = vec![0; n + 1];
+        string[0] = 1;
+        string
+    }));
+    let source = LongestCommonSubsequence::new(2, strings);
+    let reduction = reduce(&source);
+    // Tuple count 64! + 1 exceeds usize; the anchored graph stays polynomial.
+    assert_eq!(reduction.target_problem().num_vertices(), 2274);
+    assert_eq!(reduction.target_problem().num_edges(), 48032);
+    let mut witness = vec![false; 2274];
+    // Embed symbol 1 everywhere, and use the skip in each symbol-0 group.
+    witness[1] = true;
+    let mut cursor = 2;
+    for n in 1..=64 {
+        witness[cursor + n] = true;
+        witness[cursor + n + 1] = true;
+        cursor += n + 3;
+    }
+    assert_eq!(
+        reduction.target_problem().evaluate(&witness).unwrap(),
+        Max(Some(129))
+    );
+    assert_eq!(
+        reduction.extract_solution(&witness).unwrap(),
+        vec![Some(1), None]
+    );
+}
+
+#[test]
+fn test_lcs_to_mis_tuple_cap_includes_the_boundary() {
+    let matches = vec![vec![vec![1], vec![0]]];
+    assert!(tuple_graph(&[0, 1], &matches, 2, 1).is_some());
+    assert!(tuple_graph(&[0, 1], &matches, 1, 1).is_none());
+    assert!(tuple_graph(&[0, 1], &matches, 2, 0).is_none());
+}
+
+#[test]
+fn test_lcs_to_mis_rejects_reused_positions_in_nonadjacent_slots() {
+    let source = LongestCommonSubsequence::new(
+        2,
+        vec![
+            vec![0, 1, 0],
+            vec![0, 0, 1],
+            vec![0, 0, 0, 1],
+            vec![1, 0, 0],
+        ],
+    );
+    let reduction = reduce(&source);
+    let mut witness = vec![false; reduction.target_problem().num_vertices()];
+    // First and third slots both use position zero of [0,0,0,1].
+    witness[3] = true;
+    witness[9] = true;
+    assert_eq!(
+        reduction.target_problem().evaluate(&witness).unwrap(),
+        Max(None)
+    );
+    assert!(reduction.extract_solution(&witness).is_err());
 }
 
 #[test]
 fn test_lcs_to_mis_decodes_missing_embedding_groups() {
-    let source = crossing_strings(5);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    let mut solution = vec![false; reduction.target_problem().num_vertices()];
-    solution[..2].fill(true);
+    let reduction = reduce(&repetition_pair());
+    let mut witness = vec![false; 13];
+    witness[0] = true;
     assert_eq!(
-        reduction.target_problem().evaluate(&solution).unwrap(),
-        Max(Some(2))
+        reduction.extract_solution(&witness).unwrap(),
+        vec![None, None]
     );
-    let decoded = reduction.extract_solution(&solution).unwrap();
-    assert_eq!(decoded, vec![None, None]);
-    assert_eq!(source.evaluate(&decoded).unwrap(), Max(Some(0)));
-
-    let source = LongestCommonSubsequence::new(
-        3,
-        vec![
-            vec![0, 0, 0, 0, 0, 0, 1, 2],
-            vec![1, 0, 0, 0, 0, 0, 0, 2],
-            vec![2, 0, 0, 0, 0, 0, 0, 1],
-        ],
-    );
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().num_vertices(), 116);
-    // Activate seven anchor slots but omit the first string's embedding of 1.
-    // Six zeros still embed in both strings, giving an optimal 30-vertex set.
-    let mut solution = vec![false; 116];
-    for p in 0..7 {
-        solution[3 * p..3 * p + 2].fill(true);
-    }
-    for p in 0..6 {
-        solution[24 + 8 * p] = true;
-        solution[70 + 8 * p] = true;
-    }
-    for vertex in [23, 69, 112, 115] {
-        solution[vertex] = true;
-    }
+    // Both rewards active; only slot 0 has matches in both strings. Two groups are empty.
+    witness[1] = true;
+    witness[2] = true;
+    witness[7] = true;
     assert_eq!(
-        reduction.target_problem().evaluate(&solution).unwrap(),
-        Max(Some(30))
+        reduction.target_problem().evaluate(&witness).unwrap(),
+        Max(Some(4))
     );
     assert_eq!(
-        reduction.extract_solution(&solution).unwrap(),
-        [vec![Some(0); 6], vec![None; 2]].concat()
+        reduction.extract_solution(&witness).unwrap(),
+        vec![Some(0), None]
     );
-    assert_round_trip(&source, 6, 30);
 }
 
 #[test]
 fn test_lcs_to_mis_preserves_sparse_original_symbols() {
     let source = LongestCommonSubsequence::new(usize::MAX, vec![vec![usize::MAX - 1]]);
-    let reduction =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source).unwrap();
+    let reduction = reduce(&source);
     assert_eq!(reduction.target_problem().num_vertices(), 1);
     let solution = BruteForce::new()
         .solve(reduction.target_problem())

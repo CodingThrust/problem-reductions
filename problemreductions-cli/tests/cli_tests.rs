@@ -5611,12 +5611,12 @@ fn test_path_preserves_exact_variables_and_bounded_quadratic_terms() {
 }
 
 #[test]
-fn test_path_vertex_cover_to_lcs_has_complete_parameter_formulas() {
+fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "MinimumVertexCover/SimpleGraph/One",
-            "LongestCommonSubsequence",
+            "SubsetSum",
+            "DecisionOpenShopScheduling",
             "--limit",
             "1",
             "--json",
@@ -5628,14 +5628,19 @@ fn test_path_vertex_cover_to_lcs_has_complete_parameter_formulas() {
     let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap();
-    let alphabet = fields
+    let machines = fields
         .iter()
-        .find(|field| field["field"] == "alphabet_size")
+        .find(|field| field["field"] == "num_machines")
         .unwrap();
-    assert_eq!(alphabet["relation"], "exact");
-    assert!(fields
+    assert_eq!(machines["relation"], "exact");
+    let horizon = fields
         .iter()
-        .all(|field| field["relation"] != "unavailable"));
+        .find(|field| field["field"] == "schedule_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(horizon["reason"]
+        .as_str()
+        .is_some_and(|reason| !reason.is_empty()));
 }
 
 #[test]
@@ -5695,9 +5700,6 @@ fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
         "{}",
         String::from_utf8_lossy(&reduced.stderr)
     );
-    let data: serde_json::Value = serde_json::from_slice(&std::fs::read(&bundle).unwrap()).unwrap();
-    // Vertex-symbol frequencies give 2 alignments for 0, 1 for 1, and 2 for 2.
-    assert_eq!(data["target"]["data"]["graph"]["num_vertices"], 5);
     let solved = pred()
         .args([
             "solve",

@@ -42,7 +42,6 @@ impl ReductionResult for ReductionVCToLCS {
     transform = {
         exact {
             alphabet_size = "num_vertices",
-            anchor_matching_pairs = "2 * num_edges * (num_vertices - 1)",
             num_strings = "num_edges + 1",
             max_length = "num_vertices",
             total_length = "num_vertices + 2 * num_edges * num_vertices - 2 * num_edges",
