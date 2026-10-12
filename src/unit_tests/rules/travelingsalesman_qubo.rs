@@ -55,32 +55,11 @@ fn test_signed_tour_costs_preserve_all_optima() {
 }
 
 #[test]
-fn test_tours_with_parallel_edges_and_loops() {
-    for weights in [
-        vec![1, 2, 3, 9, -100],
-        vec![9, 2, 3, 1, -100],
-        vec![1, 2, 3, 1, -100],
-    ] {
-        assert_tour_recovery(TravelingSalesman::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0), (1, 0), (0, 0)]),
-            weights,
-        ));
-    }
-}
-
-#[test]
 fn test_small_tours_follow_edge_set_definition() {
     for (n, edges, weights) in [
         (0, vec![], vec![]),
         (1, vec![], vec![]),
-        (1, vec![(0, 0), (0, 0)], vec![8, -2]),
-        (1, vec![(0, 0)], vec![i64::MIN]),
         (2, vec![(0, 1)], vec![1]),
-        (
-            2,
-            vec![(0, 1), (1, 0), (0, 1), (0, 0)],
-            vec![8, -2, 1, -100],
-        ),
     ] {
         assert_tour_recovery(TravelingSalesman::new(SimpleGraph::new(n, edges), weights));
     }
@@ -92,7 +71,7 @@ fn test_tour_numeric_limits_fail_during_construction() {
         TravelingSalesman::new(SimpleGraph::complete(3), vec![i64::MIN, 0, 0]),
         TravelingSalesman::new(SimpleGraph::complete(3), vec![i64::MAX, 1, 1]),
         TravelingSalesman::new(SimpleGraph::complete(3), vec![i64::MAX / 10; 3]),
-        TravelingSalesman::new(SimpleGraph::new(2, vec![(0, 1), (1, 0)]), vec![i64::MAX; 2]),
+        TravelingSalesman::new(SimpleGraph::complete(3), vec![i64::MAX / 2; 3]),
     ] {
         assert!(matches!(
             ReduceTo::<QUBO<i64>>::reduce_to(&source),

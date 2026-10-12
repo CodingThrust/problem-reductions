@@ -83,6 +83,7 @@ impl BipartiteGraph {
                 .into());
             }
         }
+        super::graph::validate_simple_edges(edges.iter().map(|&(u, v)| (u, left_size + v)))?;
         Ok(Self {
             left_size,
             right_size,

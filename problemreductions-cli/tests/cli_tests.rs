@@ -10267,3 +10267,28 @@ fn test_extract_reads_bundle_from_stdin() {
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
 }
+
+#[test]
+fn simple_graph_create_rejects_loops_and_parallel_edges() {
+    for (edges, offending) in [
+        ("0-0", "edge (0, 0)"),
+        ("0-1,0-1", "edge (0, 1)"),
+        ("0-1,1-0", "edge (1, 0)"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MaximumIndependentSet/SimpleGraph/One",
+                "--graph",
+                edges,
+                "--num-vertices",
+                "3",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains(offending), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
+}

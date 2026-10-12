@@ -289,3 +289,126 @@ fn sparse_ilp_predictions_use_construction_counts() {
         );
     }
 }
+
+#[test]
+fn simple_graph_create_contracts_propagate_edge_validation() {
+    let names = [
+        "BiconnectivityAugmentation",
+        "BottleneckTravelingSalesman",
+        "BoundedDiameterSpanningTree",
+        "DisjointConnectingPaths",
+        "KClique",
+        "KColoring",
+        "KthBestSpanningTree",
+        "LengthBoundedDisjointPaths",
+        "LongestCircuit",
+        "LongestPath",
+        "MaxCut",
+        "MaximumIndependentSet",
+        "MaximumMatching",
+        "MinMaxMulticenter",
+        "MinimumSumMulticenter",
+        "MultipleCopyFileAllocation",
+        "PrizeCollectingSteinerForest",
+        "RuralPostman",
+        "SpinGlass",
+        "TravelingSalesman",
+        "UndirectedTwoCommodityIntegralFlow",
+    ];
+    let sources = canonical_sources();
+    let mut checked = std::collections::BTreeSet::new();
+    for entry in crate::registry::variant_entries() {
+        if !names.contains(&entry.name)
+            || entry
+                .variant_map()
+                .get("graph")
+                .is_some_and(|g| g != "SimpleGraph")
+        {
+            continue;
+        }
+        let inputs = entry.inputs();
+        let instance = sources
+            .iter()
+            .find(|((name, variant), _)| name == entry.name && variant == &entry.variant_map())
+            .or_else(|| sources.iter().find(|((name, _), _)| name == entry.name))
+            .unwrap()
+            .1
+            .first()
+            .unwrap();
+        let mut data = serde_json::Map::new();
+        for input in &inputs {
+            if input.required && input.name != "graph" {
+                data.insert(
+                    input.name.to_string(),
+                    instance
+                        .get(input.name)
+                        .or_else(|| {
+                            (entry.name == "KColoring" && input.name == "k")
+                                .then(|| &instance["num_colors"])
+                        })
+                        .unwrap_or_else(|| {
+                            panic!("{}: missing canonical input {}", entry.name, input.name)
+                        })
+                        .clone(),
+                );
+            }
+        }
+        data.insert("graph".into(), instance["graph"]["edges"].clone());
+        if inputs.iter().any(|input| input.name == "num_vertices") {
+            data.insert(
+                "num_vertices".into(),
+                instance["graph"]["num_vertices"].clone(),
+            );
+        }
+        (entry.construct_fn)(Value::Object(data.clone()))
+            .unwrap_or_else(|error| panic!("{} {:?}: {error}", entry.name, entry.variant()));
+        for (edges, offending) in [
+            (json!([[0, 0]]), "edge (0, 0)"),
+            (json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+            (json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+        ] {
+            data.insert("graph".into(), edges);
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains(offending),
+                "{}: {error}",
+                entry.name
+            );
+        }
+        if inputs.iter().any(|input| input.name == "num_vertices") {
+            data.remove("num_vertices");
+            data.insert("graph".into(), json!([]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("num_vertices"),
+                "{}: {error}",
+                entry.name
+            );
+            data.insert("num_vertices".into(), json!(0));
+            data.insert("graph".into(), json!([[0, 1]]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("too small"),
+                "{}: {error}",
+                entry.name
+            );
+            data.insert("graph".into(), json!([[usize::MAX, 0]]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("overflow"),
+                "{}: {error}",
+                entry.name
+            );
+        }
+        checked.insert(entry.name);
+    }
+    assert_eq!(checked, names.into_iter().collect());
+}

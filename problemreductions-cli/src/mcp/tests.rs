@@ -719,3 +719,21 @@ fn test_solve_bundle_rejects_aggregate_only_path() {
     let err = result.unwrap_err().to_string();
     assert!(err.contains("witness"), "unexpected error: {err}");
 }
+
+#[test]
+fn simple_graph_create_rejects_loops_and_parallel_edges() {
+    let server = McpServer::new();
+    for (edges, offending) in [
+        (serde_json::json!([[0, 0]]), "edge (0, 0)"),
+        (serde_json::json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+        (serde_json::json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+    ] {
+        let error = server
+            .create_problem_inner(
+                "MaximumIndependentSet/SimpleGraph/One",
+                &serde_json::json!({"graph": edges, "num_vertices": 3}),
+            )
+            .unwrap_err();
+        assert!(format!("{error:#}").contains(offending), "{error:#}");
+    }
+}

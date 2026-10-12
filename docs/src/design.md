@@ -151,6 +151,16 @@ Variant types fall into three categories:
 - **Weight type** — `One` (unweighted), `i64`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
 
+`SimpleGraph` is undirected, loop-free, and has no parallel edges: `(u, v)` and
+`(v, u)` are the same edge. Its fallible constructor, `new`, and serde share
+validation. `PlanarGraph` wraps it; `BipartiteGraph` also rejects repeated
+cross-partition pairs. `UnitDiskGraph`, `KingsSubgraph`, and `TriangularSubgraph`
+generate each edge between distinct vertex indices once, including when two
+vertices have coincident positions. `DirectedGraph` and `MixedGraph` retain
+loops and parallel records, subject to each model's additional restrictions.
+A model requiring undirected multigraph instances needs a different topology.
+
+
 <div class="theme-light-only">
 
 ![Lattices](static/lattices.svg)

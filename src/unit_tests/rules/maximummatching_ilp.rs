@@ -5,9 +5,9 @@ use crate::traits::Problem;
 use crate::types::Max;
 
 #[test]
-fn parameter_predictions_account_for_isolated_vertices_and_loops() {
+fn parameter_predictions_account_for_isolated_vertices_and_empty_graphs() {
     use crate::parameters::ParameterRelation;
-    for (vertices, edges, expected_constraints) in [(3, vec![(0, 1)], 2), (1, vec![(0, 0)], 1)] {
+    for (vertices, edges, expected_constraints) in [(3, vec![(0, 1)], 2), (1, vec![], 0)] {
         let source = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(vertices, edges));
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let actual = reduction.target_problem().parameters();

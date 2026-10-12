@@ -119,13 +119,13 @@ fn test_customized_two_coloring_matches_brute_force() {
 }
 
 #[test]
-fn test_customized_two_coloring_handles_loops_parallel_edges_and_long_paths() {
+fn test_customized_two_coloring_handles_edges_odd_cycles_and_long_paths() {
     use crate::models::graph::KColoring;
     use crate::variant::K2;
 
     for (graph, feasible) in [
-        (SimpleGraph::new(2, vec![(0, 1), (0, 1)]), true),
-        (SimpleGraph::new(3, vec![(2, 2)]), false),
+        (SimpleGraph::path(2), true),
+        (SimpleGraph::cycle(3), false),
         (
             SimpleGraph::new(10_000, (0..9_999).map(|u| (u, u + 1)).collect()),
             true,
@@ -594,7 +594,6 @@ fn test_solve_two_coloring_direct_graph_cases() {
     for (name, n, edges, feasible) in [
         ("bipartite", 4, vec![(0, 1), (1, 2), (2, 3), (3, 0)], true),
         ("odd cycle", 3, vec![(0, 1), (1, 2), (2, 0)], false),
-        ("self-loop", 1, vec![(0, 0)], false),
         ("isolated vertices", 3, vec![], true),
         ("disconnected", 5, vec![(0, 1), (2, 3)], true),
         ("empty", 0, vec![], true),
@@ -615,7 +614,7 @@ fn customized_clique_cover_and_decision_preserve_optimum() {
     use crate::models::Decision;
     for graph in all_simple_graphs(4).chain([
         SimpleGraph::new(0, vec![]),
-        SimpleGraph::new(3, vec![(0, 0), (1, 2), (2, 1)]),
+        SimpleGraph::new(3, vec![(1, 2)]),
     ]) {
         let source = MinimumCoveringByCliques::new(graph);
         let expected = crate::solvers::BruteForce::new()

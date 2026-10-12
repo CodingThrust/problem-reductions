@@ -80,6 +80,16 @@ pub(crate) fn edges_to_cycle_order<G: Graph>(
     Ok(order)
 }
 
+pub(crate) fn unique_undirected_edges(
+    edges: impl IntoIterator<Item = (usize, usize)>,
+) -> Vec<(usize, usize)> {
+    let mut seen = std::collections::HashSet::new();
+    edges
+        .into_iter()
+        .filter(|&(u, v)| seen.insert((u.min(v), u.max(v))))
+        .collect()
+}
+
 /// Build the complement graph edges: edges between all non-adjacent vertex pairs.
 pub(crate) fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
     let n = graph.num_vertices();

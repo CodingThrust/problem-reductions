@@ -819,7 +819,7 @@ Turing reductions allow multiple adaptive queries, such as binary search over a 
 
 == Notation
 
-We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. A _clique_ in $G$ is a subset $K subset.eq V$ where every pair of distinct vertices is adjacent: $(u, v) in E$ for all distinct $u, v in K$. A _unit disk graph_ is a graph where vertices are points on a 2D lattice and $(u, v) in E$ iff $d(u, v) <= r$ for some radius $r$; a _King's subgraph_ uses the 8-connectivity square grid with $r approx 1.5$. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
+We use the following notation throughout. A _simple undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. Undirected inputs are simple unless a problem definition explicitly allows self-loops or parallel edges. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. A _clique_ in $G$ is a subset $K subset.eq V$ where every pair of distinct vertices is adjacent: $(u, v) in E$ for all distinct $u, v in K$. A _unit disk graph_ is a graph where vertices are points on a 2D lattice and $(u, v) in E$ iff $d(u, v) <= r$ for some radius $r$; a _King's subgraph_ uses the 8-connectivity square grid with $r approx 1.5$. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
 = Problem Definitions <sec:problems>
 
@@ -2209,7 +2209,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let path-arcs = range(path-order.len() - 1).map(i => (path-order.at(i), path-order.at(i + 1)))
   [
     #problem-def("DirectedHamiltonianPath")[
-      Given a directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
     ][
       A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39) @garey1979. The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes. Directed Hamiltonian paths arise naturally in genome assembly (finding Eulerian or Hamiltonian traversals of de Bruijn graphs), job sequencing with precedence constraints, and one-way street routing.
 
@@ -2271,7 +2271,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let in-kernel(k) = x.optimal_config.at(k)
   [
     #problem-def("Kernel")[
-      Given a directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
     ][
       A classical graph-theoretic concept introduced by von Neumann and Morgenstern @vonNeumannMorgenstern1944 in the context of game theory. Chvátal showed that deciding whether a directed graph has a kernel is NP-complete in general @chvatal1973, though Richardson proved that every DAG has a unique kernel @richardson1953. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem on list-chromatic index @galvin1995), and stable set problems on digraphs.
 
@@ -2574,7 +2574,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let p5 = (1, 4, 7, 9)
   [
     #problem-def("PathConstrainedNetworkFlow")[
-      Given a directed graph $G = (V, A)$, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
     ][
       Path-Constrained Network Flow appears as problem ND34 in Garey \& Johnson @garey1979. Unlike ordinary single-commodity flow, the admissible routes are fixed in advance: every unit of flow must be assigned to one of the listed $s$-$t$ paths. This prescribed-path viewpoint is standard in line planning and unsplittable routing, and Büsing and Stiller give a modern published NP-completeness and inapproximability treatment for exactly this integral formulation @busingstiller2011.
 
@@ -3154,7 +3154,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("BottleneckTravelingSalesman")[
-      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
+      Given an undirected graph $G=(V,E)$, possibly containing self-loops and parallel edges, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
     ][
     This min-max variant models routing where the worst leg matters more than the total distance. Garey and Johnson list the threshold decision version as ND24 @garey1979: given a bound $B$, ask whether some Hamiltonian tour has every edge weight at most $B$. The optimization version implemented here subsumes that decision problem. The classical Held--Karp dynamic programming algorithm still yields an exact $O(n^2 dot 2^n)$-time algorithm @heldkarp1962, while Garey and Johnson note the polynomial-time special case of Gilmore and Gomory @gilmore1964.
 
@@ -3244,7 +3244,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("TravelingSalesman")[
-      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
+      Given an undirected graph $G=(V,E)$, possibly containing self-loops and parallel edges, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
     ][
     One of the most intensely studied NP-hard problems, with applications in logistics, circuit board drilling, and DNA sequencing. The best known exact algorithm runs in $O^*(2^n)$ time and space via Held-Karp dynamic programming @heldkarp1962. No $O^*((2-epsilon)^n)$ algorithm is known, and improving the exponential space remains open.
 
@@ -3373,7 +3373,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("StrongConnectivityAugmentation")[
-      Given a directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
@@ -3770,7 +3770,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("MinimumDummyActivitiesPert")[
-      Given a precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+      Given a precedence DAG $G = (V, A)$, possibly containing parallel arcs, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
     ][
     The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
 
@@ -3821,7 +3821,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
-      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
     ][
     One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
 
@@ -7159,7 +7159,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
+      Given a mixed graph $G = (V, A, E)$, possibly containing self-loops, parallel arcs, and parallel undirected edges, with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
@@ -8651,7 +8651,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let removed = range(na).filter(i => config.at(i))
   [
     #problem-def("MinimumFeedbackArcSet")[
-      Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
     ][
       Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
@@ -8732,7 +8732,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let chosen = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MultipleChoiceBranching")[
-      Given a directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
     ][
       Multiple Choice Branching is the directed-graph problem ND11 in Garey & Johnson @garey1979. The partition constraint turns the polynomial-time maximum branching setting into an NP-complete decision problem: Garey and Johnson note that the problem remains NP-complete even when the digraph is strongly connected and all weights are equal, while the special case in which every partition group has size 1 reduces to ordinary maximum branching and becomes polynomial-time solvable @garey1979.
 
@@ -8787,7 +8787,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cross-arcs = arcs.filter(a => config.at(a.at(0)) != config.at(a.at(1)))
   [
     #problem-def("AcyclicPartition")[
-      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
     ][
       Acyclic Partition is the directed partitioning problem ND15 in Garey & Johnson @garey1979. Unlike ordinary graph partitioning, the goal is not merely to minimize the cut: the partition must preserve a global topological order after every part is contracted to a super-node. This makes the model a natural abstraction for DAG-aware task clustering in compiler scheduling, parallel execution pipelines, and automatic differentiation systems where coarse-grained blocks must still communicate without creating cyclic dependencies.
 
@@ -10098,7 +10098,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let requirement = x.instance.requirement
   [
     #problem-def("IntegralFlowHomologousArcs")[
-      Given a directed graph $G = (V, A)$ with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
     ][
       Integral Flow with Homologous Arcs is the single-commodity equality-constrained flow problem listed as ND35 in Garey & Johnson @garey1979. Their catalog records the NP-completeness result attributed to Sahni and notes that the unit-capacity restriction remains hard, while the corresponding non-integral relaxation is polynomial-time equivalent to linear programming @garey1979.
 
@@ -10215,7 +10215,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let c2-arcs = range(m).filter(i => f2.at(i) > 0)
   [
     #problem-def("DirectedTwoCommodityIntegralFlow")[
-      Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
     ][
       Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
 
@@ -10284,7 +10284,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cost = metric-value(x.optimal_value)
   [
     #problem-def("MinimumEdgeCostFlow")[
-      Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
     ][
       Minimum Edge-Cost Flow is an NP-hard network design problem that arises in telecommunications and logistics, where there is a fixed cost (price) for activating each link, independent of the actual traffic volume. Unlike the classical minimum-cost flow problem (where cost is proportional to flow), the edge-cost variant introduces a combinatorial selection aspect: choosing which arcs to activate. The problem is closely related to fixed-charge network flow problems @garey1979.
 
@@ -10367,7 +10367,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let flow = x.optimal_config
   [
     #problem-def("MinimumCostMaximumFlow")[
-      Given a directed graph $G = (V, A)$ with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$.
     ][
       Minimum-Cost Maximum-Flow is the standard lexicographic combination underlying network design and routing applications. The continuous version is polynomial-time solvable via successive-shortest-paths or network-simplex algorithms (see, e.g., the MIT 6.854 lecture notes @mit6854MinCostFlow); when capacities and costs are integral, the totally-unimodular constraint matrix guarantees an integral optimum, so restricting $f$ to integers does not change the optimal value. This formulation is the optimization target adopted by the CellRouter pipeline for single-cell trajectory reconstruction @LummertzDaRocha2018CellRouter, where the lexicographic objective first commits maximum biological throughput between progenitor and target cell states and then chooses the cheapest realization of that throughput.
 
@@ -10421,7 +10421,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sink = x.instance.sink
   [
     #problem-def("IntegralFlowBundles")[
-      Given a directed graph $G = (V, A)$, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
     ][
       Integral Flow with Bundles is the shared-capacity single-commodity flow problem listed as ND36 in Garey \& Johnson @garey1979. Sahni introduced it as one of a family of computationally related network problems and showed that the bundled-capacity variant is NP-complete even in a very sparse unit-capacity regime @sahni1974.
 
@@ -10502,7 +10502,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let config = x.optimal_config
   [
     #problem-def("IntegralFlowWithMultipliers")[
-      Given a directed graph $G = (V, A)$, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
     ][
       Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
 
@@ -12763,7 +12763,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment colors $"pos"_i$ as TRUE when $x_i = 1$ and FALSE otherwise. Each clause has at least one TRUE literal, so the OR-chain output receives the TRUE color, which is compatible with edges to FALSE and AUX. ($arrow.l.double$) In any valid 3-coloring, the variable gadgets assign consistent truth values and the clause gadget connections to FALSE force each clause output to be TRUE-colored, meaning at least one literal per clause is TRUE.
 
-  _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
+  _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$. An empty clause adds one vertex adjacent to all three base vertices, yielding a simple $K_4$ NO gadget. All repeated unordered edge pairs are retained once.
 ]
 
 #let sat_ds = load-example("Satisfiability", "DecisionMinimumDominatingSet")
@@ -12791,7 +12791,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ Evaluate the target configuration once and require a finite value equal to $q$, using the same certificate as the aggregate map. Decode through the stored map from source indices to dense gadget indices. Invalid dominating configurations and values above $q$ provide no satisfying witness and are rejected. The empty formula has $q=m=0$ and an empty target; an empty clause creates an isolated clause vertex, forcing the optimum above $q$.
 
-  _Size and arithmetic._ For $n$ declared variables, $m$ clauses, and $L$ literal occurrences, the actual target has $3q+m <= 3n+m$ vertices and $3q+L <= 3n+L$ stored edges. Thus the registered formulas are upper bounds. Checked arithmetic computes the vertex count and verifies that every possible sum of unit weights fits #raw("i64"), including the all-selected configuration. Construction depends on occurring variables, so a large declared index alone does not allocate unused triangles. Producing the source assignment still requires its declared length.
+  _Size and arithmetic._ For $n$ declared variables, $m$ clauses, and $L$ literal occurrences, the actual target has $3q+m <= 3n+m$ vertices and at most $3q+L <= 3n+L$ stored edges, retaining repeated literal adjacencies only once. Thus the registered formulas are upper bounds. Checked arithmetic computes the vertex count and verifies that every possible sum of unit weights fits #raw("i64"), including the all-selected configuration. Construction depends on occurring variables, so a large declared index alone does not allocate unused triangles. Producing the source assignment still requires its declared length.
 ]
 
 #let sat_ifha = load-example("Satisfiability", "IntegralFlowHomologousArcs")
@@ -13044,11 +13044,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 )[
   Each gate contributes a Hamiltonian bounded below by a known constant. The circuit is satisfiable exactly when the target optimum attains the sum of those constants. A ground state above this threshold is not a satisfying witness. This uses the nonnegative-penalty principle described by @bian2010ising.
 ][
-  _Construction._ Boolean bits $x$ use spins $s=2x-1$. The repository energy convention is $H=sum_((i,j)) J_(i j)s_i s_j + sum_i h_i s_i$, including any diagonal terms created by identified inputs. Use the gadgets in @tab:gadgets; a new expression output is tied to each named assignment output by a coupling $-4 s_u s_v$ whenever the two spins differ. Constants use fields $+1$ for false and $-1$ for true. Multi-input gates are binary folds; a single input is unchanged. Empty AND is true, while empty OR and XOR are false, as in the source evaluator. No final output is implicitly forced true: the source asks that every named assignment equal its expression.
+  _Construction._ Boolean bits $x$ use spins $s=2x-1$. The repository energy convention is $H=sum_((i,j)) J_(i j)s_i s_j + sum_i h_i s_i$, after moving any constant diagonal terms from identified inputs into the decision bound. Use the gadgets in @tab:gadgets; a new expression output is tied to each named assignment output by a coupling $-4 s_u s_v$ whenever the two spins differ. Constants use fields $+1$ for false and $-1$ for true. Multi-input gates are binary folds; a single input is unchanged. Empty AND is true, while empty OR and XOR are false, as in the source evaluator. No final output is implicitly forced true: the source asks that every named assignment equal its expression.
 
   _Local bounds._ In bits $x,y$ with output $z$, the AND and OR energies are respectively $4(x y-2x z-2y z+3z)-3$ and $4(x+y+z+x y-2x z-2y z)-3$. Their minima are $-3$, attained exactly on valid truth-table rows. The XOR gadget with auxiliary bit $a$ has energy $2(x+y-z-2a)^2-4$, with minimum $-4$ exactly when $z=x " XOR " y$ and the auxiliary is consistent. NOT has energy $2(x+z-1)^2-1$, with minimum $-1$. Each constant has minimum $-1$; each equality coupling has minimum $-4$ exactly on equal spins.
 
-  Let $b$ be the sum of these local minima over the gadgets and equality constraints actually emitted. Store $b$ using checked signed integer arithmetic. Then $H-b$ is a sum of nonnegative local penalties, even when expressions share variables, inputs repeat, or named assignments form cycles.
+  Let $C$ be the sum of constant diagonal couplings created by identified inputs, and omit those terms from the stored simple graph. Set $b$ to the sum of the local minima over emitted gadgets and equality constraints, minus $C$. Both the Hamiltonian and its reference energy have lost the same constant, so their difference is unchanged. Store $b$ using checked signed integer arithmetic. Then $H-b$ is a sum of nonnegative local penalties, even when expressions share variables, inputs repeat, or named assignments form cycles.
 
   _Forward direction._ Given a satisfying source assignment, evaluate each finite expression tree under that assignment, set its fresh output spins accordingly, and choose each XOR auxiliary to satisfy $x+y=z+2a$. Every equality to a named output holds because the source assignment satisfies all constraints. Thus every local term attains its lower bound and $H=b$.
 
@@ -13190,15 +13190,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
-  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. A self-loop merges two endpoint terms, so this is an upper bound rather than an equality.
+  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. The bound covers normalized sparse rows without assuming they are all retained.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
 #reduction-rule("KColoring", "TwoDimensionalConsecutiveSets")[
-  A fixed three-coloring problem reduces to the ordered-partition problem of @lipski1978consecutive (Problem 5). For a nonempty loopless graph with $n$ vertices and $m$ stored edges, use one vertex symbol and one private symbol per edge; every edge becomes a three-element subset. The construction and decoding below also cover empty graphs and native self-loops.
+  A fixed three-coloring problem reduces to the ordered-partition problem of @lipski1978consecutive (Problem 5). For a nonempty loopless graph with $n$ vertices and $m$ stored edges, use one vertex symbol and one private symbol per edge; every edge becomes a three-element subset. The construction and decoding below also cover empty graphs.
 ][
-  _Construction._ The source is `KColoring<K3, SimpleGraph>`: the fixed type requires exactly three available colors, and persisted `num_colors` must agree. If any source edge is a self-loop, return alphabet ${0,1,2}$ and subsets ${0,1},{1,2},{0,2}$. Otherwise label vertices $0,...,n-1$ and stored edges $e_0,...,e_(m-1)$. Use alphabet size $max(1,n+m)$ and, for $e_i={u,v}$, subset ${u,v,n+i}$. Construct through the target's fallible constructor. Repeated source edges receive distinct private symbols.
+  _Construction._ The source is `KColoring<K3, SimpleGraph>`: the fixed type requires exactly three available colors, and persisted `num_colors` must agree. Label vertices $0,...,n-1$ and stored edges $e_0,...,e_(m-1)$. Use alphabet size $max(1,n+m)$ and, for $e_i={u,v}$, subset ${u,v,n+i}$. Construct through the target's fallible constructor. Source edges are distinct unordered pairs.
 
   _Forward direction._ For a loopless graph, a proper coloring assigns adjacent vertices distinct colors from ${0,1,2}$. Assign each edge's private symbol the remaining third color. Each triple occupies all three consecutive nonempty color groups, one symbol per group. If there are no edges, all group assignments satisfy the empty family of constraints; in particular the empty source maps to one unconstrained symbol. A looped source has no proper coloring.
 
@@ -15721,13 +15721,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   $ s_v = sum_(u != v) y_(u v), quad d_v = sum_(u in N(v)) y_(u v), $
   where $N(v)$ contains distinct neighbors other than $v$. Impose
   $ s_v <= (n-1) a_v, quad 2 d_v >= s_v + 2 a_v. $
-  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, counting duplicate edges with multiplicity. Self-loops are always retained and contribute only a constant to the retained-edge count.
+  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, each edge appearing once because the source graph is simple.
 
   _Degree characterization._ A simple graph on $k >= 2$ vertices is highly connected exactly when its minimum degree $delta$ exceeds $k/2$. Necessity follows from $lambda <= delta$. For sufficiency, consider any cut with smaller side of size $b <= k/2$. At least $b(delta-b+1)$ edges cross it. Since $(b-1)(delta-b) >= 0$, this is at least $delta > k/2$.
 
   _Correctness._ For a singleton, $s_v = d_v = 0$ and the constraints force $a_v = 0$. In a larger cluster of size $k = s_v+1$, the first inequality forces $a_v = 1$, and the second requires $2 d_v >= k+1$. Thus every non-singleton cluster is highly connected by the degree characterization; clusters of size two are excluded automatically. Conversely, every partition into allowed clusters satisfies the constraints with these membership and flag values. Any feasible source deletion can restore all edges internal to its components without decreasing their connectivity or increasing the deletion cost. Hence some source optimum keeps every internal edge, and maximizing the target objective preserves that optimum.
 
-  _Solution extraction._ Delete precisely the non-loop source edges whose membership variable is zero. Keep every self-loop. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
+  _Solution extraction._ Delete precisely the source edges whose membership variable is zero. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
 
   _Size and running time._ The target has $n(n+1)/2$ binary variables, $3 binom(n,3)+2n$ constraints, and $O(n^3)$ nonzeros. Constraint coefficients have magnitude at most $max(n-1,2)$; objective coefficients count input edge multiplicities. Construction, encoding length, and extraction are polynomial in the source encoding size. All registered parameter bounds use only the source vertex count.
 
@@ -17480,7 +17480,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Use the classical 3-SAT to Vertex Cover gadget construction, then ask whether the resulting graph has a vertex cover of size at most $k = n + 2m$ @garey1979.
 ][
-  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$.
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$. For accepted short nonempty clauses, repeat their literals to fill three positions. For an empty clause, keep its triangle without communication edges and use threshold $-1$, making the decision instance infeasible. The vertex count stays exact; the edge count is at most $n+6m$.
 
   _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, choose one literal vertex per variable according to a satisfying assignment and choose two triangle vertices per clause, omitting a vertex whose literal is true. This gives a cover of size $n + 2m$, so the decision instance is yes. ($arrow.l.double$) If the decision instance is yes, any cover of size at most $n + 2m$ must use exactly one literal vertex per variable edge and exactly two vertices per clause triangle. The omitted triangle vertex in each clause has its communication edge covered only by a selected literal vertex, so the corresponding literal is true. These selected literal vertices define a satisfying assignment for $phi$.
 
@@ -18656,7 +18656,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 converts vertex clique partition to edge clique cover. It uses the actual distinct non-loop adjacency pairs, and includes a private vertex on each side so that the two forced side cliques also exist for an empty source. No source endpoint restriction is added.
 ][
-  _Construction._ Let $n$ be the source vertex count, $m$ its stored edge count, and $K$ its clique bound. Let $A = {(i,j) : i != j and {i,j} in E}$ and $q = |A|$. Source self-loops and repeated edges do not change $A$ or source clique feasibility; $q <= 2m$. Create copies $x_i,y_i$, gadget vertices $a_t,b_t$ for each pair $t=(i,j)$, anchors $z_L,z_R$, and private vertices $d_L,d_R$. Set $L={x_i} union {a_t} union {d_L}$ and $R={y_i} union {b_t} union {d_R}$. Make $L$ and $R$ cliques. Connect each anchor to its entire side. Add matching edges $x_i y_i$ and, for every $t=(i,j)$, the cross edges $x_i y_j$, $x_i b_t$, $a_t y_j$, and $a_t b_t$. The threshold is $B=min(K,n)+q+2$.
+  _Construction._ Let $n$ be the source vertex count, $m$ its stored edge count, and $K$ its clique bound. Let $A = {(i,j) : i != j and {i,j} in E}$ and $q = |A|$. The source graph is simple; $q = 2m$. Create copies $x_i,y_i$, gadget vertices $a_t,b_t$ for each pair $t=(i,j)$, anchors $z_L,z_R$, and private vertices $d_L,d_R$. Set $L={x_i} union {a_t} union {d_L}$ and $R={y_i} union {b_t} union {d_R}$. Make $L$ and $R$ cliques. Connect each anchor to its entire side. Add matching edges $x_i y_i$ and, for every $t=(i,j)$, the cross edges $x_i y_j$, $x_i b_t$, $a_t y_j$, and $a_t b_t$. The threshold is $B=min(K,n)+q+2$.
 
   _Correctness, forward._ Given a source partition into $c$ cliques $C$, cover the target with $D_C={x_i,y_i : i in C}$ for each block, $Q_t={x_i,a_t,b_t,y_j}$ for each pair $t=(i,j)$, and the two cliques $L union {z_L}$, $R union {z_R}$. Source adjacency supplies the cross edges in every $D_C$. This family covers every target edge using $c+q+2$ cliques, including when $n=0$.
 
@@ -19212,7 +19212,7 @@ The following table shows concrete target-variable counts for example instances,
   $ "NAE"(a,b,R) equiv exists z: "NAE"(a,b,z) and "NAE"(not z,R). $
   If $a=b=c$ and the original clause is NAE-satisfied, $R$ contains a value different from $c$; choosing $z=not c$ satisfies both new clauses. If $a != b$, the first clause is satisfied for either $z$; if $R$ is constant $c$, choose $z=c$, and if $R$ is mixed either choice works. Conversely, if every original value were $c$, the first clause would force $z=not c$, making the second clause constant $c$. Repeated application proves both extension and restriction for the complete chain, including repeated and complementary literals (@jackson2025, Section 4, describes this chain).
 
-  _Cut construction._ Write $a = sum_j max(ell_j-3,0)$, $q=n+a$, $b=|{j:ell_j=2}|$, and $t=sum_(j:ell_j>=3)(ell_j-2)$. There are $q$ variables, $b$ binary clauses and $t$ ternary clauses after expansion. Set $M=m+1$. For each original or auxiliary variable, create positive and negative literal vertices joined by a weight-$M$ edge. A binary clause contributes one unit edge between its literal vertices; a ternary clause contributes all three unit edges between its literal occurrences. Preserve repeated edges and self-loops as supported by the graph representation. Define the certificate $K=q M+b+2t$.
+  _Cut construction._ Write $a = sum_j max(ell_j-3,0)$, $q=n+a$, $b=|{j:ell_j=2}|$, and $t=sum_(j:ell_j>=3)(ell_j-2)$. There are $q$ variables, $b$ binary clauses and $t$ ternary clauses after expansion. Set $M=m+1$. For each original or auxiliary variable, create positive and negative literal vertices joined by a weight-$M$ edge. A binary clause contributes one unit edge between its literal vertices; a ternary clause contributes all three unit edges between its literal occurrences. Combine repeated unordered pairs by summing their weights; omit self-loops, whose cut contribution is zero. Define the certificate $K=q M+b+2t$.
 
   _Forward correctness._ A satisfying original assignment extends to satisfy all expanded clauses by chain equivalence. Put each literal vertex on its literal's truth side. All $q$ variable edges cross, each binary edge crosses, and every ternary triangle has exactly two crossing occurrence-pairs. The cut therefore attains $K$.
 

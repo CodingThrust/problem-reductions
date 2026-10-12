@@ -137,11 +137,6 @@ fn simple_graph_from_create(
             .to_string()
             .into());
     }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
     let inferred = edges
         .iter()
         .flat_map(|&(u, v)| [u, v])
@@ -153,7 +148,7 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::try_new(num_vertices, edges)
 }
 
 impl<G: Graph, W: Clone + Default> MinimumSumMulticenter<G, W> {

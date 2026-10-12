@@ -188,6 +188,21 @@ impl ReduceTo<Decision<MaxCut<SimpleGraph, i64>>> for NAESatisfiability {
             }
         }
 
+        // Parallel contributions add; loops contribute zero to every cut.
+        let mut accumulated = std::collections::BTreeMap::<_, i64>::new();
+        for ((u, v), contribution) in edges.into_iter().zip(weights) {
+            if u != v {
+                let weight = accumulated.entry((u.min(v), u.max(v))).or_default();
+                *weight = weight.checked_add(contribution).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        Self,
+                        Decision<MaxCut<SimpleGraph, i64>>,
+                    >("combining MaxCut edge weights")
+                })?;
+            }
+        }
+        let (edges, weights): (Vec<_>, Vec<_>) = accumulated.into_iter().unzip();
+
         Ok(ReductionNAESATToMaxCut {
             target: Decision::new(
                 MaxCut::new(SimpleGraph::new(total_vertices, edges), weights),

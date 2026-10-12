@@ -99,11 +99,6 @@ fn simple_graph_from_create(
             .to_string()
             .into());
     }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
     let inferred = edges
         .iter()
         .flat_map(|&(u, v)| [u, v])
@@ -118,7 +113,7 @@ fn simple_graph_from_create(
         )
         .into());
     }
-    Ok(SimpleGraph::new(count, edges))
+    SimpleGraph::try_new(count, edges)
 }
 
 impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> {

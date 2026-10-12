@@ -152,12 +152,7 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_
 #[test]
 fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
     use crate::rules::AggregateReductionResult;
-    for (n, edges) in [
-        (0, vec![]),
-        (1, vec![(0, 0)]),
-        (2, vec![(0, 0)]),
-        (3, vec![(0, 1), (1, 0), (0, 0)]),
-    ] {
+    for (n, edges) in [(0, vec![]), (1, vec![]), (2, vec![]), (3, vec![(0, 1)])] {
         for bound in [0, 1, n, n + 1, usize::MAX] {
             let source =
                 serde_json::from_value::<PartitionIntoCliques<SimpleGraph>>(serde_json::json!({

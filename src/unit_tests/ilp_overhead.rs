@@ -80,10 +80,9 @@ fn partition_gadgets_count_sparse_rows_on_the_accepted_domain() {
         check_contract::<_, ILP<bool>>(&PartitionIntoTriangles::new(SimpleGraph::empty(n)));
         check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::empty(n)));
     }
-    // Loops never become product variables; parallel orientations merge.
     check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::new(
         3,
-        vec![(0, 0), (0, 1), (1, 0), (1, 2)],
+        vec![(0, 1), (1, 2)],
     )));
 }
 
@@ -342,7 +341,7 @@ fn flow_and_tour_bounds_include_sparse_global_rows() {
         &[("num_nonzeros", 52, 52)],
     );
     check_contract::<_, BoundedILP>(&BoundedComponentSpanningForest::new(
-        SimpleGraph::new(1, vec![(0, 0)]),
+        SimpleGraph::empty(1),
         vec![0],
         1,
         1,
@@ -686,10 +685,7 @@ fn hamiltonian_edge_bound_includes_normalization_and_fixed_outputs() {
     );
     for bound in [-1, 0, 3] {
         check_contract::<_, HamiltonianCircuit<SimpleGraph>>(&Decision::new(
-            MinimumVertexCover::new(
-                SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0)]),
-                vec![One; 3],
-            ),
+            MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
             bound,
         ));
     }

@@ -215,6 +215,36 @@ mod mcp_tests {
     }
 
     #[test]
+    fn simple_graph_create_rejects_loops_and_parallel_edges_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        for (edges, offending) in [
+            (serde_json::json!([[0, 0]]), "edge (0, 0)"),
+            (serde_json::json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+            (serde_json::json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+        ] {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": "MaximumIndependentSet/SimpleGraph/One",
+                        "params": {"graph": edges, "num_vertices": 3},
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert!(
+                response.get("error").is_some() || response["result"]["isError"] == true,
+                "{response}"
+            );
+            assert!(response.to_string().contains(offending), "{response}");
+        }
+        shutdown(stdin, child);
+    }
+
+    #[test]
     fn test_mcp_server_prompts_list_and_get() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);

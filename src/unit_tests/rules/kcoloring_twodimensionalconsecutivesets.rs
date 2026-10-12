@@ -133,26 +133,6 @@ fn test_kcoloring_to_tdcs_empty_graph_has_a_target_witness() {
 }
 
 #[test]
-fn test_kcoloring_to_tdcs_native_loops_are_no() {
-    for n in [1, 5] {
-        let source = KColoring::<K3, _>::new(SimpleGraph::new(n, vec![(0, 0)]));
-        let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
-        let target = reduction.target_problem();
-        assert_eq!(target.alphabet_size(), 3);
-        assert_eq!(target.num_subsets(), 3);
-        assert!(BruteForce::new().solve(&source).unwrap().is_none());
-        assert!(BruteForce::new().solve(target).unwrap().is_none());
-        for a in 0..3 {
-            for b in 0..3 {
-                for c in 0..3 {
-                    assert!(reduction.extract_solution(&vec![a, b, c]).is_err());
-                }
-            }
-        }
-    }
-}
-
-#[test]
 fn test_kcoloring_to_tdcs_rejects_noncertificates() {
     let source = KColoring::<K3, _>::new(SimpleGraph::new(2, vec![(0, 1)]));
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();
@@ -162,7 +142,7 @@ fn test_kcoloring_to_tdcs_rejects_noncertificates() {
 }
 
 #[test]
-fn test_kcoloring_to_tdcs_many_groups_gaps_and_repeated_edges() {
+fn test_kcoloring_to_tdcs_many_groups_and_gaps() {
     for (n, edges, grouping, expected) in [
         (
             5,
@@ -171,12 +151,7 @@ fn test_kcoloring_to_tdcs_many_groups_gaps_and_repeated_edges() {
             vec![0, 1, 2, 0, 1],
         ),
         (4, vec![(0, 3)], vec![0, 0, 4, 4, 2], vec![0, 0, 1, 1]),
-        (
-            2,
-            vec![(0, 1), (1, 0), (0, 1)],
-            vec![0, 1, 2, 2, 2],
-            vec![0, 1],
-        ),
+        (2, vec![(0, 1)], vec![0, 1, 2], vec![0, 1]),
     ] {
         let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
         let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source).unwrap();

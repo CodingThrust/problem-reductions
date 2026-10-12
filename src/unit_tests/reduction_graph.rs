@@ -12,15 +12,15 @@ use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 #[test]
-fn domination_magnitude_predictions_account_for_parallel_edges() {
-    let source = MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1); 8]), vec![1_i64; 2]);
+fn domination_rows_keep_unit_coefficients_on_high_degree_simple_graphs() {
+    let source = MinimumDominatingSet::new(SimpleGraph::star(9), vec![1_i64; 9]);
     let target = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert_eq!(
         target
             .target_problem()
             .parameters()
             .get("max_constraint_magnitude_bits"),
-        Some(4)
+        Some(1)
     );
     let entries = crate::rules::registry::reduction_entries();
     let entry = entries
@@ -33,7 +33,7 @@ fn domination_magnitude_predictions_account_for_parallel_edges() {
         .unwrap()
         .evaluate(&source.parameters())
         .unwrap();
-    assert!(predicted.get("max_constraint_magnitude_bits").unwrap() >= 4);
+    assert!(predicted.get("max_constraint_magnitude_bits").unwrap() >= 1);
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn symbolic_composition_propagates_num_colors_across_multiple_edges() {
         ]))
         .unwrap();
 
-    assert_eq!(target.get("num_vars"), Some(30));
+    assert_eq!(target.get("num_vars"), Some(33));
 }
 
 #[test]

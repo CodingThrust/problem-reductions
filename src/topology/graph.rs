@@ -82,7 +82,9 @@ pub trait Graph: Clone + Send + Sync + 'static {
     }
 }
 
-/// A simple unweighted undirected graph.
+/// A simple unweighted undirected graph: no self-loops or parallel edges.
+///
+/// `(u, v)` and `(v, u)` name the same edge.
 ///
 /// This is the default graph type for most problems. It wraps petgraph's
 /// `UnGraph` and implements the `Graph` trait.
@@ -104,6 +106,21 @@ pub struct SimpleGraph {
     inner: UnGraph<(), ()>,
 }
 
+pub(crate) fn validate_simple_edges(
+    edges: impl IntoIterator<Item = (usize, usize)>,
+) -> Result<(), crate::registry::ConstructionError> {
+    let mut seen = std::collections::HashSet::new();
+    for (u, v) in edges {
+        if u == v {
+            return Err(format!("edge ({u}, {v}) is a self-loop").into());
+        }
+        if !seen.insert((u.min(v), u.max(v))) {
+            return Err(format!("edge ({u}, {v}) duplicates an undirected edge").into());
+        }
+    }
+    Ok(())
+}
+
 impl SimpleGraph {
     /// Creates a new graph with the given vertices and edges.
     ///
@@ -114,15 +131,17 @@ impl SimpleGraph {
     ///
     /// # Panics
     ///
-    /// Panics if any edge references a vertex index >= num_vertices.
+    /// Panics on self-loops, repeated undirected edges, or out-of-range endpoints.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
         Self::try_new(num_vertices, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a simple graph, rejecting invalid edges with a typed error.
+    pub fn try_new(
         num_vertices: usize,
         edges: Vec<(usize, usize)>,
     ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_simple_edges(edges.iter().copied())?;
         let mut inner = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             inner.add_node(());
