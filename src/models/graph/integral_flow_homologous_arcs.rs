@@ -260,8 +260,7 @@ impl IntegralFlowHomologousArcs {
         let mut balances = vec![0_i64; self.num_vertices()];
         for (arc_index, ((u, v), &capacity)) in self
             .graph
-            .arcs()
-            .into_iter()
+            .iter_arcs()
             .zip(self.capacities.iter())
             .enumerate()
         {

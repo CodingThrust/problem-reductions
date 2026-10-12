@@ -204,7 +204,7 @@ impl MinimumCostCirculation {
         // (2) Flow conservation at every vertex
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
-        for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
+        for (a, (u, v)) in self.graph.iter_arcs().enumerate() {
             let flow = i64::try_from(config[a]).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
                     "converting circulation configuration value".to_string(),

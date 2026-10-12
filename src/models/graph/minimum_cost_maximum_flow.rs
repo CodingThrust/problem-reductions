@@ -272,7 +272,7 @@ impl MinimumCostMaximumFlow {
         // (2) Flow conservation at non-terminal vertices
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
-        for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
+        for (a, (u, v)) in self.graph.iter_arcs().enumerate() {
             let flow = i64::try_from(config[a]).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
                     "converting maximum-flow configuration value".to_string(),
@@ -302,7 +302,7 @@ impl MinimumCostMaximumFlow {
     /// feasible.
     pub fn flow_value(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
         let mut net_out: i64 = 0;
-        for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
+        for (a, (u, v)) in self.graph.iter_arcs().enumerate() {
             let f = i64::try_from(config[a]).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
                     "converting maximum-flow configuration value".to_string(),

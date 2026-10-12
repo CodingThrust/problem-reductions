@@ -55,6 +55,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
+        let arcs = self.graph().arcs();
         let order = |vertex: usize| num_arcs + vertex;
         let mut constraints = Vec::new();
 
@@ -69,7 +70,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {
             for vertex in 0..num_vertices {
                 constraints.push(LinearConstraint::le(vec![(order(vertex), 1)], big_m - 1));
             }
-            for (arc, &(source, target)) in self.graph().arcs().iter().enumerate() {
+            for (arc, &(source, target)) in arcs.iter().enumerate() {
                 constraints.push(LinearConstraint::le(
                     vec![(order(source), 1), (order(target), -1), (arc, big_m)],
                     big_m - 1,
@@ -82,17 +83,15 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {
                 1,
             ));
         }
-        for vertex in 0..num_vertices {
-            constraints.push(LinearConstraint::le(
-                self.graph()
-                    .arcs()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(arc, &(_, target))| (target == vertex).then_some((arc, 1)))
-                    .collect(),
-                1,
-            ));
+        let mut incoming = vec![Vec::new(); num_vertices];
+        for (arc, &(_, target)) in arcs.iter().enumerate() {
+            incoming[target].push((arc, 1));
         }
+        constraints.extend(
+            incoming
+                .into_iter()
+                .map(|terms| LinearConstraint::le(terms, 1)),
+        );
         constraints.push(LinearConstraint::ge(
             self.weights()
                 .iter()

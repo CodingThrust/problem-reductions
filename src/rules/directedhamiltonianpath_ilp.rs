@@ -64,13 +64,7 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let arcs = self.graph().arcs();
-
-        // Build arc set for fast lookup
-        let mut arc_set = std::collections::HashSet::new();
-        for (u, v) in &arcs {
-            arc_set.insert((*u, *v));
-        }
+        let arc_set: std::collections::HashSet<_> = self.graph().inner().iter_arcs().collect();
 
         let x_idx = |v: usize, k: usize| -> usize { v * n + k };
 

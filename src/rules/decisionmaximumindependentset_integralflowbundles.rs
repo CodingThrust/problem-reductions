@@ -103,8 +103,6 @@ impl ReduceTo<IntegralFlowBundles> for Decision<MaximumIndependentSet<SimpleGrap
         }
         let mut bundles = Vec::with_capacity(num_bundles);
         let mut capacities = Vec::with_capacity(num_bundles);
-        // Mixing incoming/outgoing arcs keeps the two bundle members distinct
-        // even for a self-loop. Conservation makes its constraint 2*f_i <= 1.
         for (u, v) in graph.edges() {
             bundles.push(vec![2 * u, 2 * v + 1]);
             capacities.push(1);

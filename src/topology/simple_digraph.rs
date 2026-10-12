@@ -28,7 +28,7 @@ impl SimpleDigraph {
     }
 
     fn from_inner(inner: MultiDigraph) -> Result<Self, crate::registry::ConstructionError> {
-        super::graph::validate_simple_connections(inner.arcs(), true)?;
+        super::graph::validate_simple_connections(inner.iter_arcs(), true)?;
         Ok(Self { inner })
     }
 

@@ -3,6 +3,7 @@
 //! The Longest Circuit problem asks for a simple circuit in a graph
 //! that maximizes the total edge length.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -86,32 +87,6 @@ impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i64> {
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
         Self::try_new(graph, edge_lengths)
     }
-}
-
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let num_vertices = num_vertices.unwrap_or(inferred);
-    if num_vertices < inferred {
-        return Err(format!(
-            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        )
-        .into());
-    }
-    SimpleGraph::try_new(num_vertices, edges)
 }
 
 impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {

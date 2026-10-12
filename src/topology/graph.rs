@@ -275,19 +275,10 @@ impl PartialEq for SimpleGraph {
         if self.num_edges() != other.num_edges() {
             return false;
         }
-        // Check all edges exist in both
         let mut self_edges: Vec<_> = self.edges();
         let mut other_edges: Vec<_> = other.edges();
-        // Normalize edge order
-        for e in &mut self_edges {
-            if e.0 > e.1 {
-                *e = (e.1, e.0);
-            }
-        }
-        for e in &mut other_edges {
-            if e.0 > e.1 {
-                *e = (e.1, e.0);
-            }
+        for e in self_edges.iter_mut().chain(&mut other_edges) {
+            *e = (e.0.min(e.1), e.0.max(e.1));
         }
         self_edges.sort();
         other_edges.sort();

@@ -273,7 +273,7 @@ impl IntegralFlowBundles {
         vertex: usize,
     ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let mut balance = 0_i64;
-        for (arc_index, (u, v)) in self.graph.arcs().into_iter().enumerate() {
+        for (arc_index, (u, v)) in self.graph.iter_arcs().enumerate() {
             let Some(&raw_flow) = config.get(arc_index) else {
                 return Ok(None);
             };

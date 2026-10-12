@@ -96,10 +96,13 @@ impl MultiDigraph {
 
     /// Returns all arcs as `(source, target)` pairs.
     pub fn arcs(&self) -> Vec<(usize, usize)> {
+        self.iter_arcs().collect()
+    }
+
+    pub(crate) fn iter_arcs(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.inner
             .edge_references()
             .map(|e| (e.source().index(), e.target().index()))
-            .collect()
     }
 
     /// Count the arcs from `u` to `v`, including parallel occurrences.
@@ -131,12 +134,14 @@ impl MultiDigraph {
 
     /// Returns the out-degree of vertex `v`.
     pub fn out_degree(&self, v: usize) -> usize {
-        self.successors(v).len()
+        self.inner.neighbors(NodeIndex::new(v)).count()
     }
 
     /// Returns the in-degree of vertex `v`.
     pub fn in_degree(&self, v: usize) -> usize {
-        self.predecessors(v).len()
+        self.inner
+            .neighbors_directed(NodeIndex::new(v), petgraph::Incoming)
+            .count()
     }
 
     /// Returns true if the graph has no vertices.
@@ -171,12 +176,11 @@ impl MultiDigraph {
             "kept_arcs slice length must equal num_arcs"
         );
         let n = self.num_vertices();
-        let arcs = self.arcs();
 
         // Build adjacency list for the subgraph
         let mut adj = vec![vec![]; n];
         let mut in_degree = vec![0usize; n];
-        for (i, &(u, v)) in arcs.iter().enumerate() {
+        for (i, (u, v)) in self.iter_arcs().enumerate() {
             if kept_arcs[i] {
                 adj[u].push(v);
                 in_degree[v] += 1;
@@ -225,8 +229,7 @@ impl MultiDigraph {
         }
 
         let new_arcs: Vec<(usize, usize)> = self
-            .arcs()
-            .into_iter()
+            .iter_arcs()
             .filter(|&(u, v)| keep[u] && keep[v])
             .map(|(u, v)| (new_index[u], new_index[v]))
             .collect();

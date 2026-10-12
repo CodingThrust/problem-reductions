@@ -183,7 +183,10 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
             }
         }
 
-        Ok(SimpleDigraph::new(self.graph.num_vertices(), augmented_arcs).is_strongly_connected())
+        Ok(
+            crate::topology::MultiDigraph::new(self.graph.num_vertices(), augmented_arcs)
+                .is_strongly_connected(),
+        )
     }
 }
 

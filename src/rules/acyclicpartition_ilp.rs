@@ -59,10 +59,8 @@ fn two_part_anchors(problem: &AcyclicPartition<i64>) -> Option<(usize, usize)> {
     let mut incoming = vec![false; n];
     let mut outgoing = vec![false; n];
     for &(u, v) in &arcs {
-        if u != v {
-            outgoing[u] = true;
-            incoming[v] = true;
-        }
+        outgoing[u] = true;
+        incoming[v] = true;
     }
     for root in (0..n).filter(|&v| !incoming[v]) {
         for sink in (0..n).filter(|&v| v != root && !outgoing[v]) {
@@ -79,9 +77,9 @@ fn two_part_anchors(problem: &AcyclicPartition<i64>) -> Option<(usize, usize)> {
                 let cost = i128::from(cost);
                 if u == root && v == sink {
                     baseline += cost;
-                } else if u == root && v != root {
+                } else if u == root {
                     left[v] = Some(left[v].unwrap_or(0) + cost);
-                } else if v == sink && u != sink {
+                } else if v == sink {
                     right[u] = Some(right[u].unwrap_or(0) + cost);
                 }
             }
@@ -183,7 +181,6 @@ fn two_part_reduction(
         let mut pairs = std::collections::BTreeMap::new();
         for v in (0..n).filter(interior) {
             parents[v].sort_unstable();
-            parents[v].dedup();
             if problem.vertex_weights()[v] == 0 && parents[v].len() == 2 {
                 pairs.entry((parents[v][0], parents[v][1])).or_insert(v);
             }

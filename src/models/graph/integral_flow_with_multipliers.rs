@@ -241,8 +241,7 @@ impl IntegralFlowWithMultipliers {
 
         for (arc_index, ((u, v), &capacity)) in self
             .graph
-            .arcs()
-            .into_iter()
+            .iter_arcs()
             .zip(self.capacities.iter())
             .enumerate()
         {
