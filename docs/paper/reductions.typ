@@ -13920,13 +13920,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   A Hamiltonian tour is a permutation of vertices. Position-based encoding assigns each vertex a tour position via binary indicators, with permutation constraints ensuring a valid bijection. The tour cost involves products of position indicators for consecutive positions, which McCormick linearization converts to auxiliary variables with linear constraints.
 ][
-  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+  _Construction._ For a simple graph $G = (V, E)$ with $n = |V|$ and $m = |E|$, retain $n^2 + 2 n m$ binary variables. If $n < 3$, emit the contradictory equality $0 = 1$ and an empty objective: a simple graph on fewer than three vertices has no Hamiltonian cycle. Otherwise use the following formulation.
 
   _Variables:_ Binary $x_(v,k) in {0, 1}$ for each vertex $v in V$ and position $k in {0, ..., n-1}$. Interpretation: $x_(v,k) = 1$ iff vertex $v$ is at position $k$ in the tour.
 
   _Auxiliary variables:_ For each edge $(u,v) in E$ and position $k$, introduce $y_(u,v,k)$ and $y_(v,u,k)$ to linearize the products $x_(u,k) dot x_(v,(k+1) mod n)$ and $x_(v,k) dot x_(u,(k+1) mod n)$ respectively.
 
-  _Constraints:_ (1) Each vertex has exactly one position: $sum_(k=0)^(n-1) x_(v,k) = 1$ for all $v in V$. (2) Each position has exactly one vertex: $sum_(v in V) x_(v,k) = 1$ for all $k$. (3) Non-edge consecutive prohibition: if ${v,w} in.not E$, then $x_(v,k) + x_(w,(k+1) mod n) <= 1$ for all $k$. (4) McCormick: $y <= x_(v,k)$, $y <= x_(w,(k+1) mod n)$, $y >= x_(v,k) + x_(w,(k+1) mod n) - 1$.
+  _Constraints:_ (1) Each vertex has exactly one position: $sum_(k=0)^(n-1) x_(v,k) = 1$ for all $v in V$. (2) Each position has exactly one vertex: $sum_(v in V) x_(v,k) = 1$ for all $k$. (3) Non-edge consecutive prohibition: for distinct $v,w$ with ${v,w} in.not E$, impose $x_(v,k) + x_(w,(k+1) mod n) <= 1$ for all $k$, including $k = n - 1$. (4) For each orientation of each edge, impose all three McCormick rows: $y <= x_(v,k)$, $y <= x_(w,(k+1) mod n)$, $y >= x_(v,k) + x_(w,(k+1) mod n) - 1$.
 
   _Objective:_ Minimize $sum_((u,v) in E) w(u,v) dot sum_k (y_(u,v,k) + y_(v,u,k))$.
 
@@ -13942,9 +13942,11 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(v,k), y_(u,v,k) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
+  _Correctness._ ($arrow.r.double$) A valid tour has $n >= 3$ and defines a permutation matrix $(x_(v,k))$ satisfying (1)--(2). Set each auxiliary variable to its indicated product. Consecutive vertices are adjacent, including the last-to-first pair, so (3)--(4) hold. Each tour edge is traversed once, making the objective equal to its source weight. ($arrow.l.double$) Any feasible binary solution defines a permutation by (1)--(2). The single cyclic sequence of positions visits every vertex, so it cannot split into disconnected subtours. Constraint (3) ensures adjacency at every step, including the wrap. For binary operands, either zero operand forces $y = 0$ through its upper row; two unit operands force $y = 1$ through the lower row. Thus all three rows make the products exact independently of the sign of the objective coefficient, including zero. An undirected edge can be traversed twice only when its endpoints are each other's successor, which would require $n = 2$ and is excluded. Every feasible assignment therefore gives a valid tour of exactly the same weight, preserving optimality.
 
-  _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
+  _Solution extraction._ First reject an infeasible target assignment. For each position $k$, find vertex $v$ with $x_(v,k) = 1$; select the source edges between consecutive positions, including last-to-first.
+
+  _Overhead._ For $n >= 3$, the construction has $n^2 + 2 n m$ variables, $n^2(n - 1) + 2 n + 4 n m$ rows, and $2 n^3 + 10 n m$ normalized nonzeros. Across both branches, the declared bounds are $n^2(n - 1) + 2 n + 6 n m + 1$ rows and $2 n^3 + 14 n m$ nonzeros; the small-graph branch has one row and zero nonzeros.
 ]
 
 #let tsp_qubo = load-example("TravelingSalesman", "QUBO")
