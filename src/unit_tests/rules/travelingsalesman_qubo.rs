@@ -55,7 +55,7 @@ fn test_signed_tour_costs_preserve_all_optima() {
 }
 
 #[test]
-fn test_small_tours_follow_edge_set_definition() {
+fn test_simple_graphs_with_fewer_than_three_vertices_have_no_tour() {
     for (n, edges, weights) in [
         (0, vec![], vec![]),
         (1, vec![], vec![]),

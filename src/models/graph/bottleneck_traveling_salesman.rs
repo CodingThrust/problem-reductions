@@ -1,7 +1,7 @@
 //! Bottleneck Traveling Salesman problem implementation.
 //!
 //! The Bottleneck Traveling Salesman problem asks for a Hamiltonian cycle
-//! minimizing the maximum selected edge weight.
+//! in a simple undirected graph, minimizing the maximum selected edge weight.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};

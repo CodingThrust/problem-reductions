@@ -146,8 +146,7 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             .checked_mul(n)
             .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
 
-        // The source represents a connected degree-two edge set. With fewer
-        // than three vertices this means one loop or two parallel edges.
+        // A simple graph with fewer than three vertices has no Hamiltonian cycle.
         if n < 3 {
             let mut candidates: Vec<usize> = edges
                 .iter()
@@ -182,8 +181,7 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             });
         }
 
-        // A tour on at least three vertices uses no loops and at most one
-        // edge per endpoint pair. Retain the cheapest parallel edge.
+        // Index source edges by their unordered endpoint pairs.
         let mut edge_index: HashMap<(usize, usize), usize> = HashMap::new();
         for (index, &(u, v, weight)) in edges.iter().enumerate() {
             if u == v {

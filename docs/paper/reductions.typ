@@ -2209,7 +2209,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let path-arcs = range(path-order.len() - 1).map(i => (path-order.at(i), path-order.at(i + 1)))
   [
     #problem-def("DirectedHamiltonianPath")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
+      Given a simple directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
     ][
       A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39) @garey1979. The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes. Directed Hamiltonian paths arise naturally in genome assembly (finding Eulerian or Hamiltonian traversals of de Bruijn graphs), job sequencing with precedence constraints, and one-way street routing.
 
@@ -2271,7 +2271,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let in-kernel(k) = x.optimal_config.at(k)
   [
     #problem-def("Kernel")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
+      Given a simple directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
     ][
       A classical graph-theoretic concept introduced by von Neumann and Morgenstern @vonNeumannMorgenstern1944 in the context of game theory. Chvátal showed that deciding whether a directed graph has a kernel is NP-complete in general @chvatal1973, though Richardson proved that every DAG has a unique kernel @richardson1953. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem on list-chromatic index @galvin1995), and stable set problems on digraphs.
 
@@ -2574,7 +2574,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let p5 = (1, 4, 7, 9)
   [
     #problem-def("PathConstrainedNetworkFlow")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$. Parallel arcs have separate capacities and identities in the prescribed paths; self-loops cannot occur in these simple paths and therefore carry no path flow.
     ][
       Path-Constrained Network Flow appears as problem ND34 in Garey \& Johnson @garey1979. Unlike ordinary single-commodity flow, the admissible routes are fixed in advance: every unit of flow must be assigned to one of the listed $s$-$t$ paths. This prescribed-path viewpoint is standard in line planning and unsplittable routing, and Büsing and Stiller give a modern published NP-completeness and inapproximability treatment for exactly this integral formulation @busingstiller2011.
 
@@ -3154,7 +3154,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("BottleneckTravelingSalesman")[
-      Given an undirected graph $G=(V,E)$, possibly containing self-loops and parallel edges, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
+      Given a simple undirected graph $G=(V,E)$, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
     ][
     This min-max variant models routing where the worst leg matters more than the total distance. Garey and Johnson list the threshold decision version as ND24 @garey1979: given a bound $B$, ask whether some Hamiltonian tour has every edge weight at most $B$. The optimization version implemented here subsumes that decision problem. The classical Held--Karp dynamic programming algorithm still yields an exact $O(n^2 dot 2^n)$-time algorithm @heldkarp1962, while Garey and Johnson note the polynomial-time special case of Gilmore and Gomory @gilmore1964.
 
@@ -3244,7 +3244,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("TravelingSalesman")[
-      Given an undirected graph $G=(V,E)$, possibly containing self-loops and parallel edges, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
+      Given a simple undirected graph $G=(V,E)$, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
     ][
     One of the most intensely studied NP-hard problems, with applications in logistics, circuit board drilling, and DNA sequencing. The best known exact algorithm runs in $O^*(2^n)$ time and space via Held-Karp dynamic programming @heldkarp1962. No $O^*((2-epsilon)^n)$ algorithm is known, and improving the exponential space remains open.
 
@@ -3373,7 +3373,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("StrongConnectivityAugmentation")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
+      Given a simple directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
@@ -3770,7 +3770,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("MinimumDummyActivitiesPert")[
-      Given a precedence DAG $G = (V, A)$, possibly containing parallel arcs, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+      Given a simple precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
     ][
     The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
 
@@ -3821,7 +3821,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG). A vertex with a self-loop must belong to $S$; parallel arcs do not change which vertex sets break every cycle.
     ][
     One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
 
@@ -7159,7 +7159,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$, possibly containing self-loops, parallel arcs, and parallel undirected edges, with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
+      Given a mixed graph $G = (V, A, E)$, possibly containing self-loops, parallel arcs, and parallel undirected edges, with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length. Each parallel arc or edge is a distinct traversal obligation; a self-loop must also be traversed and contributes its length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
@@ -8651,7 +8651,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let removed = range(na).filter(i => config.at(i))
   [
     #problem-def("MinimumFeedbackArcSet")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$. Every self-loop must be deleted; parallel arcs are distinct deletion choices.
     ][
       Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
@@ -8732,7 +8732,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let chosen = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MultipleChoiceBranching")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
+      Given a simple directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
     ][
       Multiple Choice Branching is the directed-graph problem ND11 in Garey & Johnson @garey1979. The partition constraint turns the polynomial-time maximum branching setting into an NP-complete decision problem: Garey and Johnson note that the problem remains NP-complete even when the digraph is strongly connected and all weights are equal, while the special case in which every partition group has size 1 reduces to ordinary maximum branching and becomes polynomial-time solvable @garey1979.
 
@@ -8787,7 +8787,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cross-arcs = arcs.filter(a => config.at(a.at(0)) != config.at(a.at(1)))
   [
     #problem-def("AcyclicPartition")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
+      Given a simple directed graph $G = (V, A)$, with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
     ][
       Acyclic Partition is the directed partitioning problem ND15 in Garey & Johnson @garey1979. Unlike ordinary graph partitioning, the goal is not merely to minimize the cut: the partition must preserve a global topological order after every part is contracted to a super-node. This makes the model a natural abstraction for DAG-aware task clustering in compiler scheduling, parallel execution pipelines, and automatic differentiation systems where coarse-grained blocks must still communicate without creating cyclic dependencies.
 
@@ -10098,7 +10098,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let requirement = x.instance.requirement
   [
     #problem-def("IntegralFlowHomologousArcs")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$. Parallel arcs have separate capacities and identities in $H$; self-loop flow contributes zero net flow but remains subject to capacity and homologous-pair constraints.
     ][
       Integral Flow with Homologous Arcs is the single-commodity equality-constrained flow problem listed as ND35 in Garey & Johnson @garey1979. Their catalog records the NP-completeness result attributed to Sahni and notes that the unit-capacity restriction remains hard, while the corresponding non-integral relaxation is polynomial-time equivalent to linear programming @garey1979.
 
@@ -10215,7 +10215,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let c2-arcs = range(m).filter(i => f2.at(i) > 0)
   [
     #problem-def("DirectedTwoCommodityIntegralFlow")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$. Parallel arcs have separate shared capacities; a self-loop contributes equally to inflow and outflow for each commodity.
     ][
       Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
 
@@ -10284,7 +10284,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cost = metric-value(x.optimal_value)
   [
     #problem-def("MinimumEdgeCostFlow")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow. Parallel arcs have separate capacities and prices; a used self-loop contributes zero net flow but incurs its price.
     ][
       Minimum Edge-Cost Flow is an NP-hard network design problem that arises in telecommunications and logistics, where there is a fixed cost (price) for activating each link, independent of the actual traffic volume. Unlike the classical minimum-cost flow problem (where cost is proportional to flow), the edge-cost variant introduces a combinatorial selection aspect: choosing which arcs to activate. The problem is closely related to fixed-charge network flow problems @garey1979.
 
@@ -10367,7 +10367,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let flow = x.optimal_config
   [
     #problem-def("MinimumCostMaximumFlow")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$. Parallel arcs have separate capacities and costs; self-loop flow contributes zero net flow but incurs its arc cost.
     ][
       Minimum-Cost Maximum-Flow is the standard lexicographic combination underlying network design and routing applications. The continuous version is polynomial-time solvable via successive-shortest-paths or network-simplex algorithms (see, e.g., the MIT 6.854 lecture notes @mit6854MinCostFlow); when capacities and costs are integral, the totally-unimodular constraint matrix guarantees an integral optimum, so restricting $f$ to integers does not change the optimal value. This formulation is the optimization target adopted by the CellRouter pipeline for single-cell trajectory reconstruction @LummertzDaRocha2018CellRouter, where the lexicographic objective first commits maximum biological throughput between progenitor and target cell states and then chooses the cheapest realization of that throughput.
 
@@ -10421,7 +10421,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sink = x.instance.sink
   [
     #problem-def("IntegralFlowBundles")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$. Parallel arcs are distinct members of bundles; flow on a self-loop consumes bundle capacity but contributes zero net flow.
     ][
       Integral Flow with Bundles is the shared-capacity single-commodity flow problem listed as ND36 in Garey \& Johnson @garey1979. Sahni introduced it as one of a family of computationally related network problems and showed that the bundled-capacity variant is NP-complete even in a very sparse unit-capacity regime @sahni1974.
 
@@ -10502,7 +10502,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let config = x.optimal_config
   [
     #problem-def("IntegralFlowWithMultipliers")[
-      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$. Parallel arcs have separate capacities; flow on a self-loop contributes to both the inflow and the outflow in the multiplier equation.
     ][
       Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
 
@@ -14021,17 +14021,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
 ][
-  _Construction._ For $n = |V| >= 3$, discard loops and retain the cheapest edge of each parallel class, recording its original index. Write $E'$ for these retained edges and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
+  _Construction._ For $n = |V| >= 3$, record each edge by its unordered endpoint pair and original index. Write $E' = E$ and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
 
   _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
 
   _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E') c_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $c_(u v)$. The stored energy is $E = H_A + H_B + H_C - 2n A$.
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering. Choosing the cheapest parallel edge preserves the source optimum.
+  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering.
 
-  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded cheapest edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires both $2n A$ and the nonnegative offset $2n A + n s$ to fit `i64`.
+  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires both $2n A$ and the nonnegative offset $2n A + n s$ to fit `i64`.
 
-  _Small instances._ The source model uses a connected degree-two edge set: for one vertex, the optimum is its cheapest loop; for two vertices, it is the two cheapest parallel edges joining them. If those edges do not exist, or if there are no vertices, the source is infeasible. These cases map to a zero QUBO with $n^2$ variables and a constant solution/value mapping recording that exact answer.
+  _Small instances._ A simple graph with fewer than three vertices has no Hamiltonian cycle. These infeasible instances map to a zero QUBO with $n^2$ variables and a constant solution/value mapping reporting infeasibility.
 ]
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
@@ -15777,7 +15777,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[
   Use cyclic positions, explicit edge-use choices, and a selected maximum-weight edge. The objective preserves signed edge weights without a big-$M$ constant.
 ][
-  _Construction._ Let $n$ be the vertex count and $m$ the number of stored edges, counting parallel edges separately. Binary $x_(v,p)$ assigns vertex $v$ to position $p$. Binary $z_(e,p,d)$ chooses source edge $e$ at cyclic step $p$ in direction $d in {0,1}$. Binary $q_e$ selects one used maximum-weight edge. Define $y_e = sum_(p,d) z_(e,p,d)$ as an expression, not another variable. All variables retain the nonnegative integer ILP variant, with explicit upper bounds of one.
+  _Construction._ Let $n$ be the vertex count and $m$ the number of edges. Binary $x_(v,p)$ assigns vertex $v$ to position $p$. Binary $z_(e,p,d)$ chooses source edge $e$ at cyclic step $p$ in direction $d in {0,1}$. Binary $q_e$ selects one used maximum-weight edge. Define $y_e = sum_(p,d) z_(e,p,d)$ as an expression, not another variable. All variables retain the nonnegative integer ILP variant, with explicit upper bounds of one.
 
   Each vertex and position has exactly one assignment. For edge $e=(u,v)$, impose $z_(e,p,0) <= x_(u,p)$ and $z_(e,p,0) <= x_(v,(p+1) mod n)$, with reversed endpoints for direction one. Then impose
   $
@@ -15790,12 +15790,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
   Minimize $sum_e w_e q_e$. The threshold principle selects among edge weights @larusic2010; the explicit maximum selector and stored-edge treatment here give a direct ILP construction.
 
-  _Correctness._ ($arrow.r.double$) A connected degree-two spanning edge selection supplies a cyclic vertex order and distinct edge uses. This includes a one-vertex self-loop or a two-vertex cycle with two parallel edges when present in the native graph. Choose a used maximum-weight edge for $q$. All constraints hold and the objective is the source bottleneck.
+  _Correctness._ ($arrow.r.double$) A connected degree-two spanning edge selection supplies a cyclic vertex order and distinct edge uses. Choose a used maximum-weight edge for $q$. All constraints hold and the objective is the source bottleneck.
   ($arrow.l.double$) The position equalities give a permutation. Exactly one edge connects each consecutive pair, and no stored edge is used twice, so the decoded selection is connected, spans all vertices, and has degree two. The selected $q$ edge is used and dominates every used edge. Thus every feasible target witness has exactly the source value, not merely an upper bound. An empty graph has no selector and is infeasible.
 
   _Numeric contract._ Constraints use only coefficients of magnitude one; weights are compared without subtraction or negation. Exactly one objective coefficient contributes, so even the minimum signed integer is preserved without overflowing an intermediate sum. Checked dimensions bound binary constraint accumulation. The target has $n^2+2 m n+m$ variables and $n^2+6 m n+4m+3n+1$ constraints. The default floating solver's transport range is a separate limitation.
 
-  _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one. Parallel edges keep their individual identities.
+  _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one.
 ]
 
 #let hc_lc = load-example("HamiltonianCircuit", "DecisionLongestCircuit")

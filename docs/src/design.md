@@ -158,7 +158,6 @@ cross-partition pairs. `UnitDiskGraph`, `KingsSubgraph`, and `TriangularSubgraph
 generate each edge between distinct vertex indices once, including when two
 vertices have coincident positions. `DirectedGraph` and `MixedGraph` retain
 loops and parallel records, subject to each model's additional restrictions.
-A model requiring undirected multigraph instances needs a different topology.
 
 
 <div class="theme-light-only">

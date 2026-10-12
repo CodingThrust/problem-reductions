@@ -1,7 +1,7 @@
 //! Traveling Salesman problem implementation.
 //!
 //! The Traveling Salesman problem asks for a minimum-weight cycle
-//! that visits every vertex exactly once.
+//! that visits every vertex exactly once in a simple undirected graph.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
@@ -28,7 +28,7 @@ inventory::submit! {
 
 /// The Traveling Salesman problem.
 ///
-/// Given a weighted graph G = (V, E) with edge weights w_e,
+/// Given a simple weighted graph G = (V, E) with edge weights w_e,
 /// find a cycle that visits every vertex exactly once and
 /// minimizes the total edge weight.
 ///
