@@ -239,3 +239,72 @@ fn mixed_chinese_postman_loop_has_the_same_value_after_serde() {
         problem.evaluate(&vec![false]).unwrap()
     );
 }
+
+#[test]
+fn mixed_postman_create_preserves_parallel_loops_for_both_weight_variants() {
+    let weighted = MixedChinesePostman::<i64>::try_from(MixedChinesePostmanI64CreateSpec {
+        graph: vec![(0, 0), (0, 0)],
+        arcs: vec![(0, 0), (0, 0)],
+        num_vertices: Some(1),
+        arc_weights: Some(vec![2, 3]),
+        edge_weights: Some(vec![5, 7]),
+    })
+    .unwrap();
+    let restored: MixedChinesePostman<i64> =
+        serde_json::from_value(serde_json::to_value(&weighted).unwrap()).unwrap();
+    assert_eq!(restored.graph(), weighted.graph());
+    assert_eq!(restored.arc_weights(), &[2, 3]);
+    assert_eq!(restored.edge_weights(), &[5, 7]);
+    assert_eq!(
+        restored.evaluate(&vec![false, true]).unwrap(),
+        Min(Some(17))
+    );
+
+    let unweighted = MixedChinesePostman::<One>::try_from(MixedChinesePostmanOneCreateSpec {
+        graph: vec![(0, 0), (0, 0)],
+        arcs: vec![(0, 0), (0, 0)],
+        num_vertices: Some(1),
+    })
+    .unwrap();
+    assert_eq!(unweighted.graph(), weighted.graph());
+    assert_eq!(
+        unweighted.evaluate(&vec![false, true]).unwrap(),
+        Min(Some(4))
+    );
+}
+
+#[test]
+fn mixed_postman_create_rejects_missing_topology_and_invalid_endpoints() {
+    for (graph, arcs, num_vertices, expected) in [
+        (vec![], vec![(0, 0)], None, "num_vertices is required"),
+        (vec![(0, 0)], vec![], Some(1), "arcs must be non-empty"),
+        (vec![(0, 1)], vec![(0, 0)], Some(1), "too small"),
+        (
+            vec![(0, 0)],
+            vec![(0, 1)],
+            Some(1),
+            "arc 0 endpoint is out of range",
+        ),
+    ] {
+        let error = MixedChinesePostman::<i64>::try_from(MixedChinesePostmanI64CreateSpec {
+            graph: graph.clone(),
+            arcs: arcs.clone(),
+            num_vertices,
+            arc_weights: None,
+            edge_weights: None,
+        })
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            crate::registry::ConstructionError::Conversion(_)
+        ));
+        assert!(error.to_string().contains(expected), "{error}");
+        let error = MixedChinesePostman::<One>::try_from(MixedChinesePostmanOneCreateSpec {
+            graph,
+            arcs,
+            num_vertices,
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains(expected), "{error}");
+    }
+}

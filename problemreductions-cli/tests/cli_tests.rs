@@ -10325,21 +10325,21 @@ fn simple_directed_models_reject_a_loop_on_create() {
 }
 
 #[test]
-fn mixed_chinese_postman_create_accepts_an_undirected_loop() {
+fn mixed_chinese_postman_create_preserves_weighted_parallel_loops() {
     let output = pred()
         .args([
             "create",
             "MixedChinesePostman/i64",
             "--graph",
-            "0-0",
+            "0-0,0-0",
             "--arcs",
-            "0>0",
+            "0>0,0>0",
             "--num-vertices",
             "1",
             "--edge-weights",
-            "3",
+            "5,7",
             "--arc-weights",
-            "2",
+            "2,3",
         ])
         .output()
         .unwrap();
@@ -10351,9 +10351,43 @@ fn mixed_chinese_postman_create_accepts_an_undirected_loop() {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
         serde_json::from_value(json["data"].clone()).unwrap();
-    assert_eq!(problem.graph().edges(), vec![(0, 0)]);
+    assert_eq!(problem.graph().edges(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.graph().arcs(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.arc_weights(), &[2, 3]);
+    assert_eq!(problem.edge_weights(), &[5, 7]);
     assert_eq!(
-        problemreductions::Problem::evaluate(&problem, &vec![false]).unwrap(),
-        problemreductions::Min(Some(5))
+        problemreductions::Problem::evaluate(&problem, &vec![false, true]).unwrap(),
+        problemreductions::Min(Some(17))
     );
+}
+
+#[test]
+fn mixed_chinese_postman_create_rejects_invalid_endpoints_and_weights() {
+    for (arcs, edge_weights, arc_weights, expected) in [
+        ("0>1", "3", "2", "endpoint is out of range"),
+        ("0>0", "2,3", "2", "edge_weights has length"),
+        ("0>0", "3", "-1", "must be nonnegative"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MixedChinesePostman/i64",
+                "--graph",
+                "0-0",
+                "--arcs",
+                arcs,
+                "--num-vertices",
+                "1",
+                "--edge-weights",
+                edge_weights,
+                "--arc-weights",
+                arc_weights,
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(expected), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
 }

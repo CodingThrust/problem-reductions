@@ -59,13 +59,15 @@ fn test_mixed_graph_panics_on_out_of_bounds_arc() {
 
 #[test]
 fn deserialize_checks_both_arc_and_edge_endpoints() {
-    for (arcs, edges) in [(vec![(0, 2)], vec![]), (vec![], vec![(2, 0)])] {
-        assert!(
-            serde_json::from_value::<MultiMixedGraph>(serde_json::json!({
-                "num_vertices": 2, "arcs": arcs, "edges": edges
-            }))
-            .is_err()
-        );
+    for (arcs, edges, offending) in [
+        (vec![(0, 2)], vec![], "arc (0, 2)"),
+        (vec![], vec![(2, 0)], "edge (2, 0)"),
+    ] {
+        let error = serde_json::from_value::<MultiMixedGraph>(serde_json::json!({
+            "num_vertices": 2, "arcs": arcs, "edges": edges
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains(offending), "{error}");
     }
 }
 
@@ -84,4 +86,51 @@ fn multi_mixed_graph_preserves_loops_and_parallel_records() {
         serde_json::from_value(serde_json::to_value(&graph).unwrap()).unwrap();
     assert_eq!(restored.arcs(), graph.arcs());
     assert_eq!(restored.edges(), graph.edges());
+}
+
+#[test]
+fn mixed_graph_incidence_counts_each_parallel_record_and_loop() {
+    let graph = MultiMixedGraph::new(
+        2,
+        vec![(0, 0), (0, 1), (0, 1), (1, 0)],
+        vec![(0, 0), (0, 1), (1, 0)],
+    );
+    assert_eq!(graph.out_degree(0), 3);
+    assert_eq!(graph.in_degree(0), 2);
+    assert_eq!(graph.out_degree(1), 1);
+    assert_eq!(graph.in_degree(1), 2);
+    // This API counts incident edge records, so a loop contributes one.
+    assert_eq!(graph.undirected_degree(0), 3);
+    assert_eq!(graph.undirected_degree(1), 2);
+}
+
+#[test]
+fn mixed_graph_equality_preserves_vertices_direction_and_multiplicity() {
+    let graph = MultiMixedGraph::new(2, vec![(0, 1), (0, 1)], vec![(0, 1), (1, 0)]);
+    assert_eq!(
+        graph,
+        MultiMixedGraph::new(2, vec![(0, 1), (0, 1)], vec![(1, 0), (0, 1)])
+    );
+    assert_ne!(graph, MultiMixedGraph::new(3, graph.arcs(), graph.edges()));
+    assert_ne!(
+        graph,
+        MultiMixedGraph::new(2, vec![(0, 1), (1, 0)], graph.edges())
+    );
+    assert_ne!(graph, MultiMixedGraph::new(2, vec![(0, 1)], graph.edges()));
+    assert_ne!(graph, MultiMixedGraph::new(2, graph.arcs(), vec![(0, 1)]));
+
+    let empty = MultiMixedGraph::empty(0);
+    let isolated = MultiMixedGraph::empty(2);
+    assert!(empty.is_empty());
+    assert!(!isolated.is_empty());
+    assert_eq!(isolated.num_vertices(), 2);
+    assert_eq!(isolated.num_arcs(), 0);
+    assert_eq!(isolated.num_edges(), 0);
+    assert_ne!(empty, isolated);
+}
+
+#[test]
+#[should_panic(expected = "edge (3, 0) references vertex >= num_vertices (3)")]
+fn mixed_graph_construction_rejects_an_out_of_range_edge() {
+    MultiMixedGraph::new(3, vec![], vec![(3, 0)]);
 }

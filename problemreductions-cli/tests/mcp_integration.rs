@@ -329,7 +329,7 @@ mod mcp_tests {
         shutdown(stdin, child);
     }
     #[test]
-    fn mixed_chinese_postman_loop_round_trips_over_mcp() {
+    fn mixed_chinese_postman_parallel_loops_round_trip_over_mcp() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);
         send(
@@ -338,8 +338,8 @@ mod mcp_tests {
                 "jsonrpc": "2.0", "id": 2, "method": "tools/call",
                 "params": {"name": "create_problem", "arguments": {
                     "problem_type": "MixedChinesePostman/i64",
-                    "params": {"graph": [[0,0]], "arcs": [[0,0]], "num_vertices": 1,
-                        "edge_weights": [3], "arc_weights": [2]},
+                    "params": {"graph": [[0,0],[0,0]], "arcs": [[0,0],[0,0]], "num_vertices": 1,
+                        "edge_weights": [5,7], "arc_weights": [2,3]},
                 }},
             }),
         );
@@ -350,14 +350,20 @@ mod mcp_tests {
         let created: serde_json::Value = serde_json::from_str(problem_json).unwrap();
         assert_eq!(
             created["data"]["graph"]["edges"],
-            serde_json::json!([[0, 0]])
+            serde_json::json!([[0, 0], [0, 0]])
         );
+        assert_eq!(
+            created["data"]["graph"]["arcs"],
+            serde_json::json!([[0, 0], [0, 0]])
+        );
+        assert_eq!(created["data"]["arc_weights"], serde_json::json!([2, 3]));
+        assert_eq!(created["data"]["edge_weights"], serde_json::json!([5, 7]));
         send(
             &mut stdin,
             &serde_json::json!({
                 "jsonrpc": "2.0", "id": 3, "method": "tools/call",
                 "params": {"name": "evaluate", "arguments": {
-                    "problem_json": problem_json, "config": [false],
+                    "problem_json": problem_json, "config": [false,true],
                 }},
             }),
         );
@@ -367,7 +373,36 @@ mod mcp_tests {
         let evaluated: serde_json::Value =
             serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())
                 .unwrap();
-        assert_eq!(evaluated["result"], "Min(5)");
+        assert_eq!(evaluated["result"], "Min(17)");
+        shutdown(stdin, child);
+    }
+
+    #[test]
+    fn mixed_chinese_postman_create_rejects_invalid_parameters_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        for (arcs, edge_weights, arc_weights, expected) in [
+            (vec![(0, 1)], vec![3], vec![2], "endpoint is out of range"),
+            (vec![(0, 0)], vec![2, 3], vec![2], "edge_weights has length"),
+            (vec![(0, 0)], vec![3], vec![-1], "must be nonnegative"),
+        ] {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": "MixedChinesePostman/i64",
+                        "params": {"graph": [[0,0]], "arcs": arcs, "num_vertices": 1,
+                            "edge_weights": edge_weights, "arc_weights": arc_weights},
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert_eq!(response["result"]["isError"], true, "{response}");
+            let error = response["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(error.contains(expected), "{error}");
+        }
         shutdown(stdin, child);
     }
 }

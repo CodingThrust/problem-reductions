@@ -193,12 +193,8 @@ impl ReduceTo<Decision<MaxCut<SimpleGraph, i64>>> for NAESatisfiability {
         for ((u, v), contribution) in edges.into_iter().zip(weights) {
             if u != v {
                 let weight = accumulated.entry((u.min(v), u.max(v))).or_default();
-                *weight = weight.checked_add(contribution).ok_or_else(|| {
-                    crate::rules::ReductionError::integer_overflow::<
-                        Self,
-                        Decision<MaxCut<SimpleGraph, i64>>,
-                    >("combining MaxCut edge weights")
-                })?;
+                // nae_maxcut_parameters checked the total of all nonnegative weights.
+                *weight += contribution;
             }
         }
         let (edges, weights): (Vec<_>, Vec<_>) = accumulated.into_iter().unzip();
