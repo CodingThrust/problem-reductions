@@ -32,32 +32,37 @@ fn matrix_targets_with_dimension_predictions_also_bound_entries() {
     }
 }
 
-fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
-    let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
-    let db = crate::example_db::build_example_db().unwrap();
-    for model in db.models {
-        sources
-            .entry((model.problem, model.variant))
-            .or_default()
-            .push(model.instance);
-    }
-    for rule in db.rules {
-        let source = rule.source;
-        if let (Some(name), Some(inner)) = (
-            source.problem.strip_prefix("Decision"),
-            source.instance.get("inner"),
-        ) {
+fn canonical_sources() -> &'static BTreeMap<SourceKey, Vec<Value>> {
+    static SOURCES: std::sync::OnceLock<BTreeMap<SourceKey, Vec<Value>>> =
+        std::sync::OnceLock::new();
+    SOURCES.get_or_init(|| {
+        let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
+        let db = crate::example_db::build_example_db().unwrap();
+        for rule in db.rules {
+            let source = rule.source;
+            if let (Some(name), Some(inner)) = (
+                source.problem.strip_prefix("Decision"),
+                source.instance.get("inner"),
+            ) {
+                sources
+                    .entry((name.to_string(), source.variant.clone()))
+                    .or_default()
+                    .push(inner.clone());
+            }
             sources
-                .entry((name.to_string(), source.variant.clone()))
+                .entry((source.problem, source.variant))
                 .or_default()
-                .push(inner.clone());
+                .push(source.instance);
+        }
+        // Authored rule examples are smaller than some display-model instances.
+        for model in db.models {
+            sources
+                .entry((model.problem, model.variant))
+                .or_default()
+                .push(model.instance);
         }
         sources
-            .entry((source.problem, source.variant))
-            .or_default()
-            .push(source.instance);
-    }
-    sources
+    })
 }
 
 fn target_parameters(
@@ -87,15 +92,15 @@ fn target_parameters(
 fn source_for(
     entry: &ReductionEntry,
     sources: &BTreeMap<SourceKey, Vec<Value>>,
-) -> Result<Box<dyn DynProblem>, String> {
+) -> Result<(Box<dyn DynProblem>, crate::ProblemParameters), String> {
     let variant = ReductionGraph::variant_to_map(&entry.source_variant());
     let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
     let key = (entry.source_name.to_string(), variant.clone());
     if let Some(examples) = sources.get(&key) {
         for example in examples {
             if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
+                if let Ok(actual) = target_parameters(entry, source.as_ref()) {
+                    return Ok((source, actual));
                 }
             }
         }
@@ -108,8 +113,8 @@ fn source_for(
         }
         for example in examples {
             if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
+                if let Ok(actual) = target_parameters(entry, source.as_ref()) {
+                    return Ok((source, actual));
                 }
             }
         }
@@ -120,9 +125,11 @@ fn source_for(
     let random = registered
         .random
         .ok_or_else(|| format!("no usable canonical source for {key:?}"))?;
-    (random.generate)(json!({"num_vertices": 5, "seed": 42})).map_err(|error| {
+    let source = (random.generate)(json!({"num_vertices": 5, "seed": 42})).map_err(|error| {
         format!("no usable canonical source for {key:?}; graph generator: {error}")
-    })
+    })?;
+    let actual = target_parameters(entry, source.as_ref())?;
+    Ok((source, actual))
 }
 
 #[test]
@@ -141,7 +148,7 @@ fn bounded_ilp_reductions_support_binary_encoding() {
             continue;
         }
         let result = (|| {
-            let source = source_for(entry, &sources)?;
+            let (source, _) = source_for(entry, sources)?;
             let reduced =
                 entry.reduce_fn.unwrap()(source.as_any()).map_err(|error| error.to_string())?;
             let integer = reduced
@@ -194,8 +201,7 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
             entry.target_variant()
         );
         let result = (|| {
-            let source = source_for(entry, &sources)?;
-            let actual = target_parameters(entry, source.as_ref())?;
+            let (source, actual) = source_for(entry, sources)?;
             let predicted = transform
                 .evaluate(&source.parameters_dyn())
                 .map_err(|error| error.to_string())?;

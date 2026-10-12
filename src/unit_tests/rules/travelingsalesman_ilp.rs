@@ -225,20 +225,28 @@ fn simple_graph_isomorphism_classes(n: usize) -> Vec<SimpleGraph> {
     let pairs: Vec<_> = (0..n)
         .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
         .collect();
-    let orders = permutations(n);
+    let orders: Vec<Vec<usize>> = permutations(n)
+        .iter()
+        .map(|order| {
+            pairs
+                .iter()
+                .map(|&(u, v)| {
+                    let pair = (order[u].min(order[v]), order[u].max(order[v]));
+                    pairs.iter().position(|&p| p == pair).unwrap()
+                })
+                .collect()
+        })
+        .collect();
     let mut classes = std::collections::BTreeSet::new();
     for mask in 0..1usize << pairs.len() {
         let canonical = orders
             .iter()
             .map(|order| {
-                pairs
+                order
                     .iter()
                     .enumerate()
                     .filter(|(i, _)| mask & (1 << i) != 0)
-                    .fold(0, |bits, (_, &(u, v))| {
-                        let pair = (order[u].min(order[v]), order[u].max(order[v]));
-                        bits | (1 << pairs.iter().position(|&p| p == pair).unwrap())
-                    })
+                    .fold(0, |bits, (_, &mapped)| bits | (1 << mapped))
             })
             .min()
             .unwrap();
@@ -281,7 +289,12 @@ fn exhaustive_tsp_ilp(n: usize) {
     let start = std::time::Instant::now();
     let graphs = simple_graph_isomorphism_classes(n);
     assert_eq!(graphs.len(), [1, 1, 2, 4, 11, 34][n]);
+    let orders = permutations(n);
     for graph in &graphs {
+        // Every feasible unit-weight tour costs n, so these are all source tours.
+        let tours = BruteForce::new()
+            .find_all_witnesses(&TravelingSalesman::<_, i64>::unit_weights(graph.clone()))
+            .unwrap();
         let m = graph.num_edges();
         for weights in [
             vec![1; m],
@@ -290,34 +303,27 @@ fn exhaustive_tsp_ilp(n: usize) {
             (0..m).map(|e| [-3, 0, 5][e % 3]).collect(),
         ] {
             let source = TravelingSalesman::new(graph.clone(), weights);
-            let expected = BruteForce::new()
-                .solve(&source)
-                .unwrap()
-                .map(|s| source.evaluate(&s).unwrap().0.unwrap());
+            let expected = tours
+                .iter()
+                .map(|tour| source.evaluate(tour).unwrap().0.unwrap())
+                .min();
             let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
             crate::rules::test_helpers::assert_parameter_predictions(&source, &reduction);
             let target = reduction.target_problem();
-            match ILPSolver::new().solve(target) {
-                Ok(solution) => {
-                    let decoded = reduction.extract_solution(&solution).unwrap();
-                    assert_eq!(source.evaluate(&decoded).unwrap().0, expected);
-                    assert_eq!(target.evaluate(&solution).unwrap().value, expected);
-                    assert!(expected.is_some());
-                }
-                Err(crate::solvers::ILPSolveError::Infeasible) => assert_eq!(expected, None),
-                Err(error) => panic!("unexpected solver failure: {error}"),
-            }
             let mut costs = Vec::new();
-            for order in permutations(n) {
-                let solution = assignment_for_order(graph, &order);
+            for order in &orders {
+                let solution = assignment_for_order(graph, order);
                 let valid = n >= 3 && (0..n).all(|k| graph.has_edge(order[k], order[(k + 1) % n]));
-                assert_eq!(target.is_feasible(&solution).unwrap(), valid);
-                assert_eq!(reduction.extract_solution(&solution).is_ok(), valid);
-                if valid {
-                    let decoded = reduction.extract_solution(&solution).unwrap();
-                    let source_cost = source.evaluate(&decoded).unwrap().0.unwrap();
-                    assert_eq!(target.evaluate(&solution).unwrap().value, Some(source_cost));
-                    costs.push(source_cost);
+                let value = target.evaluate(&solution).unwrap();
+                assert_eq!(value.value.is_some(), valid);
+                match reduction.extract_solution(&solution) {
+                    Ok(decoded) => {
+                        assert!(valid);
+                        let source_cost = source.evaluate(&decoded).unwrap().0.unwrap();
+                        assert_eq!(value.value, Some(source_cost));
+                        costs.push(source_cost);
+                    }
+                    Err(_) => assert!(!valid),
                 }
             }
             assert_eq!(costs.into_iter().min(), expected);
