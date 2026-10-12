@@ -129,7 +129,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::MultiDirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumfeedbackarcset_to_ilp",
@@ -138,7 +138,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 arcs, 3 vertices: 6 total variables
             // Remove arc 2 (2->0): source_config = [0, 0, 1]
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
-            let graph = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+            let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

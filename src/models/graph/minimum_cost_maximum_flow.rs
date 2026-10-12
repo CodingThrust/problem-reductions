@@ -40,7 +40,7 @@
 //! score is strictly better in the lex order.
 
 use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Integral flow that lexicographically maximizes value then minimizes total arc cost",
         fields: &[
-            FieldInfo { name: "graph", type_name: "MultiDirectedGraph", description: "Directed graph G = (V, A)" },
+            FieldInfo { name: "graph", type_name: "MultiDigraph", description: "Directed graph G = (V, A)" },
             FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
             FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
             FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Arc capacity c(a) in graph arc order (non-negative)" },
@@ -74,11 +74,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumCostMaximumFlow;
-/// use problemreductions::topology::MultiDirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Diamond network from the canonical example.
-/// let graph = MultiDirectedGraph::new(4, vec![
+/// let graph = MultiDigraph::new(4, vec![
 ///     (0, 1), (0, 2), (1, 2), (1, 3), (2, 3),
 /// ]);
 /// let problem = MinimumCostMaximumFlow::new(
@@ -96,7 +96,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize)]
 pub struct MinimumCostMaximumFlow {
     /// The directed graph G = (V, A).
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     /// Source vertex s.
     source: usize,
     /// Sink vertex t.
@@ -109,7 +109,7 @@ pub struct MinimumCostMaximumFlow {
 
 #[derive(Deserialize)]
 struct MinimumCostMaximumFlowSerde {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     source: usize,
     sink: usize,
     capacities: Vec<i64>,
@@ -155,7 +155,7 @@ impl MinimumCostMaximumFlow {
     /// - Any capacity is negative
     /// - Any cost is negative
     pub fn new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         capacities: Vec<i64>,
@@ -166,7 +166,7 @@ impl MinimumCostMaximumFlow {
     }
 
     fn try_new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         capacities: Vec<i64>,
@@ -213,7 +213,7 @@ impl MinimumCostMaximumFlow {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &MultiDirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -452,7 +452,7 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let problem = MinimumCostMaximumFlow::new(
-        crate::topology::MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+        crate::topology::MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
         0,
         3,
         vec![2, 1, 1, 1, 2],

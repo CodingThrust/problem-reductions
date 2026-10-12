@@ -1,10 +1,10 @@
 //! Directed graph implementation.
 //!
-//! This module provides [`MultiDirectedGraph`], a directed graph wrapping petgraph's
+//! This module provides [`MultiDigraph`], a directed graph wrapping petgraph's
 //! `DiGraph`. It is used for problems that require directed input, such as
 //! [`MinimumFeedbackVertexSet`] and [`MinimumFeedbackArcSet`].
 //!
-//! Unlike [`SimpleGraph`], `MultiDirectedGraph` does **not** implement the [`Graph`]
+//! Unlike [`SimpleGraph`], `MultiDigraph` does **not** implement the [`Graph`]
 //! trait (which is specific to undirected graphs). Arcs are ordered pairs `(u, v)`
 //! representing a directed edge from `u` to `v`.
 //!
@@ -27,22 +27,22 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use problemreductions::topology::MultiDirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 ///
-/// let g = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let g = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
 /// assert_eq!(g.num_vertices(), 3);
 /// assert_eq!(g.num_arcs(), 2);
 /// assert!(g.is_dag());
 ///
-/// let cyclic = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+/// let cyclic = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// assert!(!cyclic.is_dag());
 /// ```
 #[derive(Debug, Clone)]
-pub struct MultiDirectedGraph {
+pub struct MultiDigraph {
     inner: DiGraph<(), ()>,
 }
 
-impl MultiDirectedGraph {
+impl MultiDigraph {
     /// Creates a new directed graph with the given vertices and arcs.
     ///
     /// # Arguments
@@ -235,7 +235,7 @@ impl MultiDirectedGraph {
     }
 }
 
-impl PartialEq for MultiDirectedGraph {
+impl PartialEq for MultiDigraph {
     fn eq(&self, other: &Self) -> bool {
         if self.num_vertices() != other.num_vertices() {
             return false;
@@ -251,12 +251,12 @@ impl PartialEq for MultiDirectedGraph {
     }
 }
 
-impl Eq for MultiDirectedGraph {}
+impl Eq for MultiDigraph {}
 
-impl Serialize for MultiDirectedGraph {
+impl Serialize for MultiDigraph {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("MultiDirectedGraph", 2)?;
+        let mut state = serializer.serialize_struct("MultiDigraph", 2)?;
         state.serialize_field("num_vertices", &self.num_vertices())?;
         let arcs: Vec<(usize, usize)> = self.arcs();
         state.serialize_field("arcs", &arcs)?;
@@ -264,7 +264,7 @@ impl Serialize for MultiDirectedGraph {
     }
 }
 
-impl<'de> Deserialize<'de> for MultiDirectedGraph {
+impl<'de> Deserialize<'de> for MultiDigraph {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct GraphData {
@@ -272,13 +272,13 @@ impl<'de> Deserialize<'de> for MultiDirectedGraph {
             arcs: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        MultiDirectedGraph::try_new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
+        MultiDigraph::try_new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
     }
 }
 
 use crate::impl_variant_param;
-impl_variant_param!(MultiDirectedGraph, "graph");
+impl_variant_param!(MultiDigraph, "graph");
 
 #[cfg(test)]
-#[path = "../unit_tests/topology/multi_directed_graph.rs"]
+#[path = "../unit_tests/topology/multi_digraph.rs"]
 mod tests;

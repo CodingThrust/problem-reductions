@@ -6,7 +6,7 @@
 //! some selected vertex).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Does the directed graph contain a kernel (independent and absorbing vertex subset)?",
         fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleDirectedGraph", description: "The directed graph G=(V,A)" },
+            FieldInfo { name: "graph", type_name: "SimpleDigraph", description: "The directed graph G=(V,A)" },
         ],
     }
 }
@@ -42,10 +42,10 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::Kernel;
-/// use problemreductions::topology::SimpleDirectedGraph;
+/// use problemreductions::topology::SimpleDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
-/// let graph = SimpleDirectedGraph::new(5, vec![
+/// let graph = SimpleDigraph::new(5, vec![
 ///     (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1),
 /// ]);
 /// let problem = Kernel::new(graph);
@@ -55,17 +55,17 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kernel {
-    graph: SimpleDirectedGraph,
+    graph: SimpleDigraph,
 }
 
 impl Kernel {
     /// Create a new Kernel problem from a directed graph.
-    pub fn new(graph: SimpleDirectedGraph) -> Self {
+    pub fn new(graph: SimpleDigraph) -> Self {
         Self { graph }
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &SimpleDirectedGraph {
+    pub fn graph(&self) -> &SimpleDigraph {
         &self.graph
     }
 
@@ -145,7 +145,7 @@ impl crate::solvers::BruteForceProblem for Kernel {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     // 5 vertices, arcs: (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1)
     // Kernel: V' = {0, 3}.
-    let graph = SimpleDirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );

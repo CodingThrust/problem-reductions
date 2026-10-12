@@ -122,13 +122,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::SimpleDirectedGraph;
+    use crate::topology::SimpleDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiplechoicebranching_to_ilp",
         build: || {
             let source = MultipleChoiceBranching::new(
-                SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 3],
                 vec![vec![0], vec![1]],
                 5,

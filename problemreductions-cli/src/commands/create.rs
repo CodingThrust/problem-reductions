@@ -11,7 +11,7 @@ use problemreductions::models::graph::{LabelledArc, LabelledDigraph};
 use problemreductions::models::misc::{CbqRelation, FrequencyTable, KnownValue, QueryArg};
 use problemreductions::prelude::*;
 use problemreductions::topology::{
-    KingsSubgraph, MultiDirectedGraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    KingsSubgraph, MultiDigraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -478,7 +478,7 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
     Ok(matrix)
 }
 
-/// Parse `--arcs` as directed arc pairs and build a `MultiDirectedGraph`.
+/// Parse `--arcs` as directed arc pairs and build a `MultiDigraph`.
 ///
 /// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
 /// unless `num_vertices` is provided (which must be >= inferred count).
@@ -486,7 +486,7 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
 fn parse_directed_graph(
     arcs_str: &str,
     num_vertices: Option<usize>,
-) -> Result<(MultiDirectedGraph, usize)> {
+) -> Result<(MultiDigraph, usize)> {
     let arcs: Vec<(usize, usize)> = arcs_str
         .split(',')
         .map(|pair| {
@@ -522,7 +522,7 @@ fn parse_directed_graph(
         None => inferred_num_v,
     };
     let num_arcs = arcs.len();
-    Ok((MultiDirectedGraph::new(num_v, arcs), num_arcs))
+    Ok((MultiDigraph::new(num_v, arcs), num_arcs))
 }
 
 /// Parse implication rules from semicolon-separated "antecedents>consequent" strings.

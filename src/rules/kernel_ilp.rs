@@ -68,11 +68,11 @@ impl ReduceTo<ILP<bool>> for Kernel {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::SimpleDirectedGraph;
+    use crate::topology::SimpleDigraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kernel_to_ilp",
         build: || {
-            let source = Kernel::new(SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]));
+            let source = Kernel::new(SimpleDigraph::new(3, vec![(0, 1), (1, 2)]));
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

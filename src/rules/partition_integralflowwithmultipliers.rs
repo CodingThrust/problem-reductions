@@ -9,7 +9,7 @@ use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::models::misc::Partition;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 
 /// Result of reducing Partition to IntegralFlowWithMultipliers.
 #[derive(Debug, Clone)]
@@ -71,7 +71,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         let source_n = self.num_elements();
 
         if total_sum % 2 != 0 {
-            let graph = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+            let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
             return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
                 target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
                 item_arc_count: None,
@@ -103,7 +103,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         capacities.push(half_sum);
         multipliers[relay] = 1;
 
-        let graph = MultiDirectedGraph::new(source_n + 3, arcs);
+        let graph = MultiDigraph::new(source_n + 3, arcs);
         Ok(ReductionPartitionToIntegralFlowWithMultipliers {
             target: IntegralFlowWithMultipliers::new(
                 graph,

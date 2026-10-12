@@ -1,6 +1,6 @@
 use super::*;
 use crate::rules::AggregateReductionResult;
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_kernel_to_ilp_preserves_selections_on_every_three_vertex_simple_digraph(
             .enumerate()
             .filter_map(|(i, &arc)| (arc_mask & (1 << i) != 0).then_some(arc))
             .collect();
-        let source = Kernel::new(SimpleDirectedGraph::new(3, arcs));
+        let source = Kernel::new(SimpleDigraph::new(3, arcs));
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let target = ReductionResult::target_problem(&reduction);
         assert_eq!(target.num_vars(), 3);
@@ -37,7 +37,7 @@ fn test_kernel_to_ilp_preserves_selections_on_every_three_vertex_simple_digraph(
 
 #[test]
 fn test_kernel_to_ilp_closed_loop() {
-    let source = Kernel::new(SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = Kernel::new(SimpleDigraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
     for malformed in [vec![1, 0], vec![1, 0, 1, 0], vec![2, 0, 1]] {

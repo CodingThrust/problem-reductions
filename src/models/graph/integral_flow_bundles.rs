@@ -4,7 +4,7 @@
 //! determine whether an integral flow can deliver a required amount to the sink.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -26,7 +26,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "IntegralFlowBundlesData")]
 pub struct IntegralFlowBundles {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     source: usize,
     sink: usize,
     bundles: Vec<Vec<usize>>,
@@ -36,7 +36,7 @@ pub struct IntegralFlowBundles {
 
 #[derive(Deserialize)]
 struct IntegralFlowBundlesData {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     source: usize,
     sink: usize,
     bundles: Vec<Vec<usize>>,
@@ -93,7 +93,7 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
             return Err("num_vertices is too small".into());
         }
         Self::try_new(
-            MultiDirectedGraph::new(count, spec.arcs),
+            MultiDigraph::new(count, spec.arcs),
             spec.source,
             spec.sink,
             spec.bundles,
@@ -106,7 +106,7 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
 impl IntegralFlowBundles {
     /// Create a new Integral Flow with Bundles instance.
     pub fn new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         bundles: Vec<Vec<usize>>,
@@ -118,7 +118,7 @@ impl IntegralFlowBundles {
     }
 
     fn try_new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         bundles: Vec<Vec<usize>>,
@@ -200,7 +200,7 @@ impl IntegralFlowBundles {
     }
 
     /// Get the underlying directed graph.
-    pub fn graph(&self) -> &MultiDirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -400,7 +400,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integral_flow_bundles",
         instance: Box::new(IntegralFlowBundles::new(
-            MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+            MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
             0,
             3,
             vec![vec![0, 1], vec![2, 5], vec![3, 4]],

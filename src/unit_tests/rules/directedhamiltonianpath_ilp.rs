@@ -1,14 +1,14 @@
 use super::*;
 use crate::models::graph::DirectedHamiltonianPath;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use crate::types::Or;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Directed path: 0->1->2 (n=3)
-    let graph = SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -21,7 +21,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_directedhamiltonianpath_to_ilp_closed_loop() {
     // Directed path: 0->1->2->3
-    let graph = SimpleDirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
 
     // BruteForce to verify feasibility
@@ -50,7 +50,7 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
 #[test]
 fn test_directedhamiltonianpath_to_ilp_issue_example() {
     // 6-vertex example from issue #813
-    let graph = SimpleDirectedGraph::new(
+    let graph = SimpleDigraph::new(
         6,
         vec![
             (0, 1),
@@ -83,7 +83,7 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
 #[test]
 fn test_directedhamiltonianpath_to_ilp_no_path() {
     // No Hamiltonian path: 0->1, 0->2, but no outgoing arcs from 1 or 2
-    let graph = SimpleDirectedGraph::new(3, vec![(0, 1), (0, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (0, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -97,7 +97,7 @@ fn test_directedhamiltonianpath_to_ilp_no_path() {
 
 #[test]
 fn test_directedhamiltonianpath_to_ilp_bf_vs_ilp() {
-    let graph = SimpleDirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

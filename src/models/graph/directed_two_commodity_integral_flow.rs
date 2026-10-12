@@ -7,7 +7,7 @@
 //! NP-complete even with unit capacities (Even, Itai, and Shamir, 1976).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +21,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Two-commodity integral flow feasibility on a directed graph",
         fields: &[
-            FieldInfo { name: "graph", type_name: "MultiDirectedGraph", description: "Directed graph G = (V, A)" },
+            FieldInfo { name: "graph", type_name: "MultiDigraph", description: "Directed graph G = (V, A)" },
             FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Capacity c(a) for each arc" },
             FieldInfo { name: "source_1", type_name: "usize", description: "Source vertex s_1 for commodity 1" },
             FieldInfo { name: "sink_1", type_name: "usize", description: "Sink vertex t_1 for commodity 1" },
@@ -53,11 +53,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::DirectedTwoCommodityIntegralFlow;
-/// use problemreductions::topology::MultiDirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6-vertex network: s1=0, s2=1, t1=4, t2=5
-/// let graph = MultiDirectedGraph::new(6, vec![
+/// let graph = MultiDigraph::new(6, vec![
 ///     (0, 2), (0, 3), (1, 2), (1, 3),
 ///     (2, 4), (2, 5), (3, 4), (3, 5),
 /// ]);
@@ -71,7 +71,7 @@ inventory::submit! {
 #[serde(try_from = "DirectedTwoCommodityIntegralFlowData")]
 pub struct DirectedTwoCommodityIntegralFlow {
     /// The directed graph G = (V, A).
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     /// Capacity c(a) for each arc.
     capacities: Vec<i64>,
     /// Source vertex s_1 for commodity 1.
@@ -90,7 +90,7 @@ pub struct DirectedTwoCommodityIntegralFlow {
 
 #[derive(Deserialize)]
 struct DirectedTwoCommodityIntegralFlowData {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     capacities: Vec<i64>,
     source_1: usize,
     sink_1: usize,
@@ -126,7 +126,7 @@ impl DirectedTwoCommodityIntegralFlow {
     /// - Any terminal vertex index >= `graph.num_vertices()`
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         capacities: Vec<i64>,
         source_1: usize,
         sink_1: usize,
@@ -150,7 +150,7 @@ impl DirectedTwoCommodityIntegralFlow {
 
     #[allow(clippy::too_many_arguments)]
     fn try_new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         capacities: Vec<i64>,
         source_1: usize,
         sink_1: usize,
@@ -198,7 +198,7 @@ impl DirectedTwoCommodityIntegralFlow {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &MultiDirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -402,7 +402,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "directed_two_commodity_integral_flow",
         instance: Box::new(DirectedTwoCommodityIntegralFlow::new(
-            MultiDirectedGraph::new(
+            MultiDigraph::new(
                 6,
                 vec![
                     (0, 2),

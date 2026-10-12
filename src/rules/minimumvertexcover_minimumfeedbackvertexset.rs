@@ -6,7 +6,7 @@
 use crate::models::graph::{MinimumFeedbackVertexSet, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{Graph, MultiDirectedGraph, SimpleGraph};
+use crate::topology::{Graph, MultiDigraph, SimpleGraph};
 use crate::types::WeightElement;
 
 /// Result of reducing MinimumVertexCover to MinimumFeedbackVertexSet.
@@ -54,7 +54,7 @@ impl ReduceTo<MinimumFeedbackVertexSet<i64>> for MinimumVertexCover<SimpleGraph,
             .collect();
 
         let target = MinimumFeedbackVertexSet::new(
-            MultiDirectedGraph::new(self.graph().num_vertices(), arcs),
+            MultiDigraph::new(self.graph().num_vertices(), arcs),
             self.weights().to_vec(),
         );
 

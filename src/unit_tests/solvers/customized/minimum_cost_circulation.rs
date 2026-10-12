@@ -1,11 +1,11 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_negative_cycle_cancellation_minimum_cost_circulation_matches_brute_force() {
-    let graph = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0), (1, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0), (1, 0)]);
     for capacity_mask in 0usize..16 {
         let capacities = (0..4)
             .map(|arc| ((capacity_mask >> arc) & 1) as i64)
@@ -33,7 +33,7 @@ fn test_negative_cycle_cancellation_minimum_cost_circulation_matches_brute_force
 #[test]
 fn test_negative_cycle_cancellation_minimum_cost_circulation_handles_multigraph() {
     let problem = MinimumCostCirculation::new(
-        MultiDirectedGraph::new(2, vec![(0, 0), (0, 1), (0, 1), (1, 0)]),
+        MultiDigraph::new(2, vec![(0, 0), (0, 1), (0, 1), (1, 0)]),
         vec![3, 2, 4, 3],
         vec![-2, 4, -3, 1],
     );
@@ -45,12 +45,12 @@ fn test_negative_cycle_cancellation_minimum_cost_circulation_handles_multigraph(
 fn test_circulation_overflow_propagates_through_default_solver() {
     for (graph, costs, operation) in [
         (
-            MultiDirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+            MultiDigraph::new(2, vec![(0, 1), (1, 0)]),
             vec![-5_000_000_000_000_000_000, 0],
             "relaxing a circulation residual arc",
         ),
         (
-            MultiDirectedGraph::new(1, vec![(0, 0)]),
+            MultiDigraph::new(1, vec![(0, 0)]),
             vec![i64::MIN],
             "negating a circulation residual cost",
         ),

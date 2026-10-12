@@ -4,7 +4,7 @@
 //! set of weighted candidate arcs can make a directed graph strongly connected.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
@@ -23,7 +23,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Add a bounded set of weighted candidate arcs to make a digraph strongly connected",
         fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleDirectedGraph", description: "The initial directed graph G=(V,A)" },
+            FieldInfo { name: "graph", type_name: "SimpleDigraph", description: "The initial directed graph G=(V,A)" },
             FieldInfo { name: "candidate_arcs", type_name: "Vec<(usize, usize, W)>", description: "Candidate augmenting arcs (u, v, w(u,v)) not already present in G" },
             FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on the total added weight" },
         ],
@@ -38,7 +38,7 @@ inventory::submit! {
 /// connected.
 #[derive(Debug, Clone, Serialize)]
 pub struct StrongConnectivityAugmentation<W: WeightElement> {
-    graph: SimpleDirectedGraph,
+    graph: SimpleDigraph,
     candidate_arcs: Vec<(usize, usize, W)>,
     bound: W::Sum,
 }
@@ -46,7 +46,7 @@ pub struct StrongConnectivityAugmentation<W: WeightElement> {
 impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     /// Fallible constructor used by CLI validation and deserialization.
     pub fn try_new(
-        graph: SimpleDirectedGraph,
+        graph: SimpleDigraph,
         candidate_arcs: Vec<(usize, usize, W)>,
         bound: W::Sum,
     ) -> Result<Self, crate::registry::ConstructionError> {
@@ -101,7 +101,7 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     /// already exists in the base graph, or if candidate arcs contain
     /// self-loops or duplicates.
     pub fn new(
-        graph: SimpleDirectedGraph,
+        graph: SimpleDigraph,
         candidate_arcs: Vec<(usize, usize, W)>,
         bound: W::Sum,
     ) -> Self {
@@ -109,7 +109,7 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     }
 
     /// Get the base directed graph.
-    pub fn graph(&self) -> &SimpleDirectedGraph {
+    pub fn graph(&self) -> &SimpleDigraph {
         &self.graph
     }
 
@@ -183,10 +183,7 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
             }
         }
 
-        Ok(
-            SimpleDirectedGraph::new(self.graph.num_vertices(), augmented_arcs)
-                .is_strongly_connected(),
-        )
+        Ok(SimpleDigraph::new(self.graph.num_vertices(), augmented_arcs).is_strongly_connected())
     }
 }
 
@@ -241,7 +238,7 @@ crate::register_brute_force! {
 
 #[derive(Deserialize)]
 struct StrongConnectivityAugmentationData<W: WeightElement> {
-    graph: SimpleDirectedGraph,
+    graph: SimpleDigraph,
     candidate_arcs: Vec<(usize, usize, W)>,
     bound: W::Sum,
 }
@@ -268,7 +265,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Nine candidate arcs are all individually affordable, but only the
         // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.
         instance: Box::new(StrongConnectivityAugmentation::new(
-            SimpleDirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+            SimpleDigraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
             vec![
                 (4, 0, 10), // direct fix, too expensive
                 (4, 3, 3),  // 4-escape to dead end

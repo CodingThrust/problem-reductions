@@ -1,19 +1,19 @@
-//! Simple directed graph — validated wrapper around MultiDirectedGraph.
+//! Simple directed graph — validated wrapper around MultiDigraph.
 
-use super::MultiDirectedGraph;
+use super::MultiDigraph;
 use serde::{Deserialize, Serialize};
 
 /// A directed graph with no self-loops or parallel arcs.
 ///
 /// `(u, v)` and `(v, u)` are distinct arcs. Arc order and JSON match
-/// [`MultiDirectedGraph`]; algorithms delegate to the wrapped graph.
+/// [`MultiDigraph`]; algorithms delegate to the wrapped graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
-pub struct SimpleDirectedGraph {
-    inner: MultiDirectedGraph,
+pub struct SimpleDigraph {
+    inner: MultiDigraph,
 }
 
-impl SimpleDirectedGraph {
+impl SimpleDigraph {
     /// Construct a simple digraph, panicking on an invalid arc.
     pub fn new(num_vertices: usize, arcs: Vec<(usize, usize)>) -> Self {
         Self::try_new(num_vertices, arcs).unwrap_or_else(|error| panic!("{error}"))
@@ -24,10 +24,10 @@ impl SimpleDirectedGraph {
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
     ) -> Result<Self, crate::registry::ConstructionError> {
-        Self::from_inner(MultiDirectedGraph::try_new(num_vertices, arcs)?)
+        Self::from_inner(MultiDigraph::try_new(num_vertices, arcs)?)
     }
 
-    fn from_inner(inner: MultiDirectedGraph) -> Result<Self, crate::registry::ConstructionError> {
+    fn from_inner(inner: MultiDigraph) -> Result<Self, crate::registry::ConstructionError> {
         super::graph::validate_simple_connections(inner.arcs(), true)?;
         Ok(Self { inner })
     }
@@ -37,7 +37,7 @@ impl SimpleDirectedGraph {
         Self::new(num_vertices, vec![])
     }
     /// Borrow the underlying multigraph without allowing mutation.
-    pub fn inner(&self) -> &MultiDirectedGraph {
+    pub fn inner(&self) -> &MultiDigraph {
         &self.inner
     }
     /// Number of vertices.
@@ -70,15 +70,14 @@ impl SimpleDirectedGraph {
     }
 }
 
-impl<'de> Deserialize<'de> for SimpleDirectedGraph {
+impl<'de> Deserialize<'de> for SimpleDigraph {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Self::from_inner(MultiDirectedGraph::deserialize(deserializer)?)
-            .map_err(serde::de::Error::custom)
+        Self::from_inner(MultiDigraph::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
 }
 
-crate::impl_variant_param!(SimpleDirectedGraph, "graph");
+crate::impl_variant_param!(SimpleDigraph, "graph");
 
 #[cfg(test)]
-#[path = "../unit_tests/topology/simple_directed_graph.rs"]
+#[path = "../unit_tests/topology/simple_digraph.rs"]
 mod tests;

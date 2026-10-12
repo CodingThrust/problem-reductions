@@ -9,7 +9,7 @@
 //! from Minimum Edge-Cost Flow on DAGs (Amaldi et al., 2011).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Integral flow minimizing the number of arcs with nonzero flow (weighted by price)",
         fields: &[
-            FieldInfo { name: "graph", type_name: "MultiDirectedGraph", description: "Directed graph G = (V, A)" },
+            FieldInfo { name: "graph", type_name: "MultiDigraph", description: "Directed graph G = (V, A)" },
             FieldInfo { name: "prices", type_name: "Vec<i64>", description: "Price p(a) for each arc" },
             FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Capacity c(a) for each arc" },
             FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
@@ -48,11 +48,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumEdgeCostFlow;
-/// use problemreductions::topology::MultiDirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // 5-vertex network: s=0, t=4, R=3
-/// let graph = MultiDirectedGraph::new(5, vec![
+/// let graph = MultiDigraph::new(5, vec![
 ///     (0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4),
 /// ]);
 /// let problem = MinimumEdgeCostFlow::new(
@@ -69,7 +69,7 @@ inventory::submit! {
 #[serde(try_from = "MinimumEdgeCostFlowData")]
 pub struct MinimumEdgeCostFlow {
     /// The directed graph G = (V, A).
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     /// Price p(a) for each arc.
     prices: Vec<i64>,
     /// Capacity c(a) for each arc.
@@ -84,7 +84,7 @@ pub struct MinimumEdgeCostFlow {
 
 #[derive(Deserialize)]
 struct MinimumEdgeCostFlowData {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     prices: Vec<i64>,
     capacities: Vec<i64>,
     source: usize,
@@ -128,7 +128,7 @@ impl MinimumEdgeCostFlow {
     /// - `source == sink`
     /// - Any capacity is negative
     pub fn new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         prices: Vec<i64>,
         capacities: Vec<i64>,
         source: usize,
@@ -140,7 +140,7 @@ impl MinimumEdgeCostFlow {
     }
 
     fn try_new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         prices: Vec<i64>,
         capacities: Vec<i64>,
         source: usize,
@@ -186,7 +186,7 @@ impl MinimumEdgeCostFlow {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &MultiDirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -365,7 +365,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_edge_cost_flow",
         instance: Box::new(MinimumEdgeCostFlow::new(
-            crate::topology::MultiDirectedGraph::new(
+            crate::topology::MultiDigraph::new(
                 5,
                 vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)],
             ),

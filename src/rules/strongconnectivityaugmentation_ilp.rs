@@ -198,13 +198,13 @@ impl ReduceTo<ILP<bool>> for StrongConnectivityAugmentation<i64> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-    use crate::topology::SimpleDirectedGraph;
+    use crate::topology::SimpleDigraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "strongconnectivityaugmentation_to_ilp",
         build: || {
             // Path 0→1→2, candidates: (2,0,1),(1,0,2), bound=2
             let source = StrongConnectivityAugmentation::new(
-                SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![(2, 0, 1), (1, 0, 2)],
                 2,
             );

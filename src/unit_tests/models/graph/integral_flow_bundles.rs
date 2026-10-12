@@ -16,12 +16,12 @@ fn create_spec_requires_bundle_coverage() {
     );
 }
 use crate::solvers::BruteForce;
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 fn yes_instance() -> IntegralFlowBundles {
     IntegralFlowBundles::new(
-        MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+        MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
         0,
         3,
         vec![vec![0, 1], vec![2, 5], vec![3, 4]],
@@ -32,7 +32,7 @@ fn yes_instance() -> IntegralFlowBundles {
 
 fn no_instance() -> IntegralFlowBundles {
     IntegralFlowBundles::new(
-        MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+        MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
         0,
         3,
         vec![vec![0, 1], vec![2, 5], vec![3, 4]],

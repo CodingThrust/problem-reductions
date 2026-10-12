@@ -61,7 +61,7 @@ impl CreateContext {
                     .and_then(serde_json::Value::as_array)
                     .map(Vec::len);
             }
-            "MultiDirectedGraph" | "SimpleDirectedGraph" => {
+            "MultiDigraph" | "SimpleDigraph" => {
                 self.num_vertices = value
                     .get("num_vertices")
                     .and_then(serde_json::Value::as_u64)
@@ -324,7 +324,7 @@ pub(crate) fn create_inputs_for(
         for field in schema.fields {
             let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
             match concrete_type.as_str() {
-                "MultiDirectedGraph" | "SimpleDirectedGraph" => {
+                "MultiDigraph" | "SimpleDigraph" => {
                     insert_create_input(&mut inputs, "arcs", InputValueKind::Text, field.name);
                 }
                 _ => {
@@ -342,7 +342,7 @@ pub(crate) fn create_inputs_for(
             let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
             matches!(
                 concrete_type.as_str(),
-                "SimpleGraph" | "MultiDirectedGraph" | "SimpleDirectedGraph"
+                "SimpleGraph" | "MultiDigraph" | "SimpleDigraph"
             )
         }) {
             insert_create_input(
@@ -537,7 +537,7 @@ pub(super) fn parse_field_value(
     let normalized_type = normalize_type_name(concrete_type);
     let value = match normalized_type.as_str() {
         "SimpleGraph" => parse_simple_graph_value(raw, context)?,
-        "MultiDirectedGraph" | "SimpleDirectedGraph" => parse_directed_graph_value(raw, context)?,
+        "MultiDigraph" | "SimpleDigraph" => parse_directed_graph_value(raw, context)?,
         "LabelledDigraph" => parse_labelled_digraph_value(raw, field_name)?,
         "KingsSubgraph" => parse_grid_subgraph_value(raw, true)?,
         "TriangularSubgraph" => parse_grid_subgraph_value(raw, false)?,
@@ -1221,7 +1221,7 @@ pub(super) fn problem_help_flag_name(
 ) -> String {
     if field_type == "G" && is_geometry {
         "positions".to_string()
-    } else if matches!(field_type, "MultiDirectedGraph" | "SimpleDirectedGraph") {
+    } else if matches!(field_type, "MultiDigraph" | "SimpleDigraph") {
         "arcs".to_string()
     } else {
         help_flag_name(field_name)

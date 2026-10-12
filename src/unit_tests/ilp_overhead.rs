@@ -5,7 +5,7 @@ use crate::models::misc::*;
 use crate::parameters::ParameterRelation;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionPath, ReductionResult, ReductionStep};
 use crate::solvers::{BruteForce, BruteForceProblem, ILPSolver};
-use crate::topology::{MultiDirectedGraph, SimpleDirectedGraph, SimpleGraph};
+use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};
 use crate::{
     types::{Min, One},
     Problem, ProblemParameters,
@@ -499,7 +499,7 @@ fn homologous_flow_support_counts_repeated_pairs() {
     // Accepted duplicate pair declarations each emit their own equality row;
     // pair count cannot be bounded by a function of arc/vertex counts alone.
     let source = IntegralFlowHomologousArcs::new(
-        MultiDirectedGraph::new(2, vec![(0, 1), (0, 1)]),
+        MultiDigraph::new(2, vec![(0, 1), (0, 1)]),
         vec![1, 1],
         0,
         1,
@@ -513,7 +513,7 @@ fn homologous_flow_support_counts_repeated_pairs() {
     assert_eq!(source.parameters().get("num_homologous_pairs"), Some(10));
     // All terms in a (self,self) homologous equality cancel.
     let source = IntegralFlowHomologousArcs::new(
-        MultiDirectedGraph::new(1, vec![(0, 0)]),
+        MultiDigraph::new(1, vec![(0, 0)]),
         vec![i64::MAX],
         0,
         0,
@@ -1061,13 +1061,7 @@ fn acyclic_partition_magnitude_and_qubo() {
         (i64::MIN, i64::MIN, 64),
         (i64::MAX, -1, 63),
     ] {
-        let source = AcyclicPartition::new(
-            SimpleDirectedGraph::empty(1),
-            vec![weight],
-            vec![],
-            bound,
-            0,
-        );
+        let source = AcyclicPartition::new(SimpleDigraph::empty(1), vec![weight], vec![], bound, 0);
         assert_eq!(
             source.parameters().get("max_numeric_magnitude_bits"),
             Some(bits)
@@ -1092,7 +1086,7 @@ fn acyclic_partition_magnitude_and_qubo() {
         assert_eq!(feasible, usize::from(source.evaluate(&vec![0]).unwrap().0));
     }
     check_contract::<_, ILP<i64, i64, Bounded>>(&AcyclicPartition::new(
-        SimpleDirectedGraph::new(2, vec![(0, 1)]),
+        SimpleDigraph::new(2, vec![(0, 1)]),
         vec![1, 1],
         vec![1],
         1,
@@ -1100,7 +1094,7 @@ fn acyclic_partition_magnitude_and_qubo() {
     ));
     for bound in [1, 3] {
         check_qubo::<_, ILP<i64, i64, Bounded>>(AcyclicPartition::new(
-            SimpleDirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![1, 2],
             vec![1],
             bound,
@@ -1125,7 +1119,7 @@ fn acyclic_partition_magnitude_and_qubo() {
 fn branching_magnitude_and_qubo() {
     for (weight, threshold, bits) in [(1, 8, 4), (8, 1, 4), (i64::MIN, 0, 64), (1, i64::MIN, 64)] {
         let source = MultipleChoiceBranching::new(
-            SimpleDirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![weight],
             vec![vec![0]],
             threshold,
@@ -1135,7 +1129,7 @@ fn branching_magnitude_and_qubo() {
     }
     for threshold in [1, 3] {
         check_qubo::<_, BoundedILP>(MultipleChoiceBranching::new(
-            SimpleDirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![2],
             vec![vec![0]],
             threshold,

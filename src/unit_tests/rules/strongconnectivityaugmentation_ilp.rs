@@ -3,13 +3,13 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
 fn small_instance() -> StrongConnectivityAugmentation<i64> {
     // Path 0->1->2, candidates: (2,0,1),(1,0,2), bound=2
     StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![(2, 0, 1), (1, 0, 2)],
         2,
     )
@@ -53,8 +53,7 @@ fn test_extract_solution() {
 
 #[test]
 fn test_trivial_single_vertex() {
-    let source =
-        StrongConnectivityAugmentation::new(SimpleDirectedGraph::new(1, vec![]), vec![], 0);
+    let source = StrongConnectivityAugmentation::new(SimpleDigraph::new(1, vec![]), vec![], 0);
     let reduction: ReductionSCAToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -68,7 +67,7 @@ fn test_trivial_single_vertex() {
 fn test_infeasible_budget() {
     // 3 vertices 0->1->2, only candidate is (2,0,10), budget=5
     let source = StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![(2, 0, 10)],
         5,
     );

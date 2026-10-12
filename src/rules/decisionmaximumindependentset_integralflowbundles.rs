@@ -114,7 +114,7 @@ impl ReduceTo<IntegralFlowBundles> for Decision<MaximumIndependentSet<SimpleGrap
             capacities.push(2);
         }
         let target = IntegralFlowBundles::new(
-            crate::topology::MultiDirectedGraph::new(num_vertices, arcs),
+            crate::topology::MultiDigraph::new(num_vertices, arcs),
             0,
             sink,
             bundles,

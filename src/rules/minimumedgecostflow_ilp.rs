@@ -153,13 +153,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumEdgeCostFlow {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::MultiDirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumedgecostflow_to_ilp",
         build: || {
             let source = MinimumEdgeCostFlow::new(
-                MultiDirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+                MultiDigraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
                 vec![3, 1, 2, 0, 0, 0],
                 vec![2, 2, 2, 2, 2, 2],
                 0,

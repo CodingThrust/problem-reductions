@@ -10,7 +10,7 @@ use crate::models::graph::{AcyclicPartition, KClique};
 use crate::reduction;
 use crate::rules::ksatisfiability_kclique::Reduction3SATToKClique;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{Graph, SimpleDirectedGraph, SimpleGraph};
+use crate::topology::{Graph, SimpleDigraph, SimpleGraph};
 use crate::variant::K3;
 
 /// Literal-clique extraction follows the incidence partition projection.
@@ -104,7 +104,7 @@ impl ReduceTo<AcyclicPartition<i64>> for KSatisfiability<K3> {
                 )?,
         );
         let target = AcyclicPartition::new(
-            SimpleDirectedGraph::new(target_n, arcs),
+            SimpleDigraph::new(target_n, arcs),
             weights,
             arc_costs,
             weight_bound,

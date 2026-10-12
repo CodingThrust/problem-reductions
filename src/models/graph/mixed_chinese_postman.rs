@@ -5,7 +5,7 @@
 //! direction and every undirected edge in at least one direction.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{MultiDirectedGraph, MultiMixedGraph};
+use crate::topology::{MultiDigraph, MultiMixedGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
@@ -316,7 +316,7 @@ where
             keep[tail] = true;
             keep[head] = true;
         }
-        if !MultiDirectedGraph::new(self.graph.num_vertices(), available)
+        if !MultiDigraph::new(self.graph.num_vertices(), available)
             .induced_subgraph(&keep)
             .is_strongly_connected()
         {

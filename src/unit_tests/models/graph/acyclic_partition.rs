@@ -5,7 +5,7 @@ use crate::solvers::BruteForceProblem as _;
 #[test]
 fn test_acyclic_partition_validates_persisted_input() {
     let valid = serde_json::to_value(AcyclicPartition::new(
-        SimpleDirectedGraph::new(2, vec![(0, 1)]),
+        SimpleDigraph::new(2, vec![(0, 1)]),
         vec![1i64, 1],
         vec![1i64],
         2,
@@ -24,14 +24,14 @@ fn test_acyclic_partition_validates_persisted_input() {
         );
     }
 }
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use serde_json;
 use std::collections::{BTreeSet, HashSet};
 
 fn yes_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
-        SimpleDirectedGraph::new(
+        SimpleDigraph::new(
             6,
             vec![
                 (0, 1),
@@ -53,7 +53,7 @@ fn yes_instance() -> AcyclicPartition<i64> {
 
 fn no_cost_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
-        SimpleDirectedGraph::new(
+        SimpleDigraph::new(
             6,
             vec![
                 (0, 1),
@@ -75,7 +75,7 @@ fn no_cost_instance() -> AcyclicPartition<i64> {
 
 fn quotient_cycle_instance() -> AcyclicPartition<i64> {
     AcyclicPartition::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![1, 1, 1],
         vec![1, 1, 1],
         3,
@@ -121,13 +121,7 @@ fn test_acyclic_partition_creation_and_accessors() {
 #[test]
 fn test_acyclic_partition_rejects_weight_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
-        AcyclicPartition::new(
-            SimpleDirectedGraph::new(2, vec![(0, 1)]),
-            vec![1],
-            vec![1],
-            2,
-            1,
-        )
+        AcyclicPartition::new(SimpleDigraph::new(2, vec![(0, 1)]), vec![1], vec![1], 2, 1)
     });
     assert!(result.is_err());
 }
@@ -136,7 +130,7 @@ fn test_acyclic_partition_rejects_weight_length_mismatch() {
 fn test_acyclic_partition_rejects_arc_cost_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
         AcyclicPartition::new(
-            SimpleDirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![1, 1],
             vec![],
             2,
@@ -286,7 +280,7 @@ fn create_spec_maps_weight_inputs_to_canonical_fields() {
 #[test]
 fn simple_model_rejects_a_loop_in_construction_and_serde() {
     assert!(std::panic::catch_unwind(|| {
-        let graph = crate::topology::SimpleDirectedGraph::new(2, vec![(0, 0)]);
+        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
         AcyclicPartition::new(graph, vec![1i64; 2], vec![1i64], 2, 2)
     })
     .is_err());

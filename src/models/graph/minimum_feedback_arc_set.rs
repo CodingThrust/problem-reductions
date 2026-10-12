@@ -4,7 +4,7 @@
 //! whose removal makes a directed graph acyclic (a DAG).
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use num_traits::Zero;
@@ -41,11 +41,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackArcSet;
-/// use problemreductions::topology::MultiDirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Directed cycle: 0->1->2->0
-/// let graph = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+/// let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 ///
 /// // Solve with brute force
@@ -60,14 +60,14 @@ inventory::submit! {
 #[serde(bound(deserialize = "W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumFeedbackArcSet<W> {
     /// The directed graph.
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     /// Weights for each arc.
     weights: Vec<W>,
 }
 
 #[derive(Deserialize)]
 struct MinimumFeedbackArcSetData<W> {
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     weights: Vec<W>,
 }
 
@@ -85,7 +85,7 @@ where
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct MinimumFeedbackArcSetCreateSpec {
     /// The directed graph.
-    graph: MultiDirectedGraph,
+    graph: MultiDigraph,
     /// Arc weights; defaults to one per arc.
     weights: Option<Vec<i64>>,
 }
@@ -100,12 +100,12 @@ impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
 
 impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     /// Create a Minimum Feedback Arc Set problem from a directed graph with given weights.
-    pub fn new(graph: MultiDirectedGraph, weights: Vec<W>) -> Self {
+    pub fn new(graph: MultiDigraph, weights: Vec<W>) -> Self {
         Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn try_new(
-        graph: MultiDirectedGraph,
+        graph: MultiDigraph,
         weights: Vec<W>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         Self::check_weights(&graph, &weights)?;
@@ -113,7 +113,7 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &MultiDirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -129,7 +129,7 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     }
 
     fn check_weights(
-        graph: &MultiDirectedGraph,
+        graph: &MultiDigraph,
         weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if weights.len() != graph.num_arcs() {
@@ -222,7 +222,7 @@ where
 ///
 /// config[i] = 1 means arc i is selected for removal.
 /// The remaining arcs must form a DAG.
-fn is_valid_fas(graph: &MultiDirectedGraph, config: &[bool]) -> bool {
+fn is_valid_fas(graph: &MultiDigraph, config: &[bool]) -> bool {
     let num_arcs = graph.num_arcs();
     if config.len() != num_arcs {
         return false;
@@ -242,12 +242,12 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    use crate::topology::MultiDirectedGraph;
+    use crate::topology::MultiDigraph;
     // 3-node cycle, unit weights; remove one arc to break cycle, cost = 1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_feedback_arc_set",
         instance: Box::new(MinimumFeedbackArcSet::new(
-            MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
             vec![1i64, 1, 1],
         )),
         optimal_config: serde_json::json!(vec![false, false, true]),

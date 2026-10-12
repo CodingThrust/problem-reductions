@@ -1,11 +1,11 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::SimpleDirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
-fn issue_graph() -> SimpleDirectedGraph {
-    SimpleDirectedGraph::new(
+fn issue_graph() -> SimpleDigraph {
+    SimpleDigraph::new(
         6,
         vec![
             (0, 1),
@@ -56,7 +56,7 @@ fn yes_config() -> Vec<bool> {
 
 fn issue_example_already_strongly_connected() -> StrongConnectivityAugmentation<i64> {
     StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![(0, 2, 5)],
         0,
     )
@@ -141,7 +141,7 @@ fn test_strong_connectivity_augmentation_variant() {
 #[should_panic(expected = "candidate arc (0, 1) already exists in the base graph")]
 fn test_strong_connectivity_augmentation_existing_arc_candidate_panics() {
     StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![(0, 1, 1)],
         1,
     );
@@ -151,7 +151,7 @@ fn test_strong_connectivity_augmentation_existing_arc_candidate_panics() {
 #[should_panic(expected = "arc (0, 2) duplicates a directed arc")]
 fn test_strong_connectivity_augmentation_duplicate_candidate_arc_panics() {
     StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![(0, 2, 1), (0, 2, 3)],
         3,
     );
@@ -161,7 +161,7 @@ fn test_strong_connectivity_augmentation_duplicate_candidate_arc_panics() {
 #[should_panic(expected = "candidate arc (0, 3) references vertex >= num_vertices")]
 fn test_strong_connectivity_augmentation_out_of_range_candidate_panics() {
     StrongConnectivityAugmentation::new(
-        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![(0, 3, 1)],
         1,
     );
@@ -170,7 +170,7 @@ fn test_strong_connectivity_augmentation_out_of_range_candidate_panics() {
 #[test]
 fn simple_model_rejects_a_loop_in_construction_and_serde() {
     assert!(std::panic::catch_unwind(|| {
-        let graph = crate::topology::SimpleDirectedGraph::new(2, vec![(0, 0)]);
+        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
         StrongConnectivityAugmentation::<i64>::new(graph, vec![], 1i64)
     })
     .is_err());
@@ -184,7 +184,7 @@ fn simple_model_rejects_a_loop_in_construction_and_serde() {
 #[test]
 fn candidate_loops_are_rejected_before_augmentation() {
     let error = StrongConnectivityAugmentation::<i64>::try_new(
-        crate::topology::SimpleDirectedGraph::empty(2),
+        crate::topology::SimpleDigraph::empty(2),
         vec![(0, 0, 1)],
         1,
     )

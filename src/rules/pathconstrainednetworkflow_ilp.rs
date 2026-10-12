@@ -96,7 +96,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for PathConstrainedNetworkFlow {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::MultiDirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "pathconstrainednetworkflow_to_ilp",
@@ -104,7 +104,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Simple graph: s=0, t=2, arcs 0->1->2 and 0->2
             // Two paths: [0,1] (0->1->2) and [2] (0->2)
             let source = PathConstrainedNetworkFlow::new(
-                MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+                MultiDigraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],
                 0,
                 2,

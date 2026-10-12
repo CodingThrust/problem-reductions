@@ -1,13 +1,13 @@
 use super::*;
 use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::MultiDirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
 fn issue_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        MultiDirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+        MultiDigraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
         vec![3, 1, 2, 0, 0, 0],
         vec![2, 2, 2, 2, 2, 2],
         0,
@@ -22,7 +22,7 @@ fn small_instance() -> MinimumEdgeCostFlow {
     // Arc 1: (1,2) cap=2, price=3
     // R=1 → cost = 5+3 = 8
     MinimumEdgeCostFlow::new(
-        MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![5, 3],
         vec![2, 2],
         0,
@@ -34,7 +34,7 @@ fn small_instance() -> MinimumEdgeCostFlow {
 fn infeasible_instance() -> MinimumEdgeCostFlow {
     // Cannot route 2 units through capacity-1 arcs
     MinimumEdgeCostFlow::new(
-        MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![1, 1],
         vec![1, 1],
         0,
@@ -152,7 +152,7 @@ fn test_minimumedgecostflow_to_ilp_extract_solution() {
 fn test_flow_requirement_normalization_preserves_feasibility() {
     for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
         let source = MinimumEdgeCostFlow::new(
-            MultiDirectedGraph::new(2, vec![(0, 1)]),
+            MultiDigraph::new(2, vec![(0, 1)]),
             vec![3],
             vec![1],
             0,
