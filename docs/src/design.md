@@ -147,9 +147,26 @@ nodes in the reduction graph, and explicit reduction rules connect them.
 
 Variant types fall into three categories:
 
-- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`, `SimpleDigraph`, `MultiDigraph`, `MultiMixedGraph`.
 - **Weight type** — `One` (unweighted), `i64`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
+
+`SimpleGraph` is undirected, loop-free, and has no parallel edges: `(u, v)` and
+`(v, u)` are the same edge. Its fallible constructor, `new`, and serde share
+validation. `PlanarGraph` wraps it; `BipartiteGraph` also rejects repeated
+cross-partition pairs. `UnitDiskGraph`, `KingsSubgraph`, and `TriangularSubgraph`
+generate each edge between distinct vertex indices once, including when two
+vertices have coincident positions.
+
+`SimpleDigraph` is loop-free and rejects repeated ordered arcs; `(u, v)`
+and `(v, u)` are distinct. It validates a wrapped `MultiDigraph` and
+delegates graph algorithms to it. `MultiDigraph` allows loops and parallel
+arcs; `arc_count(u, v)` exposes multiplicity. `MultiMixedGraph` allows loops and
+parallel arcs and undirected edges. In both multi types, arc i is entry i of
+`arcs()`; models index their per-arc data by that same order. All three types
+validate serde input and retain the JSON shapes `{num_vertices, arcs}` or
+`{num_vertices, arcs, edges}`.
+
 
 <div class="theme-light-only">
 

@@ -9,7 +9,7 @@
 //! `(a_v, b_v)`. These remaining bicliques behave as color classes: two
 //! source vertices may share one only when they are nonadjacent in `G`.
 //!
-//! The paper contains the full proof, including native loops and repeated edges.
+//! The paper contains the full proof for simple source graphs.
 //!
 //! ## Vertex layout
 //!
@@ -151,31 +151,16 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
         // Relabeling the used colors preserves feasibility with at most n colors.
         // Native node storage bounds make 4*n and n+min(q,n) fit usize.
         let q = self.num_colors().min(n);
-        let native_edges = self.graph().edges();
-        if native_edges.iter().any(|&(u, v)| u == v) {
-            // A loop cannot be properly colored. A single edge cannot be
-            // covered with zero bicliques, giving a fixed NO instance.
-            return Ok(ReductionKColoringToBicliqueCover {
-                target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
-                num_vertices: n,
-                num_colors: q,
-            });
-        }
-
         // Build the set of source edges as an undirected lookup so the
         // construction can test endpoints {u,v} in E in O(log m).
-        let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-        for (u, v) in native_edges {
-            let (a, b) = if u <= v { (u, v) } else { (v, u) };
-            source_edges.insert((a, b));
-        }
-        let has_source_edge = |u: usize, v: usize| -> bool {
-            if u == v {
-                return false;
-            }
-            let (a, b) = if u <= v { (u, v) } else { (v, u) };
-            source_edges.contains(&(a, b))
-        };
+        let source_edges: BTreeSet<_> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .map(|(u, v)| (u.min(v), u.max(v)))
+            .collect();
+        let has_source_edge =
+            |u: usize, v: usize| -> bool { source_edges.contains(&(u.min(v), u.max(v))) };
 
         // Target vertex layout (bipartite-local indices):
         //   left:  a_v at v,         g_v at n + v
@@ -271,18 +256,14 @@ pub(crate) fn forward_witness(
     };
 
     // Edge-membership lookup for source edges (undirected).
-    let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-    for (u, v) in source.graph().edges() {
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.insert((a, b));
-    }
-    let has_source_edge = |u: usize, v: usize| -> bool {
-        if u == v {
-            return false;
-        }
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.contains(&(a, b))
-    };
+    let source_edges: BTreeSet<_> = source
+        .graph()
+        .edges()
+        .into_iter()
+        .map(|(u, v)| (u.min(v), u.max(v)))
+        .collect();
+    let has_source_edge =
+        |u: usize, v: usize| -> bool { source_edges.contains(&(u.min(v), u.max(v))) };
 
     // Guard bicliques: biclique index v (for v in 0..n).
     for v in 0..n {

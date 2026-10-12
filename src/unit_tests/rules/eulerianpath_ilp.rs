@@ -2,14 +2,14 @@ use super::*;
 use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
 use crate::models::graph::EulerianPath;
 use crate::solvers::ILPSolver;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Or;
 
 /// Canonical issue #1025 instance: V = {0,1,2}, A = [(0,1),(0,1),(1,2),(2,0)].
 /// A witness exists: ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
 fn issue_instance() -> EulerianPath {
-    EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
+    EulerianPath::new(MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn test_eulerianpath_to_ilp_issue_structure() {
 #[test]
 fn test_eulerianpath_to_ilp_empty_instance() {
     // m = 0: empty ILP, vacuously feasible.
-    let source = EulerianPath::new(DirectedGraph::empty(3));
+    let source = EulerianPath::new(MultiDigraph::empty(3));
     let reduction =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -85,7 +85,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
     // Two arcs sharing the same tail but disconnected heads. This breaks the
     // degree-balance criterion: vertex 0 has out-degree 2 / in-degree 0, so
     // no Eulerian trail exists.
-    let source = EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 2)]));
+    let source = EulerianPath::new(MultiDigraph::new(3, vec![(0, 1), (0, 2)]));
     let reduction =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 
@@ -102,7 +102,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
 fn test_eulerianpath_to_ilp_closed_circuit_with_loop() {
     // Loop + closed trail: arcs (0,0), (0,1), (1,0).
     // Trail (0,0) -> (0,1) -> (1,0) is a valid closed Eulerian trail.
-    let source = EulerianPath::new(DirectedGraph::new(2, vec![(0, 0), (0, 1), (1, 0)]));
+    let source = EulerianPath::new(MultiDigraph::new(2, vec![(0, 0), (0, 1), (1, 0)]));
     let reduction =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
 

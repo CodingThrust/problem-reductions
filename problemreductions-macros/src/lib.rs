@@ -208,7 +208,7 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 ///
 /// ## Syntax
-/// ```ignore
+/// ```text
 /// #[reduction(transform = exact {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = num_edges,

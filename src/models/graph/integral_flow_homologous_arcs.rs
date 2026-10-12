@@ -5,7 +5,7 @@
 //! required sink inflow exists.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "IntegralFlowHomologousArcsData")]
 pub struct IntegralFlowHomologousArcs {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     capacities: Vec<i64>,
     source: usize,
     sink: usize,
@@ -41,7 +41,7 @@ pub struct IntegralFlowHomologousArcs {
 
 #[derive(Deserialize)]
 struct IntegralFlowHomologousArcsData {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     capacities: Vec<i64>,
     source: usize,
     sink: usize,
@@ -99,7 +99,7 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
         Self::try_new(
-            DirectedGraph::new(count, spec.arcs),
+            MultiDigraph::try_new(count, spec.arcs)?,
             capacities,
             spec.source,
             spec.sink,
@@ -111,7 +111,7 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
 
 impl IntegralFlowHomologousArcs {
     pub fn new(
-        graph: DirectedGraph,
+        graph: MultiDigraph,
         capacities: Vec<i64>,
         source: usize,
         sink: usize,
@@ -130,7 +130,7 @@ impl IntegralFlowHomologousArcs {
     }
 
     fn try_new(
-        graph: DirectedGraph,
+        graph: MultiDigraph,
         capacities: Vec<i64>,
         source: usize,
         sink: usize,
@@ -190,7 +190,7 @@ impl IntegralFlowHomologousArcs {
         })
     }
 
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -260,8 +260,7 @@ impl IntegralFlowHomologousArcs {
         let mut balances = vec![0_i64; self.num_vertices()];
         for (arc_index, ((u, v), &capacity)) in self
             .graph
-            .arcs()
-            .into_iter()
+            .iter_arcs()
             .zip(self.capacities.iter())
             .enumerate()
         {
@@ -347,7 +346,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integral_flow_homologous_arcs",
         instance: Box::new(IntegralFlowHomologousArcs::new(
-            DirectedGraph::new(
+            MultiDigraph::new(
                 6,
                 vec![
                     (0, 1),

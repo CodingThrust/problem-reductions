@@ -4,7 +4,7 @@
 //! whose removal makes the directed graph acyclic (a DAG).
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
@@ -36,11 +36,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackVertexSet;
-/// use problemreductions::topology::DirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 3-cycle: 0 → 1 → 2 → 0
-/// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+/// let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// let problem = MinimumFeedbackVertexSet::new(graph, vec![1; 3]);
 ///
 /// let solver = BruteForce::new();
@@ -54,14 +54,14 @@ inventory::submit! {
 #[serde(bound(deserialize = "W: Clone + Default + Deserialize<'de>"))]
 pub struct MinimumFeedbackVertexSet<W> {
     /// The underlying directed graph.
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     /// Weights for each vertex.
     weights: Vec<W>,
 }
 
 #[derive(Deserialize)]
 struct MinimumFeedbackVertexSetData<W> {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     weights: Vec<W>,
 }
 
@@ -79,7 +79,7 @@ where
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct MinimumFeedbackVertexSetCreateSpec<W> {
     /// The directed graph.
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     /// Vertex weights; defaults to one per vertex.
     weights: Option<Vec<W>>,
 }
@@ -96,12 +96,12 @@ impl<W: WeightElement> TryFrom<MinimumFeedbackVertexSetCreateSpec<W>>
 
 impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     /// Create a Feedback Vertex Set problem from a directed graph with given weights.
-    pub fn new(graph: DirectedGraph, weights: Vec<W>) -> Self {
+    pub fn new(graph: MultiDigraph, weights: Vec<W>) -> Self {
         Self::try_new(graph, weights).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn try_new(
-        graph: DirectedGraph,
+        graph: MultiDigraph,
         weights: Vec<W>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         Self::check_weights(&graph, &weights)?;
@@ -109,7 +109,7 @@ impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -125,7 +125,7 @@ impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     }
 
     fn check_weights(
-        graph: &DirectedGraph,
+        graph: &MultiDigraph,
         weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if weights.len() != graph.num_vertices() {
@@ -222,7 +222,7 @@ where
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct MinimumFeedbackVertexSetOneCreateSpec {
     /// The underlying graph.
-    graph: DirectedGraph,
+    graph: MultiDigraph,
 }
 
 impl TryFrom<MinimumFeedbackVertexSetOneCreateSpec> for MinimumFeedbackVertexSet<One> {
@@ -245,12 +245,12 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_feedback_vertex_set",
             instance: Box::new(MinimumFeedbackVertexSet::new(
-                DirectedGraph::new(
+                MultiDigraph::new(
                     5,
                     vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
                 ),
@@ -262,7 +262,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_feedback_vertex_set_unit",
             instance: Box::new(MinimumFeedbackVertexSet::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+                MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
                 vec![One; 3],
             )),
             optimal_config: serde_json::json!(vec![true, false, false]),
@@ -276,7 +276,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
 #[cfg(test)]
-pub(crate) fn is_feedback_vertex_set(graph: &DirectedGraph, selected: &[bool]) -> bool {
+pub(crate) fn is_feedback_vertex_set(graph: &MultiDigraph, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),

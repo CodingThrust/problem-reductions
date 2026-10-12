@@ -93,11 +93,6 @@ impl TryFrom<BiconnectivityAugmentationCreateSpec>
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
-        for &(u, v) in &spec.graph {
-            if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed").into());
-            }
-        }
         let inferred = spec
             .graph
             .iter()
@@ -110,7 +105,7 @@ impl TryFrom<BiconnectivityAugmentationCreateSpec>
         if count < inferred {
             return Err("num_vertices is too small for graph endpoints".into());
         }
-        let graph = SimpleGraph::new(count, spec.graph);
+        let graph = SimpleGraph::try_new(count, spec.graph)?;
         Self::try_new(graph, spec.potential_weights, spec.budget)
     }
 }
@@ -300,11 +295,7 @@ where
 }
 
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    (u.min(v), u.max(v))
 }
 
 fn is_biconnected(graph: &UnGraph<(), ()>) -> bool {

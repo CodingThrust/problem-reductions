@@ -3,13 +3,13 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::AcyclicPartition;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
 fn small_instance() -> AcyclicPartition<i64> {
     // Chain 0->1->2->3, unit weights, unit arc costs, B=3, K=2
     AcyclicPartition::new(
-        DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1, 1],
         vec![1, 1, 1],
         3,
@@ -19,7 +19,7 @@ fn small_instance() -> AcyclicPartition<i64> {
 
 #[test]
 fn crossing_budget_bounds_the_number_of_occupied_parts() {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3), (1, 2)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3), (1, 2)]);
     let source = AcyclicPartition::new(
         graph.clone(),
         vec![8, 1, 1, 8],
@@ -72,7 +72,7 @@ fn fixed_vertex_cardinality_preserves_every_two_part_witness() {
     arcs.extend([(1, 4), (2, 4), (2, 5), (3, 5), (1, 6), (2, 6)]);
     costs.extend([1; 6]);
     let source = AcyclicPartition::new(
-        DirectedGraph::new(8, arcs),
+        SimpleDigraph::new(8, arcs),
         vec![8, 1, 1, 1, 0, 0, 0, 9],
         costs,
         10,
@@ -138,12 +138,12 @@ fn test_reduction_num_vars() {
 fn signed_partition_weights_and_costs_are_checked_after_summing() {
     for (source, witness) in [
         (
-            AcyclicPartition::new(DirectedGraph::new(2, vec![]), vec![2, -3], vec![], -1, 0),
+            AcyclicPartition::new(SimpleDigraph::new(2, vec![]), vec![2, -3], vec![], -1, 0),
             vec![0, 0],
         ),
         (
             AcyclicPartition::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1; 3],
                 vec![3, -4],
                 1,
@@ -156,7 +156,7 @@ fn signed_partition_weights_and_costs_are_checked_after_summing() {
         let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
         crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
     }
-    let empty = AcyclicPartition::new(DirectedGraph::new(0, vec![]), vec![], vec![], 0, -1);
+    let empty = AcyclicPartition::new(SimpleDigraph::new(0, vec![]), vec![], vec![], 0, -1);
     assert!(!empty.evaluate(&vec![]).unwrap().0);
     let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&empty).unwrap();
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
@@ -182,7 +182,7 @@ fn test_infeasible_instance() {
     // so 3 separate partitions with crossing cost = 3 > K=0.
     // Can't merge either since weight > B=1.
     let source = AcyclicPartition::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![1, 1, 1],
         vec![1, 1, 1],
         1,
@@ -206,7 +206,7 @@ fn test_acyclicpartition_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_acyclicpartition_to_ilp_regression_direct_topological_labels() {
     let source = AcyclicPartition::new(
-        DirectedGraph::new(6, vec![(2, 1), (1, 0), (4, 3), (3, 2), (5, 4)]),
+        SimpleDigraph::new(6, vec![(2, 1), (1, 0), (4, 3), (3, 2), (5, 4)]),
         vec![8, 3, 1, 9, 4, 4],
         vec![4, 10, 0, 7, 3],
         11,
