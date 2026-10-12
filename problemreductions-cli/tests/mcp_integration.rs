@@ -218,7 +218,7 @@ mod mcp_tests {
     fn schema_graph_create_reports_construction_errors_over_mcp() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);
-        for (model, params, expected) in [
+        let graph_cases = [
             (
                 "HamiltonianCircuit",
                 serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,0]]}}),
@@ -239,7 +239,14 @@ mod mcp_tests {
                 serde_json::json!({"graph": {"num_vertices": 3, "arcs": [[0,1],[0,1]]}}),
                 "arc (0, 1) duplicates a directed arc",
             ),
-        ] {
+        ];
+        let bipartite_cases = ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"]
+            .into_iter()
+            .flat_map(|model| [
+                (model, serde_json::json!({"left": 1, "right": 1, "biedges": [[0,0],[0,0]], "k": 1}), "edge (0, 1) duplicates an undirected edge"),
+                (model, serde_json::json!({"left": usize::MAX, "right": 1, "biedges": [[0,0]], "k": 1}), "bipartite vertex count overflows usize"),
+            ]);
+        for (model, params, expected) in graph_cases.into_iter().chain(bipartite_cases) {
             send(
                 &mut stdin,
                 &serde_json::json!({
@@ -255,36 +262,6 @@ mod mcp_tests {
             let error = response["result"]["content"][0]["text"].as_str().unwrap();
             assert!(error.contains(expected), "{error}");
             assert!(!error.contains("panicked"), "{error}");
-        }
-        for model in ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"] {
-            for (left, edges, expected) in [
-                (
-                    1,
-                    serde_json::json!([[0, 0], [0, 0]]),
-                    "edge (0, 1) duplicates an undirected edge",
-                ),
-                (
-                    usize::MAX,
-                    serde_json::json!([[0, 0]]),
-                    "bipartite vertex count overflows usize",
-                ),
-            ] {
-                send(
-                    &mut stdin,
-                    &serde_json::json!({
-                        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-                        "params": {"name": "create_problem", "arguments": {
-                            "problem_type": model, "params": {"left": left, "right": 1, "biedges": edges, "k": 1},
-                        }},
-                    }),
-                );
-                let response = read_response(&mut reader);
-                assert_eq!(response["id"], 2);
-                assert_eq!(response["result"]["isError"], true, "{response}");
-                let error = response["result"]["content"][0]["text"].as_str().unwrap();
-                assert!(error.contains(expected), "{error}");
-                assert!(!error.contains("panicked"), "{error}");
-            }
         }
         shutdown(stdin, child);
     }

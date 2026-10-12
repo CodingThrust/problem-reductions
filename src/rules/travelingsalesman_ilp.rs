@@ -43,30 +43,28 @@ impl ReductionResult for ReductionTSPToILP {
             "target ILP assignment is infeasible",
         )?;
 
-        Ok({
-            let n = self.num_vertices;
+        let n = self.num_vertices;
 
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
+        let tour = one_hot_decode(target_solution, n, n, 0)?;
 
-            // Map tour to edge selection
-            let mut edge_selection = vec![false; self.source_edges.len()];
-            for k in 0..n {
-                let u = tour[k];
-                let v = tour[(k + 1) % n];
-                let edge = self
-                    .source_edges
-                    .iter()
-                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target tour uses absent source edge ({u}, {v})"
-                        ))
-                    })?;
-                edge_selection[edge] = true;
-            }
+        // Map tour to edge selection
+        let mut edge_selection = vec![false; self.source_edges.len()];
+        for k in 0..n {
+            let u = tour[k];
+            let v = tour[(k + 1) % n];
+            let edge = self
+                .source_edges
+                .iter()
+                .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
+                .ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(format!(
+                        "target tour uses absent source edge ({u}, {v})"
+                    ))
+                })?;
+            edge_selection[edge] = true;
+        }
 
-            edge_selection
-        })
+        Ok(edge_selection)
     }
 }
 
@@ -88,15 +86,10 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTSPToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let n = self.graph().num_vertices();
         let graph = self.graph();
-        let edges_with_weights = self.edges();
-        let source_edges: Vec<(usize, usize)> =
-            edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
-        let edge_weights: Vec<i64> = edges_with_weights
-            .iter()
-            .map(|&(_, _, weight)| weight)
-            .collect();
+        let n = graph.num_vertices();
+        let source_edges = graph.edges();
+        let edge_weights = self.weights();
         let m = source_edges.len();
 
         // Variable layout:

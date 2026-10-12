@@ -603,13 +603,14 @@ fn model_specs_are_optimal() {
         let capabilities =
             solver_capabilities(&crate::solvers::ExactProblemKey::new(name, variant.clone()))
                 .unwrap();
+        let brute_force_limit = if capabilities.ilp.is_some() {
+            12.0
+        } else {
+            20.0
+        };
         let request = if capabilities.customized.is_some() {
             SolverRequest::Customized
-        } else if brute_force_bits.is_some_and(|bits| bits <= 12.0) {
-            SolverRequest::BruteForce
-        } else if capabilities.ilp.is_some() {
-            SolverRequest::Ilp
-        } else if brute_force_bits.is_some_and(|bits| bits <= 20.0) {
+        } else if brute_force_bits.is_some_and(|bits| bits <= brute_force_limit) {
             SolverRequest::BruteForce
         } else {
             SolverRequest::Ilp

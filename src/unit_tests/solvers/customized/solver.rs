@@ -1,7 +1,7 @@
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::solvers::brute_force::CartesianIndices;
 use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::CartesianIndices;
 use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -155,22 +155,21 @@ fn exact_partial_feedback_edge_set_feasible(
 }
 
 fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
+    use crate::models::graph::directed_hamiltonian_path::{decode_lehmer, lehmer_dims};
     let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
     let n = graph.num_vertices();
-    let mappings: Vec<_> = CartesianIndices::new(vec![n; n])
+    let mappings: Vec<_> = CartesianIndices::new(lehmer_dims(n))
         .unwrap()
-        .filter(|mapping| (0..n).all(|v| mapping.contains(&v)))
+        .map(|code| decode_lehmer(&code))
         .collect();
     CartesianIndices::new(vec![n; n])
         .unwrap()
         .flat_map(|parent| {
-            mappings
-                .iter()
-                .filter_map(|mapping| {
-                    let config: Vec<_> = parent.iter().chain(mapping).copied().collect();
-                    problem.total_edge_stretch(&config).unwrap()
-                })
-                .collect::<Vec<_>>()
+            let problem = &problem;
+            mappings.iter().filter_map(move |mapping| {
+                let config: Vec<_> = parent.iter().chain(mapping).copied().collect();
+                problem.total_edge_stretch(&config).unwrap()
+            })
         })
         .min()
 }

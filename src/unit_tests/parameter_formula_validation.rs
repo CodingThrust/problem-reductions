@@ -96,26 +96,19 @@ fn source_for(
     let variant = ReductionGraph::variant_to_map(&entry.source_variant());
     let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
     let key = (entry.source_name.to_string(), variant.clone());
-    if let Some(examples) = sources.get(&key) {
-        for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if let Ok(actual) = target_parameters(entry, source.as_ref()) {
-                    return Ok((source, actual));
-                }
-            }
-        }
-    }
-    // Reuse existing examples with the same model name when a compatible variant
-    // has no dedicated example; its factory still enforces the concrete type.
-    for ((name, _), examples) in sources {
-        if name != entry.source_name {
-            continue;
-        }
-        for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if let Ok(actual) = target_parameters(entry, source.as_ref()) {
-                    return Ok((source, actual));
-                }
+    // Try exact-variant examples first, then compatible variants of the same model.
+    let examples = sources.get(&key).into_iter().flatten().chain(
+        sources
+            .iter()
+            .filter(|(candidate_key, _)| {
+                candidate_key.0 == entry.source_name && *candidate_key != &key
+            })
+            .flat_map(|(_, examples)| examples),
+    );
+    for example in examples {
+        if let Ok(source) = (registered.factory)(example.clone()) {
+            if let Ok(actual) = target_parameters(entry, source.as_ref()) {
+                return Ok((source, actual));
             }
         }
     }

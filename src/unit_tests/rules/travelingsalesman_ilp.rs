@@ -64,8 +64,8 @@ fn test_reduction_k4_weighted_closed_loop() {
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
-    let bf_metric = problem.evaluate(&bf_solutions[0]).unwrap();
+    let bf_solution = bf.solve(&problem).unwrap().unwrap();
+    let bf_metric = problem.evaluate(&bf_solution).unwrap();
     let ilp_metric = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_metric.is_valid());
@@ -207,17 +207,10 @@ fn extraction_rejects_a_tour_with_incorrect_auxiliary_products() {
 }
 
 fn permutations(n: usize) -> Vec<Vec<usize>> {
-    (0..n.pow(n as u32))
-        .filter_map(|mut code| {
-            let order: Vec<_> = (0..n)
-                .map(|_| {
-                    let v = code % n;
-                    code /= n;
-                    v
-                })
-                .collect();
-            (0..n).all(|v| order.contains(&v)).then_some(order)
-        })
+    use crate::models::graph::directed_hamiltonian_path::{decode_lehmer, lehmer_dims};
+    crate::solvers::CartesianIndices::new(lehmer_dims(n))
+        .unwrap()
+        .map(|code| decode_lehmer(&code))
         .collect()
 }
 

@@ -2,7 +2,7 @@
 
 use crate::topology::{Graph, SimpleGraph};
 
-/// Extract a Hamiltonian cycle vertex ordering from edge-selection configs on complete graphs.
+/// Extract a Hamiltonian cycle vertex ordering from edge-selection configurations.
 ///
 /// Given a graph and a binary `target_solution` over its edges (1 = selected),
 /// walks the selected edges to produce a vertex permutation representing the cycle.
