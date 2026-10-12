@@ -1,6 +1,5 @@
 use super::*;
 use crate::models::decision::Decision;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -47,11 +46,22 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
     let reduction = ReduceTo::<Decision<MinimumCoveringByCliques<SimpleGraph>>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &source,
-        &reduction,
-        "PartitionIntoCliques -> MinimumCoveringByCliques closed loop",
+    let layout = OrlinLayout::new(source.graph());
+    let mut left = layout.left_vertices();
+    left.push(layout.z_left());
+    let mut right = layout.right_vertices();
+    right.push(layout.z_right());
+    let solution = edge_labels_from_clique_cover(
+        reduction.target_problem().inner().graph(),
+        &[vec![layout.x(0), layout.y(0)], left, right],
     );
+    assert!(reduction.target_problem().evaluate(&solution).unwrap().0);
+    let decoded = reduction.extract_solution(&solution).unwrap();
+    assert!(source.evaluate(&decoded).unwrap().0);
+    assert!(crate::solvers::BruteForce::new()
+        .find_all_witnesses(&source)
+        .unwrap()
+        .contains(&decoded));
 }
 
 #[test]

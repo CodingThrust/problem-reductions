@@ -156,9 +156,22 @@ fn exact_partial_feedback_edge_set_feasible(
 
 fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
     let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
-    CartesianIndices::new(problem.dimensions())
+    let n = graph.num_vertices();
+    let mappings: Vec<_> = CartesianIndices::new(vec![n; n])
         .unwrap()
-        .filter_map(|config| problem.total_edge_stretch(&config).unwrap())
+        .filter(|mapping| (0..n).all(|v| mapping.contains(&v)))
+        .collect();
+    CartesianIndices::new(vec![n; n])
+        .unwrap()
+        .flat_map(|parent| {
+            mappings
+                .iter()
+                .filter_map(|mapping| {
+                    let config: Vec<_> = parent.iter().chain(mapping).copied().collect();
+                    problem.total_edge_stretch(&config).unwrap()
+                })
+                .collect::<Vec<_>>()
+        })
         .min()
 }
 

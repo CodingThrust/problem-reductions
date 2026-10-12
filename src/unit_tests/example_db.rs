@@ -545,7 +545,9 @@ fn model_specs_are_self_consistent() {
 #[test]
 fn model_specs_are_optimal() {
     use crate::registry::load_dyn;
-    use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
+    use crate::solvers::{
+        brute_force_dimensions, solve, solver_capabilities, SolveOutcome, SolverRequest,
+    };
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -555,30 +557,66 @@ fn model_specs_are_optimal() {
         .chain(crate::models::misc::canonical_model_example_specs());
 
     for spec in specs {
+        // A matching lower bound and feasible stored witness certify the exact optimum.
+        let lower_bound = if let Some(problem) =
+            spec.instance
+                .as_any()
+                .downcast_ref::<crate::models::misc::JobShopScheduling>()
+        {
+            let mut loads = vec![0; problem.num_processors()];
+            for &(machine, length) in problem.jobs().iter().flatten() {
+                loads[machine] += length;
+            }
+            loads.into_iter().max()
+        } else if let Some(problem) =
+            spec.instance
+                .as_any()
+                .downcast_ref::<crate::models::misc::MinimumExternalMacroDataCompression>()
+        {
+            let n = problem.string_length();
+            // p pointers into a d-symbol dictionary cover at most p*d symbols.
+            (0..=n)
+                .flat_map(|d| {
+                    (0..=n).map(move |p| {
+                        (d + n.saturating_sub(p * d)) as i64 + problem.pointer_cost() * p as i64
+                    })
+                })
+                .min()
+        } else {
+            None
+        };
+        if lower_bound.is_some_and(|bound| serde_json::json!(bound) == spec.optimal_value) {
+            assert_eq!(
+                spec.instance.evaluate_json(&spec.optimal_config).unwrap(),
+                spec.optimal_value
+            );
+            continue;
+        }
+
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-        let solve_registered = |request| {
-            let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
-            match solve(&loaded, request).ok()?.outcome {
-                SolveOutcome::Optimal { solution, .. } => Some(solution),
-                SolveOutcome::Infeasible => None,
-            }
-        };
         let loaded = load_dyn(name, &variant, spec.instance.serialize_json())
             .expect("canonical example variant must load");
-        let small_brute_force = brute_force_dimensions(&loaded)
+        let brute_force_bits = brute_force_dimensions(&loaded)
             .expect("solver capability registry must be valid")
-            .is_some_and(|dimensions| {
-                dimensions
-                    .iter()
-                    .map(|&dimension| (dimension as f64).log2())
-                    .sum::<f64>()
-                    <= 20.0
-            });
-        let best_config = if small_brute_force {
-            solve_registered(SolverRequest::BruteForce)
+            .map(|dimensions| dimensions.iter().map(|&d| (d as f64).log2()).sum::<f64>());
+        let capabilities =
+            solver_capabilities(&crate::solvers::ExactProblemKey::new(name, variant.clone()))
+                .unwrap();
+        let request = if capabilities.customized.is_some() {
+            SolverRequest::Customized
+        } else if brute_force_bits.is_some_and(|bits| bits <= 12.0) {
+            SolverRequest::BruteForce
+        } else if capabilities.ilp.is_some() {
+            SolverRequest::Ilp
+        } else if brute_force_bits.is_some_and(|bits| bits <= 20.0) {
+            SolverRequest::BruteForce
         } else {
-            solve_registered(SolverRequest::Ilp)
+            SolverRequest::Ilp
+        };
+        let best_config = match solve(&loaded, request).ok().map(|result| result.outcome) {
+            Some(SolveOutcome::Optimal { solution, .. }) => Some(solution),
+            _ => None,
         };
 
         if let Some(best_config) = best_config {

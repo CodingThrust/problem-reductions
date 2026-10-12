@@ -901,7 +901,53 @@ where
         );
     }
     let expected = BruteForce::new().solve(&source).unwrap();
-    let solution = ILPSolver::new().solve(target).unwrap();
+    let solution = if path.steps[path.steps.len() - 2] == step::<ILP<bool>>() {
+        let prefix = ReductionPath {
+            steps: path.steps[..path.steps.len() - 1].to_vec(),
+        };
+        let prefix_chain = graph.reduce_along_path(&prefix, &source).unwrap().unwrap();
+        let ilp = prefix_chain.target_problem::<ILP<bool>>();
+        let result = ILPSolver::new().solve(ilp);
+        if matches!(result, Err(crate::solvers::ILPSolveError::Infeasible)) {
+            assert!(expected.is_none());
+            assert!(chain
+                .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
+                .is_err());
+            return;
+        }
+        let assignment = result.unwrap();
+        let certificate = qubo_certificate(ilp, &assignment);
+        let penalty = 1
+            + ilp
+                .objective()
+                .iter()
+                .map(|&(_, c)| i128::from(c).abs())
+                .sum::<i128>()
+            + ilp
+                .constraints()
+                .iter()
+                .map(|row| i128::from(row.rhs()).abs())
+                .sum::<i128>();
+        let constant = penalty
+            * ilp
+                .constraints()
+                .iter()
+                .map(|row| i128::from(row.rhs()).pow(2))
+                .sum::<i128>();
+        let objective = i128::from(ilp.evaluate_objective(&assignment).unwrap());
+        let signed = match ilp.sense() {
+            crate::models::algebraic::ObjectiveSense::Minimize => objective,
+            crate::models::algebraic::ObjectiveSense::Maximize => -objective,
+        };
+        assert_eq!(
+            target.evaluate(&certificate).unwrap().0.map(i128::from),
+            Some(signed - constant)
+        );
+        certificate
+    } else {
+        ILPSolver::new().solve(target).unwrap()
+    };
+    assert_eq!(solution.len(), target.num_vars());
     let recovered = chain.extract_solution::<S::Solution, _>(&solution);
     match expected {
         Some(witness) => assert_eq!(
@@ -910,6 +956,32 @@ where
         ),
         None => assert!(recovered.is_err()),
     }
+}
+
+// Complete a feasible binary ILP witness by solving each slack equality exactly.
+fn qubo_certificate(ilp: &ILP<bool>, assignment: &[i64]) -> Vec<bool> {
+    use crate::models::algebraic::Comparison;
+    assert!(ilp.is_feasible(assignment).unwrap());
+    let mut bits: Vec<_> = assignment.iter().map(|&v| v == 1).collect();
+    for row in ilp.constraints() {
+        let lhs = row.evaluate_lhs(assignment).unwrap();
+        let (slack, range) = match row.comparison() {
+            Comparison::Eq => continue,
+            Comparison::Le => (
+                row.rhs() - lhs,
+                row.rhs() - row.terms().iter().map(|&(_, c)| c.min(0)).sum::<i64>(),
+            ),
+            Comparison::Ge => (
+                lhs - row.rhs(),
+                row.terms().iter().map(|&(_, c)| c.max(0)).sum::<i64>() - row.rhs(),
+            ),
+        };
+        assert!(0 <= slack && slack <= range);
+        for bit in 0..(i64::BITS - range.leading_zeros()) {
+            bits.push(slack & (1_i64 << bit) != 0);
+        }
+    }
+    bits
 }
 
 #[test]

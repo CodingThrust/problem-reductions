@@ -2,7 +2,6 @@ use super::*;
 use crate::models::formula::{CNFClause, NAESatisfiability};
 use crate::models::graph::PartitionIntoPerfectMatchings;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
-use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -57,10 +56,10 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_unsat_small_instance(
     let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(matches!(
+        crate::solvers::ILPSolver::new().solve(reduction.target_problem()),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    ));
 }
 
 #[test]
