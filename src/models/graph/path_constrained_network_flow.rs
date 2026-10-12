@@ -114,7 +114,7 @@ impl TryFrom<PathConstrainedNetworkFlowCreateSpec> for PathConstrainedNetworkFlo
             ).into());
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        let graph = MultiDigraph::new(num_vertices, spec.arcs);
+        let graph = MultiDigraph::try_new(num_vertices, spec.arcs)?;
         Self::try_new(
             graph,
             capacities,

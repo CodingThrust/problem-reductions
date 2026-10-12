@@ -10269,6 +10269,107 @@ fn test_extract_reads_bundle_from_stdin() {
 }
 
 #[test]
+fn bipartite_create_reports_construction_errors() {
+    for model in ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"] {
+        for (left, edges, expected) in [
+            (
+                "1".to_string(),
+                "0-0,0-0",
+                "edge (0, 1) duplicates an undirected edge",
+            ),
+            (
+                usize::MAX.to_string(),
+                "0-0",
+                "bipartite vertex count overflows usize",
+            ),
+        ] {
+            let output = pred()
+                .args([
+                    "create",
+                    model,
+                    "--left",
+                    &left,
+                    "--right",
+                    "1",
+                    "--biedges",
+                    edges,
+                    "--k",
+                    "1",
+                ])
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8(output.stderr).unwrap();
+            assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+            assert!(stderr.contains(expected), "{model}: {stderr}");
+            assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+        }
+    }
+}
+
+#[test]
+fn schema_graph_create_reports_construction_errors() {
+    for (model, flag, input, expected) in [
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-0",
+            "edge (0, 0) is a self-loop",
+        ),
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "MaximumDomaticNumber",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            "0>1,0>1",
+            "arc (0, 1) duplicates a directed arc",
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, input, "--num-vertices", "3"])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(stderr.contains(expected), "{model}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
+fn schema_graph_create_rejects_vertex_count_overflow() {
+    for (model, flag, input) in [
+        ("HamiltonianCircuit", "--graph", format!("0-{}", usize::MAX)),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            format!("0>{}", usize::MAX),
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, &input])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(
+            stderr.contains("vertex count overflows usize"),
+            "{model}: {stderr}"
+        );
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
 fn simple_graph_create_rejects_loops_and_parallel_edges() {
     for (edges, offending) in [
         ("0-0", "edge (0, 0)"),

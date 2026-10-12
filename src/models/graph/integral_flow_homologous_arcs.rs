@@ -99,7 +99,7 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
         Self::try_new(
-            MultiDigraph::new(count, spec.arcs),
+            MultiDigraph::try_new(count, spec.arcs)?,
             capacities,
             spec.source,
             spec.sink,

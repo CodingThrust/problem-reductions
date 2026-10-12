@@ -14,6 +14,8 @@ fn test_boundeddiameterspanningtree_to_ilp_closed_loop() {
             vec![3, 1, 2, 1, 1],
         ),
         (3, vec![(0, 1), (1, 2)], vec![4, 1]),
+        // Preserve the cheap spanning tree previously supplied by a parallel edge.
+        (3, vec![(0, 1), (1, 2)], vec![1, 1]),
     ] {
         for diameter in 1..=5 {
             for budget in [1, 2, 4, 8] {
@@ -24,6 +26,12 @@ fn test_boundeddiameterspanningtree_to_ilp_closed_loop() {
                     diameter,
                 );
                 let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
+                if n == 3 && edges == [(0, 1), (1, 2)] {
+                    assert_eq!(
+                        source.evaluate(&vec![true, true]).unwrap().0,
+                        weights.iter().sum::<i64>() <= budget && diameter >= 2
+                    );
+                }
                 crate::rules::test_helpers::assert_parameter_predictions(&source, &reduced);
                 match (
                     BruteForce::new().solve(&source).unwrap(),

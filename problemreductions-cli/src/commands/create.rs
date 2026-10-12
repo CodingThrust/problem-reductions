@@ -506,7 +506,11 @@ fn parse_directed_graph(
         .iter()
         .flat_map(|&(u, v)| [u, v])
         .max()
-        .map(|m| m + 1)
+        .map(|m| {
+            m.checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("vertex count overflows usize"))
+        })
+        .transpose()?
         .unwrap_or(0);
     let num_v = match num_vertices {
         Some(user_num_v) => {
@@ -522,7 +526,7 @@ fn parse_directed_graph(
         None => inferred_num_v,
     };
     let num_arcs = arcs.len();
-    Ok((MultiDigraph::new(num_v, arcs), num_arcs))
+    Ok((MultiDigraph::try_new(num_v, arcs)?, num_arcs))
 }
 
 /// Parse implication rules from semicolon-separated "antecedents>consequent" strings.

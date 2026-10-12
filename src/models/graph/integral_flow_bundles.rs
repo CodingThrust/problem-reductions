@@ -93,7 +93,7 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
             return Err("num_vertices is too small".into());
         }
         Self::try_new(
-            MultiDigraph::new(count, spec.arcs),
+            MultiDigraph::try_new(count, spec.arcs)?,
             spec.source,
             spec.sink,
             spec.bundles,

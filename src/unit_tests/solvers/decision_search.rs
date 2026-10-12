@@ -67,14 +67,13 @@ inventory::submit! {
 #[test]
 fn test_decision_search_matches_optimum_at_integer_boundaries() {
     for weight in [i64::MIN, i64::MIN + 1, -3, -1, 0, 1, i64::MAX - 1, i64::MAX] {
-        let min = MinimumVertexCover::new(SimpleGraph::empty(1), vec![weight]);
+        let min = FixedObjective(Min(Some(weight)));
         let max = MaximumIndependentSet::new(SimpleGraph::empty(1), vec![weight]);
         let maximum = weight.max(0);
-        let minimum = weight.min(0);
-        for (lower, upper) in [(i64::MIN, i64::MAX), (minimum, minimum)] {
+        for (lower, upper) in [(i64::MIN, i64::MAX), (weight, weight)] {
             assert_eq!(
                 solve_via_decision(&min, lower, upper).unwrap(),
-                Some(minimum)
+                Some(weight)
             );
         }
         for (lower, upper) in [(i64::MIN, i64::MAX), (maximum, maximum)] {

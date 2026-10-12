@@ -119,7 +119,7 @@ macro_rules! mixed_chinese_postman_create_spec {
                 let arc_weights = { $(if let Some(value) = spec.$arc_weights { value } else)? { vec![$one; spec.arcs.len()] } };
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; spec.graph.len()] } };
                 MixedChinesePostman::try_new(
-                    MultiMixedGraph::new(num_vertices, spec.arcs, spec.graph),
+                    MultiMixedGraph::try_new(num_vertices, spec.arcs, spec.graph)?,
                     arc_weights,
                     edge_weights,
                 )

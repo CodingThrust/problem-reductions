@@ -61,7 +61,8 @@ impl BipartiteGraph {
         Self::try_new(left_size, right_size, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a simple bipartite graph with checked partition sizes and edges.
+    pub fn try_new(
         left_size: usize,
         right_size: usize,
         edges: Vec<(usize, usize)>,

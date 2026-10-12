@@ -44,7 +44,8 @@ impl MultiMixedGraph {
         Self::try_new(num_vertices, arcs, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a mixed multigraph with bounds-checked endpoints.
+    pub fn try_new(
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         edges: Vec<(usize, usize)>,

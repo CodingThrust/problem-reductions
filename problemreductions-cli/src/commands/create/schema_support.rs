@@ -1109,7 +1109,12 @@ pub(super) fn parse_simple_graph_value(
             .iter()
             .flat_map(|&(u, v)| [u, v])
             .max()
-            .map(|max_vertex| max_vertex + 1)
+            .map(|max_vertex| {
+                max_vertex
+                    .checked_add(1)
+                    .ok_or_else(|| anyhow::anyhow!("vertex count overflows usize"))
+            })
+            .transpose()?
             .unwrap_or(0);
         let num_vertices = match num_vertices {
             Some(explicit) => {
@@ -1121,7 +1126,7 @@ pub(super) fn parse_simple_graph_value(
             }
             None => inferred_num_vertices,
         };
-        SimpleGraph::new(num_vertices, edges)
+        SimpleGraph::try_new(num_vertices, edges)?
     };
     Ok(serde_json::to_value(graph)?)
 }

@@ -215,6 +215,81 @@ mod mcp_tests {
     }
 
     #[test]
+    fn schema_graph_create_reports_construction_errors_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        for (model, params, expected) in [
+            (
+                "HamiltonianCircuit",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,0]]}}),
+                "edge (0, 0) is a self-loop",
+            ),
+            (
+                "HamiltonianCircuit",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,0]]}}),
+                "edge (1, 0) duplicates an undirected edge",
+            ),
+            (
+                "MaximumDomaticNumber",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,0]]}}),
+                "edge (1, 0) duplicates an undirected edge",
+            ),
+            (
+                "DirectedHamiltonianPath",
+                serde_json::json!({"graph": {"num_vertices": 3, "arcs": [[0,1],[0,1]]}}),
+                "arc (0, 1) duplicates a directed arc",
+            ),
+        ] {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": model, "params": params,
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert_eq!(response["result"]["isError"], true, "{response}");
+            let error = response["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(error.contains(expected), "{error}");
+            assert!(!error.contains("panicked"), "{error}");
+        }
+        for model in ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"] {
+            for (left, edges, expected) in [
+                (
+                    1,
+                    serde_json::json!([[0, 0], [0, 0]]),
+                    "edge (0, 1) duplicates an undirected edge",
+                ),
+                (
+                    usize::MAX,
+                    serde_json::json!([[0, 0]]),
+                    "bipartite vertex count overflows usize",
+                ),
+            ] {
+                send(
+                    &mut stdin,
+                    &serde_json::json!({
+                        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                        "params": {"name": "create_problem", "arguments": {
+                            "problem_type": model, "params": {"left": left, "right": 1, "biedges": edges, "k": 1},
+                        }},
+                    }),
+                );
+                let response = read_response(&mut reader);
+                assert_eq!(response["id"], 2);
+                assert_eq!(response["result"]["isError"], true, "{response}");
+                let error = response["result"]["content"][0]["text"].as_str().unwrap();
+                assert!(error.contains(expected), "{error}");
+                assert!(!error.contains("panicked"), "{error}");
+            }
+        }
+        shutdown(stdin, child);
+    }
+
+    #[test]
     fn simple_graph_create_rejects_loops_and_parallel_edges_over_mcp() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);

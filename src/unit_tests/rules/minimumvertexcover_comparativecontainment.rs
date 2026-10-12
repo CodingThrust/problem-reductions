@@ -43,7 +43,7 @@ fn test_minimumvertexcover_to_comparativecontainment_closed_loop() {
 
 #[test]
 fn test_signed_containment_all_small_graphs_and_witnesses() {
-    // Exhaust all graphs through 3 vertices, including loops, and all choices
+    // Exhaust all simple graphs through 3 vertices and all choices
     // of negative/zero/positive weights. Check every witness in both directions.
     for n in 0usize..=3 {
         let possible: Vec<_> = (0..n)
