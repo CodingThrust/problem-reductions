@@ -10292,3 +10292,68 @@ fn simple_graph_create_rejects_loops_and_parallel_edges() {
         assert!(!stderr.contains("panicked"), "{stderr}");
     }
 }
+
+#[test]
+fn simple_directed_models_reject_a_loop_on_create() {
+    for (name, extra) in [
+        (
+            "AcyclicPartition/i64",
+            vec!["--weight-bound", "2", "--cost-bound", "2"],
+        ),
+        ("DirectedHamiltonianPath", vec![]),
+        ("Kernel", vec![]),
+        ("MinimumDummyActivitiesPert", vec![]),
+        (
+            "MultipleChoiceBranching/i64",
+            vec!["--weights", "1", "--partition", "0", "--threshold", "1"],
+        ),
+        (
+            "StrongConnectivityAugmentation/i64",
+            vec!["--candidate-arcs", "0-1:1", "--bound", "1"],
+        ),
+    ] {
+        let output = pred()
+            .args(["create", name, "--arcs", "0>0", "--num-vertices", "2"])
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{name} accepted a loop");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("arc (0, 0)"), "{name}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{name}: {stderr}");
+    }
+}
+
+#[test]
+fn mixed_chinese_postman_create_accepts_an_undirected_loop() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman/i64",
+            "--graph",
+            "0-0",
+            "--arcs",
+            "0>0",
+            "--num-vertices",
+            "1",
+            "--edge-weights",
+            "3",
+            "--arc-weights",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
+        serde_json::from_value(json["data"].clone()).unwrap();
+    assert_eq!(problem.graph().edges(), vec![(0, 0)]);
+    assert_eq!(
+        problemreductions::Problem::evaluate(&problem, &vec![false]).unwrap(),
+        problemreductions::Min(Some(5))
+    );
+}

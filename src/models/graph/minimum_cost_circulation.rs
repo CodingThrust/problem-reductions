@@ -33,7 +33,7 @@
 //! on integer instances.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -47,7 +47,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Integral circulation on a directed multigraph minimizing total signed arc cost",
         fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "Directed multigraph G = (V, A); loops and parallel arcs allowed" },
+            FieldInfo { name: "graph", type_name: "MultiDirectedGraph", description: "Directed multigraph G = (V, A); loops and parallel arcs allowed" },
             FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Arc capacity c(a) in graph arc order (non-negative)" },
             FieldInfo { name: "costs", type_name: "Vec<i64>", description: "Signed arc cost a(a) in graph arc order (negative values allowed)" },
         ],
@@ -65,13 +65,13 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumCostCirculation;
-/// use problemreductions::topology::DirectedGraph;
+/// use problemreductions::topology::MultiDirectedGraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two competing cycles 0->1->0 and 0->2->0; the cheaper-per-unit
 /// // cycle 0->2->0 has lower capacity, but pushing both to capacity is
 /// // optimal.
-/// let graph = DirectedGraph::new(3, vec![
+/// let graph = MultiDirectedGraph::new(3, vec![
 ///     (0, 1), (1, 0), (0, 2), (2, 0),
 /// ]);
 /// let problem = MinimumCostCirculation::new(
@@ -88,7 +88,7 @@ inventory::submit! {
 #[serde(try_from = "MinimumCostCirculationData")]
 pub struct MinimumCostCirculation {
     /// The directed multigraph G = (V, A).
-    graph: DirectedGraph,
+    graph: MultiDirectedGraph,
     /// Capacity c(a) for each arc.
     capacities: Vec<i64>,
     /// Signed cost a(a) for each arc.
@@ -97,7 +97,7 @@ pub struct MinimumCostCirculation {
 
 #[derive(Deserialize)]
 struct MinimumCostCirculationData {
-    graph: DirectedGraph,
+    graph: MultiDirectedGraph,
     capacities: Vec<i64>,
     costs: Vec<i64>,
 }
@@ -120,12 +120,12 @@ impl MinimumCostCirculation {
     /// - Any capacity is negative
     ///
     /// Note: costs are signed and **may be negative**.
-    pub fn new(graph: DirectedGraph, capacities: Vec<i64>, costs: Vec<i64>) -> Self {
+    pub fn new(graph: MultiDirectedGraph, capacities: Vec<i64>, costs: Vec<i64>) -> Self {
         Self::try_new(graph, capacities, costs).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn try_new(
-        graph: DirectedGraph,
+        graph: MultiDirectedGraph,
         capacities: Vec<i64>,
         costs: Vec<i64>,
     ) -> Result<Self, crate::registry::ConstructionError> {
@@ -153,7 +153,7 @@ impl MinimumCostCirculation {
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDirectedGraph {
         &self.graph
     }
 
@@ -300,7 +300,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   arc 0 (0->1) = 2, arc 1 (1->0) = 2, arc 2 (0->2) = 1, arc 3 (2->0) = 1
     //   cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = 4 - 6 + 1 - 4 = -5
     let problem = MinimumCostCirculation::new(
-        crate::topology::DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]),
+        crate::topology::MultiDirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]),
         vec![2, 2, 1, 1],
         vec![2, -3, 1, -4],
     );

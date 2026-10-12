@@ -10,7 +10,7 @@ use crate::models::formula::Satisfiability;
 use crate::models::graph::IntegralFlowHomologousArcs;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 
 #[derive(Debug, Clone)]
 struct VariablePaths {
@@ -262,7 +262,7 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
 
         Ok(ReductionSATToIntegralFlowHomologousArcs {
             target: IntegralFlowHomologousArcs::new(
-                DirectedGraph::new(indexer.total_vertices(), arcs),
+                MultiDirectedGraph::new(indexer.total_vertices(), arcs),
                 capacities,
                 indexer.source(),
                 indexer.sink(),

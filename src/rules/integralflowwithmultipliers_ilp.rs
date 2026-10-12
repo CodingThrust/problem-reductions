@@ -122,14 +122,14 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDirectedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "integralflowwithmultipliers_to_ilp",
         build: || {
             // Simple diamond: s=0, t=3, intermediate vertices 1,2 with multiplier 1
             let source = IntegralFlowWithMultipliers::new(
-                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+                MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
                 0,
                 3,
                 vec![1, 1, 1, 1], // source/sink entries ignored

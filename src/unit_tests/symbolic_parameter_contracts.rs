@@ -506,7 +506,7 @@ fn multiprocessor_magnitude_predictions_cover_lengths_and_deadlines() {
 fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
     use crate::models::algebraic::ILP;
     use crate::models::graph::{BiconnectivityAugmentation, StrongConnectivityAugmentation};
-    use crate::topology::DirectedGraph;
+    use crate::topology::SimpleDirectedGraph;
 
     fn check<S: Problem + ReduceTo<ILP<bool>>>(source: S, bits: u64) {
         assert_eq!(
@@ -538,7 +538,7 @@ fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
         if weight > 0 && budget >= 0 {
             check(
                 StrongConnectivityAugmentation::new(
-                    DirectedGraph::empty(2),
+                    SimpleDirectedGraph::empty(2),
                     vec![(0, 1, weight)],
                     budget,
                 ),
@@ -552,7 +552,11 @@ fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
             bits,
         );
         check(
-            StrongConnectivityAugmentation::<i64>::new(DirectedGraph::empty(0), vec![], budget),
+            StrongConnectivityAugmentation::<i64>::new(
+                SimpleDirectedGraph::empty(0),
+                vec![],
+                budget,
+            ),
             bits,
         );
     }

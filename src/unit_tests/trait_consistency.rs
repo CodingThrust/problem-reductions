@@ -4,7 +4,7 @@ use crate::models::formula::*;
 use crate::models::graph::*;
 use crate::models::misc::*;
 use crate::models::set::*;
-use crate::topology::{BipartiteGraph, DirectedGraph, SimpleGraph};
+use crate::topology::{BipartiteGraph, SimpleDirectedGraph, SimpleGraph};
 use crate::variant::K3;
 
 fn check_brute_force_problem<P: BruteForceProblem>(problem: &P, name: &str) {
@@ -107,7 +107,7 @@ fn test_all_registered_brute_force_problems_define_dimensions() {
     check_brute_force_problem(&CircuitSAT::new(circuit), "CircuitSAT");
     check_brute_force_problem(
         &StrongConnectivityAugmentation::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
             vec![(0, 2, 1)],
             1,
         ),

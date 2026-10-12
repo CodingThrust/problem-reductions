@@ -1424,7 +1424,7 @@ fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
         IntegralFlowBundles, IntegralFlowWithMultipliers, UndirectedFlowLowerBounds,
         UndirectedTwoCommodityIntegralFlow,
     };
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDirectedGraph;
 
     fn check<S: Problem + ReduceTo<ILP<i64, i64, Bounded>>>(source: S, bits: u64) {
         assert_eq!(
@@ -1456,7 +1456,7 @@ fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
         if capacity > 0 {
             check(
                 IntegralFlowBundles::new(
-                    DirectedGraph::new(2, vec![(0, 1)]),
+                    MultiDirectedGraph::new(2, vec![(0, 1)]),
                     0,
                     1,
                     vec![vec![0]],
@@ -1468,7 +1468,7 @@ fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
         }
         check(
             IntegralFlowWithMultipliers::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
                 0,
                 2,
                 vec![1, i64::MAX, 1],
@@ -1504,7 +1504,7 @@ fn flow_capacity_bits_bound_ilp_parameters_at_numeric_boundaries() {
     }
     check(
         IntegralFlowBundles::new(
-            DirectedGraph::new(2, vec![]),
+            MultiDirectedGraph::new(2, vec![]),
             0,
             1,
             vec![],

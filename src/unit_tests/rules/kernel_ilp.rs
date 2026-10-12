@@ -1,20 +1,18 @@
 use super::*;
 use crate::rules::AggregateReductionResult;
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDirectedGraph;
 use crate::traits::Problem;
 
 #[test]
-fn test_kernel_to_ilp_preserves_selections_with_loops_and_parallel_arcs() {
-    for arc_mask in 0..512 {
-        let mut arcs = Vec::new();
-        for u in 0..3 {
-            for v in 0..3 {
-                if arc_mask & (1 << (3 * u + v)) != 0 {
-                    arcs.extend([(u, v), (u, v), (u, v)]);
-                }
-            }
-        }
-        let source = Kernel::new(DirectedGraph::new(3, arcs));
+fn test_kernel_to_ilp_preserves_selections_on_every_three_vertex_simple_digraph() {
+    let possible_arcs = [(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)];
+    for arc_mask in 0..(1 << possible_arcs.len()) {
+        let arcs = possible_arcs
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &arc)| (arc_mask & (1 << i) != 0).then_some(arc))
+            .collect();
+        let source = Kernel::new(SimpleDirectedGraph::new(3, arcs));
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let target = ReductionResult::target_problem(&reduction);
         assert_eq!(target.num_vars(), 3);
@@ -39,7 +37,7 @@ fn test_kernel_to_ilp_preserves_selections_with_loops_and_parallel_arcs() {
 
 #[test]
 fn test_kernel_to_ilp_closed_loop() {
-    let source = Kernel::new(DirectedGraph::new(3, vec![(0, 1), (1, 2)]));
+    let source = Kernel::new(SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
     for malformed in [vec![1, 0], vec![1, 0, 1, 0], vec![2, 0, 1]] {

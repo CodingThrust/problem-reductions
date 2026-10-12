@@ -476,12 +476,12 @@ mod minimum_vertex_cover {
 
 mod integral_flow_homologous_arcs {
     use super::*;
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDirectedGraph;
 
     #[test]
     fn test_creation() {
         let problem = IntegralFlowHomologousArcs::new(
-            DirectedGraph::new(
+            MultiDirectedGraph::new(
                 6,
                 vec![
                     (0, 1),

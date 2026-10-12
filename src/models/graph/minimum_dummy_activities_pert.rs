@@ -8,7 +8,7 @@
 //! task-to-task reachability relation as the original DAG.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::{MultiDirectedGraph, SimpleDirectedGraph};
 use crate::traits::Problem;
 use crate::types::Min;
 use petgraph::unionfind::UnionFind;
@@ -39,7 +39,7 @@ inventory::submit! {
 /// between task completions and task starts as the original precedence DAG.
 #[derive(Debug, Clone, Serialize)]
 pub struct MinimumDummyActivitiesPert {
-    graph: DirectedGraph,
+    graph: SimpleDirectedGraph,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -65,13 +65,13 @@ impl TryFrom<MinimumDummyActivitiesPertCreateSpec> for MinimumDummyActivitiesPer
         if num_vertices < inferred {
             return Err("num_vertices is too small for the provided arcs".into());
         }
-        Self::try_new(DirectedGraph::new(num_vertices, spec.arcs))
+        Self::try_new(SimpleDirectedGraph::try_new(num_vertices, spec.arcs)?)
     }
 }
 
 impl MinimumDummyActivitiesPert {
     /// Fallible constructor used by CLI validation and deserialization.
-    pub fn try_new(graph: DirectedGraph) -> Result<Self, crate::registry::ConstructionError> {
+    pub fn try_new(graph: SimpleDirectedGraph) -> Result<Self, crate::registry::ConstructionError> {
         if !graph.is_dag() {
             return Err("MinimumDummyActivitiesPert requires the input graph to be a DAG".into());
         }
@@ -83,12 +83,12 @@ impl MinimumDummyActivitiesPert {
     /// # Panics
     ///
     /// Panics if the input graph is not a DAG.
-    pub fn new(graph: DirectedGraph) -> Self {
+    pub fn new(graph: SimpleDirectedGraph) -> Self {
         Self::try_new(graph).unwrap_or_else(|msg| panic!("{msg}"))
     }
 
     /// Get the precedence DAG.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &SimpleDirectedGraph {
         &self.graph
     }
 
@@ -123,7 +123,7 @@ impl MinimumDummyActivitiesPert {
             return Ok(Min(None));
         };
 
-        let source_reachability = reachability_matrix(&self.graph);
+        let source_reachability = reachability_matrix(self.graph.inner());
         let event_reachability = reachability_matrix(&candidate.event_graph);
 
         for source in 0..self.num_vertices() {
@@ -207,7 +207,7 @@ impl MinimumDummyActivitiesPert {
 
         let mut event_arcs = task_arcs;
         event_arcs.extend(dummy_arcs.iter().copied());
-        let event_graph = DirectedGraph::new(root_to_dense.len(), event_arcs);
+        let event_graph = MultiDirectedGraph::new(root_to_dense.len(), event_arcs);
         if !event_graph.is_dag() {
             return None;
         }
@@ -258,7 +258,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_dummy_activities_pert",
-        instance: Box::new(MinimumDummyActivitiesPert::new(DirectedGraph::new(
+        instance: Box::new(MinimumDummyActivitiesPert::new(SimpleDirectedGraph::new(
             6,
             vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)],
         ))),
@@ -269,7 +269,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 
 #[derive(Deserialize)]
 struct MinimumDummyActivitiesPertData {
-    graph: DirectedGraph,
+    graph: SimpleDirectedGraph,
 }
 
 impl<'de> Deserialize<'de> for MinimumDummyActivitiesPert {
@@ -283,7 +283,7 @@ impl<'de> Deserialize<'de> for MinimumDummyActivitiesPert {
 }
 
 struct CandidatePertNetwork {
-    event_graph: DirectedGraph,
+    event_graph: MultiDirectedGraph,
     start_events: Vec<usize>,
     finish_events: Vec<usize>,
     num_dummy_arcs: usize,
@@ -297,7 +297,7 @@ fn finish_endpoint(task: usize) -> usize {
     2 * task + 1
 }
 
-fn reachability_matrix(graph: &DirectedGraph) -> Vec<Vec<bool>> {
+fn reachability_matrix(graph: &MultiDirectedGraph) -> Vec<Vec<bool>> {
     let num_vertices = graph.num_vertices();
     let adjacency: Vec<Vec<usize>> = (0..num_vertices)
         .map(|vertex| graph.successors(vertex))

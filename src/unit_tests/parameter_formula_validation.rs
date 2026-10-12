@@ -232,7 +232,7 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
 #[test]
 fn sparse_ilp_predictions_use_construction_counts() {
     use crate::models::{BiconnectivityAugmentation, Factoring, StrongConnectivityAugmentation};
-    use crate::topology::{DirectedGraph, SimpleGraph};
+    use crate::topology::{MultiDirectedGraph, SimpleDirectedGraph, SimpleGraph};
     use crate::traits::Problem;
 
     use crate::models::graph::EulerianPath;
@@ -256,7 +256,7 @@ fn sparse_ilp_predictions_use_construction_counts() {
         (
             "StrongConnectivityAugmentation",
             StrongConnectivityAugmentation::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![(2, 0, 1_i64), (1, 0, 2)],
                 2,
             )
@@ -270,8 +270,11 @@ fn sparse_ilp_predictions_use_construction_counts() {
         ),
         (
             "EulerianPath",
-            EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
-                .parameters(),
+            EulerianPath::new(MultiDirectedGraph::new(
+                3,
+                vec![(0, 1), (0, 1), (1, 2), (2, 0)],
+            ))
+            .parameters(),
             100,
         ),
     ];

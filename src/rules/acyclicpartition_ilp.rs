@@ -338,12 +338,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for AcyclicPartition<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::SimpleDirectedGraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "acyclicpartition_to_ilp",
         build: || {
             crate::example_db::specs::rule_example_via_bounded_ilp(AcyclicPartition::new(
-                DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                SimpleDirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
                 vec![1, 1, 1, 1],
                 vec![1, 1, 1],
                 3,

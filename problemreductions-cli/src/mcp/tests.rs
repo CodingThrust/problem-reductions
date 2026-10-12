@@ -737,3 +737,16 @@ fn simple_graph_create_rejects_loops_and_parallel_edges() {
         assert!(format!("{error:#}").contains(offending), "{error:#}");
     }
 }
+
+#[test]
+fn mixed_chinese_postman_create_accepts_an_undirected_loop() {
+    let output = McpServer::new().create_problem_inner("MixedChinesePostman/i64", &serde_json::json!({"graph": [[0,0]], "arcs": [[0,0]], "num_vertices": 1, "edge_weights": [3], "arc_weights": [2]})).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
+        serde_json::from_value(json["data"].clone()).unwrap();
+    assert_eq!(problem.graph().edges(), vec![(0, 0)]);
+    assert_eq!(
+        problemreductions::Problem::evaluate(&problem, &vec![false]).unwrap(),
+        problemreductions::Min(Some(5))
+    );
+}

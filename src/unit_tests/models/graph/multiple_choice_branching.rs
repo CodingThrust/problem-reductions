@@ -17,13 +17,13 @@ fn create_spec_rejects_invalid_partition() {
     assert!(result.is_err());
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDirectedGraph;
 use crate::traits::Problem;
 use serde_json;
 
 fn yes_instance() -> MultipleChoiceBranching<i64> {
     MultipleChoiceBranching::new(
-        DirectedGraph::new(
+        SimpleDirectedGraph::new(
             6,
             vec![
                 (0, 1),
@@ -44,7 +44,7 @@ fn yes_instance() -> MultipleChoiceBranching<i64> {
 
 fn no_instance() -> MultipleChoiceBranching<i64> {
     MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
         vec![2, 2],
         vec![vec![0], vec![1]],
         5,
@@ -76,7 +76,7 @@ fn test_multiple_choice_branching_creation_and_accessors() {
 fn test_multiple_choice_branching_rejects_weight_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDirectedGraph::new(2, vec![(0, 1)]),
             vec![1, 2],
             vec![vec![0]],
             1,
@@ -89,7 +89,7 @@ fn test_multiple_choice_branching_rejects_weight_length_mismatch() {
 fn test_multiple_choice_branching_partition_validation_out_of_range() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDirectedGraph::new(2, vec![(0, 1)]),
             vec![1],
             vec![vec![1]],
             1,
@@ -102,7 +102,7 @@ fn test_multiple_choice_branching_partition_validation_out_of_range() {
 fn test_multiple_choice_branching_partition_validation_overlap() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1, 1],
             vec![vec![0, 1], vec![1]],
             1,
@@ -115,7 +115,7 @@ fn test_multiple_choice_branching_partition_validation_overlap() {
 fn test_multiple_choice_branching_partition_validation_missing_arc() {
     let result = std::panic::catch_unwind(|| {
         MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1, 1],
             vec![vec![0]],
             1,
@@ -165,7 +165,7 @@ fn test_multiple_choice_branching_rejects_non_binary_config_value() {
 #[test]
 fn test_multiple_choice_branching_rejects_indegree_violation() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 2), (1, 2)]),
+        SimpleDirectedGraph::new(3, vec![(0, 2), (1, 2)]),
         vec![2, 2],
         vec![vec![0], vec![1]],
         1,
@@ -176,7 +176,7 @@ fn test_multiple_choice_branching_rejects_indegree_violation() {
 #[test]
 fn test_multiple_choice_branching_rejects_cycle_violation() {
     let problem = MultipleChoiceBranching::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![1, 1, 1],
         vec![vec![0], vec![1], vec![2]],
         1,
@@ -264,7 +264,7 @@ fn test_multiple_choice_branching_deserialize_rejects_invalid_partition() {
 fn test_multiple_choice_branching_set_weights_rejects_wrong_length() {
     let result = std::panic::catch_unwind(|| {
         let mut problem = MultipleChoiceBranching::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            SimpleDirectedGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1, 1],
             vec![vec![0], vec![1]],
             1,
@@ -278,4 +278,17 @@ fn test_multiple_choice_branching_set_weights_rejects_wrong_length() {
 fn test_multiple_choice_branching_num_variables() {
     let problem = yes_instance();
     assert_eq!(problem.num_variables(), 8);
+}
+
+#[test]
+fn simple_model_rejects_a_loop_in_construction_and_serde() {
+    assert!(std::panic::catch_unwind(|| {
+        let graph = crate::topology::SimpleDirectedGraph::new(2, vec![(0, 0)]);
+        MultipleChoiceBranching::new(graph, vec![1i64], vec![vec![0]], 1)
+    })
+    .is_err());
+    let error = serde_json::from_value::<MultipleChoiceBranching<i64>>(serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0,0]]}, "weights": [1], "partition": [[0]], "threshold": 1
+    })).unwrap_err();
+    assert!(error.to_string().contains("arc (0, 0)"), "{error}");
 }

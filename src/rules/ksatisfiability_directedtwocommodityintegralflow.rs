@@ -11,7 +11,7 @@ use crate::models::formula::KSatisfiability;
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 use crate::variant::K3;
 
 #[derive(Debug, Clone, Copy)]
@@ -299,7 +299,7 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             >("converting the clause count to an i64 flow requirement")
         })?;
         let target = DirectedTwoCommodityIntegralFlow::new(
-            DirectedGraph::new(next_vertex, arcs),
+            MultiDirectedGraph::new(next_vertex, arcs),
             capacities,
             source_1,
             sink_1,

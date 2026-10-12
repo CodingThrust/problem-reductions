@@ -7,7 +7,7 @@
 //! threshold.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -36,7 +36,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "PathConstrainedNetworkFlowData")]
 pub struct PathConstrainedNetworkFlow {
-    graph: DirectedGraph,
+    graph: MultiDirectedGraph,
     capacities: Vec<i64>,
     source: usize,
     sink: usize,
@@ -46,7 +46,7 @@ pub struct PathConstrainedNetworkFlow {
 
 #[derive(Deserialize)]
 struct PathConstrainedNetworkFlowData {
-    graph: DirectedGraph,
+    graph: MultiDirectedGraph,
     capacities: Vec<i64>,
     source: usize,
     sink: usize,
@@ -114,7 +114,7 @@ impl TryFrom<PathConstrainedNetworkFlowCreateSpec> for PathConstrainedNetworkFlo
             ).into());
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
-        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let graph = MultiDirectedGraph::new(num_vertices, spec.arcs);
         Self::try_new(
             graph,
             capacities,
@@ -136,7 +136,7 @@ impl PathConstrainedNetworkFlow {
     /// - `source` or `sink` are out of range or identical
     /// - any prescribed path is not a valid directed simple s-t path
     pub fn new(
-        graph: DirectedGraph,
+        graph: MultiDirectedGraph,
         capacities: Vec<i64>,
         source: usize,
         sink: usize,
@@ -149,7 +149,7 @@ impl PathConstrainedNetworkFlow {
 
     /// Create an instance, returning validation errors instead of panicking.
     pub fn try_new(
-        graph: DirectedGraph,
+        graph: MultiDirectedGraph,
         capacities: Vec<i64>,
         source: usize,
         sink: usize,
@@ -193,7 +193,7 @@ impl PathConstrainedNetworkFlow {
     }
 
     fn validate_path(
-        graph: &DirectedGraph,
+        graph: &MultiDirectedGraph,
         path: &[usize],
         source: usize,
         sink: usize,
@@ -235,7 +235,7 @@ impl PathConstrainedNetworkFlow {
     }
 
     /// Get a reference to the underlying graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDirectedGraph {
         &self.graph
     }
 
@@ -378,7 +378,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "path_constrained_network_flow",
         instance: Box::new(PathConstrainedNetworkFlow::new(
-            DirectedGraph::new(
+            MultiDirectedGraph::new(
                 8,
                 vec![
                     (0, 1),

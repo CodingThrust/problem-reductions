@@ -1,10 +1,10 @@
 //! Directed graph implementation.
 //!
-//! This module provides [`DirectedGraph`], a directed graph wrapping petgraph's
+//! This module provides [`MultiDirectedGraph`], a directed graph wrapping petgraph's
 //! `DiGraph`. It is used for problems that require directed input, such as
 //! [`MinimumFeedbackVertexSet`] and [`MinimumFeedbackArcSet`].
 //!
-//! Unlike [`SimpleGraph`], `DirectedGraph` does **not** implement the [`Graph`]
+//! Unlike [`SimpleGraph`], `MultiDirectedGraph` does **not** implement the [`Graph`]
 //! trait (which is specific to undirected graphs). Arcs are ordered pairs `(u, v)`
 //! representing a directed edge from `u` to `v`.
 //!
@@ -18,30 +18,31 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 
-/// A simple unweighted directed graph.
+/// A directed multigraph allowing self-loops and parallel arcs.
 ///
 /// Arcs are represented as ordered pairs `(u, v)` meaning there is an arc
-/// from vertex `u` to vertex `v`. Self-loops are permitted.
+/// from vertex `u` to vertex `v`. Arc i is the i-th entry of `arcs()`,
+/// including repeated endpoint pairs; per-arc data uses that same order.
 ///
 /// # Example
 ///
 /// ```
-/// use problemreductions::topology::DirectedGraph;
+/// use problemreductions::topology::MultiDirectedGraph;
 ///
-/// let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let g = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]);
 /// assert_eq!(g.num_vertices(), 3);
 /// assert_eq!(g.num_arcs(), 2);
 /// assert!(g.is_dag());
 ///
-/// let cyclic = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+/// let cyclic = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// assert!(!cyclic.is_dag());
 /// ```
 #[derive(Debug, Clone)]
-pub struct DirectedGraph {
+pub struct MultiDirectedGraph {
     inner: DiGraph<(), ()>,
 }
 
-impl DirectedGraph {
+impl MultiDirectedGraph {
     /// Creates a new directed graph with the given vertices and arcs.
     ///
     /// # Arguments
@@ -56,7 +57,8 @@ impl DirectedGraph {
         Self::try_new(num_vertices, arcs).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a multigraph with bounds-checked endpoints.
+    pub fn try_new(
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
     ) -> Result<Self, crate::registry::ConstructionError> {
@@ -100,16 +102,16 @@ impl DirectedGraph {
             .collect()
     }
 
-    /// Returns `true` if there is an arc from `u` to `v`.
-    pub fn has_arc(&self, u: usize, v: usize) -> bool {
+    /// Count the arcs from `u` to `v`, including parallel occurrences.
+    pub fn arc_count(&self, u: usize, v: usize) -> usize {
         self.inner
-            .find_edge(NodeIndex::new(u), NodeIndex::new(v))
-            .is_some()
+            .edges_connecting(NodeIndex::new(u), NodeIndex::new(v))
+            .count()
     }
 
     /// Returns the outgoing neighbors (successors) of vertex `v`.
     ///
-    /// These are all vertices `w` such that there is an arc `v → w`.
+    /// One entry is returned per outgoing arc, including parallel occurrences.
     pub fn successors(&self, v: usize) -> Vec<usize> {
         self.inner
             .neighbors(NodeIndex::new(v))
@@ -119,7 +121,7 @@ impl DirectedGraph {
 
     /// Returns the incoming neighbors (predecessors) of vertex `v`.
     ///
-    /// These are all vertices `u` such that there is an arc `u → v`.
+    /// One entry is returned per incoming arc, including parallel occurrences.
     pub fn predecessors(&self, v: usize) -> Vec<usize> {
         self.inner
             .neighbors_directed(NodeIndex::new(v), petgraph::Incoming)
@@ -233,7 +235,7 @@ impl DirectedGraph {
     }
 }
 
-impl PartialEq for DirectedGraph {
+impl PartialEq for MultiDirectedGraph {
     fn eq(&self, other: &Self) -> bool {
         if self.num_vertices() != other.num_vertices() {
             return false;
@@ -249,12 +251,12 @@ impl PartialEq for DirectedGraph {
     }
 }
 
-impl Eq for DirectedGraph {}
+impl Eq for MultiDirectedGraph {}
 
-impl Serialize for DirectedGraph {
+impl Serialize for MultiDirectedGraph {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("DirectedGraph", 2)?;
+        let mut state = serializer.serialize_struct("MultiDirectedGraph", 2)?;
         state.serialize_field("num_vertices", &self.num_vertices())?;
         let arcs: Vec<(usize, usize)> = self.arcs();
         state.serialize_field("arcs", &arcs)?;
@@ -262,7 +264,7 @@ impl Serialize for DirectedGraph {
     }
 }
 
-impl<'de> Deserialize<'de> for DirectedGraph {
+impl<'de> Deserialize<'de> for MultiDirectedGraph {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct GraphData {
@@ -270,13 +272,13 @@ impl<'de> Deserialize<'de> for DirectedGraph {
             arcs: Vec<(usize, usize)>,
         }
         let data = GraphData::deserialize(deserializer)?;
-        DirectedGraph::try_new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
+        MultiDirectedGraph::try_new(data.num_vertices, data.arcs).map_err(serde::de::Error::custom)
     }
 }
 
 use crate::impl_variant_param;
-impl_variant_param!(DirectedGraph, "graph");
+impl_variant_param!(MultiDirectedGraph, "graph");
 
 #[cfg(test)]
-#[path = "../unit_tests/topology/directed_graph.rs"]
+#[path = "../unit_tests/topology/multi_directed_graph.rs"]
 mod tests;

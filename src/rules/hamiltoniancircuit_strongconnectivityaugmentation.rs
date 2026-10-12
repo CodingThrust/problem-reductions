@@ -10,7 +10,7 @@
 use crate::models::graph::{HamiltonianCircuit, StrongConnectivityAugmentation};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{DirectedGraph, Graph, SimpleGraph};
+use crate::topology::{Graph, SimpleDirectedGraph, SimpleGraph};
 
 /// Result of reducing HamiltonianCircuit to StrongConnectivityAugmentation.
 #[derive(Debug, Clone)]
@@ -101,12 +101,16 @@ impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<Simple
         if n < 3 {
             return Ok(
                 ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
-                    target: StrongConnectivityAugmentation::new(DirectedGraph::empty(2), vec![], 0),
+                    target: StrongConnectivityAugmentation::new(
+                        SimpleDirectedGraph::empty(2),
+                        vec![],
+                        0,
+                    ),
                     n,
                 },
             );
         }
-        let graph = DirectedGraph::empty(n);
+        let graph = SimpleDirectedGraph::empty(n);
 
         // Generate all ordered pairs (u, v) with u != v as candidate arcs.
         let mut candidate_arcs = Vec::with_capacity(n * (n - 1));

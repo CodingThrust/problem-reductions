@@ -16,12 +16,12 @@ fn create_spec_rejects_zero_internal_multiplier() {
     );
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 use crate::traits::Problem;
 use std::collections::HashSet;
 
 fn yes_instance() -> IntegralFlowWithMultipliers {
-    let graph = DirectedGraph::new(
+    let graph = MultiDirectedGraph::new(
         8,
         vec![
             (0, 1),
@@ -53,7 +53,7 @@ fn yes_config() -> Vec<usize> {
 }
 
 fn no_instance() -> IntegralFlowWithMultipliers {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2)]);
+    let graph = MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2)]);
     IntegralFlowWithMultipliers::new(graph, 0, 3, vec![1, 2, 3, 1], vec![2, 1, 2, 5, 1], 7)
 }
 
@@ -158,7 +158,7 @@ fn test_integral_flow_with_multipliers_problem_name_and_parameters() {
 #[test]
 fn negative_requirement_has_nonnegative_prediction_parameters() {
     let source = IntegralFlowWithMultipliers::new(
-        DirectedGraph::new(2, vec![(0, 1)]),
+        MultiDirectedGraph::new(2, vec![(0, 1)]),
         0,
         1,
         vec![1, 1],

@@ -5,7 +5,7 @@
 //! direction and every undirected edge in at least one direction.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{DirectedGraph, MixedGraph};
+use crate::topology::{MultiDirectedGraph, MultiMixedGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
@@ -37,7 +37,7 @@ inventory::submit! {
 /// every undirected edge) for degree-balancing detours.
 #[derive(Debug, Clone, Serialize)]
 pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
-    graph: MixedGraph,
+    graph: MultiMixedGraph,
     arc_weights: Vec<W>,
     edge_weights: Vec<W>,
 }
@@ -45,7 +45,7 @@ pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
 #[derive(Deserialize)]
 #[serde(bound(deserialize = "W: WeightElement<Sum = i64> + Deserialize<'de>"))]
 struct MixedChinesePostmanData<W: WeightElement<Sum = i64>> {
-    graph: MixedGraph,
+    graph: MultiMixedGraph,
     arc_weights: Vec<W>,
     edge_weights: Vec<W>,
 }
@@ -95,11 +95,6 @@ macro_rules! mixed_chinese_postman_create_spec {
                 if spec.arcs.is_empty() {
                     return Err("arcs must be non-empty".to_string().into());
                 }
-                for (index, &(u, v)) in spec.graph.iter().enumerate() {
-                    if u == v {
-                        return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-                    }
-                }
                 let inferred = spec
                     .graph
                     .iter()
@@ -124,7 +119,7 @@ macro_rules! mixed_chinese_postman_create_spec {
                 let arc_weights = { $(if let Some(value) = spec.$arc_weights { value } else)? { vec![$one; spec.arcs.len()] } };
                 let edge_weights = { $(if let Some(value) = spec.$edge_weights { value } else)? { vec![$one; spec.graph.len()] } };
                 MixedChinesePostman::try_new(
-                    MixedGraph::new(num_vertices, spec.arcs, spec.graph),
+                    MultiMixedGraph::new(num_vertices, spec.arcs, spec.graph),
                     arc_weights,
                     edge_weights,
                 )
@@ -149,14 +144,14 @@ impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
     ///
     /// Panics if the weight-vector lengths do not match the graph shape or if
     /// any weight is negative.
-    pub fn new(graph: MixedGraph, arc_weights: Vec<W>, edge_weights: Vec<W>) -> Self {
+    pub fn new(graph: MultiMixedGraph, arc_weights: Vec<W>, edge_weights: Vec<W>) -> Self {
         Self::try_new(graph, arc_weights, edge_weights)
             .unwrap_or_else(|message| panic!("{message}"))
     }
 
     /// Create an instance, returning validation errors instead of panicking.
     pub fn try_new(
-        graph: MixedGraph,
+        graph: MultiMixedGraph,
         arc_weights: Vec<W>,
         edge_weights: Vec<W>,
     ) -> Result<Self, crate::registry::ConstructionError> {
@@ -199,7 +194,7 @@ impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
     }
 
     /// Return the mixed graph.
-    pub fn graph(&self) -> &MixedGraph {
+    pub fn graph(&self) -> &MultiMixedGraph {
         &self.graph
     }
 
@@ -321,7 +316,7 @@ where
             keep[tail] = true;
             keep[head] = true;
         }
-        if !DirectedGraph::new(self.graph.num_vertices(), available)
+        if !MultiDirectedGraph::new(self.graph.num_vertices(), available)
             .induced_subgraph(&keep)
             .is_strongly_connected()
         {
@@ -394,7 +389,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "mixed_chinese_postman",
         instance: Box::new(MixedChinesePostman::new(
-            MixedGraph::new(
+            MultiMixedGraph::new(
                 5,
                 vec![(0, 1), (1, 2), (2, 3), (3, 0)],
                 vec![(0, 2), (1, 3), (0, 4), (4, 2)],

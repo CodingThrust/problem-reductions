@@ -6,7 +6,7 @@
 //! inter-partition arc cost is bounded.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
@@ -31,7 +31,7 @@ inventory::submit! {
 /// Acyclic Partition (Garey & Johnson ND15).
 #[derive(Debug, Clone, Serialize)]
 pub struct AcyclicPartition<W: WeightElement> {
-    graph: DirectedGraph,
+    graph: SimpleDirectedGraph,
     vertex_weights: Vec<W>,
     arc_costs: Vec<W>,
     weight_bound: W::Sum,
@@ -41,7 +41,7 @@ pub struct AcyclicPartition<W: WeightElement> {
 #[derive(Deserialize)]
 #[serde(bound(deserialize = "W: WeightElement + Deserialize<'de>, W::Sum: Deserialize<'de>"))]
 struct AcyclicPartitionData<W: WeightElement> {
-    graph: DirectedGraph,
+    graph: SimpleDirectedGraph,
     vertex_weights: Vec<W>,
     arc_costs: Vec<W>,
     weight_bound: W::Sum,
@@ -102,7 +102,7 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i64> {
                 "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
             ).into());
         }
-        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let graph = SimpleDirectedGraph::try_new(num_vertices, spec.arcs)?;
         let vertex_weights = spec.weights.unwrap_or_else(|| vec![1; num_vertices]);
         let arc_costs = spec
             .arc_weights
@@ -120,7 +120,7 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i64> {
 impl<W: WeightElement> AcyclicPartition<W> {
     /// Create a new Acyclic Partition instance.
     pub fn new(
-        graph: DirectedGraph,
+        graph: SimpleDirectedGraph,
         vertex_weights: Vec<W>,
         arc_costs: Vec<W>,
         weight_bound: W::Sum,
@@ -131,7 +131,7 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     fn try_new(
-        graph: DirectedGraph,
+        graph: SimpleDirectedGraph,
         vertex_weights: Vec<W>,
         arc_costs: Vec<W>,
         weight_bound: W::Sum,
@@ -149,7 +149,7 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     /// Get the underlying graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &SimpleDirectedGraph {
         &self.graph
     }
 
@@ -171,7 +171,7 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     fn check_vertex_weights(
-        graph: &DirectedGraph,
+        graph: &SimpleDirectedGraph,
         vertex_weights: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if vertex_weights.len() != graph.num_vertices() {
@@ -191,7 +191,7 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     fn check_arc_costs(
-        graph: &DirectedGraph,
+        graph: &SimpleDirectedGraph,
         arc_costs: &[W],
     ) -> Result<(), crate::registry::ConstructionError> {
         if arc_costs.len() != graph.num_arcs() {
@@ -314,7 +314,7 @@ where
 }
 
 fn is_valid_acyclic_partition<W: WeightElement>(
-    graph: &DirectedGraph,
+    graph: &SimpleDirectedGraph,
     vertex_weights: &[W],
     arc_costs: &[W],
     weight_bound: &W::Sum,
@@ -376,7 +376,7 @@ fn is_valid_acyclic_partition<W: WeightElement>(
     }
 
     Ok(total_cost <= *cost_bound
-        && DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
+        && SimpleDirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
 }
 
 crate::declare_variants! {
@@ -392,7 +392,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "acyclic_partition",
         instance: Box::new(AcyclicPartition::new(
-            DirectedGraph::new(
+            SimpleDirectedGraph::new(
                 6,
                 vec![
                     (0, 1),

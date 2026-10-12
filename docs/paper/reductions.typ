@@ -3373,7 +3373,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("StrongConnectivityAugmentation")[
-      Given a simple directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
+      Given a simple directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected. Candidate arcs have distinct endpoints.
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
@@ -14433,7 +14433,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   Encode independence and outgoing absorption with one binary variable per vertex.
   The elementary encoding below follows the two defining kernel conditions.
 ][
-  _Construction._ For each arc occurrence $(u,v)$ add $x_u+x_v<=1$.
+  _Construction._ For each arc $(u,v)$ add $x_u+x_v<=1$.
   For each vertex $u$ add $x_u+sum_(v in N^+(u))x_v>=1$, using the set of
   distinct outgoing neighbors. All variables are binary; the objective is zero.
 
@@ -14441,10 +14441,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   each unselected vertex has a selected outgoing neighbor, so absorption also
   holds. ($arrow.l.double$) Independence rows forbid two selected arc endpoints,
   while absorption rows ensure every unselected vertex reaches a selected one.
-  A self-loop gives $2x_u<=1$ and correctly forbids selecting its vertex.
-  Parallel arcs repeat independence rows without changing feasibility.
 
-  _Overhead._ With $n$ vertices and $m$ arc occurrences there are exactly $n$
+  _Overhead._ With $n$ vertices and $m$ arcs there are exactly $n$
   variables and $m+n$ rows. The independence rows contribute at most $2m$
   nonzeros and absorption at most $n+m$. Normalized coefficients have magnitude
   at most two, so two magnitude bits suffice.

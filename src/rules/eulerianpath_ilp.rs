@@ -257,15 +257,17 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for EulerianPath {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDirectedGraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "eulerianpath_to_ilp",
         build: || {
             // Canonical issue #1025 instance: V = {0,1,2},
             // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1).
             // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
-            let source =
-                EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
+            let source = EulerianPath::new(MultiDirectedGraph::new(
+                3,
+                vec![(0, 1), (0, 1), (1, 2), (2, 0)],
+            ));
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]

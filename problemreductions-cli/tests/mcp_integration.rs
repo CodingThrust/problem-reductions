@@ -328,4 +328,46 @@ mod mcp_tests {
 
         shutdown(stdin, child);
     }
+    #[test]
+    fn mixed_chinese_postman_loop_round_trips_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {"name": "create_problem", "arguments": {
+                    "problem_type": "MixedChinesePostman/i64",
+                    "params": {"graph": [[0,0]], "arcs": [[0,0]], "num_vertices": 1,
+                        "edge_weights": [3], "arc_weights": [2]},
+                }},
+            }),
+        );
+        let response = read_response(&mut reader);
+        assert!(response.get("error").is_none(), "{response}");
+        assert_ne!(response["result"]["isError"], true, "{response}");
+        let problem_json = response["result"]["content"][0]["text"].as_str().unwrap();
+        let created: serde_json::Value = serde_json::from_str(problem_json).unwrap();
+        assert_eq!(
+            created["data"]["graph"]["edges"],
+            serde_json::json!([[0, 0]])
+        );
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                "params": {"name": "evaluate", "arguments": {
+                    "problem_json": problem_json, "config": [false],
+                }},
+            }),
+        );
+        let response = read_response(&mut reader);
+        assert!(response.get("error").is_none(), "{response}");
+        assert_ne!(response["result"]["isError"], true, "{response}");
+        let evaluated: serde_json::Value =
+            serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())
+                .unwrap();
+        assert_eq!(evaluated["result"], "Min(5)");
+        shutdown(stdin, child);
+    }
 }

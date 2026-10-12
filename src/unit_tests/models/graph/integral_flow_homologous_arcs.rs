@@ -15,11 +15,11 @@ fn create_spec_defaults_capacities() {
     assert_eq!(problem.capacities(), &[1]);
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDirectedGraph;
 use crate::traits::Problem;
 
 fn yes_instance() -> IntegralFlowHomologousArcs {
-    let graph = DirectedGraph::new(
+    let graph = MultiDirectedGraph::new(
         6,
         vec![
             (0, 1),
@@ -36,7 +36,7 @@ fn yes_instance() -> IntegralFlowHomologousArcs {
 }
 
 fn no_instance() -> IntegralFlowHomologousArcs {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
+    let graph = MultiDirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
     IntegralFlowHomologousArcs::new(graph, vec![1; 4], 0, 3, 1, vec![(0, 1)])
 }
 
@@ -139,7 +139,7 @@ fn test_integral_flow_homologous_arcs_problem_name() {
 fn test_integral_flow_homologous_arcs_non_unit_capacity() {
     // s=0 -> 1 -> 2=t, with capacities [3, 3], homologous pair (0,1) so both arcs carry
     // equal flow. R=2 is satisfiable: f=[2,2].
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDirectedGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]);
     assert_eq!(problem.dimensions(), vec![4, 4]);
     assert_eq!(problem.max_capacity(), 3);

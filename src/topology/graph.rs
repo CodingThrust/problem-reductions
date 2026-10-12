@@ -106,16 +106,27 @@ pub struct SimpleGraph {
     inner: UnGraph<(), ()>,
 }
 
-pub(crate) fn validate_simple_edges(
+pub(crate) fn validate_simple_connections(
     edges: impl IntoIterator<Item = (usize, usize)>,
+    directed: bool,
 ) -> Result<(), crate::registry::ConstructionError> {
+    let kind = if directed { "arc" } else { "edge" };
     let mut seen = std::collections::HashSet::new();
     for (u, v) in edges {
         if u == v {
-            return Err(format!("edge ({u}, {v}) is a self-loop").into());
+            return Err(format!("{kind} ({u}, {v}) is a self-loop").into());
         }
-        if !seen.insert((u.min(v), u.max(v))) {
-            return Err(format!("edge ({u}, {v}) duplicates an undirected edge").into());
+        if !seen.insert(if directed {
+            (u, v)
+        } else {
+            (u.min(v), u.max(v))
+        }) {
+            let previous = if directed {
+                "a directed arc"
+            } else {
+                "an undirected edge"
+            };
+            return Err(format!("{kind} ({u}, {v}) duplicates {previous}").into());
         }
     }
     Ok(())
@@ -141,7 +152,7 @@ impl SimpleGraph {
         num_vertices: usize,
         edges: Vec<(usize, usize)>,
     ) -> Result<Self, crate::registry::ConstructionError> {
-        validate_simple_edges(edges.iter().copied())?;
+        validate_simple_connections(edges.iter().copied(), false)?;
         let mut inner = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             inner.add_node(());
