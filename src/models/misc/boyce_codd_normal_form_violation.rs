@@ -238,7 +238,7 @@ impl Problem for BoyceCoddNormalFormViolation {
                 let x: HashSet<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| self.target_subset[i])
                     .collect();
                 let closure = Self::compute_closure(&x, &self.functional_deps);

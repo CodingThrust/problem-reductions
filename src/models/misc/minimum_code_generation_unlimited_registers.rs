@@ -315,15 +315,15 @@ impl MinimumCodeGenerationUnlimitedRegisters {
             let rc = self.right_child(v);
 
             // Check dependencies
-            if let Some(l) = lc {
-                if !computed[l] {
-                    return Ok(None);
-                }
+            if let Some(l) = lc
+                && !computed[l]
+            {
+                return Ok(None);
             }
-            if let Some(r) = rc {
-                if !computed[r] {
-                    return Ok(None);
-                }
+            if let Some(r) = rc
+                && !computed[r]
+            {
+                return Ok(None);
             }
 
             // Decrement future use counts

@@ -49,10 +49,10 @@ mod mcp_tests {
             if trimmed.is_empty() {
                 continue;
             }
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
-                if val.get("jsonrpc").is_some() {
-                    return val;
-                }
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed)
+                && val.get("jsonrpc").is_some()
+            {
+                return val;
             }
         }
     }

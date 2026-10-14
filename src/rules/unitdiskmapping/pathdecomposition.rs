@@ -289,7 +289,7 @@ fn greedy_step<R: rand::Rng + ?Sized>(
     let best_indices: Vec<usize> = costs
         .iter()
         .enumerate()
-        .filter(|(_, &c)| c == best_cost)
+        .filter(|&(_, &c)| c == best_cost)
         .map(|(i, _)| i)
         .collect();
 

@@ -460,10 +460,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             let slash = variant_to_full_slash(name, variant);
             let header = format!("{name}{slash}");
             let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
-            if let Some(schema) = schema {
-                if !schema.description.is_empty() {
-                    text.push_str(&format!("  {}\n", schema.description));
-                }
+            if let Some(schema) = schema
+                && !schema.description.is_empty()
+            {
+                text.push_str(&format!("  {}\n", schema.description));
             }
             if !complexity.is_empty() {
                 text.push_str(&format!(

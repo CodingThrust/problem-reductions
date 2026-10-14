@@ -57,7 +57,7 @@ impl ReductionResult for ReductionLCSToIS {
             let mut selected: Vec<(usize, usize)> = target_solution
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
                 .collect();
             // Sort by position in the first string
@@ -103,7 +103,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
                 .map(|s| {
                     s.iter()
                         .enumerate()
-                        .filter(|(_, &sym)| sym == c)
+                        .filter(|&(_, &sym)| sym == c)
                         .map(|(i, _)| i)
                         .collect()
                 })

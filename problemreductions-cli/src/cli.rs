@@ -392,10 +392,10 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
     let cmd = Cli::command();
     for (pattern, name) in subcmds {
         if first_line.contains(pattern) {
-            if let Some(sub) = cmd.find_subcommand(name) {
-                if let Some(help) = sub.get_after_help() {
-                    eprintln!("\n{help}");
-                }
+            if let Some(sub) = cmd.find_subcommand(name)
+                && let Some(help) = sub.get_after_help()
+            {
+                eprintln!("\n{help}");
             }
             return;
         }

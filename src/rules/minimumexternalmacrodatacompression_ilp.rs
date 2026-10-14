@@ -95,7 +95,7 @@ impl VarLayout {
         self.ptr_triples
             .iter()
             .enumerate()
-            .filter(|(_, &(pi, pl, _))| pi == i && pl == l)
+            .filter(|&(_, &(pi, pl, _))| pi == i && pl == l)
             .map(|(idx, _)| self.ptr_offset + idx)
             .collect()
     }

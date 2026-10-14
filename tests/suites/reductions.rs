@@ -786,7 +786,7 @@ mod qubo_reductions {
                 let terms: Vec<(usize, i64)> = row
                     .iter()
                     .enumerate()
-                    .filter(|(_, &c)| c != 0)
+                    .filter(|&(_, &c)| c != 0)
                     .map(|(i, &c)| (i, c))
                     .collect();
                 match sign {
@@ -804,7 +804,7 @@ mod qubo_reductions {
             .objective
             .iter()
             .enumerate()
-            .filter(|(_, &c)| c != 0)
+            .filter(|&(_, &c)| c != 0)
             .map(|(i, &c)| (i, c))
             .collect();
 

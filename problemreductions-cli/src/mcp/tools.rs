@@ -254,16 +254,16 @@ impl McpServer {
                 load_problem(&problem.problem_type, &problem.variant, problem.data)
             })
             .transpose()?;
-        if let Some(loaded) = &loaded {
-            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
-                anyhow::bail!(
+        if let Some(loaded) = &loaded
+            && (loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant)
+        {
+            anyhow::bail!(
                     "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
                     src_ref.name,
                     src_ref.variant,
                     loaded.problem_name(),
                     loaded.variant_map(),
                 );
-            }
         }
 
         let batch = crate::commands::graph::find_path_batch(

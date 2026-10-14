@@ -1027,11 +1027,11 @@ impl ReductionGraph {
             })
             .unwrap_or_default();
         variants.sort();
-        if let Some(default) = self.default_variants.get(name) {
-            if let Some(index) = variants.iter().position(|variant| variant == default) {
-                let default = variants.remove(index);
-                variants.insert(0, default);
-            }
+        if let Some(default) = self.default_variants.get(name)
+            && let Some(index) = variants.iter().position(|variant| variant == default)
+        {
+            let default = variants.remove(index);
+            variants.insert(0, default);
         }
         variants
     }
@@ -1578,14 +1578,13 @@ pub(crate) fn recover_completed_result(
             .aggregate_view
             .map(|view| view(step.result)?.extract_value_dyn(value.clone()))
             .transpose()?;
-        if let Some(mapped_value) = &mapped {
-            if step
+        if let Some(mapped_value) = &mapped
+            && step
                 .source
                 .aggregate_witness_evaluation(mapped_value)?
                 .is_none()
-            {
-                return Ok(None);
-            }
+        {
+            return Ok(None);
         }
         witness = step.result.extract_solution_dyn(witness.as_ref())?;
         value = step

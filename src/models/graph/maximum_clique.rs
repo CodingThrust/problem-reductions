@@ -211,7 +211,7 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v)
+        .filter(|&(_, &v)| v)
         .map(|(i, _)| i)
         .collect();
 
@@ -290,7 +290,7 @@ pub(crate) fn is_clique<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     let selected_vertices: Vec<usize> = selected
         .iter()
         .enumerate()
-        .filter(|(_, &s)| s)
+        .filter(|&(_, &s)| s)
         .map(|(i, _)| i)
         .collect();
 

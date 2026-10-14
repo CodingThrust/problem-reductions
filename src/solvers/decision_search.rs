@@ -36,10 +36,10 @@ where
         }
         return Ok(None);
     }
-    if let Some(bound) = lower.checked_sub(1) {
-        if is_satisfiable(&Decision::new(problem.clone(), bound))? {
-            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
-        }
+    if let Some(bound) = lower.checked_sub(1)
+        && is_satisfiable(&Decision::new(problem.clone(), bound))?
+    {
+        return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
     }
 
     let mut lo = lower;
@@ -76,10 +76,10 @@ where
         }
         return Ok(None);
     }
-    if let Some(bound) = upper.checked_add(1) {
-        if is_satisfiable(&Decision::new(problem.clone(), bound))? {
-            return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
-        }
+    if let Some(bound) = upper.checked_add(1)
+        && is_satisfiable(&Decision::new(problem.clone(), bound))?
+    {
+        return Err(crate::solvers::SolveError::OptimumOutsideSearchInterval { lower, upper });
     }
 
     let mut lo = lower;

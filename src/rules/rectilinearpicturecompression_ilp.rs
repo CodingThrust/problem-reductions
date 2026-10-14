@@ -71,7 +71,7 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
                     let terms: Vec<(usize, i64)> = rects
                         .iter()
                         .enumerate()
-                        .filter(|(_, &(r1, c1, r2, c2))| i >= r1 && i <= r2 && j >= c1 && j <= c2)
+                        .filter(|&(_, &(r1, c1, r2, c2))| i >= r1 && i <= r2 && j >= c1 && j <= c2)
                         .map(|(idx, _)| (idx, 1))
                         .collect();
                     constraints.push(LinearConstraint::ge(terms, 1));

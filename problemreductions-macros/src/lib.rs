@@ -208,7 +208,7 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 ///
 /// ## Syntax
-/// ```ignore
+/// ```text
 /// #[reduction(transform = exact {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = num_edges,
@@ -516,15 +516,15 @@ fn extract_type_name(ty: &Type) -> Option<String> {
             let segment = type_path.path.segments.last()?;
             let ident = segment.ident.to_string();
 
-            if ident == "Decision" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    let inner_ty = args.args.iter().find_map(|arg| match arg {
-                        GenericArgument::Type(ty) => Some(ty),
-                        _ => None,
-                    })?;
-                    let inner_name = extract_type_name(inner_ty)?;
-                    return Some(format!("Decision{inner_name}"));
-                }
+            if ident == "Decision"
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+            {
+                let inner_ty = args.args.iter().find_map(|arg| match arg {
+                    GenericArgument::Type(ty) => Some(ty),
+                    _ => None,
+                })?;
+                let inner_name = extract_type_name(inner_ty)?;
+                return Some(format!("Decision{inner_name}"));
             }
 
             Some(ident)
@@ -555,16 +555,15 @@ fn collect_type_generic_names(generics: &syn::Generics) -> HashSet<String> {
 fn type_uses_type_generics(ty: &Type, type_generics: &HashSet<String>) -> bool {
     match ty {
         Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in args.args.iter() {
-                        if let GenericArgument::Type(Type::Path(inner)) = arg {
-                            if let Some(ident) = inner.path.get_ident() {
-                                if type_generics.contains(&ident.to_string()) {
-                                    return true;
-                                }
-                            }
-                        }
+            if let Some(segment) = type_path.path.segments.last()
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+            {
+                for arg in args.args.iter() {
+                    if let GenericArgument::Type(Type::Path(inner)) = arg
+                        && let Some(ident) = inner.path.get_ident()
+                        && type_generics.contains(&ident.to_string())
+                    {
+                        return true;
                     }
                 }
             }
@@ -703,10 +702,10 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         return Err(syn::Error::new_spanned(segment, "Expected ReduceTo trait"));
     }
 
-    if let PathArguments::AngleBracketed(args) = &segment.arguments {
-        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-            return Ok(ty.clone());
-        }
+    if let PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(GenericArgument::Type(ty)) = args.args.first()
+    {
+        return Ok(ty.clone());
     }
 
     Err(syn::Error::new_spanned(

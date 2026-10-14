@@ -1569,10 +1569,10 @@ fn pattern_matches_weighted(
     for (_idx, (loc_r, loc_c)) in locs.iter().enumerate().skip(1) {
         let grid_r = i + loc_r - 1;
         let grid_c = j + loc_c - 1;
-        if let Some(cell) = grid.get(grid_r, grid_c) {
-            if cell.weight() != 2 {
-                return false;
-            }
+        if let Some(cell) = grid.get(grid_r, grid_c)
+            && cell.weight() != 2
+        {
+            return false;
         }
     }
 

@@ -763,29 +763,30 @@ fn rule_specs_solution_pairs_are_consistent() {
                         source_val,
                         "Rule {label}: aggregate and witness mappings disagree"
                     );
-                    if source_eval == "Or(true)" {
-                        if let Some(config) = pair.target_config.as_array() {
-                            for bit in [false, true] {
-                                let candidate = serde_json::Value::Array(
-                                    config
-                                        .iter()
-                                        .map(|value| match value {
-                                            serde_json::Value::Bool(_) => serde_json::json!(bit),
-                                            serde_json::Value::Number(_) => {
-                                                serde_json::json!(i64::from(bit))
-                                            }
-                                            _ => value.clone(),
-                                        })
-                                        .collect(),
+                    if source_eval == "Or(true)"
+                        && let Some(config) = pair.target_config.as_array()
+                    {
+                        for bit in [false, true] {
+                            let candidate = serde_json::Value::Array(
+                                config
+                                    .iter()
+                                    .map(|value| match value {
+                                        serde_json::Value::Bool(_) => serde_json::json!(bit),
+                                        serde_json::Value::Number(_) => {
+                                            serde_json::json!(i64::from(bit))
+                                        }
+                                        _ => value.clone(),
+                                    })
+                                    .collect(),
+                            );
+                            // Only test well-formed candidates whose mapped value is NO.
+                            if let Ok(value) = target.evaluate_json(&candidate)
+                                && chain.extract_value(value).unwrap() == serde_json::json!(false)
+                            {
+                                assert!(
+                                    chain.extract_solution_json(candidate).is_err(),
+                                    "Rule {label}: a negative certificate produced a witness"
                                 );
-                                // Only test well-formed candidates whose mapped value is NO.
-                                if let Ok(value) = target.evaluate_json(&candidate) {
-                                    if chain.extract_value(value).unwrap()
-                                        == serde_json::json!(false)
-                                    {
-                                        assert!(chain.extract_solution_json(candidate).is_err(), "Rule {label}: a negative certificate produced a witness");
-                                    }
-                                }
                             }
                         }
                     }
