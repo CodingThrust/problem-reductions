@@ -1,7 +1,7 @@
 //! Shared deterministic solver dispatch.
 
 use super::registry::CompiledIlpPipeline;
-use super::registry::{solver_capability_registry, CustomizedSolverRegistration, ExactProblemKey};
+use super::registry::{CustomizedSolverRegistration, ExactProblemKey, solver_capability_registry};
 use crate::registry::LoadedDynProblem;
 use serde::Serialize;
 

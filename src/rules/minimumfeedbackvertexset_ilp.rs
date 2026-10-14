@@ -6,7 +6,7 @@
 //!   Plus binary bounds (x_i <= 1) and order bounds (o_i <= n-1)
 //! - Objective: Minimize the weighted sum of removed vertices
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

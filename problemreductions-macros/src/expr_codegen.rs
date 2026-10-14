@@ -49,16 +49,17 @@ pub(crate) fn complexity_estimate_tokens(
 ) -> syn::Result<TokenStream> {
     Ok(match expression.node() {
         ExprNode::Const(value) => {
-            let value =
-                value
-                    .to_f64()
-                    .filter(|value| value.is_finite())
-                    .ok_or_else(|| {
-                        syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("exact expression constant {value} is outside complexity estimation"),
-                )
-                    })?;
+            let value = value
+                .to_f64()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| {
+                    syn::Error::new(
+                        proc_macro2::Span::call_site(),
+                        format!(
+                            "exact expression constant {value} is outside complexity estimation"
+                        ),
+                    )
+                })?;
             quote! { #value }
         }
         ExprNode::Var(name) => {

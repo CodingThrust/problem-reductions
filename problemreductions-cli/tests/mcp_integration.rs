@@ -205,10 +205,12 @@ mod mcp_tests {
         assert_eq!(call_resp["id"], 3);
         assert!(call_resp.get("error").is_none(), "{call_resp}");
         assert_ne!(call_resp["result"]["isError"], true);
-        assert!(call_resp["result"]["content"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("MaximumIndependentSet"));
+        assert!(
+            call_resp["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("MaximumIndependentSet")
+        );
         assert!(call_resp["result"].get("resultType").is_none());
 
         shutdown(stdin, child);
@@ -277,10 +279,12 @@ mod mcp_tests {
         let message = &prompt_resp["result"]["messages"][0];
         assert_eq!(message["role"], "user");
         assert_eq!(message["content"]["type"], "text");
-        assert!(message["content"]["text"]
-            .as_str()
-            .unwrap()
-            .contains("QUBO"));
+        assert!(
+            message["content"]["text"]
+                .as_str()
+                .unwrap()
+                .contains("QUBO")
+        );
 
         send(
             &mut stdin,

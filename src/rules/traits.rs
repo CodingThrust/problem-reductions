@@ -1,8 +1,8 @@
 //! Core traits for problem reductions.
 
 use crate::traits::Problem;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::any::Any;
 use std::marker::PhantomData;
 

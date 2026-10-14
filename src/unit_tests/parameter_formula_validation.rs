@@ -1,7 +1,7 @@
 use crate::parameters::ParameterRelation;
 use crate::registry::DynProblem;
-use crate::rules::{registry::ReductionEntry, ReductionGraph};
-use serde_json::{json, Value};
+use crate::rules::{ReductionGraph, registry::ReductionEntry};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);

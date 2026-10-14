@@ -305,8 +305,8 @@ crate::declare_variants! {
 crate::register_decision_variant!(@edges ClosestVectorProblem, "DecisionClosestVectorProblem");
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_closest_vector_problem_to_closest_vector_problem",
         build: || {

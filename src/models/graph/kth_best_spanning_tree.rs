@@ -109,7 +109,10 @@ fn simple_graph_from_create(
         .unwrap_or(0);
     let num_vertices = num_vertices.unwrap_or(inferred);
     if num_vertices < inferred {
-        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        )
+        .into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }

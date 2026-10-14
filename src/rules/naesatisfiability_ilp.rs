@@ -8,7 +8,7 @@
 //!
 //! Objective: empty (feasibility problem).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::formula::NAESatisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

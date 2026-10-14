@@ -1,6 +1,6 @@
 //! A permutation matrix with direct consecutive-position adjacency constraints.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::HamiltonianPath;
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};

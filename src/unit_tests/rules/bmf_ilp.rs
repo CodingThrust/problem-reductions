@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 
@@ -71,9 +71,11 @@ fn test_bmf_to_ilp_trivial() {
 fn bmf_extraction_requires_exact_reconstruction() {
     let source = BMF::new(vec![vec![true]], 1);
     let reduced = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
-    assert!(reduced
-        .extract_solution(&vec![0; reduced.target_problem().num_vars()])
-        .is_err());
+    assert!(
+        reduced
+            .extract_solution(&vec![0; reduced.target_problem().num_vars()])
+            .is_err()
+    );
 }
 
 #[test]

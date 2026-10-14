@@ -7,7 +7,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
-use super::{sat::validate_cnf_literals, CNFClause};
+use super::{CNFClause, sat::validate_cnf_literals};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -152,11 +152,7 @@ impl NAESatisfiability {
     fn literal_value(lit: i64, assignment: &[bool]) -> bool {
         let var = lit.unsigned_abs() as usize - 1;
         let value = assignment.get(var).copied().unwrap_or(false);
-        if lit > 0 {
-            value
-        } else {
-            !value
-        }
+        if lit > 0 { value } else { !value }
     }
 
     fn clause_is_nae_satisfied(clause: &CNFClause, assignment: &[bool]) -> bool {

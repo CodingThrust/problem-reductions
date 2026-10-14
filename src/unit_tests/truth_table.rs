@@ -8,10 +8,12 @@ fn persisted_tables_validate_row_counts() {
         (usize::BITS as usize, vec![]),
         (usize::MAX, vec![]),
     ] {
-        assert!(serde_json::from_value::<TruthTable>(
-            serde_json::json!({"num_inputs": num_inputs, "outputs": outputs})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<TruthTable>(
+                serde_json::json!({"num_inputs": num_inputs, "outputs": outputs})
+            )
+            .is_err()
+        );
     }
     let table: TruthTable =
         serde_json::from_value(serde_json::json!({"num_inputs": 0, "outputs": [true]})).unwrap();

@@ -1,5 +1,5 @@
-use problemreductions::models::algebraic::ConsecutiveOnesMatrixAugmentation;
 use problemreductions::Problem;
+use problemreductions::models::algebraic::ConsecutiveOnesMatrixAugmentation;
 
 #[test]
 fn test_consecutive_ones_matrix_augmentation_yes_instance() {

@@ -1,6 +1,6 @@
 //! Degree two and a single bounded flow enforce a spanning cycle.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::HamiltonianCircuit;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

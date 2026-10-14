@@ -175,13 +175,17 @@ fn test_tight_capacity() {
 fn test_is_valid_solution() {
     let problem = example_instance();
     // Valid
-    assert!(problem
-        .is_valid_solution(&[true, true, false, false, true, false, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .is_valid_solution(&[true, true, false, false, true, false, false, true])
+            .unwrap()
+    );
     // Invalid: not enough edges
-    assert!(!problem
-        .is_valid_solution(&[true, true, false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .is_valid_solution(&[true, true, false, false, false, false, false, false])
+            .unwrap()
+    );
     // Invalid: wrong length
     assert!(!problem.is_valid_solution(&[true, true, false]).unwrap());
 }

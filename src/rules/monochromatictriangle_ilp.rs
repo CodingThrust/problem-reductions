@@ -4,7 +4,7 @@
 //! encoded as the pair of inequalities `1 <= sum <= 2` over its three incident
 //! edge variables.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MonochromaticTriangle;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

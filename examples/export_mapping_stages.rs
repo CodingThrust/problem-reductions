@@ -9,8 +9,8 @@
 
 use problemreductions::rules::unitdiskmapping::{
     _internal::{
-        create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular, CopyLine,
-        MappingGrid,
+        CopyLine, MappingGrid, create_copylines, mis_overhead_copyline,
+        mis_overhead_copyline_triangular,
     },
     ksg, triangular,
 };

@@ -300,11 +300,7 @@ where
 }
 
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    if u <= v { (u, v) } else { (v, u) }
 }
 
 fn is_biconnected(graph: &UnGraph<(), ()>) -> bool {

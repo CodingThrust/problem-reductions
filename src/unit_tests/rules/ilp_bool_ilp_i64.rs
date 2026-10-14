@@ -1,4 +1,4 @@
-use crate::models::algebraic::{Bounded, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, LinearConstraint, ObjectiveSense};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;

@@ -11,7 +11,7 @@
 //!   4. Precedence: Σ_t t·x_{j,t} ≥ Σ_t t·x_{i,t} + 1 for each (i,j)
 //! - Objective: Minimize 0 (feasibility)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SchedulingWithIndividualDeadlines;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;

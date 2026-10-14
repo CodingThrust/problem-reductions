@@ -243,8 +243,8 @@ crate::registry::FieldInfo { name: "bound", type_name: "i64", description: "Acce
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_minimum_covering_by_cliques_to_minimum_covering_by_cliques",
         build: || {

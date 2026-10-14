@@ -7,7 +7,7 @@
 //! - Objective: Minimize Σ_{l,c} cost[l][c]·x_{l,c}
 //! - Extraction: argmax_c x_{l,c} for each link l
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::CapacityAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

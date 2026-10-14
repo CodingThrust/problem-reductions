@@ -339,9 +339,7 @@ pub enum GrowthFailure {
     InvalidExponentialBase(String),
     #[error("represented exponent is outside the growth domain: {0}")]
     RepresentedExponentOutOfRange(String),
-    #[error(
-        "exponential factor {base}^({coefficient} * {variable}) decreases as {variable} grows"
-    )]
+    #[error("exponential factor {base}^({coefficient} * {variable}) decreases as {variable} grows")]
     DecayingExponential {
         base: String,
         variable: String,

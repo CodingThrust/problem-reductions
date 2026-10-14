@@ -24,7 +24,7 @@
 //!
 //! Constraints per edge (7 per edge) + flow conservation (2 per non-terminal vertex) + net flow (2)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;

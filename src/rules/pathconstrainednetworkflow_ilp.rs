@@ -3,7 +3,7 @@
 //! One integer variable per prescribed path. Arc capacity aggregation
 //! across paths and total flow requirement.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::PathConstrainedNetworkFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

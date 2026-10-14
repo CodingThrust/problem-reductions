@@ -1,7 +1,7 @@
 //! Bounded disjunctive open-shop scheduling with identical-machine symmetry.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
-use crate::models::misc::OpenShopScheduling;
 use crate::models::Decision;
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
+use crate::models::misc::OpenShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

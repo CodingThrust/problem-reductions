@@ -1,6 +1,7 @@
 //! Tests for gadget properties (src/rules/mapping/gadgets.rs and triangular gadgets).
 
 use super::common::{ksg_edges, solve_weighted_mis, triangular_edges};
+use crate::rules::unitdiskmapping::Pattern;
 use crate::rules::unitdiskmapping::ksg::{
     KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn,
     KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
@@ -13,7 +14,6 @@ use crate::rules::unitdiskmapping::triangular::{
     WeightedTriEndTurn, WeightedTriTConDown, WeightedTriTConUp, WeightedTriTrivialTurnLeft,
     WeightedTriTrivialTurnRight, WeightedTriTurn, WeightedTriWTurn, WeightedTriangularGadget,
 };
-use crate::rules::unitdiskmapping::Pattern;
 
 // === Square Gadget Tests ===
 

@@ -3,7 +3,7 @@ use crate::example_db::{
 };
 use crate::export::ProblemRef;
 use crate::registry::load_dyn;
-use crate::rules::{registry::reduction_entries, ReductionGraph};
+use crate::rules::{ReductionGraph, registry::reduction_entries};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
@@ -293,16 +293,20 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert_eq!(example.source.problem, "IntegralFlowBundles");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("graph").is_some());
-    assert!(!example.solutions[0]
-        .source_config
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert!(!example.solutions[0]
-        .target_config
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(
+        !example.solutions[0]
+            .source_config
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        !example.solutions[0]
+            .target_config
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -472,8 +476,12 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         example_keys,
         direct_reduction_keys,
         "rule example coverage should match authored direct reductions exactly; missing examples: {:?}; unexpected examples: {:?}",
-        direct_reduction_keys.difference(&example_keys).collect::<Vec<_>>(),
-        example_keys.difference(&direct_reduction_keys).collect::<Vec<_>>()
+        direct_reduction_keys
+            .difference(&example_keys)
+            .collect::<Vec<_>>(),
+        example_keys
+            .difference(&direct_reduction_keys)
+            .collect::<Vec<_>>()
     );
 }
 
@@ -545,7 +553,7 @@ fn model_specs_are_self_consistent() {
 #[test]
 fn model_specs_are_optimal() {
     use crate::registry::load_dyn;
-    use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
+    use crate::solvers::{SolveOutcome, SolverRequest, brute_force_dimensions, solve};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()

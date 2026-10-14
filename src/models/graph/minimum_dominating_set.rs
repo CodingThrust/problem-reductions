@@ -336,8 +336,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_model_example_specs(
-) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+pub(crate) fn decision_canonical_model_example_specs()
+-> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "decision_minimum_dominating_set_simplegraph",
@@ -370,8 +370,8 @@ pub(crate) fn decision_canonical_model_example_specs(
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![
         crate::example_db::specs::RuleExampleSpec {
             id: "decision_minimum_dominating_set_to_minimum_dominating_set",

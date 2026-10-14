@@ -228,7 +228,7 @@ fn test_ilp_with_time_limit() {
 fn test_registered_ilp_pipeline_success() {
     use crate::models::graph::MaximumIndependentSet;
     use crate::registry::load_dyn;
-    use crate::solvers::{solve, SolveOutcome, SolverExecution, SolverRequest};
+    use crate::solvers::{SolveOutcome, SolverExecution, SolverRequest, solve};
     use crate::topology::SimpleGraph;
     use std::collections::BTreeMap;
 
@@ -311,9 +311,11 @@ fn test_kernel_registered_ilp_feasibility() {
 #[test]
 fn test_ilp_solve_dyn_bool() {
     let ilp = ILP::<bool, f64>::new(1, vec![], vec![(0, 1.0)], ObjectiveSense::Maximize).unwrap();
-    assert!(ILPSolver::new()
-        .solve_dyn(&ilp as &dyn std::any::Any)
-        .is_ok());
+    assert!(
+        ILPSolver::new()
+            .solve_dyn(&ilp as &dyn std::any::Any)
+            .is_ok()
+    );
 }
 
 #[test]
@@ -328,9 +330,11 @@ fn test_ilp_solve_dyn_i64() {
         ObjectiveSense::Minimize,
     )
     .unwrap();
-    assert!(ILPSolver::new()
-        .solve_dyn(&ilp as &dyn std::any::Any)
-        .is_ok());
+    assert!(
+        ILPSolver::new()
+            .solve_dyn(&ilp as &dyn std::any::Any)
+            .is_ok()
+    );
 }
 
 #[test]
@@ -402,8 +406,8 @@ fn test_ilp_solver_rejects_source_objective_overflow() {
 
 #[test]
 fn production_planning_pipeline_accounts_for_inventory_and_setups() {
-    use crate::models::misc::ProductionPlanning;
     use crate::Problem;
+    use crate::models::misc::ProductionPlanning;
     for budget in [7, 8] {
         let source = ProductionPlanning::new(
             3,

@@ -109,9 +109,11 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_empty_clause() {
         ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
     assert_eq!(reduction.target_problem().bound(), &2);
     assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
     assert!(reduction.extract_solution(&vec![true; 3]).is_err());
 }

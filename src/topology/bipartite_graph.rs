@@ -123,11 +123,7 @@ impl Graph for BipartiteGraph {
             .map(|&(u, v)| {
                 let a = u;
                 let b = self.left_size + v;
-                if a < b {
-                    (a, b)
-                } else {
-                    (b, a)
-                }
+                if a < b { (a, b) } else { (b, a) }
             })
             .collect()
     }

@@ -14,7 +14,7 @@
 //!
 //! Objective: Minimize Σ_{r,s,r',s'} lat(s,s') * p_r * p_{r'} * z_{r,s,r',s'}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ExpectedRetrievalCost;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};

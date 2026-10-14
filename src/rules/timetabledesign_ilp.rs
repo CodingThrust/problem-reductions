@@ -4,7 +4,7 @@
 //! and all feasibility conditions are already linear: availability forcing,
 //! per-period exclusivity, and exact pairwise work requirements.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

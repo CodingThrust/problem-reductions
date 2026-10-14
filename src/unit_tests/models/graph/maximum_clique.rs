@@ -241,14 +241,18 @@ fn test_is_clique_method() {
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
     // Valid clique - returns Valid
-    assert!(problem
-        .evaluate(&vec![true, true, false])
-        .unwrap()
-        .is_valid());
-    assert!(problem
-        .evaluate(&vec![false, true, true])
-        .unwrap()
-        .is_valid());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, false])
+            .unwrap()
+            .is_valid()
+    );
+    assert!(
+        problem
+            .evaluate(&vec![false, true, true])
+            .unwrap()
+            .is_valid()
+    );
     // Invalid: 0-2 not adjacent - returns Invalid
     assert_eq!(
         problem.evaluate(&vec![true, false, true]).unwrap(),

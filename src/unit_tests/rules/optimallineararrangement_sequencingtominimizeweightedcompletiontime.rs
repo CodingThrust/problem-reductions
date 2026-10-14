@@ -94,8 +94,8 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_t
 }
 
 #[test]
-fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_extracts_vertex_order(
-) {
+fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_extracts_vertex_order()
+ {
     let (source, reduction) = reduce_path(4);
     let schedule = vec![3, 2, 6, 1, 5, 0, 4];
     let extracted = reduction.extract_solution(&schedule).unwrap();

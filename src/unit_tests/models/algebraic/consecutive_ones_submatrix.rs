@@ -69,11 +69,13 @@ fn test_consecutive_ones_submatrix_evaluate_wrong_config_length() {
 #[test]
 fn test_consecutive_ones_submatrix_evaluate_invalid_variable_value() {
     let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, true])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, true])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -236,8 +238,10 @@ fn test_consecutive_ones_submatrix_inconsistent_rows() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<ConsecutiveOnesSubmatrix>(
-        serde_json::json!({"matrix":[[true]],"bound":2})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<ConsecutiveOnesSubmatrix>(
+            serde_json::json!({"matrix":[[true]],"bound":2})
+        )
+        .is_err()
+    );
 }

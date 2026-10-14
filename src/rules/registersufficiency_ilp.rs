@@ -1,6 +1,6 @@
 //! Binary cumulative evaluation and live-value indicators for register sufficiency.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::RegisterSufficiency;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

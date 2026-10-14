@@ -226,11 +226,7 @@ fn canonical_edges<G: Graph>(graph: &G) -> Vec<(usize, usize)> {
 }
 
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    if u <= v { (u, v) } else { (v, u) }
 }
 
 fn is_valid_disjoint_connecting_paths<G: Graph>(

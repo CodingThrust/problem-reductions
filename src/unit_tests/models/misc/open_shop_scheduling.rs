@@ -241,11 +241,13 @@ fn test_open_shop_scheduling_construction_paths_reject_invalid_matrices() {
         (2, vec![vec![i64::MAX, 1]]),
     ] {
         assert!(OpenShopScheduling::try_new(machines, times.clone()).is_err());
-        assert!(OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
-            num_processors: machines,
-            processing_times: times.clone(),
-        })
-        .is_err());
+        assert!(
+            OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
+                num_processors: machines,
+                processing_times: times.clone(),
+            })
+            .is_err()
+        );
         assert!(
             serde_json::from_value::<OpenShopScheduling>(serde_json::json!({
                 "num_machines": machines, "processing_times": times,

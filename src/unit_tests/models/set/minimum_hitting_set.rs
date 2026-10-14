@@ -65,11 +65,13 @@ fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
         problem.evaluate(&vec![true, false, false, false]).unwrap(),
         Min(None)
     );
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, 2, false, true])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, 2, false, true])
+        )
+        .is_err()
+    );
     assert!(problem.is_valid_solution(&[false, true, false, true]));
     assert!(!problem.is_valid_solution(&[true, false, false, false]));
 }
@@ -112,9 +114,11 @@ fn test_minimum_hitting_set_bruteforce_optimum_issue_example() {
     let best_solutions = solver.find_all_witnesses(&problem).unwrap();
     let best_solution_set: HashSet<Vec<bool>> = best_solutions.iter().cloned().collect();
     assert!(best_solution_set.contains(&issue_example_config()));
-    assert!(best_solutions
-        .iter()
-        .all(|config| problem.evaluate(config).unwrap() == Min(Some(3))));
+    assert!(
+        best_solutions
+            .iter()
+            .all(|config| problem.evaluate(config).unwrap() == Min(Some(3)))
+    );
 }
 
 #[test]

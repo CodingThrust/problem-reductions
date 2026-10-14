@@ -139,8 +139,8 @@ fn test_unapply_weighted_gadgets_empty_tape() {
 
 #[test]
 fn test_unapply_gadgets_rejects_unknown_tape_entry() {
-    use crate::rules::unitdiskmapping::ksg::mapping::unapply_gadgets;
     use crate::rules::unitdiskmapping::ksg::KsgTapeEntry;
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_gadgets;
 
     let tape = vec![KsgTapeEntry {
         pattern_idx: 999,
@@ -154,8 +154,8 @@ fn test_unapply_gadgets_rejects_unknown_tape_entry() {
 
 #[test]
 fn test_unapply_weighted_gadgets_rejects_unknown_tape_entry() {
-    use crate::rules::unitdiskmapping::ksg::mapping::unapply_weighted_gadgets;
     use crate::rules::unitdiskmapping::ksg::WeightedKsgTapeEntry;
+    use crate::rules::unitdiskmapping::ksg::mapping::unapply_weighted_gadgets;
 
     let tape = vec![WeightedKsgTapeEntry {
         pattern_idx: 999,
@@ -434,7 +434,7 @@ fn test_full_pipeline_triangular_house() {
 fn test_apply_and_unapply_gadget() {
     use crate::rules::unitdiskmapping::ksg::KsgTurn;
     use crate::rules::unitdiskmapping::{
-        apply_gadget, unapply_gadget, CellState, MappingGrid, Pattern,
+        CellState, MappingGrid, Pattern, apply_gadget, unapply_gadget,
     };
 
     // Create a small grid with spacing 4
@@ -466,7 +466,7 @@ fn test_apply_and_unapply_gadget() {
 #[test]
 fn test_apply_gadget_at_various_positions() {
     use crate::rules::unitdiskmapping::ksg::KsgTurn;
-    use crate::rules::unitdiskmapping::{apply_gadget, CellState, MappingGrid, Pattern};
+    use crate::rules::unitdiskmapping::{CellState, MappingGrid, Pattern, apply_gadget};
 
     let mut grid = MappingGrid::new(20, 20, 4);
     let turn = KsgTurn;

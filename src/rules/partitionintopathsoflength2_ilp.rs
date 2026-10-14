@@ -16,7 +16,7 @@
 //!
 //! Objective: Minimize 0 (feasibility)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::PartitionIntoPathsOfLength2;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;

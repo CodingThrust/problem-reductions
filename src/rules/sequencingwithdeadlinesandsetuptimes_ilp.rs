@@ -15,7 +15,7 @@
 //! Deadline enforcement uses the standard big-M trick: for each (j, p),
 //! if `x_{j,p}=1` then the completion time at p must not exceed `d[j]`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingWithDeadlinesAndSetUpTimes;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;

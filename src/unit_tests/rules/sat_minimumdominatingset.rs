@@ -318,9 +318,11 @@ fn test_sat_to_dominatingset_native_certificates() {
             accepted,
             BruteForce::new().solve(&source).unwrap().is_some()
         );
-        assert!(result
-            .extract_solution(&vec![false; target.num_vertices() + 1])
-            .is_err());
+        assert!(
+            result
+                .extract_solution(&vec![false; target.num_vertices() + 1])
+                .is_err()
+        );
     }
 }
 

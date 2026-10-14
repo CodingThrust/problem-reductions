@@ -12,7 +12,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use syn::{parse_macro_input, DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type};
+use syn::{DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type, parse_macro_input};
 
 /// Generate static construction-input metadata from a typed create spec.
 #[proc_macro_derive(CreateSpec, attributes(create))]
@@ -167,7 +167,7 @@ fn create_codec_tokens(value: &syn::LitStr) -> syn::Result<TokenStream2> {
             return Err(syn::Error::new(
                 value.span(),
                 "unknown construction codec; expected one of: auto, scalar, json, comma-separated, semicolon-separated, edge-list, arc-list, bipartite-edge-list, equality-pair-list, functional-dependency-list, character-rows",
-            ))
+            ));
         }
     };
     Ok(quote!(crate::registry::CreateInputCodec::#variant))
@@ -273,7 +273,7 @@ fn generate_common_aggregate_impl(
             return Err(syn::Error::new_spanned(
                 mapping,
                 "expected identity or ilp_feasibility",
-            ))
+            ));
         }
     };
     let mut implementation = implementation.clone();
@@ -455,7 +455,7 @@ impl ReductionAttrs {
                 return Err(syn::Error::new(
                     relation.span(),
                     "expected `exact`, `upper_bound`, or `unavailable`",
-                ))
+                ));
             }
         };
         self.fields.extend(
@@ -1088,7 +1088,7 @@ fn generate_complexity_eval_fn(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syn::{parse_str, Type};
+    use syn::{Type, parse_str};
 
     #[test]
     fn parameters_report_expression_domain_errors() {
@@ -1393,10 +1393,12 @@ mod tests {
             .to_string();
         assert!(tokens.contains("reduce_aggregate_fn : None"));
         assert!(tokens.contains("aggregate_view_fn : None"));
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            aggregate = identity, transform = exact { n = n }
-        })
-        .is_err());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                aggregate = identity, transform = exact { n = n }
+            })
+            .is_err()
+        );
     }
 
     #[test]
@@ -1489,26 +1491,34 @@ mod tests {
 
     #[test]
     fn reduction_rejects_legacy_exact_and_bound_attributes() {
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            exact = { n = "n" }
-        })
-        .is_err());
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            bound = { n = "n" }
-        })
-        .is_err());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                exact = { n = "n" }
+            })
+            .is_err()
+        );
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                bound = { n = "n" }
+            })
+            .is_err()
+        );
     }
 
     #[test]
     fn reduction_requires_unavailable_to_be_the_primary_transform_declaration() {
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            unavailable = { n = "not represented" }
-        })
-        .is_err());
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            transform = unavailable { n = "not represented" }
-        })
-        .is_ok());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                unavailable = { n = "not represented" }
+            })
+            .is_err()
+        );
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                transform = unavailable { n = "not represented" }
+            })
+            .is_ok()
+        );
     }
 
     #[test]

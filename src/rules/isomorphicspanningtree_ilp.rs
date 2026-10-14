@@ -3,7 +3,7 @@
 //! Binary variable x_{u,v} with x_{u,v} = 1 iff tree vertex u maps to graph
 //! vertex v. Bijection constraints plus non-edge exclusion for every tree edge.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::IsomorphicSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

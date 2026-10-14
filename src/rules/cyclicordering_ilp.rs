@@ -1,6 +1,6 @@
 //! Sparse rank comparisons for cyclic ordering triples.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::CyclicOrdering;
 use crate::rules::ilp_helpers::{bounded_order_comparison, ranks_to_positions};
 use crate::rules::traits::{ReduceTo, ReductionResult};

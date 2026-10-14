@@ -7,7 +7,7 @@
 //! - Non-edge forbiddance: for each pattern edge {v,w} and each host non-edge {u,u'},
 //!   x_{v,u} + x_{w,u'} <= 1 AND x_{v,u'} + x_{w,u} <= 1
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::SubgraphIsomorphism;
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode_rows};

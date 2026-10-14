@@ -14,7 +14,7 @@
 //! deletion can restore all internal edges without losing connectivity, so an
 //! optimal source solution is represented. Self-loops are always kept.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::HighlyConnectedDeletion;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

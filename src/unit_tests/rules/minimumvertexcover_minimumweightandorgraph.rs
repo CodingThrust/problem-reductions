@@ -1,11 +1,11 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use super::{issue_example_source, ReductionVCToAndOrGraph};
+use super::{ReductionVCToAndOrGraph, issue_example_source};
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::MinimumWeightAndOrGraph;
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;

@@ -89,9 +89,11 @@ fn test_complement_relationship() {
         // Complement should be a valid vertex cover
         let vc_config: Vec<bool> = is_sol.iter().map(|&selected| !selected).collect();
         // Valid cover should return Valid
-        assert!(Problem::evaluate(&vc_problem, &vc_config)
-            .unwrap()
-            .is_valid());
+        assert!(
+            Problem::evaluate(&vc_problem, &vc_config)
+                .unwrap()
+                .is_valid()
+        );
     }
 }
 

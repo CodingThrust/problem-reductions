@@ -3,7 +3,6 @@
 
 # Stable options
 edition = "2024"
-style_edition = "2021"
 max_width = 100
 tab_spaces = 4
 newline_style = "Unix"

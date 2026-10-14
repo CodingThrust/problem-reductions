@@ -150,13 +150,17 @@ pub enum ExecutePathsError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    #[error(
+        "concrete path {path_index} has no registered edge from {source_problem} to {target_problem}"
+    )]
     MissingEdge {
         path_index: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    #[error(
+        "concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable"
+    )]
     NotWitnessExecutable {
         path_index: usize,
         source_problem: String,
@@ -180,20 +184,22 @@ pub enum PathParameterError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error(
-        "reduction path contains no registered edge from {source_problem} to {target_problem}"
-    )]
+    #[error("reduction path contains no registered edge from {source_problem} to {target_problem}")]
     MissingEdge {
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model"
+    )]
     TuringEdge {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}"
+    )]
     InvalidContract {
         step: usize,
         source_problem: String,
@@ -201,15 +207,15 @@ pub enum PathParameterError {
         #[source]
         error: Box<ParameterContractError>,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform"
+    )]
     Unavailable {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error(
-        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
-    )]
+    #[error("cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}")]
     Step {
         step: usize,
         source_problem: String,

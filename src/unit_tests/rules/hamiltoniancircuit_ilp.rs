@@ -57,12 +57,16 @@ fn circuit_flow_requires_one_cycle_and_three_distinct_vertices() {
                         .unwrap()
                         .0
                 );
-                assert!(reduction
-                    .extract_solution(&vec![0; solution.len()])
-                    .is_err());
-                assert!(reduction
-                    .extract_solution(&vec![0; solution.len() + 1])
-                    .is_err());
+                assert!(
+                    reduction
+                        .extract_solution(&vec![0; solution.len()])
+                        .is_err()
+                );
+                assert!(
+                    reduction
+                        .extract_solution(&vec![0; solution.len() + 1])
+                        .is_err()
+                );
             }
             Err(ILPSolveError::Infeasible) => assert!(!expected),
             Err(error) => panic!("{error}"),

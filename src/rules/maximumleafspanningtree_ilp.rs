@@ -18,7 +18,7 @@
 //!
 //! Objective: maximize sum(z_v)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

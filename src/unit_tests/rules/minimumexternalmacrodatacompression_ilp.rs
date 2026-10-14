@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Min;

@@ -7,7 +7,7 @@
 use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{EvaluationError, Problem};
 use crate::types::{
-    i64_to_exact_f64, Extremum, NumericArithmeticError, NumericSize, WeightElement,
+    Extremum, NumericArithmeticError, NumericSize, WeightElement, i64_to_exact_f64,
 };
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::Debug;

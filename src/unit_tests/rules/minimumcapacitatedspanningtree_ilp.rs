@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};

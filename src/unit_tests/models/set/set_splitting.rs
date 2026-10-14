@@ -73,12 +73,16 @@ fn test_set_splitting_evaluate_multiple_subsets() {
 #[test]
 fn test_set_splitting_is_valid_solution() {
     let problem = SetSplitting::new(4, vec![vec![0, 1], vec![2, 3]]);
-    assert!(problem
-        .is_valid_solution(&[false, true, false, true])
-        .unwrap());
-    assert!(!problem
-        .is_valid_solution(&[false, false, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .is_valid_solution(&[false, true, false, true])
+            .unwrap()
+    );
+    assert!(
+        !problem
+            .is_valid_solution(&[false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]

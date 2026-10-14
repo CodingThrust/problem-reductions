@@ -15,7 +15,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: For task j, find offset k where x_{j,k}=1; config[j] = k.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingWithinIntervals;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

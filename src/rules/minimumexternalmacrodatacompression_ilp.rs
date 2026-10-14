@@ -13,7 +13,7 @@
 //! **Objective:** minimize |D| + |C_literals| + h * |C_pointers|
 //! = sum d_used[j] + sum lit[i] + h * sum ptr[i][l][d_start]
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -144,12 +144,12 @@ impl ReductionResult for ReductionEMDCToILP {
                         [] => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "dictionary slot {j} is active without a symbol"
-                            )))
+                            )));
                         }
                         _ => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "dictionary slot {j} selects multiple symbols"
-                            )))
+                            )));
                         }
                     }
                 } else if !symbols.is_empty() {

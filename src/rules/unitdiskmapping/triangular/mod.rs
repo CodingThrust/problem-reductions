@@ -16,11 +16,11 @@ pub mod mapping;
 
 pub use super::weighted::{map_weights, trace_centers};
 pub use gadgets::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, SourceCell,
-    WeightedTriBranch, WeightedTriBranchFix, WeightedTriBranchFixB, WeightedTriCross,
+    SourceCell, WeightedTriBranch, WeightedTriBranchFix, WeightedTriBranchFixB, WeightedTriCross,
     WeightedTriEndTurn, WeightedTriTConDown, WeightedTriTConLeft, WeightedTriTConUp,
     WeightedTriTapeEntry, WeightedTriTrivialTurnLeft, WeightedTriTrivialTurnRight, WeightedTriTurn,
-    WeightedTriWTurn, WeightedTriangularGadget,
+    WeightedTriWTurn, WeightedTriangularGadget, apply_crossing_gadgets, apply_simplifier_gadgets,
+    tape_entry_mis_overhead,
 };
 pub use mapping::{
     map_config_back, map_unit_weights, map_weighted, map_weighted_with_method,

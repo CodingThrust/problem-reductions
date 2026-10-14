@@ -9,7 +9,7 @@
 //! - Objective: Minimize Σ w_a * y_a
 //! - Variable layout: first |A| are y_a, next |V| are o_v
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumFeedbackArcSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

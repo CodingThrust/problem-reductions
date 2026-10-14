@@ -1,7 +1,7 @@
-use super::{issue_example_source, ReductionFVSToCodeGen};
+use super::{ReductionFVSToCodeGen, issue_example_source};
 use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 
 #[test]
 fn test_minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters_closed_loop() {

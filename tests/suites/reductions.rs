@@ -3,7 +3,7 @@
 //! These tests verify that reduction chains work correctly and
 //! solutions can be properly extracted through the reduction pipeline.
 
-use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use problemreductions::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use problemreductions::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use problemreductions::prelude::*;
 use problemreductions::rules::ReductionGraph;
@@ -715,11 +715,7 @@ mod qubo_reductions {
                     .iter()
                     .map(|l| {
                         let var = (l.variable + 1) as i64; // 0-indexed to 1-indexed
-                        if l.negated {
-                            -var
-                        } else {
-                            var
-                        }
+                        if l.negated { -var } else { var }
                     })
                     .collect();
                 CNFClause::new(signed)

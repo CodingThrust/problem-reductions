@@ -10,7 +10,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: For each task j, find argmax_t x_{j,t}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::PrecedenceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

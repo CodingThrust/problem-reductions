@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 
 #[test]
 fn test_stackercrane_to_ilp_closed_loop() {

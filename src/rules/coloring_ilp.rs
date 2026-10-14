@@ -7,13 +7,13 @@
 //!   2. Adjacent vertices have different colors: x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and color c
 //! - Objective: None (feasibility problem, minimize 0)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::variant::{KValue, K2, K3, KN};
+use crate::variant::{K2, K3, KN, KValue};
 
 /// Result of reducing KColoring to ILP.
 ///

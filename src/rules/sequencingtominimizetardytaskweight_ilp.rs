@@ -4,7 +4,7 @@
 //! with exact binary tardy indicators. Position-specific prefix bounds give
 //! both implications of the deadline comparison, including signed model inputs.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingToMinimizeTardyTaskWeight;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;

@@ -457,11 +457,7 @@ fn pow_rational(mut base: BigRational, exponent: &BigInt) -> BigRational {
             base = &base * &base;
         }
     }
-    if negative {
-        result.recip()
-    } else {
-        result
-    }
+    if negative { result.recip() } else { result }
 }
 
 fn ceil_nonnegative(value: &BigRational) -> BigUint {
@@ -554,21 +550,27 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` declares target parameter field `{field}` more than once")]
     DuplicateTargetField { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`"
+    )]
     NonIntegralConstantExponent {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         exponent: Box<str>,
     },
-    #[error("reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`"
+    )]
     UnsupportedOperator {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         operator: &'static str,
     },
-    #[error("reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`"
+    )]
     CannotPropagateUpperBound {
         edge: Box<str>,
         field: Box<str>,
@@ -592,7 +594,9 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` target field `{field}` divides by zero")]
     DivisionByZero { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`"
+    )]
     NonIntegralResult {
         edge: Box<str>,
         field: Box<str>,

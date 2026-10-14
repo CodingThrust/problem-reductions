@@ -2,7 +2,7 @@
 //! The binary endpoint uniformly composes the same construction with the
 //! existing bounded-integer encoding; neither construction expands time slots.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingWithReleaseTimesAndDeadlines;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -154,7 +154,7 @@ impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::example_db::specs::{
-        rule_example_via_bounded_ilp, rule_example_via_ilp, RuleExampleSpec,
+        RuleExampleSpec, rule_example_via_bounded_ilp, rule_example_via_ilp,
     };
     fn source() -> SequencingWithReleaseTimesAndDeadlines {
         SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4])

@@ -1,4 +1,4 @@
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::models::graph::MinimumVertexCover;
 use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, ILPSolver};

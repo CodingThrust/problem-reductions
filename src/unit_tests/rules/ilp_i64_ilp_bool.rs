@@ -1,4 +1,4 @@
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
 
@@ -77,11 +77,13 @@ fn test_ilp_i64_to_ilp_bool_target_structure() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert_eq!(reduction.target_problem().num_vars(), 6);
     assert_eq!(reduction.target_problem().constraints().len(), 1);
-    assert!(reduction
-        .target_problem()
-        .variables()
-        .iter()
-        .all(|variable| variable.lower_bound() == Some(0) && variable.upper_bound() == Some(1)));
+    assert!(
+        reduction
+            .target_problem()
+            .variables()
+            .iter()
+            .all(|variable| variable.lower_bound() == Some(0) && variable.upper_bound() == Some(1))
+    );
 }
 
 #[test]

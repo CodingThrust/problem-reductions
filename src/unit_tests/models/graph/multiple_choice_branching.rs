@@ -127,20 +127,26 @@ fn test_multiple_choice_branching_partition_validation_missing_arc() {
 #[test]
 fn test_multiple_choice_branching_evaluate_yes_instance() {
     let problem = yes_instance();
-    assert!(problem
-        .evaluate(&vec![true, false, true, false, false, true, false, true])
-        .unwrap());
-    assert!(problem
-        .is_valid_solution(&[true, false, true, false, false, true, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, false, true, false, false, true, false, true])
+            .unwrap()
+    );
+    assert!(
+        problem
+            .is_valid_solution(&[true, false, true, false, false, true, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_multiple_choice_branching_rejects_partition_violation() {
     let problem = yes_instance();
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -155,11 +161,13 @@ fn test_multiple_choice_branching_rejects_wrong_config_length() {
 #[test]
 fn test_multiple_choice_branching_rejects_non_binary_config_value() {
     let problem = yes_instance();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, true, false, false, true, false, true])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, true, false, false, true, false, true])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -187,9 +195,11 @@ fn test_multiple_choice_branching_rejects_cycle_violation() {
 #[test]
 fn test_multiple_choice_branching_rejects_threshold_violation() {
     let problem = yes_instance();
-    assert!(!problem
-        .evaluate(&vec![true, false, true, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, true, false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]

@@ -4,7 +4,7 @@
 //! certify that the remaining augmented graph stays connected via unit-flow
 //! commodities from a surviving root to every other surviving vertex.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BiconnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

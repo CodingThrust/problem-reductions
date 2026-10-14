@@ -181,9 +181,11 @@ fn test_satisfiability_to_maximum2satisfiability_every_target_witness() {
         }
         let source_yes = BruteForce::new().solve(&source).unwrap().is_some();
         assert_eq!(best == threshold, source_yes);
-        assert!(reduction
-            .extract_solution(&vec![false; target.num_vars() + 1])
-            .is_err());
+        assert!(
+            reduction
+                .extract_solution(&vec![false; target.num_vars() + 1])
+                .is_err()
+        );
         assert_eq!(
             crate::rules::AggregateReductionResult::extract_value(
                 &reduction,

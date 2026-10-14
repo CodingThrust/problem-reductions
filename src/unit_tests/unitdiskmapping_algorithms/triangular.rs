@@ -1,7 +1,7 @@
 //! Tests for triangular lattice mapping (src/rules/mapping/triangular.rs).
 
 use super::common::solve_weighted_grid_mis;
-use crate::rules::unitdiskmapping::{trace_centers, triangular, MappingResult};
+use crate::rules::unitdiskmapping::{MappingResult, trace_centers, triangular};
 use crate::topology::smallgraph;
 
 // === Basic Triangular Mapping Tests ===

@@ -3,7 +3,7 @@
 //! One integer flow variable per arc. Capacity bounds, multiplier-scaled
 //! conservation at non-terminals, and sink inflow requirement.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;

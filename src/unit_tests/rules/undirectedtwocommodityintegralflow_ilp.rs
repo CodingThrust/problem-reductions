@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -35,12 +35,14 @@ fn sink_self_loop_cannot_supply_either_commodity() {
         assert!(BruteForce::new().solve(&source).unwrap().is_none());
         let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
         let assignment = vec![first, 0, second, 0, 1, 1];
-        assert!(reduction
-            .target_problem()
-            .evaluate(&assignment)
-            .unwrap()
-            .value
-            .is_none());
+        assert!(
+            reduction
+                .target_problem()
+                .evaluate(&assignment)
+                .unwrap()
+                .value
+                .is_none()
+        );
         assert!(reduction.extract_solution(&assignment).is_err());
         assert!(matches!(
             ILPSolver::new().solve(reduction.target_problem()),

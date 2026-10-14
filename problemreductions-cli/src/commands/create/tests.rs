@@ -1059,9 +1059,10 @@ fn test_create_generalized_hex_requires_sink() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): sink"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): sink")
+    );
 }
 
 #[test]
@@ -1202,9 +1203,10 @@ fn test_create_production_planning_requires_all_period_vectors() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): production_costs"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): production_costs")
+    );
 }
 
 #[test]
@@ -1241,9 +1243,10 @@ fn test_create_production_planning_rejects_mismatched_period_lengths() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("all per-period vectors must have length num_periods"));
+    assert!(
+        err.to_string()
+            .contains("all per-period vectors must have length num_periods")
+    );
 }
 
 #[test]
@@ -1465,9 +1468,10 @@ fn test_create_longest_path_requires_edge_lengths() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): edge_lengths"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): edge_lengths")
+    );
 }
 
 #[test]
@@ -1522,9 +1526,10 @@ fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): lower_bounds"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): lower_bounds")
+    );
 }
 
 fn empty_args() -> CreateArgs {
@@ -2143,9 +2148,11 @@ fn test_create_kclique() {
     let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
-    assert!(problem
-        .evaluate(&vec![false, false, true, true, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, true, true, true])
+            .unwrap()
+    );
 
     let _ = std::fs::remove_file(output_path);
 }

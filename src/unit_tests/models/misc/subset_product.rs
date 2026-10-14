@@ -40,30 +40,40 @@ fn test_subsetproduct_basic() {
 fn test_subsetproduct_evaluate_satisfying() {
     let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
     // {2, 3, 5, 7} = 210
-    assert!(problem
-        .evaluate(&vec![true, true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, true, false, false])
+            .unwrap()
+    );
     // {3, 7, 10} = 210
-    assert!(problem
-        .evaluate(&vec![false, true, false, true, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, false, true, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_subsetproduct_evaluate_unsatisfying() {
     let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
     // {2, 3} = 6 != 210
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    );
     // empty = 1 != 210
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
     // all = 2*3*5*7*6*10 = 12600 != 210
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -203,10 +213,14 @@ fn test_subsetproduct_zero_target_panic() {
 #[test]
 fn test_subsetproduct_large_integer_input() {
     let problem = SubsetProduct::new(vec![2i128, 3, 5, 7, 6, 10], 210i128);
-    assert!(problem
-        .evaluate(&vec![true, true, true, true, false, false])
-        .unwrap()); // 2*3*5*7 = 210
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap()); // 2*3 = 6
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, true, false, false])
+            .unwrap()
+    ); // 2*3*5*7 = 210
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    ); // 2*3 = 6
 }

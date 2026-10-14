@@ -1,10 +1,10 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson};
+use crate::dispatch::{ProblemJson, load_problem, read_input};
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::Result;
 use problemreductions::parameters::ParameterRelation;
-use problemreductions::registry::collect_schemas;
 use problemreductions::registry::ProblemCategory;
+use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{ExecutedPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
 use std::any::Any;
@@ -18,7 +18,7 @@ pub fn list(
     verbose: bool,
     out: &OutputConfig,
 ) -> Result<()> {
-    use crate::output::{format_table, Align};
+    use crate::output::{Align, format_table};
 
     let needs_variant_rows = verbose || out.json || out.output.is_some();
     let catalog = problemreductions::registry::problem_types();
@@ -260,7 +260,7 @@ pub fn list(
 }
 
 pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputConfig) -> Result<()> {
-    use crate::output::{format_table, Align};
+    use crate::output::{Align, format_table};
 
     let num_registered = problemreductions::rules::registry::reduction_entries().len();
     let expanded = all || query.is_some() || verbose || out.json || out.output.is_some();

@@ -1,6 +1,6 @@
 //! Numeric variant reductions for ILP.
 
-use crate::models::algebraic::{Comparison, LinearConstraint, VariableDomain, ILP};
+use crate::models::algebraic::{Comparison, ILP, LinearConstraint, VariableDomain};
 use crate::reduction;
 use crate::rules::{ReduceTo, ReductionError, ReductionResult};
 use crate::types::i64_to_exact_f64;

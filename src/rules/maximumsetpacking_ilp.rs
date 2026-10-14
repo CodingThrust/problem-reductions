@@ -5,7 +5,7 @@
 //! - Constraints: For each element e, Σ_{i : e ∈ S_i} x_i ≤ 1
 //! - Objective: Maximize the sum of weights of selected sets
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

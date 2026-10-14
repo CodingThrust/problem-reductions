@@ -97,9 +97,10 @@ fn test_three_partition_paper_example() {
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 8);
-    assert!(all
-        .iter()
-        .all(|sol| problem.evaluate(sol).unwrap() == Or(true)));
+    assert!(
+        all.iter()
+            .all(|sol| problem.evaluate(sol).unwrap() == Or(true))
+    );
 }
 
 #[test]

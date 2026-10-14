@@ -237,8 +237,10 @@ fn test_directed_graph_invalid_arc() {
 
 #[test]
 fn deserialize_rejects_out_of_range_arcs() {
-    assert!(serde_json::from_value::<DirectedGraph>(serde_json::json!({
-        "num_vertices": 2, "arcs": [[2, 0]]
-    }))
-    .is_err());
+    assert!(
+        serde_json::from_value::<DirectedGraph>(serde_json::json!({
+            "num_vertices": 2, "arcs": [[2, 0]]
+        }))
+        .is_err()
+    );
 }

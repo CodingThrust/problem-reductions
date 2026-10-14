@@ -7,9 +7,9 @@
 //!   (at least one resolving vertex distinguishes u from v)
 //! - Objective: Minimize Σ z_v
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::graph::minimum_metric_dimension::bfs_distances;
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumMetricDimension;
+use crate::models::graph::minimum_metric_dimension::bfs_distances;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

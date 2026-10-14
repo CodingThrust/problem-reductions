@@ -1,7 +1,7 @@
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::EnsembleComputation;
-use crate::rules::traits::ReduceTo;
 use crate::rules::ReductionResult;
+use crate::rules::traits::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;

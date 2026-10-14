@@ -32,15 +32,17 @@ fn test_timetable_design_validates_persisted_input() {
 #[test]
 fn create_spec_rejects_matrix_shape_mismatch() {
     assert_eq!(TimetableDesignCreateSpec::FIELDS[3].name, "craftsman_avail");
-    assert!(TimetableDesign::try_from(TimetableDesignCreateSpec {
-        num_periods: 1,
-        num_craftsmen: 1,
-        num_tasks: 1,
-        craftsman_avail: vec![],
-        task_avail: vec![vec![true]],
-        requirements: vec![vec![1]]
-    })
-    .is_err());
+    assert!(
+        TimetableDesign::try_from(TimetableDesignCreateSpec {
+            num_periods: 1,
+            num_craftsmen: 1,
+            num_tasks: 1,
+            craftsman_avail: vec![],
+            task_avail: vec![vec![true]],
+            requirements: vec![vec![1]]
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::traits::Problem;

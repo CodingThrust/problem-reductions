@@ -76,8 +76,8 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
 }
 
 #[test]
-fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers_all_active_vertices(
-) {
+fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers_all_active_vertices()
+ {
     let source = decision_mvc(3, &[(0, 1), (1, 2)], 3);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
@@ -128,10 +128,12 @@ fn test_self_loops_consume_cover_budget() {
         let source = decision_mvc(2, &[(0, 0), (1, 1)], bound);
         let result = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source).unwrap();
         assert!(BruteForce::new().solve(&source).unwrap().is_none());
-        assert!(BruteForce::new()
-            .solve(result.target_problem())
-            .unwrap()
-            .is_none());
+        assert!(
+            BruteForce::new()
+                .solve(result.target_problem())
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(
             crate::rules::AggregateReductionResult::extract_value(&result, crate::types::Or(false)),
             crate::types::Or(false)

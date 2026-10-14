@@ -33,9 +33,11 @@ fn test_decision_longestcircuit_to_ilp_bound_is_a_constraint() {
                 source.evaluate(&actual.unwrap()).unwrap(),
                 crate::types::Or(true)
             );
-            assert!(reduction
-                .extract_solution(&vec![0; target.num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; target.num_vars()])
+                    .is_err()
+            );
         }
     }
     let acyclic = Decision::new(LongestCircuit::new(SimpleGraph::path(3), vec![1, 2]), -1);

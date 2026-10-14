@@ -149,9 +149,11 @@ fn construction_contract_decision_rejects_nested_persisted_shape() {
     .err()
     .expect("nested persisted shape must not be accepted for construction");
 
-    assert!(error
-        .to_string()
-        .contains("unknown construction input(s): inner"));
+    assert!(
+        error
+            .to_string()
+            .contains("unknown construction input(s): inner")
+    );
 }
 
 #[test]
@@ -343,12 +345,16 @@ fn test_decision_mis_unit_registration_and_construction() {
         defaults[0].variant(),
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
     );
-    assert!(!DecisionCreateSpec::<Unit>::inputs()
-        .iter()
-        .any(|input| input.name == "weights"));
-    assert!(DecisionCreateSpec::<Weighted>::inputs()
-        .iter()
-        .any(|input| input.name == "weights"));
+    assert!(
+        !DecisionCreateSpec::<Unit>::inputs()
+            .iter()
+            .any(|input| input.name == "weights")
+    );
+    assert!(
+        DecisionCreateSpec::<Weighted>::inputs()
+            .iter()
+            .any(|input| input.name == "weights")
+    );
     let data = serde_json::json!({"graph":[[0,1],[1,2]],"bound":2});
     let spec: DecisionCreateSpec<Unit> = serde_json::from_value(data.clone()).unwrap();
     let decision: Decision<Unit> = spec.into();

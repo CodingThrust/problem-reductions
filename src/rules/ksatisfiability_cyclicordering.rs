@@ -128,28 +128,29 @@ fn normalize(
                     + 1;
                 let index = i64::try_from(compact)
                     .expect("compaction cannot increase a valid source variable index");
-                if *literal > 0 {
-                    index
-                } else {
-                    -index
-                }
+                if *literal > 0 { index } else { -index }
             })
             .collect();
         match *literals.as_slice() {
             [a, b, c] => normalized.push([a, b, c]),
             [a, b] => {
-                let u = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
+                let u = variables.allocate().map_err(
+                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
+                )?;
                 normalized.extend([[a, b, u], [a, b, -u]]);
             }
             [a] => {
-                let u = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
-                let v = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
+                let u = variables.allocate().map_err(
+                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
+                )?;
+                let v = variables.allocate().map_err(
+                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
+                )?;
                 normalized.extend([[a, u, v], [a, u, -v], [a, -u, v], [a, -u, -v]]);
             }
-            _ => unreachable!("empty clauses are handled before normalization; native clauses have at most three literals"),
+            _ => unreachable!(
+                "empty clauses are handled before normalization; native clauses have at most three literals"
+            ),
         }
     }
     // Original compact indices precede all fresh indices. Every emitted

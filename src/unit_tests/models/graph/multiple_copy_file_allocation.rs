@@ -103,11 +103,13 @@ fn test_multiple_copy_file_allocation_invalid_configs() {
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
 
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, true, 2, true, false, true])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, true, 2, true, false, true])
+        )
+        .is_err()
+    );
 
     assert_eq!(problem.total_cost(&[false; 6]).unwrap(), None);
     assert_eq!(
@@ -180,7 +182,8 @@ fn test_multiple_copy_file_allocation_paper_example() {
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
     // The optimal is placing all 6 copies (cost=6), check that witness exists
-    assert!(all
-        .iter()
-        .any(|config| problem.total_cost(config).unwrap() == Some(6)));
+    assert!(
+        all.iter()
+            .any(|config| problem.total_cost(config).unwrap() == Some(6))
+    );
 }

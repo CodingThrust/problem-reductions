@@ -4,7 +4,7 @@
 //! every row to have a single consecutive block within the chosen submatrix.
 //! The output is the column-selection bits s_c.
 
-use crate::models::algebraic::{ConsecutiveOnesSubmatrix, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ConsecutiveOnesSubmatrix, ILP, LinearConstraint, ObjectiveSense};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

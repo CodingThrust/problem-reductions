@@ -106,11 +106,13 @@ fn test_feasible_basis_extension_evaluate_wrong_config_length() {
 #[test]
 fn test_feasible_basis_extension_evaluate_invalid_variable_value() {
     let problem = issue_example();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -251,8 +253,10 @@ fn test_feasible_basis_extension_duplicate_required() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<FeasibleBasisExtension>(
-        serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<FeasibleBasisExtension>(
+            serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
+        )
+        .is_err()
+    );
 }

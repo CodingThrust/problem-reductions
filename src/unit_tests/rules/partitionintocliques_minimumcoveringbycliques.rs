@@ -210,9 +210,11 @@ fn test_partitionintocliques_native_bounds_and_adjacency_semantics() {
                 assert!(reduction.extract_solution(&witness).is_err());
             }
             assert!(reduction.extract_solution(&vec![0; witness.len()]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![0; witness.len() + 1])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; witness.len() + 1])
+                    .is_err()
+            );
             let q = layout.num_directed_pairs();
             assert_eq!(target.num_vertices(), 2 * n + 2 * q + 4);
             assert_eq!(target.num_edges(), (n + q) * (n + q) + 4 * n + 7 * q + 2);

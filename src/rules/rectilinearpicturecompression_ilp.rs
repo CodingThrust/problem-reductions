@@ -3,7 +3,7 @@
 //! Binary variable x_r per maximal rectangle. For each 1-cell, require at least
 //! one covering rectangle selected. Total selected ≤ bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::RectilinearPictureCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

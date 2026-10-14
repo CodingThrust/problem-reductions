@@ -1,9 +1,9 @@
 //! Encode finitely bounded integer ILP variables as binary variables.
 
-use crate::models::algebraic::{Bounded, Comparison, LinearConstraint, ILP};
+use crate::models::algebraic::{Bounded, Comparison, ILP, LinearConstraint};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::ReductionError;
+use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 struct VarEncoding {

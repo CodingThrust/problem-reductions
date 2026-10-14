@@ -256,7 +256,7 @@ fn normalize_nary_gate(
     for arg in args {
         match normalize_expr(arg) {
             NormalizedExpr::Const(value) if value == absorbing_value => {
-                return NormalizedExpr::Const(absorbing_value)
+                return NormalizedExpr::Const(absorbing_value);
             }
             NormalizedExpr::Const(value) if value == identity_value => {}
             normalized => normalized_args.push(normalized),

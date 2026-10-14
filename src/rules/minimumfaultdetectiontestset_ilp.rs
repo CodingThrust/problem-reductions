@@ -5,7 +5,7 @@
 //! set contains that vertex. Minimizing the sum of the pair variables therefore
 //! recovers the minimum-size covering test set.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumFaultDetectionTestSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

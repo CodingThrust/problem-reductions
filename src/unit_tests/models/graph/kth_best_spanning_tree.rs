@@ -113,11 +113,13 @@ fn test_kthbestspanningtree_evaluation_rejects_wrong_length_config() {
 #[test]
 fn test_kthbestspanningtree_evaluation_rejects_nonbinary_value() {
     let problem = yes_instance();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([[2, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0]]),
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([[2, 1, 1, 0, 0, 0], [1, 1, 0, 0, 1, 0]]),
+        )
+        .is_err()
+    );
 }
 
 #[test]

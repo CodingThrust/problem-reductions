@@ -12,7 +12,7 @@ use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
-use crate::variant::{KValue, VariantParam, KN};
+use crate::variant::{KN, KValue, VariantParam};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 

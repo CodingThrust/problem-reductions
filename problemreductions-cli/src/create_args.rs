@@ -1,6 +1,6 @@
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, Error, FromArgMatches};
-use problemreductions::registry::{variant_entries, ProblemType};
+use problemreductions::registry::{ProblemType, variant_entries};
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::str::FromStr;

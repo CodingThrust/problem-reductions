@@ -122,13 +122,15 @@ fn bounded_integer_ilp_loading_requires_finite_domains() {
         let mut invalid = instance.clone();
         invalid["variables"] = serde_json::json!([{"lower_bound": lower, "upper_bound": upper}]);
         assert!(crate::registry::load_dyn("ILP", &variant, invalid).is_err());
-        assert!(ILP::<i64, i64, Bounded>::with_variables(
-            vec![IntegerVariable::new(lower, upper).unwrap()],
-            vec![],
-            vec![],
-            ObjectiveSense::Minimize,
-        )
-        .is_err());
+        assert!(
+            ILP::<i64, i64, Bounded>::with_variables(
+                vec![IntegerVariable::new(lower, upper).unwrap()],
+                vec![],
+                vec![],
+                ObjectiveSense::Minimize,
+            )
+            .is_err()
+        );
     }
 }
 
@@ -293,13 +295,15 @@ fn test_linear_constraint_reports_exact_evaluation_overflow() {
 
 #[test]
 fn test_linear_constraint_out_of_bounds() {
-    assert!(ILP::<bool>::new(
-        3,
-        vec![LinearConstraint::le(vec![(5, 1)], 10)],
-        vec![],
-        ObjectiveSense::Minimize,
-    )
-    .is_err());
+    assert!(
+        ILP::<bool>::new(
+            3,
+            vec![LinearConstraint::le(vec![(5, 1)], 10)],
+            vec![],
+            ObjectiveSense::Minimize,
+        )
+        .is_err()
+    );
 }
 
 #[test]

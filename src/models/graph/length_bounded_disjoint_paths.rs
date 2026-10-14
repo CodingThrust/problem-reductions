@@ -4,7 +4,7 @@
 //! each using at most `K` edges, over up to `max_paths` path slots.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{is_simple_st_path, Graph, SimpleGraph};
+use crate::topology::{Graph, SimpleGraph, is_simple_st_path};
 use crate::traits::Problem;
 use crate::types::Max;
 use crate::variant::VariantParam;

@@ -147,9 +147,11 @@ fn integer_ilp_graph_requires_bounded_domains_for_binary_encoding() {
     let graph = ReductionGraph::new();
     let general = ReductionGraph::variant_to_map(&ILP::<i64>::variant());
     let binary = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
-    assert!(graph
-        .find_all_paths("ILP", &general, "ILP", &binary)
-        .is_empty());
+    assert!(
+        graph
+            .find_all_paths("ILP", &general, "ILP", &binary)
+            .is_empty()
+    );
     let bounded = ReductionGraph::variant_to_map(&[
         ("variable", "i64"),
         ("coefficient", "i64"),
@@ -160,10 +162,12 @@ fn integer_ilp_graph_requires_bounded_domains_for_binary_encoding() {
         (&bounded, &general),
         (&binary, &bounded),
     ] {
-        assert!(graph
-            .find_all_paths("ILP", source, "ILP", target)
-            .iter()
-            .any(|path| path.len() == 1));
+        assert!(
+            graph
+                .find_all_paths("ILP", source, "ILP", target)
+                .iter()
+                .any(|path| path.len() == 1)
+        );
     }
 }
 
@@ -284,10 +288,12 @@ fn compose_path_parameter_transform_is_absent_for_one_node() {
         }],
     };
 
-    assert!(graph
-        .compose_path_parameter_transform(&path)
-        .unwrap()
-        .is_none());
+    assert!(
+        graph
+            .compose_path_parameter_transform(&path)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -370,24 +376,28 @@ fn aggregate_mode_rejects_witness_only_real_edge() {
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
 
-    assert!(!graph
-        .find_all_paths_mode(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            ReductionMode::Witness
-        )
-        .is_empty());
-    assert!(graph
-        .find_all_paths_mode(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                "MaximumIndependentSet",
+                &src,
+                "MinimumVertexCover",
+                &dst,
+                ReductionMode::Witness
+            )
+            .is_empty()
+    );
+    assert!(
+        graph
+            .find_all_paths_mode(
+                "MaximumIndependentSet",
+                &src,
+                "MinimumVertexCover",
+                &dst,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -398,24 +408,28 @@ fn variant_reduction_supports_both_modes_public_api() {
     let dst =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i64>::variant());
 
-    assert!(!graph
-        .find_all_paths_mode(
-            "MaximumIndependentSet",
-            &src,
-            "MaximumIndependentSet",
-            &dst,
-            ReductionMode::Witness
-        )
-        .is_empty());
-    assert!(!graph
-        .find_all_paths_mode(
-            "MaximumIndependentSet",
-            &src,
-            "MaximumIndependentSet",
-            &dst,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                "MaximumIndependentSet",
+                &src,
+                "MaximumIndependentSet",
+                &dst,
+                ReductionMode::Witness
+            )
+            .is_empty()
+    );
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                "MaximumIndependentSet",
+                &src,
+                "MaximumIndependentSet",
+                &dst,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -426,15 +440,17 @@ fn value_changing_variant_cast_is_not_aggregate_capable() {
     let src = ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant());
     let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<f64>::variant());
 
-    assert!(graph
-        .find_all_paths_mode(
-            "MaximumSetPacking",
-            &src,
-            "MaximumSetPacking",
-            &dst,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
+    assert!(
+        graph
+            .find_all_paths_mode(
+                "MaximumSetPacking",
+                &src,
+                "MaximumSetPacking",
+                &dst,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -444,16 +460,20 @@ fn test_problem_parameters_propagation() {
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
 
-    assert!(!graph
-        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
-        .is_empty());
+    assert!(
+        !graph
+            .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+            .is_empty()
+    );
 
     let src2 =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst2 = ReductionGraph::variant_to_map(&MaximumSetPacking::<i64>::variant());
-    assert!(!graph
-        .find_all_paths("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2)
-        .is_empty());
+    assert!(
+        !graph
+            .find_all_paths("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2)
+            .is_empty()
+    );
 }
 
 // ---- JSON export ----
@@ -957,8 +977,10 @@ fn vertex_cover_identity_does_not_define_a_matching_reduction() {
     let target_witness = solver.solve(&target).unwrap().unwrap();
     assert_eq!(source.evaluate(&source_witness).unwrap(), Min(Some(3)));
     assert_eq!(target.evaluate(&target_witness).unwrap(), Min(Some(2)));
-    assert!(!ReductionGraph::new()
-        .has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",));
+    assert!(
+        !ReductionGraph::new()
+            .has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",)
+    );
 }
 
 #[test]
@@ -1038,8 +1060,8 @@ fn test_decision_minimum_dominating_set_has_both_edges() {
 }
 
 #[test]
-fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness_and_aggregate_edges(
-) {
+fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness_and_aggregate_edges()
+ {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_mode::<
@@ -1082,8 +1104,8 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
 }
 
 #[test]
-fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_witness_and_aggregate_edges(
-) {
+fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_witness_and_aggregate_edges()
+ {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_mode::<
@@ -1198,8 +1220,8 @@ fn test_find_paths_bounded_limits_depth() {
 #[test]
 fn test_find_paths_bounded_returns_shortest_when_truncated() {
     use crate::expr::Expr;
-    use crate::rules::registry::{ReductionParameterContract, ReductionParameterDeclarations};
     use crate::rules::ReductionEdgeData;
+    use crate::rules::registry::{ReductionParameterContract, ReductionParameterDeclarations};
 
     fn edge() -> ReductionEdgeData {
         fn reduce(

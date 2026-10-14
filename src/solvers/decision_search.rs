@@ -4,8 +4,8 @@ use crate::models::decision::{Decision, DecisionProblemMeta};
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::{Max, Min, OptimizationValue, Or};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::fmt;
 
 /// Whether a decision problem has at least one satisfying configuration.
