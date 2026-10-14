@@ -594,8 +594,8 @@ fn normalize_constraint<C: ILPCoefficient>(
                     construction_arithmetic_error(
                         error,
                         format!(
-                        "merging duplicate variable {variable} in ILP constraint {constraint_index}"
-                    ),
+                            "merging duplicate variable {variable} in ILP constraint {constraint_index}"
+                        ),
                     )
                 })?;
             continue;
