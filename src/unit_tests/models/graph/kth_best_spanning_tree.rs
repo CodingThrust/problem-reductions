@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn test_kth_best_spanning_tree_create_rejects_undersized_graph() {
+    let error = KthBestSpanningTree::try_from(KthBestSpanningTreeCreateSpec {
+        graph: vec![(0, 2)],
+        num_vertices: Some(2),
+        edge_weights: None,
+        k: 1,
+        bound: 1,
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, crate::registry::ConstructionError::Conversion(message)
+        if message == "num_vertices 2 is too small for graph endpoints; need at least 3")
+    );
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 

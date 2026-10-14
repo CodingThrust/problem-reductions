@@ -25,6 +25,19 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+#[test]
+fn test_parse_error_appends_subcommand_workflow_help() {
+    let output = pred().args(["solve", "--pred solve"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("unexpected argument '--pred solve'"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("pred create"), "{stderr}");
+    assert!(stderr.contains("brute-force"), "{stderr}");
+}
+
 fn extract_target_config(
     bundle: &std::path::Path,
     config: serde_json::Value,

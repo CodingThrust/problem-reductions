@@ -25,6 +25,20 @@ fn test_json_enforces_construction_constraints() {
 }
 
 use super::*;
+
+#[test]
+fn test_minimum_capacitated_spanning_tree_evaluate_weight_overflow() {
+    let problem = MinimumCapacitatedSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![i64::MAX, 1],
+        0,
+        vec![0, 1, 1],
+        2,
+    );
+    assert!(matches!(problem.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(message))
+        if message == "summing capacitated spanning tree edge weights"));
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]

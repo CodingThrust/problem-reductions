@@ -1,6 +1,33 @@
 //! Tests for gadget properties (src/rules/mapping/gadgets.rs and triangular gadgets).
 
 use super::common::{ksg_edges, solve_weighted_mis, triangular_edges};
+
+#[test]
+fn test_weighted_ksg_simplifier_rejects_noncenter_weight() {
+    use crate::rules::unitdiskmapping::ksg::gadgets::apply_weighted_simplifier_gadgets;
+    use crate::rules::unitdiskmapping::{CellState, MappingGrid};
+
+    for weights in [[1, 3, 2], [1, 2, 3]] {
+        let mut grid = MappingGrid::new(4, 3, 1);
+        for (row, weight) in (1..=3).zip(weights) {
+            grid.set(row, 1, CellState::Occupied { weight });
+        }
+        assert!(apply_weighted_simplifier_gadgets(&mut grid, 1).is_empty());
+        for (row, weight) in (1..=3).zip(weights) {
+            assert_eq!(grid.get(row, 1), Some(&CellState::Occupied { weight }));
+        }
+    }
+    let mut grid = MappingGrid::new(4, 3, 1);
+    for (row, weight) in (1..=3).zip([1, 2, 2]) {
+        grid.set(row, 1, CellState::Occupied { weight });
+    }
+    let tape = apply_weighted_simplifier_gadgets(&mut grid, 1);
+    assert_eq!(tape.len(), 1);
+    assert_eq!((tape[0].pattern_idx, tape[0].row, tape[0].col), (100, 0, 0));
+    assert_eq!(grid.get(1, 1), Some(&CellState::Empty));
+    assert_eq!(grid.get(2, 1), Some(&CellState::Empty));
+    assert_eq!(grid.get(3, 1), Some(&CellState::Occupied { weight: 1 }));
+}
 use crate::rules::unitdiskmapping::Pattern;
 use crate::rules::unitdiskmapping::ksg::{
     KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn,

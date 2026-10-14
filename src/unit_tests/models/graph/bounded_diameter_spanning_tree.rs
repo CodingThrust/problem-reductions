@@ -26,6 +26,22 @@ fn test_json_enforces_construction_constraints() {
 use super::*;
 
 #[test]
+fn test_bounded_diameter_spanning_tree_create_rejects_undersized_graph() {
+    let error = BoundedDiameterSpanningTree::try_from(BoundedDiameterSpanningTreeCreateSpec {
+        graph: vec![(0, 2)],
+        num_vertices: Some(2),
+        edge_weights: None,
+        weight_bound: 1,
+        diameter_bound: 1,
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, crate::registry::ConstructionError::Conversion(message)
+        if message == "num_vertices 2 is too small for graph endpoints; need at least 3")
+    );
+}
+
+#[test]
 fn test_json_rebuilds_edge_list() {
     let problem = BoundedDiameterSpanningTree::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),

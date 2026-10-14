@@ -4,6 +4,20 @@ use super::common::solve_weighted_grid_mis;
 use crate::rules::unitdiskmapping::{MappingResult, trace_centers, triangular};
 use crate::topology::smallgraph;
 
+#[test]
+fn test_weighted_triangular_tape_rejects_unknown_gadget() {
+    let entry = triangular::gadgets::WeightedTriTapeEntry {
+        gadget_idx: 104,
+        row: 0,
+        col: 0,
+    };
+    assert!(
+        matches!(triangular::gadgets::tape_entry_mis_overhead(&entry),
+        Err(crate::rules::ReductionError::InvalidTarget { source_problem: "Graph", target_problem: "UnitDiskMapping", message })
+        if message == "tape contains an unknown weighted triangular gadget index")
+    );
+}
+
 // === Basic Triangular Mapping Tests ===
 
 #[test]

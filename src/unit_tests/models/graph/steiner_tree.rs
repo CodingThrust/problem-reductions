@@ -1,6 +1,18 @@
 use super::*;
 
 #[test]
+fn test_steiner_tree_evaluate_weight_overflow() {
+    let problem = SteinerTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![i64::MAX, 1],
+        vec![0, 2],
+    );
+    assert!(matches!(problem.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(message))
+        if message == "summing Steiner tree edge weights"));
+}
+
+#[test]
 fn signed_complexity_counts_nonterminal_subsets() {
     let problem = SteinerTree::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-2i64], vec![0]);
     let entry = inventory::iter::<crate::registry::VariantEntry>()

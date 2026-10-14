@@ -143,6 +143,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_complexity_codegen_rejects_unrepresentable_constant() {
+        let decimal = "1".to_owned() + &"0".repeat(400);
+        let expression = Expr::parse(&decimal);
+        let parameters = syn::parse_quote!(parameters);
+        let error = complexity_estimate_tokens(&expression, &parameters).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "exact expression constant {} is outside complexity estimation",
+                decimal
+            )
+        );
+    }
+
+    #[test]
     fn shared_parser_drives_codegen() {
         let expression = Expr::parse("n * (n - 1) / 2 - m");
         assert!(matches!(expression.node(), ExprNode::Add(_)));

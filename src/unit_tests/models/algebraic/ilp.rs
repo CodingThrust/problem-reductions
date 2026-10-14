@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn test_ilp_rejects_objective_normalization_overflow() {
+    let error = ILP::<bool>::new(
+        1,
+        vec![],
+        vec![(0, i64::MAX), (0, 1)],
+        ObjectiveSense::Minimize,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(error, crate::registry::ConstructionError::IntegerOverflow(message)
+        if message == "merged objective coefficient of variable 0")
+    );
+}
 use crate::solvers::{ILPSolveError, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Extremum;

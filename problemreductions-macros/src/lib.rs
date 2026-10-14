@@ -1091,6 +1091,30 @@ mod tests {
     use syn::{Type, parse_str};
 
     #[test]
+    fn test_extract_type_name_skips_lifetime_and_const_arguments() {
+        let ty: Type = parse_str("Decision<'a, 3, MinimumVertexCover<SimpleGraph, One>>").unwrap();
+        assert_eq!(
+            extract_type_name(&ty).as_deref(),
+            Some("DecisionMinimumVertexCover")
+        );
+        let ty: Type = parse_str("Decision<'a, 3>").unwrap();
+        assert_eq!(extract_type_name(&ty), None);
+    }
+
+    #[test]
+    fn test_reduction_rejects_type_generic_source() {
+        let attrs: ReductionAttrs =
+            syn::parse_quote! { transform = exact { num_vertices = "num_vertices" } };
+        let implementation: ItemImpl =
+            syn::parse_quote! { impl<G> ReduceTo<Target> for Source<G> {} };
+        let error = generate_reduction_entry(&attrs, &implementation).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "#[reduction] does not support type generics (found: G). Make the ReduceTo impl concrete by specifying explicit types."
+        );
+    }
+
+    #[test]
     fn parameters_report_expression_domain_errors() {
         let attrs: ReductionAttrs =
             syn::parse_quote! { transform = exact { num_vertices = "0 / 0" } };
