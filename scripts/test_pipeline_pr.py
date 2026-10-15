@@ -644,6 +644,16 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertEqual(result["pr_number"], 570)
         self.assertEqual(result["repo"], "CodingThrust/problem-reductions")
 
+    def test_parse_args_wait_ci_output_format(self) -> None:
+        for options, expected in [
+            ([], "json"),
+            (["--format", "json"], "json"),
+            (["--format", "text"], "text"),
+        ]:
+            with self.subTest(options=options):
+                args = parse_args(["wait-ci", "--repo", "x/y", "--pr", "1", *options])
+                self.assertEqual(args.format, expected)
+
     def test_parse_args_accepts_comment_and_create_commands(self) -> None:
         comment_args = parse_args(
             [
