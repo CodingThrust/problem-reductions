@@ -50,10 +50,12 @@ fn deserialize_checks_the_edge_bound() {
     let edges: Vec<_> = (0..5)
         .flat_map(|u| ((u + 1)..5).map(move |v| (u, v)))
         .collect();
-    assert!(serde_json::from_value::<PlanarGraph>(serde_json::json!({
-        "inner": {"num_vertices": 5, "edges": edges}
-    }))
-    .is_err());
+    assert!(
+        serde_json::from_value::<PlanarGraph>(serde_json::json!({
+            "inner": {"num_vertices": 5, "edges": edges}
+        }))
+        .is_err()
+    );
     let graph: PlanarGraph = serde_json::from_value(serde_json::json!({
         "inner": {"num_vertices": 2, "edges": [[0, 1]]}
     }))

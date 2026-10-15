@@ -69,10 +69,12 @@ fn test_export_schemas() {
         .into_iter()
         .find(|schema| schema.name == "MaximumIndependentSet")
         .unwrap();
-    assert!(serde_json::to_value(public_schema)
-        .unwrap()
-        .get("module_path")
-        .is_none());
+    assert!(
+        serde_json::to_value(public_schema)
+            .unwrap()
+            .get("module_path")
+            .is_none()
+    );
     std::fs::remove_dir_all(output_dir).unwrap();
 }
 

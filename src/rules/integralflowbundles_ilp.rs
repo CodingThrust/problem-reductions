@@ -4,7 +4,7 @@
 //! the bundle-capacity inequalities, flow-conservation equalities at
 //! nonterminals, and the sink inflow lower bound from the source problem.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;

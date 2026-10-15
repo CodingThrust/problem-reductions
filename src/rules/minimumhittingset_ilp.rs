@@ -3,7 +3,7 @@
 //! Binary variable x_e per universe element; for each set S,
 //! require Σ_{e∈S} x_e ≥ 1 (set is hit). Minimize Σ x_e.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::set::MinimumHittingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

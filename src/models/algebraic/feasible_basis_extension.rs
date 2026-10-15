@@ -415,7 +415,7 @@ impl Problem for FeasibleBasisExtension {
             let selected_free: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(i, _)| free_cols[i])
                 .collect();
 

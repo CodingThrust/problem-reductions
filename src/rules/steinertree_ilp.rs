@@ -4,7 +4,7 @@
 //! Endpoint linking and |selected edges| = |selected vertices| - 1 then enforce
 //! a tree, independently of the objective's signs.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::SteinerTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

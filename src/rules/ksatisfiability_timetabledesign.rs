@@ -134,11 +134,7 @@ fn literal_var_index(literal: i64) -> usize {
 fn evaluate_clause(clause: &CNFClause, assignment: &[bool]) -> bool {
     clause.literals.iter().any(|&literal| {
         let value = assignment[literal_var_index(literal)];
-        if literal > 0 {
-            value
-        } else {
-            !value
-        }
+        if literal > 0 { value } else { !value }
     })
 }
 

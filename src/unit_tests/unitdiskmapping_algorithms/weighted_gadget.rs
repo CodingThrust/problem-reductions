@@ -2,6 +2,7 @@
 
 use super::alpha_tensor::alpha_tensor;
 use super::common::{ksg_edges, triangular_edges};
+use crate::rules::unitdiskmapping::Pattern;
 use crate::rules::unitdiskmapping::ksg::{
     KsgReflectedGadget, KsgRotatedGadget, Mirror, WeightedKsgBranch, WeightedKsgBranchFix,
     WeightedKsgBranchFixB, WeightedKsgCross, WeightedKsgDanglingLeg, WeightedKsgEndTurn,
@@ -13,7 +14,6 @@ use crate::rules::unitdiskmapping::triangular::{
     WeightedTriTrivialTurnLeft, WeightedTriTrivialTurnRight, WeightedTriTurn, WeightedTriWTurn,
     WeightedTriangularGadget,
 };
-use crate::rules::unitdiskmapping::Pattern;
 
 fn assert_weighted_boundary_equivalent(
     source: (&[(usize, usize)], &mut [i64], &[usize]),

@@ -143,11 +143,7 @@ impl MixedGraph {
 }
 
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    if u <= v { (u, v) } else { (v, u) }
 }
 
 impl PartialEq for MixedGraph {

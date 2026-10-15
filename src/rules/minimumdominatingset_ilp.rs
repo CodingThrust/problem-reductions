@@ -6,7 +6,7 @@
 //!   (v or at least one of its neighbors must be selected)
 //! - Objective: Minimize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -332,10 +332,10 @@ impl Problem for PreemptiveScheduling {
             for &(pred, succ) in &self.precedences {
                 let last_pred = (0..d).rev().find(|&u| solution[pred][u]);
                 let first_succ = (0..d).find(|&u| solution[succ][u]);
-                if let (Some(lp), Some(fs)) = (last_pred, first_succ) {
-                    if lp >= fs {
-                        return Ok(Min(None));
-                    }
+                if let (Some(lp), Some(fs)) = (last_pred, first_succ)
+                    && lp >= fs
+                {
+                    return Ok(Min(None));
                 }
             }
 

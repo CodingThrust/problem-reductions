@@ -5,7 +5,7 @@
 //! - Weighted (square lattice with weights)
 //! - Triangular (triangular lattice with weights)
 
-use crate::rules::unitdiskmapping::{ksg, triangular, MappingResult};
+use crate::rules::unitdiskmapping::{MappingResult, ksg, triangular};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;

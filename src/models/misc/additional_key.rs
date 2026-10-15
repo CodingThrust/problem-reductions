@@ -261,7 +261,7 @@ impl Problem for AdditionalKey {
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| self.relation_attrs[i])
                     .collect();
 

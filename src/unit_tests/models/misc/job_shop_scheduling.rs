@@ -142,11 +142,13 @@ fn test_job_shop_scheduling_create_spec_derives_processor_count() {
 
 #[test]
 fn test_job_shop_scheduling_create_spec_rejects_invalid_jobs() {
-    assert!(JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
-        jobs: vec![vec![(0, -1)]],
-        num_processors: Some(1),
-    })
-    .is_err());
+    assert!(
+        JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+            jobs: vec![vec![(0, -1)]],
+            num_processors: Some(1),
+        })
+        .is_err()
+    );
 
     let empty = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
         jobs: vec![],

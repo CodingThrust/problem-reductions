@@ -95,11 +95,13 @@ fn test_minimum_matrix_domination_evaluate_wrong_length() {
 #[test]
 fn test_minimum_matrix_domination_evaluate_invalid_variable() {
     let problem = MinimumMatrixDomination::new(p6_adjacency_matrix());
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -203,10 +205,12 @@ fn test_minimum_matrix_domination_inconsistent_rows() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<MinimumMatrixDomination>(
-        serde_json::json!({"matrix":[[true],[]],"ones":[]})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<MinimumMatrixDomination>(
+            serde_json::json!({"matrix":[[true],[]],"ones":[]})
+        )
+        .is_err()
+    );
 }
 
 #[test]

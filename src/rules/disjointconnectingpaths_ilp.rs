@@ -3,7 +3,7 @@
 //! Binary flow variables `f^k_{e,dir}` per commodity per directed arc orientation.
 //! Flow conservation and unit vertex capacities enforce vertex-disjoint paths.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::DisjointConnectingPaths;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

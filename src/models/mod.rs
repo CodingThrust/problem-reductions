@@ -11,12 +11,12 @@ pub mod set;
 
 // Re-export commonly used types
 pub use algebraic::{
-    AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
+    AlgebraicEquationsOverGF2, BMF, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,
-    FeasibleBasisExtension, MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
-    MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
-    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP,
-    QUBO,
+    FeasibleBasisExtension, ILP, MinimumMatrixCover, MinimumMatrixDomination,
+    MinimumWeightDecoding, MinimumWeightSolutionToLinearEquations, QUBO, QuadraticAssignment,
+    QuadraticCongruences, QuadraticDiophantineEquations, SimultaneousIncongruences,
+    SparseMatrixCompression,
 };
 pub use decision::Decision;
 pub use formula::{

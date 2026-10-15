@@ -7,7 +7,7 @@
 use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{EvaluationError, Problem};
 use crate::types::{
-    i64_to_exact_f64, Extremum, NumericArithmeticError, NumericSize, WeightElement,
+    Extremum, NumericArithmeticError, NumericSize, WeightElement, i64_to_exact_f64,
 };
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::Debug;
@@ -585,20 +585,20 @@ fn normalize_constraint<C: ILPCoefficient>(
     terms.sort_by_key(|&(variable, _)| variable);
     let mut normalized: Vec<(usize, C)> = Vec::with_capacity(terms.len());
     for (variable, coefficient) in terms {
-        if let Some((previous_variable, previous_coefficient)) = normalized.last_mut() {
-            if *previous_variable == variable {
-                *previous_coefficient = previous_coefficient
-                    .checked_add_value(coefficient)
-                    .map_err(|error| {
-                        construction_arithmetic_error(
-                            error,
-                            format!(
-                        "merging duplicate variable {variable} in ILP constraint {constraint_index}"
-                    ),
-                        )
-                    })?;
-                continue;
-            }
+        if let Some((previous_variable, previous_coefficient)) = normalized.last_mut()
+            && *previous_variable == variable
+        {
+            *previous_coefficient = previous_coefficient
+                .checked_add_value(coefficient)
+                .map_err(|error| {
+                    construction_arithmetic_error(
+                        error,
+                        format!(
+                            "merging duplicate variable {variable} in ILP constraint {constraint_index}"
+                        ),
+                    )
+                })?;
+            continue;
         }
         normalized.push((variable, coefficient));
     }
@@ -625,18 +625,18 @@ fn normalize_objective<C: ILPCoefficient>(
     objective.sort_by_key(|&(variable, _)| variable);
     let mut normalized: Vec<(usize, C)> = Vec::with_capacity(objective.len());
     for (variable, coefficient) in objective {
-        if let Some((previous_variable, previous_coefficient)) = normalized.last_mut() {
-            if *previous_variable == variable {
-                *previous_coefficient = previous_coefficient
-                    .checked_add_value(coefficient)
-                    .map_err(|error| {
-                        construction_arithmetic_error(
-                            error,
-                            format!("merged objective coefficient of variable {variable}"),
-                        )
-                    })?;
-                continue;
-            }
+        if let Some((previous_variable, previous_coefficient)) = normalized.last_mut()
+            && *previous_variable == variable
+        {
+            *previous_coefficient = previous_coefficient
+                .checked_add_value(coefficient)
+                .map_err(|error| {
+                    construction_arithmetic_error(
+                        error,
+                        format!("merged objective coefficient of variable {variable}"),
+                    )
+                })?;
+            continue;
         }
         normalized.push((variable, coefficient));
     }

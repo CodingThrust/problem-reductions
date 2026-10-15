@@ -96,7 +96,7 @@ impl MinimumMatrixDomination {
             .flat_map(|(i, row)| {
                 row.iter()
                     .enumerate()
-                    .filter(|(_, &value)| value)
+                    .filter(|&(_, &value)| value)
                     .map(move |(j, _)| (i, j))
             })
             .collect();
@@ -158,7 +158,7 @@ impl Problem for MinimumMatrixDomination {
             let selected: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(i, _)| i)
                 .collect();
 

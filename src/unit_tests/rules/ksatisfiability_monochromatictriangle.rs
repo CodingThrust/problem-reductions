@@ -1,5 +1,5 @@
 use super::add_equality_sender;
-use crate::models::algebraic::{LinearConstraint, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint};
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::graph::MonochromaticTriangle;
 use crate::rules::traits::{ReduceTo, ReductionResult};

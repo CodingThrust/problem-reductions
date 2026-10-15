@@ -1,6 +1,6 @@
 //! Exact Boolean factorization with coverage indicators only for true entries.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, BMF, ILP};
+use crate::models::algebraic::{BMF, ILP, LinearConstraint, ObjectiveSense};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

@@ -103,11 +103,10 @@ fn test_biconnectivity_augmentation_evaluation() {
     assert!(!problem.evaluate(&vec![false, true, false]).unwrap());
     assert!(problem.evaluate(&vec![false, false, true]).unwrap());
     assert!(!problem.evaluate(&vec![false, true, true]).unwrap());
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false, false]))
+            .is_err()
+    );
     assert!(matches!(
         problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))

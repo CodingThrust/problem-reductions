@@ -41,10 +41,12 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
     );
     let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&no).unwrap();
     assert_eq!(reduction.target_problem().num_edges(), 6);
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

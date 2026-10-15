@@ -25,6 +25,19 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+#[test]
+fn test_parse_error_appends_subcommand_workflow_help() {
+    let output = pred().args(["solve", "--pred solve"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("unexpected argument '--pred solve'"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("pred create"), "{stderr}");
+    assert!(stderr.contains("brute-force"), "{stderr}");
+}
+
 fn extract_target_config(
     bundle: &std::path::Path,
     config: serde_json::Value,
@@ -154,15 +167,21 @@ fn test_list_json_respects_category_filter() {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let variants = json["variants"].as_array().unwrap();
     assert_eq!(json["num_types"], 10);
-    assert!(variants
-        .iter()
-        .all(|variant| variant["name"] != "MaximumIndependentSet"));
-    assert!(variants
-        .iter()
-        .all(|variant| variant["category"] == "formula"));
-    assert!(variants
-        .iter()
-        .any(|variant| variant["name"] == "KSatisfiability/K3"));
+    assert!(
+        variants
+            .iter()
+            .all(|variant| variant["name"] != "MaximumIndependentSet")
+    );
+    assert!(
+        variants
+            .iter()
+            .all(|variant| variant["category"] == "formula")
+    );
+    assert!(
+        variants
+            .iter()
+            .any(|variant| variant["name"] == "KSatisfiability/K3")
+    );
 }
 
 #[test]
@@ -388,11 +407,13 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
     assert_eq!(json["solver"]["kind"], "ilp");
-    assert!(json["solver"]["reduction_path"]
-        .as_array()
-        .and_then(|path| path.last())
-        .and_then(|step| step.as_str())
-        .is_some_and(|step| step.starts_with("ILP<")));
+    assert!(
+        json["solver"]["reduction_path"]
+            .as_array()
+            .and_then(|path| path.last())
+            .and_then(|step| step.as_str())
+            .is_some_and(|step| step.starts_with("ILP<"))
+    );
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
         json["solution"]
@@ -545,9 +566,11 @@ fn test_path_save() {
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(json.get("path").is_none());
-    assert!(json["paths"]
-        .as_array()
-        .is_some_and(|paths| !paths.is_empty()));
+    assert!(
+        json["paths"]
+            .as_array()
+            .is_some_and(|paths| !paths.is_empty())
+    );
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -572,8 +595,10 @@ fn test_path_rejects_limit_above_maximum() {
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("limit must be an integer from 1 to 999 or 'all'"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("limit must be an integer from 1 to 999 or 'all'")
+    );
 }
 
 #[test]
@@ -601,8 +626,10 @@ fn test_path_rejects_zero_limit() {
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("limit must be an integer from 1 to 999 or 'all'"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("limit must be an integer from 1 to 999 or 'all'")
+    );
 }
 
 #[test]
@@ -690,9 +717,11 @@ fn test_show_inputs_follow_the_selected_variant() {
             "{spec}"
         );
         assert!(result["schema"].get("fields").is_none());
-        assert!(inputs
-            .iter()
-            .all(|input| !input["type_name"].as_str().unwrap().contains("<W>")));
+        assert!(
+            inputs
+                .iter()
+                .all(|input| !input["type_name"].as_str().unwrap().contains("<W>"))
+        );
     }
 }
 
@@ -1726,9 +1755,11 @@ fn test_path_set_envelope_has_only_per_item_paths() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
 
-    assert!(json["paths"]
-        .as_array()
-        .is_some_and(|paths| !paths.is_empty()));
+    assert!(
+        json["paths"]
+            .as_array()
+            .is_some_and(|paths| !paths.is_empty())
+    );
 
     assert!(json.get("path").is_none());
     let path = json["paths"][0]["path"]
@@ -9674,7 +9705,7 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
 
 #[test]
 fn test_decision_extract_checks_bound_while_solve_recovers_no() {
-    use problemreductions::models::{graph::MinimumVertexCover, Decision};
+    use problemreductions::models::{Decision, graph::MinimumVertexCover};
     use problemreductions::rules::{ReduceTo, ReductionResult};
     use problemreductions::topology::SimpleGraph;
     use serde_json::json;
@@ -9767,7 +9798,7 @@ fn test_decision_extract_checks_bound_while_solve_recovers_no() {
 
 #[test]
 fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible() {
-    use problemreductions::models::{OpenShopScheduling, ILP};
+    use problemreductions::models::{ILP, OpenShopScheduling};
     use problemreductions::rules::{ReduceTo, ReductionResult};
     use serde_json::json;
 
@@ -9934,7 +9965,9 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
 
     let extract_out = extract_target_config(
         &bundle_file,
-        serde_json::json!([false, false, false, false, false, false, false, false, false]),
+        serde_json::json!([
+            false, false, false, false, false, false, false, false, false
+        ]),
     );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();

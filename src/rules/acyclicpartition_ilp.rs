@@ -1,6 +1,6 @@
 //! Bounded partition labels with exact crossing flags and occupied-part budgets.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::AcyclicPartition;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

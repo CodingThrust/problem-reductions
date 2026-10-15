@@ -147,11 +147,13 @@ fn test_ocst_evaluate_invalid() {
         Min(None)
     );
     // Value > 1
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, true, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, true, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

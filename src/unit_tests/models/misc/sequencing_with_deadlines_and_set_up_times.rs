@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn test_sequencing_with_deadlines_and_set_up_times_evaluate_setup_overflow() {
+    let problem = SequencingWithDeadlinesAndSetUpTimes::new(
+        vec![i64::MAX, 1],
+        vec![i64::MAX; 2],
+        vec![0, 1],
+        vec![0, 1],
+    );
+    assert!(matches!(problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(message))
+        if message == "adding sequencing setup time"));
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;

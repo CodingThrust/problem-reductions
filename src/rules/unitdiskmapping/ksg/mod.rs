@@ -23,23 +23,23 @@ pub mod mapping;
 
 // Re-export all public items for convenient access
 pub use gadgets::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, crossing_ruleset_indices,
-    tape_entry_mis_overhead, KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg,
-    KsgEndTurn, KsgPattern, KsgPatternBoxed, KsgReflectedGadget, KsgRotatedGadget, KsgTCon,
-    KsgTapeEntry, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
+    KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn, KsgPattern,
+    KsgPatternBoxed, KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTapeEntry, KsgTrivialTurn,
+    KsgTurn, KsgWTurn, Mirror, apply_crossing_gadgets, apply_simplifier_gadgets,
+    crossing_ruleset_indices, tape_entry_mis_overhead,
 };
 
 pub use gadgets_weighted::{
+    WeightedKsgBranch, WeightedKsgBranchFix, WeightedKsgBranchFixB, WeightedKsgCross,
+    WeightedKsgDanglingLeg, WeightedKsgEndTurn, WeightedKsgPattern, WeightedKsgTCon,
+    WeightedKsgTapeEntry, WeightedKsgTrivialTurn, WeightedKsgTurn, WeightedKsgWTurn,
     apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
-    weighted_tape_entry_mis_overhead, WeightedKsgBranch, WeightedKsgBranchFix,
-    WeightedKsgBranchFixB, WeightedKsgCross, WeightedKsgDanglingLeg, WeightedKsgEndTurn,
-    WeightedKsgPattern, WeightedKsgTCon, WeightedKsgTapeEntry, WeightedKsgTrivialTurn,
-    WeightedKsgTurn, WeightedKsgWTurn,
+    weighted_tape_entry_mis_overhead,
 };
 
 pub use mapping::{
-    map_unweighted, map_unweighted_with_method, map_unweighted_with_order, map_weighted,
-    map_weighted_with_method, map_weighted_with_order, GridKind, MappingResult,
+    GridKind, MappingResult, map_unweighted, map_unweighted_with_method, map_unweighted_with_order,
+    map_weighted, map_weighted_with_method, map_weighted_with_order,
 };
 
 /// Spacing between copy lines for KSG mapping.

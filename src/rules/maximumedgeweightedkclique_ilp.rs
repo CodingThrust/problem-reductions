@@ -22,7 +22,7 @@
 //! sparse graphs with compact formulations," EURO J. Comput. Optim. 3(1)
 //! (2015).
 
-use crate::models::algebraic::{ILPCoefficient, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ILPCoefficient, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumEdgeWeightedKClique;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;

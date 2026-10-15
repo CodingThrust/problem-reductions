@@ -4,7 +4,7 @@
 //! for consecutive-pair costs. Uses precomputed shortest-path connector
 //! distances.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::StackerCrane;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};

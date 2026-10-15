@@ -60,9 +60,11 @@ fn test_mixed_graph_panics_on_out_of_bounds_arc() {
 #[test]
 fn deserialize_checks_both_arc_and_edge_endpoints() {
     for (arcs, edges) in [(vec![(0, 2)], vec![]), (vec![], vec![(2, 0)])] {
-        assert!(serde_json::from_value::<MixedGraph>(serde_json::json!({
-            "num_vertices": 2, "arcs": arcs, "edges": edges
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<MixedGraph>(serde_json::json!({
+                "num_vertices": 2, "arcs": arcs, "edges": edges
+            }))
+            .is_err()
+        );
     }
 }

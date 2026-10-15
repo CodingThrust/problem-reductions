@@ -14,7 +14,7 @@
 //! Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} u(v)·d(v,u)·y_{v,u}.
 //! Extraction: first n variables (x_v).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MultipleCopyFileAllocation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

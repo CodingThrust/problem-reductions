@@ -392,10 +392,10 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
     let cmd = Cli::command();
     for (pattern, name) in subcmds {
         if first_line.contains(pattern) {
-            if let Some(sub) = cmd.find_subcommand(name) {
-                if let Some(help) = sub.get_after_help() {
-                    eprintln!("\n{help}");
-                }
+            if let Some(sub) = cmd.find_subcommand(name)
+                && let Some(help) = sub.get_after_help()
+            {
+                eprintln!("\n{help}");
             }
             return;
         }
@@ -471,16 +471,18 @@ mod tests {
                     .kind(),
                     ErrorKind::UnknownArgument
                 );
-                assert!(Cli::try_parse_from([
-                    "pred",
-                    "create",
-                    "ThreePartition",
-                    "--sizes",
-                    "1,1,1",
-                    "--bound",
-                    "9223372036854775808",
-                ])
-                .is_err());
+                assert!(
+                    Cli::try_parse_from([
+                        "pred",
+                        "create",
+                        "ThreePartition",
+                        "--sizes",
+                        "1,1,1",
+                        "--bound",
+                        "9223372036854775808",
+                    ])
+                    .is_err()
+                );
                 Cli::try_parse_from([
                     "pred",
                     "create",
@@ -567,25 +569,23 @@ mod tests {
 
     #[test]
     fn extract_requires_exactly_one_mapping_input() {
-        assert!(Cli::try_parse_from([
-            "pred",
-            "extract",
-            "bundle.json",
-            "--config",
-            "[true,false]"
-        ])
-        .is_ok());
+        assert!(
+            Cli::try_parse_from(["pred", "extract", "bundle.json", "--config", "[true,false]"])
+                .is_ok()
+        );
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json", "--value", "2"]).is_ok());
-        assert!(Cli::try_parse_from([
-            "pred",
-            "extract",
-            "bundle.json",
-            "--config",
-            "[true,false]",
-            "--value",
-            "2"
-        ])
-        .is_err());
+        assert!(
+            Cli::try_parse_from([
+                "pred",
+                "extract",
+                "bundle.json",
+                "--config",
+                "[true,false]",
+                "--value",
+                "2"
+            ])
+            .is_err()
+        );
     }
 }

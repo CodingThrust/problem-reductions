@@ -1,4 +1,4 @@
-use super::{check_connectivity, check_reachability_from_3sat, UnreachableReason};
+use super::{UnreachableReason, check_connectivity, check_reachability_from_3sat};
 use crate::rules::ReductionGraph;
 
 // ---- Connectivity checks ----

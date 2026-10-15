@@ -175,12 +175,14 @@ fn test_ksatisfiability_to_cyclicordering_unsatisfiable_repeated_literal_pair() 
     assert_eq!(normalized.clauses.len(), 8);
     assert_eq!(reduction.target_problem().num_elements(), 55);
     for mask in 0..1usize << normalized.num_vars {
-        assert!(!normalized
-            .clauses
-            .iter()
-            .all(|clause| clause.iter().any(|&literal| {
-                (mask & (1 << (literal.unsigned_abs() as usize - 1)) != 0) == (literal > 0)
-            })));
+        assert!(
+            !normalized
+                .clauses
+                .iter()
+                .all(|clause| clause.iter().any(|&literal| {
+                    (mask & (1 << (literal.unsigned_abs() as usize - 1)) != 0) == (literal > 0)
+                }))
+        );
     }
 }
 
@@ -225,11 +227,13 @@ fn repeated_short_and_unsorted_clauses_preserve_all_source_assignments() {
         .unwrap();
         let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source).unwrap();
         let normalized = normalize(&source).unwrap();
-        assert!(normalized
-            .clauses
-            .iter()
-            .all(|clause| clause[0].unsigned_abs() < clause[1].unsigned_abs()
-                && clause[1].unsigned_abs() < clause[2].unsigned_abs()));
+        assert!(
+            normalized
+                .clauses
+                .iter()
+                .all(|clause| clause[0].unsigned_abs() < clause[1].unsigned_abs()
+                    && clause[1].unsigned_abs() < clause[2].unsigned_abs())
+        );
         for mask in 0..64 {
             let assignment: Vec<_> = (0..6).map(|bit| mask & (1 << bit) != 0).collect();
             if source.evaluate(&assignment).unwrap().0 {

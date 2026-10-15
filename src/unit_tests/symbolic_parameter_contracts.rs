@@ -1,3 +1,4 @@
+use crate::Problem;
 use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::models::algebraic::Bounded;
 use crate::models::graph::{MaximumClique, MaximumIndependentSet};
@@ -6,7 +7,6 @@ use crate::parameters::ParameterRelation;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::ProblemParameters;
-use crate::Problem;
 
 #[test]
 fn parameter_schemas_keep_distinct_counts_without_synonymous_aliases() {
@@ -31,10 +31,12 @@ fn parameter_schemas_keep_distinct_counts_without_synonymous_aliases() {
             assert!(fields.iter().any(|name| name == field), "{model}: {field}");
         }
     }
-    assert!(!graph
-        .parameter_names("ExactCoverBy3Sets")
-        .iter()
-        .any(|field| field == "num_sets"));
+    assert!(
+        !graph
+            .parameter_names("ExactCoverBy3Sets")
+            .iter()
+            .any(|field| field == "num_sets")
+    );
     for (model, expected) in [
         ("HamiltonianPath", &["num_edges", "num_vertices"][..]),
         (
@@ -255,7 +257,7 @@ where
 fn parameter_relations_match_reduced_instances() {
     use crate::models::algebraic::MinimumMatrixCover;
     use crate::models::algebraic::{
-        IntegerVariable, LinearConstraint, ObjectiveSense, QuadraticAssignment, BMF, ILP,
+        BMF, ILP, IntegerVariable, LinearConstraint, ObjectiveSense, QuadraticAssignment,
     };
     use crate::models::graph::BicliqueCover;
     use crate::models::graph::{
@@ -396,7 +398,7 @@ fn parameter_relations_match_reduced_instances() {
 
 #[test]
 fn exact_parameter_formulas_cover_sparse_and_boundary_instances() {
-    use crate::models::algebraic::{QuadraticAssignment, ILP};
+    use crate::models::algebraic::{ILP, QuadraticAssignment};
     use crate::models::graph::{HamiltonianCircuit, HamiltonianPath, MinimumVertexCover};
     use crate::models::misc::{
         ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue, LongestCommonSubsequence,
@@ -723,8 +725,8 @@ fn set_splitting_bounds_cover_deduplication_and_large_subsets() {
 #[test]
 fn decision_cover_bounds_do_not_depend_on_threshold_magnitude() {
     use crate::models::{
-        graph::{HamiltonianCircuit, MinimumVertexCover},
         Decision,
+        graph::{HamiltonianCircuit, MinimumVertexCover},
     };
     use crate::types::One;
     for graph in [
@@ -750,7 +752,7 @@ fn decision_cover_bounds_do_not_depend_on_threshold_magnitude() {
 
 #[test]
 fn subset_lattice_dimensions_use_existing_numeric_magnitude() {
-    use crate::models::{algebraic::ClosestVectorProblem, misc::SubsetSum, Decision};
+    use crate::models::{Decision, algebraic::ClosestVectorProblem, misc::SubsetSum};
     for (sizes, target) in [
         (vec![], 0u64),
         (vec![1], 0),
@@ -818,7 +820,7 @@ fn integer_knapsack_capacity_bits_bound_ilp_magnitudes() {
 
 #[test]
 fn open_shop_horizon_bits_cover_totals_and_decision_bounds() {
-    use crate::models::{algebraic::ILP, misc::OpenShopScheduling, Decision};
+    use crate::models::{Decision, algebraic::ILP, misc::OpenShopScheduling};
     for (machines, times, bits) in [
         (0, vec![vec![]], 1),
         (2, vec![], 1),
@@ -847,8 +849,8 @@ fn open_shop_horizon_bits_cover_totals_and_decision_bounds() {
 #[test]
 fn partition_propagates_open_shop_horizon_bits() {
     use crate::models::{
-        misc::{OpenShopScheduling, Partition},
         Decision,
+        misc::{OpenShopScheduling, Partition},
     };
     for sizes in [vec![1], vec![1, 1], vec![1, 2], vec![1 << 20; 2]] {
         check_reduced_parameters::<_, Decision<OpenShopScheduling>>(

@@ -219,7 +219,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| i)
                     .collect();
                 if usize::try_from(self.bound) != Ok(selected.len()) {

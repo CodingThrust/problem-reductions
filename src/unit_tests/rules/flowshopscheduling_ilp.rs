@@ -11,12 +11,14 @@ fn zero_duration_jobs_preserve_the_common_machine_order() {
     let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     // Job 1 precedes job 0, but both finish on machine 1 at time 11.
     let assignment = vec![0, 4, 11, 1, 11];
-    assert!(reduction
-        .target_problem()
-        .evaluate(&assignment)
-        .unwrap()
-        .value
-        .is_some());
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&assignment)
+            .unwrap()
+            .value
+            .is_some()
+    );
     let decoded = reduction.extract_solution(&assignment).unwrap();
     assert_eq!(decoded, vec![1, 0]);
     assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));

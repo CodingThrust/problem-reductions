@@ -3,7 +3,7 @@
 //! Binary flow variables per commodity per directed edge orientation.
 //! Conservation, edge/vertex disjointness, and length bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::LengthBoundedDisjointPaths;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -6,7 +6,7 @@
 //! Cut linking: y_e ≥ x_u - x_v, y_e ≥ x_v - x_u for each edge {u,v}.
 //! Cut bound: Σ w_e y_e ≤ K.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumCutIntoBoundedSets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

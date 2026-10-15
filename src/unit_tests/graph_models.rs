@@ -233,14 +233,18 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Valid IS configurations return is_valid() == true
-        assert!(problem
-            .evaluate(&vec![true, false, true])
-            .unwrap()
-            .is_valid());
-        assert!(problem
-            .evaluate(&vec![false, true, false])
-            .unwrap()
-            .is_valid());
+        assert!(
+            problem
+                .evaluate(&vec![true, false, true])
+                .unwrap()
+                .is_valid()
+        );
+        assert!(
+            problem
+                .evaluate(&vec![false, true, false])
+                .unwrap()
+                .is_valid()
+        );
         // Invalid configurations return Invalid
         assert_eq!(
             problem.evaluate(&vec![true, true, false]).unwrap(),
@@ -410,14 +414,18 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
         // Valid cover configurations return is_valid() == true
-        assert!(problem
-            .evaluate(&vec![false, true, false])
-            .unwrap()
-            .is_valid());
-        assert!(problem
-            .evaluate(&vec![true, false, true])
-            .unwrap()
-            .is_valid());
+        assert!(
+            problem
+                .evaluate(&vec![false, true, false])
+                .unwrap()
+                .is_valid()
+        );
+        assert!(
+            problem
+                .evaluate(&vec![true, false, true])
+                .unwrap()
+                .is_valid()
+        );
         // Invalid configurations return Invalid
         assert_eq!(
             problem.evaluate(&vec![true, false, false]).unwrap(),

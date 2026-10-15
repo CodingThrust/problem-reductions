@@ -65,11 +65,13 @@ fn test_qubo_entries_reject_invalid_data() {
         let error = serde_json::from_value::<QUBO<i64>>(data).unwrap_err();
         assert!(error.to_string().contains(message), "{error}");
     }
-    assert!(QUBO::try_from(QuboData {
-        num_vars: 1,
-        entries: vec![(0, 0, f64::NAN)]
-    })
-    .is_err());
+    assert!(
+        QUBO::try_from(QuboData {
+            num_vars: 1,
+            entries: vec![(0, 0, f64::NAN)]
+        })
+        .is_err()
+    );
 }
 
 #[test]

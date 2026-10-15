@@ -1,7 +1,7 @@
 use crate::parameters::ParameterRelation;
 use crate::registry::DynProblem;
-use crate::rules::{registry::ReductionEntry, ReductionGraph};
-use serde_json::{json, Value};
+use crate::rules::{ReductionGraph, registry::ReductionEntry};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);
@@ -93,10 +93,10 @@ fn source_for(
     let key = (entry.source_name.to_string(), variant.clone());
     if let Some(examples) = sources.get(&key) {
         for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
-                }
+            if let Ok(source) = (registered.factory)(example.clone())
+                && target_parameters(entry, source.as_ref()).is_ok()
+            {
+                return Ok(source);
             }
         }
     }
@@ -107,10 +107,10 @@ fn source_for(
             continue;
         }
         for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
-                }
+            if let Ok(source) = (registered.factory)(example.clone())
+                && target_parameters(entry, source.as_ref()).is_ok()
+            {
+                return Ok(source);
             }
         }
     }

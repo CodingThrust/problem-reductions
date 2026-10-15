@@ -1,6 +1,6 @@
 use super::*;
-use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
+use crate::rules::traits::ReductionResult;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

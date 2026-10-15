@@ -319,7 +319,7 @@ impl Problem for MinimumWeightAndOrGraph {
             let total_weight = selected
                 .iter()
                 .enumerate()
-                .filter(|(_, &sel)| sel)
+                .filter(|&(_, &sel)| sel)
                 .map(|(i, _)| self.arc_weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {

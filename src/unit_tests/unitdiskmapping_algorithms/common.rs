@@ -1,6 +1,6 @@
 //! Common test utilities for mapping tests.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::solvers::ILPSolver;
 

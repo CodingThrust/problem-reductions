@@ -1,5 +1,5 @@
 use crate::cli::ExtractArgs;
-use crate::dispatch::{extract_bundle_value, read_input, BundleReplay, ReductionBundle};
+use crate::dispatch::{BundleReplay, ReductionBundle, extract_bundle_value, read_input};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 

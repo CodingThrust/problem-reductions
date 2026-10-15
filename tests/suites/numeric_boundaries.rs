@@ -1,3 +1,4 @@
+use problemreductions::Problem;
 use problemreductions::models::formula::{
     CNFClause, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
     OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Quantifier,
@@ -8,7 +9,6 @@ use problemreductions::models::set::MinimumSetCovering;
 use problemreductions::rules::ReduceTo;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::variant::K3;
-use problemreductions::Problem;
 
 #[test]
 fn numeric_boundaries_weight_totals_use_i64() {

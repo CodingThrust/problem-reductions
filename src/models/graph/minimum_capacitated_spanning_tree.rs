@@ -422,14 +422,12 @@ where
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected {
-                    if let Some(w) = self.weights.get(idx) {
-                        total = W::checked_add_to_sum(
-                            total,
-                            w.to_sum(),
-                            "summing capacitated spanning tree edge weights",
-                        )?;
-                    }
+                if selected && let Some(w) = self.weights.get(idx) {
+                    total = W::checked_add_to_sum(
+                        total,
+                        w.to_sum(),
+                        "summing capacitated spanning tree edge weights",
+                    )?;
                 }
             }
             Min(Some(total))

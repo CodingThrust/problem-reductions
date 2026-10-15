@@ -12,7 +12,7 @@
 //! Bahiense, Manic, Piva, and de Souza (DAM 2012) adapted to the directed
 //! edge-labelled graph model used in the library.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumCommonEdgeSubgraph;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;

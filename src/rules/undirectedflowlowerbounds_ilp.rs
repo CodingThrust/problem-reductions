@@ -23,7 +23,7 @@
 //!
 //! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;

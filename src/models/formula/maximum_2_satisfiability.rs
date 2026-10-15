@@ -9,7 +9,7 @@ use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
-use super::{sat::validate_cnf_literals, CNFClause};
+use super::{CNFClause, sat::validate_cnf_literals};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -208,8 +208,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_maximum_2_satisfiability_to_maximum_2_satisfiability",
         build: || {

@@ -2,7 +2,7 @@
 
 use super::common::solve_weighted_mis;
 use crate::rules::unitdiskmapping::{
-    create_copylines, ksg, mis_overhead_copyline, triangular, CopyLine,
+    CopyLine, create_copylines, ksg, mis_overhead_copyline, triangular,
 };
 
 // === Edge Case Tests ===

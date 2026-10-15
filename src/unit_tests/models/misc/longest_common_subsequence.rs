@@ -157,7 +157,7 @@ fn test_lcs_empty_string_max_length_zero() {
     let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]);
     assert_eq!(problem.max_length(), 0);
     assert_eq!(problem.dimensions(), Vec::<usize>::new()); // empty config space
-                                                           // Empty config is the only valid config; LCS length is 0
+    // Empty config is the only valid config; LCS length is 0
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 

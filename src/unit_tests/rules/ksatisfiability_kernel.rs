@@ -59,10 +59,12 @@ fn test_ksatisfiability_to_kernel_unsatisfiable_instance_has_no_kernel() {
     );
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

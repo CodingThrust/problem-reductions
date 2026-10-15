@@ -4,7 +4,7 @@
 //! to various file formats using serde.
 
 use crate::error::{ProblemError, Result};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;

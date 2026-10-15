@@ -191,12 +191,14 @@ fn test_non_liveness_rejects_marking_length_mismatch() {
 #[test]
 fn test_non_liveness_rejects_free_choice_violation() {
     // t0 has preset {s0}, t1 has preset {s0, s1} -- they share s0 but have different presets
-    assert!(NonLivenessFreePetriNet::new(
-        2,
-        2,
-        vec![(0, 0), (0, 1), (1, 1)],
-        vec![(0, 0), (1, 1)],
-        vec![1, 1],
-    )
-    .is_err());
+    assert!(
+        NonLivenessFreePetriNet::new(
+            2,
+            2,
+            vec![(0, 0), (0, 1), (1, 1)],
+            vec![(0, 0), (1, 1)],
+            vec![1, 1],
+        )
+        .is_err()
+    );
 }

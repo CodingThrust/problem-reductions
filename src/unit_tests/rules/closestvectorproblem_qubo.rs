@@ -136,9 +136,11 @@ fn test_closestvectorproblem_to_qubo_preserves_squared_distance_up_to_constant()
             source.evaluate(&witness).unwrap(),
             source.evaluate(&direct).unwrap()
         );
-        assert!(reduction
-            .extract_solution(&vec![false; qubo.num_vars() + 1])
-            .is_err());
+        assert!(
+            reduction
+                .extract_solution(&vec![false; qubo.num_vars() + 1])
+                .is_err()
+        );
     }
 }
 

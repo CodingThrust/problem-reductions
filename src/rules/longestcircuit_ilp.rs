@@ -8,9 +8,9 @@
 //! - Maximize: sum l_e y_e
 //! - Multi-commodity flow connectivity from a root chosen on the circuit
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::graph::LongestCircuit;
 use crate::models::Decision;
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::graph::LongestCircuit;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

@@ -8,7 +8,7 @@
 //! - Objective: minimize sum_{i!=j} C[i][j] * D[p][q] * z_{(i,p),(j,q)}
 
 use crate::models::algebraic::QuadraticAssignment;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_assignment_constraints};
 use crate::rules::traits::{ReduceTo, ReductionResult};

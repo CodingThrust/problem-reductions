@@ -3,7 +3,7 @@
 use crate::impl_variant_reduction;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::ReductionError;
-use crate::types::{i64_to_exact_f64, One};
+use crate::types::{One, i64_to_exact_f64};
 
 impl_variant_reduction!(
     MaximumSetPacking,

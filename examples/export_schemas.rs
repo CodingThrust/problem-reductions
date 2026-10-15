@@ -2,7 +2,7 @@
 //!
 //! Run with: `cargo run --example export_schemas [output_path]`
 
-use problemreductions::registry::{collect_schemas, ProblemSchemaEntry};
+use problemreductions::registry::{ProblemSchemaEntry, collect_schemas};
 use std::path::{Path, PathBuf};
 
 pub fn run(output_path: &Path) {

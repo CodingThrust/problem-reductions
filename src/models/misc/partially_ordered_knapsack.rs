@@ -294,7 +294,7 @@ impl Problem for PartiallyOrderedKnapsack {
             let total_weight = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {
@@ -310,7 +310,7 @@ impl Problem for PartiallyOrderedKnapsack {
             let total_value = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.values[i])
                 .try_fold(0_i64, |total, value| {
                     total.checked_add(value).ok_or_else(|| {

@@ -6,8 +6,8 @@ use rmcp::tool;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, solve_result_json, solver_capabilities_view, solver_request, BundleReplay,
-    ProblemJson, ProblemJsonOutput, ReductionBundle,
+    BundleReplay, ProblemJson, ProblemJsonOutput, ReductionBundle, load_problem, solve_result_json,
+    solver_capabilities_view, solver_request,
 };
 use crate::problem_name::{aliases_for, resolve_catalog_problem_ref, resolve_problem_ref};
 
@@ -254,16 +254,16 @@ impl McpServer {
                 load_problem(&problem.problem_type, &problem.variant, problem.data)
             })
             .transpose()?;
-        if let Some(loaded) = &loaded {
-            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
-                anyhow::bail!(
-                    "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
-                    src_ref.name,
-                    src_ref.variant,
-                    loaded.problem_name(),
-                    loaded.variant_map(),
-                );
-            }
+        if let Some(loaded) = &loaded
+            && (loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant)
+        {
+            anyhow::bail!(
+                "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
+                src_ref.name,
+                src_ref.variant,
+                loaded.problem_name(),
+                loaded.variant_map(),
+            );
         }
 
         let batch = crate::commands::graph::find_path_batch(
@@ -715,9 +715,11 @@ mod tests {
             let shown: serde_json::Value =
                 serde_json::from_str(&server.show_problem_inner(name).unwrap()).unwrap();
             let inputs = shown["inputs"].as_array().unwrap();
-            assert!(inputs
-                .iter()
-                .any(|input| input["name"] == "bound" && input["type_name"] == "i64"));
+            assert!(
+                inputs
+                    .iter()
+                    .any(|input| input["name"] == "bound" && input["type_name"] == "i64")
+            );
             assert!(!inputs.iter().any(|input| input["name"] == "weights"));
             let output = server.create_problem_inner(name, &data).unwrap();
             let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();

@@ -206,14 +206,12 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         let mut vertex_used = vec![false; self.graph.num_vertices()];
 
         for (idx, &selected) in config.iter().enumerate() {
-            if selected {
-                if let Some((u, v)) = self.edge_endpoints(idx) {
-                    if vertex_used[u] || vertex_used[v] {
-                        return false;
-                    }
-                    vertex_used[u] = true;
-                    vertex_used[v] = true;
+            if selected && let Some((u, v)) = self.edge_endpoints(idx) {
+                if vertex_used[u] || vertex_used[v] {
+                    return false;
                 }
+                vertex_used[u] = true;
+                vertex_used[v] = true;
             }
         }
         true
@@ -295,14 +293,12 @@ where
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected {
-                    if let Some(w) = self.edge_weights.get(idx) {
-                        total = W::checked_add_to_sum(
-                            total,
-                            w.to_sum(),
-                            "summing selected matching-edge weights",
-                        )?;
-                    }
+                if selected && let Some(w) = self.edge_weights.get(idx) {
+                    total = W::checked_add_to_sum(
+                        total,
+                        w.to_sum(),
+                        "summing selected matching-edge weights",
+                    )?;
                 }
             }
             Max(Some(total))

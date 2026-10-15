@@ -10,7 +10,7 @@
 //! positions, and character consistency. The objective maximizes the number of
 //! non-padding positions.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::LongestCommonSubsequence;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

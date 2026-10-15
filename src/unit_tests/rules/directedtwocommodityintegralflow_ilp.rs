@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -18,12 +18,14 @@ fn sink_self_loop_cannot_supply_commodity_flow() {
     );
     let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     assert!(!source.evaluate(&vec![1, 0]).unwrap().0);
-    assert!(reduction
-        .target_problem()
-        .evaluate(&vec![1, 0])
-        .unwrap()
-        .value
-        .is_none());
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&vec![1, 0])
+            .unwrap()
+            .value
+            .is_none()
+    );
     assert!(reduction.extract_solution(&vec![1, 0]).is_err());
 }
 

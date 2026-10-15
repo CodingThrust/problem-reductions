@@ -62,15 +62,19 @@ fn test_bipartite_graph_invalid_right_index() {
 #[test]
 fn deserialize_checks_partition_endpoints_and_total_size() {
     for edges in [vec![(1, 0)], vec![(0, 1)]] {
-        assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
-            "left_size": 1, "right_size": 1, "edges": edges
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+                "left_size": 1, "right_size": 1, "edges": edges
+            }))
+            .is_err()
+        );
     }
-    assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
-        "left_size": usize::MAX, "right_size": 1, "edges": []
-    }))
-    .is_err());
+    assert!(
+        serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+            "left_size": usize::MAX, "right_size": 1, "edges": []
+        }))
+        .is_err()
+    );
     let graph: BipartiteGraph = serde_json::from_value(serde_json::json!({
         "left_size": 1, "right_size": 1, "edges": [[0, 0]]
     }))

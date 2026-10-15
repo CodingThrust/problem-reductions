@@ -151,7 +151,7 @@ impl MinimumGeometricConnectedDominatingSet {
         let selected: Vec<usize> = config
             .iter()
             .enumerate()
-            .filter(|(_, &v)| v)
+            .filter(|&(_, &v)| v)
             .map(|(i, _)| i)
             .collect();
 

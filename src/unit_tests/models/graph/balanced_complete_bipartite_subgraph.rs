@@ -13,15 +13,15 @@ fn create_spec_builds_bipartite_graph_and_rejects_invalid_edges() {
         .unwrap();
     assert_eq!(problem.graph().left_edges(), &[(0, 1), (1, 0)]);
     assert_eq!(problem.k(), 1);
-    assert!(BalancedCompleteBipartiteSubgraph::try_from(
-        BalancedCompleteBipartiteSubgraphCreateSpec {
+    assert!(
+        BalancedCompleteBipartiteSubgraph::try_from(BalancedCompleteBipartiteSubgraphCreateSpec {
             left: 1,
             right: 1,
             biedges: vec![(1, 0)],
             k: 1,
-        }
-    )
-    .is_err());
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::topology::BipartiteGraph;
@@ -87,27 +87,33 @@ fn test_balanced_complete_bipartite_subgraph_creation() {
 fn test_balanced_complete_bipartite_subgraph_evaluation_yes_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
-    assert!(problem
-        .evaluate(&vec![true, true, false, false, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, false, false, true, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_balanced_complete_bipartite_subgraph_evaluation_no_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 3);
 
-    assert!(!problem
-        .evaluate(&vec![true, true, true, false, true, true, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, false, true, true, true, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_balanced_complete_bipartite_subgraph_invalid_pairing() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, true, false, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, true, false, true, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -127,11 +133,13 @@ fn test_balanced_complete_bipartite_subgraph_rejects_invalid_configs() {
         problem.evaluate(&vec![true, true, false, false, true, true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([true, 2, false, false, true, true, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([true, 2, false, false, true, true, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

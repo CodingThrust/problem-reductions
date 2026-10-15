@@ -1,8 +1,8 @@
 //! Bound each row’s span in a column permutation using two integer endpoints.
 
 use crate::models::algebraic::{
-    Bounded, ConsecutiveOnesMatrixAugmentation, IntegerVariable, LinearConstraint, ObjectiveSense,
-    ILP,
+    Bounded, ConsecutiveOnesMatrixAugmentation, ILP, IntegerVariable, LinearConstraint,
+    ObjectiveSense,
 };
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};

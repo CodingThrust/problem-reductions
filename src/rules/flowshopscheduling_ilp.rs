@@ -5,7 +5,7 @@
 //! Machine-chain and big-M disjunctive constraints enforce a valid flow-shop
 //! schedule; the deadline becomes a makespan bound.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::FlowShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

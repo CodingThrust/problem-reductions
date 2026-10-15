@@ -276,15 +276,16 @@ impl MinimumCodeGenerationOneRegister {
             // 1. Register holds a value
             // 2. That value is still needed in the future
             // 3. That value is not already in memory
-            if let Some(r) = register {
-                if !in_memory[r] && future_uses[r] > 0 {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // STORE
-                    in_memory[r] = true;
-                }
+            if let Some(r) = register
+                && !in_memory[r]
+                && future_uses[r] > 0
+            {
+                instructions = instructions.checked_add(1).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "counting one-register instructions".to_string(),
+                    )
+                })?; // STORE
+                in_memory[r] = true;
             }
 
             // Now compute v

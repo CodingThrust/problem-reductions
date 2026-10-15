@@ -4,7 +4,7 @@
 //! capacity inequality omits oversized items (whose multiplicities are zero), and explicit upper bounds
 //! `c_i <= floor(B / s_i)` preserve the exact witness domain of the source.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::set::IntegerKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

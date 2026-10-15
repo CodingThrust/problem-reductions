@@ -319,9 +319,11 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                         Or(false)
                     );
                     assert!(reduction.extract_solution(&vec![]).is_err());
-                    assert!(reduction
-                        .extract_solution(&vec![false; target.num_vars() + 1])
-                        .is_err());
+                    assert!(
+                        reduction
+                            .extract_solution(&vec![false; target.num_vars() + 1])
+                            .is_err()
+                    );
                 }
             }
             for n in [0, 3] {

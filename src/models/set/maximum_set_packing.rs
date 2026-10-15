@@ -262,7 +262,7 @@ fn is_valid_packing(sets: &[Vec<usize>], config: &[bool]) -> bool {
     let selected_sets: Vec<_> = config
         .iter()
         .enumerate()
-        .filter(|(_, &selected)| selected)
+        .filter(|&(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
 

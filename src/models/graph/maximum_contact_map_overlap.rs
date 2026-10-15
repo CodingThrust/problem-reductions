@@ -219,10 +219,10 @@ impl MaximumContactMapOverlap {
             if !used.insert(value) {
                 return false;
             }
-            if let Some(prev) = previous_nonzero {
-                if value <= prev {
-                    return false;
-                }
+            if let Some(prev) = previous_nonzero
+                && value <= prev
+            {
+                return false;
             }
             previous_nonzero = Some(value);
         }

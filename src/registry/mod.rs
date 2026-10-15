@@ -51,19 +51,19 @@ pub mod problem_type;
 mod schema;
 pub mod variant;
 
-pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem};
+pub use dyn_problem::{DynProblem, LoadedDynProblem, format_metric};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
-pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
-pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
+pub use problem_ref::{ProblemRef, parse_catalog_problem_ref, require_graph_variant};
+pub use problem_type::{ProblemType, find_problem_type, find_problem_type_by_alias, problem_types};
 pub use schema::{
-    collect_schemas, FieldInfoJson, ParseProblemCategoryError, ProblemCategory, ProblemSchemaEntry,
-    ProblemSchemaJson, VariantDimension,
+    FieldInfoJson, ParseProblemCategoryError, ProblemCategory, ProblemSchemaEntry,
+    ProblemSchemaJson, VariantDimension, collect_schemas,
 };
 pub use variant::{
-    find_variant_by_alias, find_variant_entry, validate_create_inputs,
-    validate_direct_create_inputs, validate_variant_aliases, validate_variant_parameter_schemas,
-    variant_entries, ConstructProblemFn, ConstructionError, CreateInputCodec, CreateInputInfo,
-    CreateSpec, RandomGenerate, RandomRegistration, VariantEntry,
+    ConstructProblemFn, ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec,
+    RandomGenerate, RandomRegistration, VariantEntry, find_variant_by_alias, find_variant_entry,
+    validate_create_inputs, validate_direct_create_inputs, validate_variant_aliases,
+    validate_variant_parameter_schemas, variant_entries,
 };
 
 /// Construct a problem from normalized construction inputs using the exact

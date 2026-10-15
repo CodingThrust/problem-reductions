@@ -397,9 +397,11 @@ fn test_factoring_to_circuit_rejects_invalid_certificates() {
     let source = Factoring::with_factor_bits(6, 2, 2);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
     assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![false; reduction.target_problem().num_variables()])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false; reduction.target_problem().num_variables()])
+            .is_err()
+    );
     let values = evaluate_multiplier_circuit(&reduction, 1, 1);
     let config = reduction
         .target_problem()

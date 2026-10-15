@@ -58,10 +58,12 @@ fn test_ksatisfiability_to_preemptivescheduling_structure() {
     assert_eq!(target.num_tasks(), 28);
     assert_eq!(target.d_max(), 28);
     let construction = build_ullman_construction(&source);
-    assert!(construction
-        .filler_jobs_by_slot
-        .iter()
-        .all(|layer| !layer.is_empty()));
+    assert!(
+        construction
+            .filler_jobs_by_slot
+            .iter()
+            .all(|layer| !layer.is_empty())
+    );
     assert!(target.lengths().iter().all(|&length| length == 1));
 }
 
@@ -186,12 +188,10 @@ fn test_threshold_value_mapping_and_short_clauses() {
         );
         assert_eq!(result.extract_value(Min(None)), Or(false));
         if let Some(schedule) = schedule {
-            assert!(construct_schedule_from_assignment(
-                target,
-                &vec![true; source.num_vars()],
-                &source
-            )
-            .is_some());
+            assert!(
+                construct_schedule_from_assignment(target, &vec![true; source.num_vars()], &source)
+                    .is_some()
+            );
             let value = target.evaluate(&schedule).unwrap();
             assert_eq!(result.extract_value(value), Or(true));
             assert!(
@@ -218,12 +218,14 @@ fn test_extract_rejects_invalid_and_late_schedules() {
         Min(Some(5))
     );
     assert!(result.extract_solution(&schedule).is_err());
-    assert!(result
-        .extract_solution(&vec![
-            vec![false; result.target_problem().d_max()];
-            schedule.len()
-        ])
-        .is_err());
+    assert!(
+        result
+            .extract_solution(&vec![
+                vec![false; result.target_problem().d_max()];
+                schedule.len()
+            ])
+            .is_err()
+    );
     assert!(result.extract_solution(&vec![]).is_err());
 }
 

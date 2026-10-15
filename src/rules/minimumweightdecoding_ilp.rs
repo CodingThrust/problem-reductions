@@ -16,7 +16,7 @@
 //! Objective: minimize Σ x_j (Hamming weight).
 
 use crate::models::algebraic::MinimumWeightDecoding;
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

@@ -1,9 +1,9 @@
+use problemreductions::Problem;
 use problemreductions::models::algebraic::SimultaneousIncongruences;
 use problemreductions::models::formula::{CNFClause, KSatisfiability};
 use problemreductions::rules::{ReduceTo, ReductionResult};
 use problemreductions::solvers::BruteForce;
 use problemreductions::variant::K3;
-use problemreductions::Problem;
 
 #[test]
 fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
