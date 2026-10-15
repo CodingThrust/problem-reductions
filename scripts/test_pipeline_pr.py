@@ -640,7 +640,9 @@ class PipelinePrHelpersTests(unittest.TestCase):
             "--head",
             "issue-117-graph-partitioning",
         )
-        fetch_current_pr_data_for_repo.assert_called_once_with("CodingThrust/problem-reductions")
+        fetch_current_pr_data_for_repo.assert_called_once_with(
+            "CodingThrust/problem-reductions", head="issue-117-graph-partitioning"
+        )
         self.assertEqual(result["pr_number"], 570)
         self.assertEqual(result["repo"], "CodingThrust/problem-reductions")
 
