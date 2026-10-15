@@ -779,17 +779,14 @@ fn prepare_overall_parameters(
         .collect()
 }
 
-/// Path header `Name {v} → Name {v} → ...`, merging consecutive same-name steps.
+/// Path header showing every problem variant.
 fn fmt_path_chain(graph: &ReductionGraph, reduction_path: &ReductionPath) -> String {
-    let mut parts = Vec::new();
-    let mut prev_name = "";
-    for step in &reduction_path.steps {
-        if step.name != prev_name {
-            parts.push(fmt_node(graph, &step.name, &step.variant));
-            prev_name = &step.name;
-        }
-    }
-    parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
+    reduction_path
+        .steps
+        .iter()
+        .map(|step| fmt_node(graph, &step.name, &step.variant))
+        .collect::<Vec<_>>()
+        .join(&format!(" {} ", crate::output::fmt_outgoing("→")))
 }
 
 fn format_path_text(

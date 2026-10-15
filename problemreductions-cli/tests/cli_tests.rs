@@ -26,6 +26,30 @@ fn pred() -> Command {
 }
 
 #[test]
+fn path_text_preserves_variant_conversion_steps() {
+    for compare in [true, false] {
+        let mut command = pred();
+        command.args(["path", "MIS", "MIS/SimpleGraph/i64", "--limit", "1"]);
+        if compare {
+            command.arg("--compare");
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(
+            text.contains(
+                "MaximumIndependentSet/SimpleGraph/One → MaximumIndependentSet/SimpleGraph/i64"
+            ),
+            "{text}"
+        );
+    }
+}
+
+#[test]
 fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     let args = ["path", "MIS", "QUBO", "--compare", "--limit", "3"];
     let output = pred().args(args).output().unwrap();
