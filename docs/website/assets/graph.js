@@ -210,6 +210,17 @@
             },
           },
           { selector: ".focus-hidden", style: { display: "none" } },
+          { selector: "node.route-node", style: {
+            "border-width": 3, "border-color": "#c4dda6", opacity: 1,
+            label: "data(routeLabel)", "text-opacity": 1, "text-wrap": "wrap", "text-max-width": 220,
+          } },
+          { selector: "node.route-family", style: { label: "" } },
+          { selector: "node.path-source", style: { "border-color": "#9bd9db", "border-width": 4, opacity: 1 } },
+          { selector: "node.path-target", style: { "border-color": "#e4b17e", "border-width": 4, opacity: 1 } },
+          { selector: "edge.route-edge", style: {
+            "target-arrow-shape": "triangle", "target-arrow-color": "#c4dda6",
+            "mid-target-arrow-shape": "none", "line-color": "#c4dda6", width: 2, opacity: 1,
+          } },
           {
             selector: "node.hovered, node.named",
             style: { label: "data(label)", "text-opacity": 1, "z-index": 30 },
@@ -261,6 +272,20 @@
       let browseMode = "problems";
       let selectedProblem = "";
       let selectedRules = new Set();
+      const pathControls = document.querySelector("#path-controls");
+      const pathSource = document.querySelector("#path-source");
+      const pathTarget = document.querySelector("#path-target");
+      const pathFront = document.querySelector("#path-front");
+      const canvasNote = document.querySelector(".graph-canvas-note");
+      const overviewNote = canvasNote.textContent;
+      let pathOptionsReady = false;
+      let pathPicking = "source";
+      let pathWorker;
+      const pathLimit = document.querySelector("#path-limit");
+      const pathCancel = document.querySelector("#path-cancel");
+      let pathBatch;
+      let selectedPath = 1;
+      let routeDownload;
       const overviewPositions = new Map(cy.nodes().map((node) => [node.id(), { ...node.position() }]));
       const variantId = (node) => `${node.name}/${variantKey(node.variant)}`;
       const describeVariant = (node) => Object.entries(node.variant)
@@ -451,6 +476,7 @@
         cy.nodes().not(":parent").not("[?isVariant]")
           .style("font-size", (node) => (node.hasClass("selected") ? 14 : 13) / zoom);
         cy.nodes(".expanded").style("font-size", 18);
+        cy.nodes(".route-node").style({ "font-size": 13 / zoom, "text-max-width": 220 / zoom });
         cy.endBatch();
       }
       let labelFrame;
@@ -495,6 +521,8 @@
       }
 
       function clearSelection() {
+        clearPathView();
+        if (browseMode === "paths") setBrowseMode("problems");
         [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
         restoreOverview();
         cy.elements().removeClass("selected neighbor faded search-match");
@@ -513,6 +541,8 @@
       }
 
       function selectNode(node) {
+        if (browseMode === "paths") setBrowseMode("problems");
+        clearPathView();
         cy.elements().removeClass("focus-hidden");
         if (!node.data("isVariant")) {
           const wasExpanded = expanded.has(node.id());
@@ -547,6 +577,8 @@
       }
 
       function selectEdge(edge) {
+        if (browseMode === "paths") setBrowseMode("rules");
+        clearPathView();
         cy.elements().removeClass("selected neighbor faded search-match");
         cy.elements().addClass("faded");
         edge.removeClass("faded").addClass("selected");
@@ -571,15 +603,343 @@
       }
 
       function setBrowseMode(mode) {
+        if (browseMode === "paths" && mode !== "paths") {
+          stopPathSearch();
+          clearPathView();
+          detail.replaceChildren();
+          selectionType.textContent = "Details";
+          cy.nodes().removeClass("path-source path-target");
+          [...expanded].forEach(name => toggleVariants(cy.getElementById(name)));
+          restoreOverview();
+          canvasNote.textContent = overviewNote;
+          applyScope();
+          fit();
+        }
         if (browseMode !== mode) browserSearch.value = "";
         browseMode = mode;
+        pathControls.hidden = mode !== "paths";
+        browserSearch.hidden = mode === "paths";
         document.querySelectorAll("[data-browse]").forEach((button) =>
           button.setAttribute("aria-pressed", button.dataset.browse === mode));
         browserSearch.placeholder = `Search ${mode}…`;
+        if (mode === "paths") {
+          restoreOverview();
+          cy.elements().removeClass("selected neighbor faded search-match core-hidden");
+          showPathControls();
+          return;
+        }
         renderBrowser();
       }
 
+      function clearPathView() {
+        cy.nodes(".route-node").removeStyle("font-size text-max-width").removeData("routeLabel");
+        cy.elements().removeClass("route-node route-edge route-family selected neighbor faded search-match");
+        if (routeDownload) URL.revokeObjectURL(routeDownload);
+        routeDownload = null;
+      }
+
+      const graphEndpointId = endpoint => expanded.has(endpoint.name) ? variantId(endpoint) : endpoint.name;
+
+      function markPathEndpoints() {
+        cy.nodes().removeClass("path-source path-target");
+        for (const [select, name] of [[pathSource, "source"], [pathTarget, "target"]]) {
+          if (select.value !== "") cy.getElementById(graphEndpointId(data.nodes[Number(select.value)]))
+            .removeClass("core-hidden faded").addClass(`path-${name}`);
+        }
+      }
+
+      function setPathPicking(endpoint) {
+        pathPicking = endpoint;
+        document.querySelectorAll("[data-pick]").forEach(button =>
+          button.setAttribute("aria-pressed", String(button.dataset.pick === endpoint)));
+        const prompt = `Click a ${endpoint === "source" ? "start" : "end"} node. For a family with several variants, click its exact variant.`;
+        document.querySelector("#path-prompt").textContent = prompt;
+        canvasNote.textContent = prompt;
+      }
+
+      document.querySelectorAll("[data-pick]").forEach(button => button.addEventListener("click", () => {
+        setPathPicking(button.dataset.pick);
+        cy.elements().removeClass("faded search-match");
+        search.value = "";
+        fit();
+      }));
+
+      function pickPathNode(node) {
+        if (!node.data("isVariant") && families.get(node.id()).variants.length > 1) {
+          cy.elements().removeClass("search-match hovered direction");
+          if (!expanded.has(node.id())) toggleVariants(node);
+          relax(visibleElements());
+          markPathEndpoints();
+          fit(node.union(node.children()), 1.8);
+          return;
+        }
+        const endpoint = node.data("isVariant")
+          ? data.nodes.find(item => variantId(item) === node.id()) : families.get(node.id()).variants[0];
+        const select = pathPicking === "source" ? pathSource : pathTarget;
+        select.value = data.nodes.indexOf(endpoint);
+        select.dispatchEvent(new Event("change"));
+      }
+
+      function pathMessage(message, error = false) {
+        browserList.replaceChildren();
+        const paragraph = document.createElement("p");
+        paragraph.className = "browser-empty";
+        paragraph.textContent = message;
+        if (error) paragraph.setAttribute("role", "alert");
+        browserList.append(paragraph);
+        document.querySelector("#browser-count").textContent = "Path selection";
+      }
+
+      function showPathControls() {
+        if (!pathOptionsReady) {
+          const options = data.nodes.map((node, index) => ({ node, index }))
+            .sort((a, b) => displayName(a.node.name).localeCompare(displayName(b.node.name)) ||
+              variantKey(a.node.variant).localeCompare(variantKey(b.node.variant)));
+          for (const select of [pathSource, pathTarget]) {
+            options.forEach(({node, index}) => select.add(new Option(
+              `${displayName(node.name)} / ${describeVariant(node)}`, index)));
+          }
+          pathControls.querySelector("fieldset").disabled = false;
+          pathOptionsReady = true;
+        }
+        if (pathBatch) {
+          renderPathList();
+          showPath(selectedPath);
+        } else {
+          selectionType.textContent = "Path selection";
+          detail.replaceChildren();
+          pathMessage("Click a start and end on the graph, or choose exact variants in the right panel.");
+          markPathEndpoints();
+          setPathPicking(pathSource.value === "" ? "source" : "target");
+          fit();
+        }
+      }
+
+      for (const select of [pathSource, pathTarget]) select.addEventListener("change", () => {
+        stopPathSearch();
+        clearPathView();
+        pathBatch = null;
+        detail.replaceChildren();
+        markPathEndpoints();
+        setPathPicking(select === pathSource ? "target" : "source");
+        if (pathSource.value !== "" && pathTarget.value !== "") pathControls.requestSubmit();
+        else pathMessage("Choose the other endpoint on the graph or in the right panel.");
+      });
+
+      function stopPathSearch() {
+        transitionRequest++;
+        pathWorker?.terminate();
+        pathWorker = null;
+        pathControls.querySelector("fieldset").disabled = false;
+        pathCancel.hidden = true;
+      }
+      pathCancel.addEventListener("click", () => {
+        stopPathSearch();
+        pathMessage("Search cancelled. Choose endpoints and find paths again.");
+      });
+
+      pathControls.addEventListener("submit", event => {
+        event.preventDefault();
+        stopPathSearch();
+        clearPathView();
+        markPathEndpoints();
+        detail.replaceChildren();
+        selectionType.textContent = "Paths";
+        pathBatch = null;
+        const source = Number(pathSource.value), target = Number(pathTarget.value);
+        if (source === target) {
+          pathMessage("Choose two different exact variants.");
+          applyScope();
+          fit();
+          return;
+        }
+        pathMessage("Computing paths and comparing certificates…");
+        pathControls.querySelector("fieldset").disabled = true;
+        pathCancel.hidden = false;
+        const worker = new Worker("./assets/path-worker.js", {type: "module"});
+        pathWorker = worker;
+        worker.onmessage = ({data: message}) => {
+          if (pathWorker !== worker) return;
+          stopPathSearch();
+          if (message.error) { pathMessage(message.error, true); return; }
+          pathBatch = message.result;
+          pathFront.checked = true;
+          selectedPath = pathBatch.polynomial_comparison.front[0];
+          if (!pathBatch.paths.length) {
+            pathBatch = null;
+            pathMessage("No witness-capable reduction path connects these exact variants.");
+            applyScope();
+            fit();
+          } else {
+            transition(() => {
+              renderPathList();
+              showPath(selectedPath);
+            });
+          }
+        };
+        worker.onerror = () => {
+          if (pathWorker !== worker) return;
+          stopPathSearch();
+          pathMessage("Cannot load the path engine. Reload this release and try again.", true);
+        };
+        worker.postMessage({graph: data, source, target, limit: Number(pathLimit.value)});
+      });
+
+      function pathStatus(index) {
+        const winner = pathBatch.polynomial_comparison.pairs.find(pair => pair.dominates?.loser === index);
+        return winner ? `Dominated by Path ${winner.dominates.winner}` : "Candidate front";
+      }
+
+      function renderPathList() {
+        if (!pathBatch) return;
+        const comparison = pathBatch.polynomial_comparison;
+        document.querySelector("#browser-count").textContent =
+          `${comparison.front.length} candidates · ${pathBatch.paths.length} paths compared${pathBatch.truncated ? " · more paths exist" : ""}`;
+        browserList.replaceChildren();
+        pathBatch.paths.forEach((route, i) => {
+          if (pathFront.checked && !comparison.front.includes(i + 1)) return;
+          const button = document.createElement("button");
+          button.className = "browser-item";
+          button.dataset.path = i + 1;
+          button.setAttribute("aria-current", String(selectedPath === i + 1));
+          button.textContent = `Path ${i + 1} · ${route.steps} reductions`;
+          const status = document.createElement("small");
+          status.textContent = pathStatus(i + 1);
+          button.append(status);
+          browserList.append(button);
+        });
+      }
+
+      pathFront.addEventListener("change", () => {
+        if (!pathBatch) return;
+        if (pathFront.checked && !pathBatch.polynomial_comparison.front.includes(selectedPath)) {
+          selectedPath = pathBatch.polynomial_comparison.front[0];
+        }
+        showPath(selectedPath);
+        renderPathList();
+      });
+
+      function explainDirection(direction) {
+        if (direction.status === "Unknown") {
+          const reason = direction.missing_obligation;
+          return `Unresolved: ${reason.detail || (reason.kind === "validity" ?
+            "no regular, positive counterexample found across this batch" : reason.kind.replaceAll("_", " "))}`;
+        }
+        const proof = direction.certificate;
+        if (proof.kind === "identity") return "Yes: equal after exact expansion.";
+        if (proof.kind === "zero") return "Yes: the numerator is identically zero.";
+        const monomial = powers => Object.entries(powers)
+          .map(([name, exponent]) => exponent === "1" ? name : `${name}^${exponent}`).join(" × ") || "1";
+        if (proof.kind === "newton") return "Yes: positive-support coverage\n" + proof.coverage.map(item =>
+          `${monomial(item.exponent)} ≤ ${item.weights.map(term => `${term.weight} · (${monomial(term.exponent)})`).join(" + ")}`).join("\n");
+        return "No: a regular, positive counterexample for every certificate in this batch\n" +
+          Object.entries(proof.curve).map(([name, value]) =>
+            `${name} = ${value.scale}${value.exponent === "0" ? "" : ` · t^${value.exponent}`}`).join(", ");
+      }
+
+      function showPath(index) {
+        clearPathView();
+        const route = pathBatch.paths[index - 1];
+        const steps = [route.path[0].from, ...route.path.map(edge => edge.to)];
+        new Set(steps.map(endpoint => endpoint.name)).forEach(name => {
+          if (!expanded.has(name)) toggleVariants(cy.getElementById(name));
+        });
+        restoreOverview();
+        cy.nodes().removeClass("core-hidden");
+        const nodes = cy.collection(steps.map(endpoint => cy.getElementById(graphEndpointId(endpoint))));
+        const edges = cy.collection(route.path.map(edge => cy.getElementById(
+          `edge:${graphEndpointId(edge.from)}:${graphEndpointId(edge.to)}`)));
+        relax(visibleElements());
+        cy.elements().addClass("faded");
+        steps.forEach(endpoint => cy.getElementById(graphEndpointId(endpoint)).data("routeLabel",
+          `${displayName(endpoint.name)}\n${Object.values(endpoint.variant).join(" · ")}`));
+        nodes.removeClass("faded").addClass("route-node selected");
+        nodes.ancestors().removeClass("faded").addClass("route-family");
+        edges.removeClass("faded").addClass("route-edge");
+        markPathEndpoints();
+        canvasNote.textContent = `Path ${index} · ${pathStatus(index)} · start: blue, end: orange`;
+        fit(nodes.union(edges), 1.2);
+        selectionType.textContent = "Path comparison";
+        detail.replaceChildren();
+        const heading = document.createElement("h2");
+        heading.textContent = `Path ${index}`;
+        detail.append(heading);
+        const status = document.createElement("p");
+        status.textContent = pathStatus(index);
+        detail.append(status);
+        const list = document.createElement("ol");
+        list.className = "path-route";
+        steps.forEach(endpoint => {
+          const item = document.createElement("li");
+          item.textContent = displayName(endpoint.name);
+          const variant = document.createElement("small");
+          variant.textContent = describeVariant(endpoint);
+          item.append(variant);
+          list.append(item);
+        });
+        detail.append(list);
+        const profile = pathBatch.polynomial_comparison.profiles[index - 1];
+        Object.entries(profile.fields).forEach(([name, field]) => {
+          const block = document.createElement("div");
+          block.className = "path-field";
+          const title = document.createElement("strong");
+          title.textContent = name;
+          const formula = document.createElement("code");
+          formula.textContent = field.certificate === null ? `Unavailable: ${field.accuracy.reason.detail || field.accuracy.reason.kind.replaceAll("_", " ")}` :
+            `${field.accuracy.kind === "exact" ? "=" : "≤"} ${field.certificate}`;
+          block.append(title, formula);
+          detail.append(block);
+        });
+        routeDownload = URL.createObjectURL(new Blob([JSON.stringify(route, null, 2)], {type:"application/json"}));
+        const download = document.createElement("a");
+        download.href = routeDownload;
+        download.download = `reduction-path-${index}.json`;
+        download.className = "path-download";
+        download.textContent = "Download route for pred reduce";
+        detail.append(download);
+        const label = document.createElement("label");
+        label.textContent = "Compare with";
+        const select = document.createElement("select");
+        select.className = "path-compare-select";
+        select.setAttribute("aria-label", "Compare with path");
+        select.add(new Option("Choose another path", ""));
+        pathBatch.paths.forEach((_, i) => {
+          if (i + 1 !== index && (!pathFront.checked || pathBatch.polynomial_comparison.front.includes(i + 1)))
+            select.add(new Option(`Path ${i + 1}`, i + 1));
+        });
+        const proof = document.createElement("div");
+        select.addEventListener("change", () => {
+          proof.replaceChildren();
+          if (!select.value) return;
+          const other = Number(select.value);
+          const pair = pathBatch.polynomial_comparison.pairs.find(pair => pair.paths.includes(index) && pair.paths.includes(other));
+          const verdict = document.createElement("p");
+          verdict.textContent = pair.dominates ? `Path ${pair.dominates.winner} dominates Path ${pair.dominates.loser}` :
+            pair.verdict === "Unknown" ? "Unresolved — this pair does not eliminate either path" : pair.verdict;
+          proof.append(verdict);
+          Object.entries(pair.fields).forEach(([name, directions]) => {
+            const block = document.createElement("details");
+            block.className = "path-proof";
+            const summary = document.createElement("summary");
+            summary.textContent = `${name}: ${directions.forward.status} / ${directions.reverse.status}`;
+            const text = document.createElement("pre");
+            text.textContent = `Path ${pair.paths[0]} ≤O Path ${pair.paths[1]}\n${explainDirection(directions.forward)}\n\n` +
+              `Path ${pair.paths[1]} ≤O Path ${pair.paths[0]}\n${explainDirection(directions.reverse)}`;
+            block.append(summary, text);
+            proof.append(block);
+          });
+        });
+        label.append(select);
+        detail.append(label, proof);
+        const note = document.createElement("p");
+        note.className = "path-note";
+        note.textContent = "Smaller certificates are better. Unknown comparisons retain candidates. Exact-cancellation families are excluded; this is not a per-instance runtime guarantee.";
+        detail.append(note);
+        inspector.scrollTop = 0;
+      }
+
       function renderBrowser() {
+        if (browseMode === "paths") { renderPathList(); return; }
         const query = browserSearch.value.trim().toLowerCase();
         const fragment = document.createDocumentFragment();
         let count = 0;
@@ -649,6 +1009,12 @@
       browserList.addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (!button) return;
+        if (button.dataset.path) {
+          selectedPath = Number(button.dataset.path);
+          renderPathList();
+          showPath(selectedPath);
+          return;
+        }
         transition(() => {
           if (button.dataset.family) selectNode(cy.getElementById(button.dataset.family));
           else if (button.dataset.variant) selectNode(cy.getElementById(button.dataset.variant));
@@ -671,6 +1037,16 @@
       });
 
       function applySearch() {
+        if (browseMode === "paths") {
+          cy.elements().removeClass("faded search-match");
+          const query = search.value.trim().toLowerCase();
+          const matches = cy.nodes().not("[?isVariant]").filter(node =>
+            aliases.get(query.toUpperCase()) === node.id() ||
+            `${node.id()} ${displayName(node.id())}`.toLowerCase().includes(query));
+          if (query) matches.addClass("search-match");
+          fit(query && matches.nonempty() ? matches.union(matches.children()) : visibleElements());
+          return;
+        }
         [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
         restoreOverview();
         selectedProblem = "";
@@ -709,10 +1085,15 @@
         if (matches.length) fit(matches.union(matches.connectedEdges()));
       }
 
-      cy.on("tap", "node", (event) => transition(() => selectNode(event.target)));
-      cy.on("tap", "edge", (event) => transition(() => selectEdge(event.target)));
-      cy.on("tap", (event) => {
-        if (event.target === cy) transition(clearSelection);
+      cy.on("tap", "node", event => transition(() => {
+        if (browseMode === "paths") pickPathNode(event.target);
+        else selectNode(event.target);
+      }));
+      cy.on("tap", "edge", event => {
+        if (browseMode !== "paths") transition(() => selectEdge(event.target));
+      });
+      cy.on("tap", event => {
+        if (event.target === cy && browseMode !== "paths") transition(clearSelection);
       });
       cy.on("mouseover", "node", (event) => {
         event.target.addClass("hovered");
@@ -729,7 +1110,7 @@
       cy.on("mouseover", "edge", (event) => {
         event.target.addClass("hovered");
         const edge = event.target;
-        tooltip.textContent = `${edge.source().data("label")} → ${edge.target().data("label")} · ${edge.data("count")} concrete rule${edge.data("count") === 1 ? "" : "s"}`;
+        tooltip.textContent = `${edge.source().data("label")} → ${edge.target().data("label")}${edge.hasClass("route-edge") ? "" : ` · ${edge.data("count")} concrete rule${edge.data("count") === 1 ? "" : "s"}`}`;
         tooltip.style.display = "block";
       });
       cy.on("mousemove", "node, edge", (event) => {
@@ -812,7 +1193,10 @@
         transition(() => {
           applySearch();
           const match = cy.nodes(".search-match").first();
-          if (match.nonempty()) selectNode(match);
+          if (match.nonempty()) {
+            if (browseMode === "paths") pickPathNode(match);
+            else selectNode(match);
+          }
         });
       });
       document.addEventListener("keydown", (event) => {

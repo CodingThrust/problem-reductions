@@ -8,7 +8,7 @@ import time
 def finalize(output):
     release = f"releases/{time.time_ns()}"
     policy = (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+        "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
         "frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
     )

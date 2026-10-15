@@ -244,7 +244,14 @@ def build(output, graph_path, schemas_path, open_questions=None):
     }
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
     (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
-        {**summary, "layout": layout}, separators=(",", ":")) + ";\n")
+        {**summary, "layout": layout, "edges": edges,
+         "nodes": [{**node, "parameter_names": original["parameter_names"]}
+                   for node, original in zip(summary["nodes"], nodes)]}, separators=(",", ":")) + ";\n")
+    subprocess.run(["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "problemreductions-web"],
+                   cwd=ROOT, check=True)
+    subprocess.run(["wasm-bindgen", "--target", "web", "--no-typescript", "--out-name", "path-selection",
+                    "--out-dir", str(output / "assets"),
+                    str(ROOT / "target/wasm32-unknown-unknown/release/problemreductions_web.wasm")], check=True)
     finalize(output)
     if open_questions is not None:
         publish_open_questions(open_questions, output / "open-questions")

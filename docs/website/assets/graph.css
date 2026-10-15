@@ -124,6 +124,34 @@
 .browser-item.variant-item { padding-left: 28px; color: #c4dda6; }
 .browser-empty { padding: 16px; color: var(--muted); font-size: 13px; }
 
+#path-controls { padding: 0 14px; }
+#path-controls[hidden] { display: none; }
+#path-controls fieldset { min-width: 0; padding: 0; border: 0; margin: 0; }
+#path-controls label { display: block; margin: 8px 0 5px; color: var(--muted); font-size: 13px; }
+#path-controls select, #path-limit, #path-controls button, .path-compare-select {
+  width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--line);
+  border-radius: 4px; background: #0d1410; color: var(--ink); font: inherit; font-size: 14px;
+}
+#path-controls button { margin-block: 5px; background: #273622; color: var(--green); cursor: pointer; }
+.path-endpoint-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.path-search-row { display: grid; grid-template-columns: 80px 1fr; gap: 8px; align-items: center; }
+#path-controls [data-pick] { width: auto; padding: 5px 8px; font-size: 12px; }
+#path-controls [data-pick][aria-pressed="true"] { border-color: var(--green); }
+#path-controls .path-front-toggle { display: flex; align-items: center; gap: 7px; }
+#path-controls input { accent-color: #c4dda6; }
+#path-controls p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 10px 0; }
+.path-route { padding-left: 22px; overflow-wrap: anywhere; }
+.path-route li { margin-block: 10px; }
+.path-route small { display: block; color: var(--muted); font-size: 13px; }
+.path-field { border-top: 1px solid var(--line); padding-block: 12px; }
+.path-field code, .path-proof pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.path-field strong { display: block; font-size: 14px; font-weight: 500; }
+.path-proof { margin-block: 14px; }
+.path-proof summary { cursor: pointer; color: var(--green); }
+.path-proof pre { color: var(--muted); line-height: 1.6; }
+.path-download { display: inline-block; margin-block: 14px; color: var(--green); }
+.path-note { color: var(--muted); font-size: 13px; }
+
 .graph-inspector {
   min-width: 0;
   overflow-y: auto;

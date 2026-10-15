@@ -3,6 +3,9 @@
 
 import os
 import re
+import json
+from pathlib import Path
+import subprocess
 import unittest
 from urllib.parse import urljoin
 
@@ -440,6 +443,131 @@ class WebsiteTests(unittest.TestCase):
             document.querySelector('#cy')._cyreg.cy.nodes()
                 .map(node => ({id: node.id(), ...node.position()}))
         """), positions)
+
+    def click_graph_node(self, node_id):
+        self.page.wait_for_function("""id => {
+            const node = document.querySelector('#cy')._cyreg.cy.getElementById(id);
+            return node.nonempty() && node.visible();
+        }""", arg=node_id)
+        point = self.page.evaluate("""id => document.querySelector('#cy')._cyreg.cy
+            .getElementById(id).renderedPosition()""", node_id)
+        self.page.locator('#cy').click(position=point)
+
+    def test_graph_path_selection_matches_cli_and_keeps_exact_variants(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('[data-browse="paths"]').click()
+        expect(self.page.locator('#graph-inspector #path-controls')).to_be_visible()
+        self.page.locator('#graph-search').fill('MIS')
+        self.click_graph_node('MaximumIndependentSet')
+        self.assertEqual(self.page.evaluate("""() => {
+            const cy = document.querySelector('#cy')._cyreg.cy;
+            const family = cy.getElementById('MaximumIndependentSet');
+            const box = family.boundingBox();
+            return cy.nodes().difference(family.union(family.children()))
+                .filter(node => node.visible() && !node.isParent())
+                .filter(node => {
+                    const {x,y} = node.position();
+                    return x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2;
+                }).map(node => node.id());
+        }"""), [], 'Expanded endpoint families must not cover other graph nodes')
+        self.click_graph_node('MaximumIndependentSet/graph=SimpleGraph,weight=One')
+        source = self.page.locator('#path-source').input_value()
+        self.assertEqual(self.page.evaluate('i => REDUCTIONS.nodes[i].variant.weight', int(source)), 'One')
+        self.page.locator('#graph-search').fill('QUBO')
+        self.click_graph_node('QUBO')
+        self.click_graph_node('QUBO/weight=i64')
+        command = [str(Path(__file__).resolve().parents[1] / 'target/debug/pred'),
+                   'path', 'MIS', 'QUBO', '--compare', '--limit', '20', '--json']
+        reference = json.loads(subprocess.run(command, check=True, capture_output=True).stdout)
+        expect(self.page.locator('#path-front')).to_be_checked()
+        expect(self.page.locator('[data-path]')).to_have_count(len(reference['polynomial_comparison']['front']))
+        expect(self.page.get_by_label('Compare with path').locator('option')).to_have_count(
+            len(reference['polynomial_comparison']['front']))
+        self.page.locator('#path-front').uncheck()
+        expect(self.page.locator('[data-path]')).to_have_count(len(reference['paths']))
+        first = reference['paths'][0]['path']
+        expected = [first[0]['from']] + [edge['to'] for edge in first]
+        expected_ids = {node['name'] + '/' + ','.join(f'{key}={value}' for key, value in sorted(node['variant'].items()))
+                        if sum(item['name'] == node['name'] for item in self.page.evaluate('REDUCTIONS.nodes')) > 1
+                        else node['name'] for node in expected}
+        actual = self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
+            .nodes('.route-node').map(node => node.id())""")
+        self.assertEqual(set(actual), expected_ids)
+        expect(self.page.locator('.path-route li')).to_have_count(len(expected))
+        self.assertGreater(self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy.nodes()
+            .filter(node => !node.data('isVariant') && node.visible()).length"""), 100)
+        self.assertEqual(self.page.evaluate("""() =>
+            document.querySelector('#cy')._cyreg.cy.edges('.route-edge').length
+        """), len(first))
+        self.page.get_by_label('Compare with path').select_option('2')
+        expect(self.page.locator('#graph-detail')).to_contain_text(
+            reference['polynomial_comparison']['pairs'][0]['verdict'])
+        expect(self.page.locator('.path-proof')).to_have_count(
+            len(reference['polynomial_comparison']['pairs'][0]['fields']))
+        self.page.locator('#path-front').check()
+        expect(self.page.locator('[data-path]')).to_have_count(
+            len(reference['polynomial_comparison']['front']))
+        self.assertEqual(self.page.locator('[data-path]').evaluate_all(
+            '(buttons) => buttons.map(button => Number(button.dataset.path))'),
+            reference['polynomial_comparison']['front'])
+        self.page.locator('#path-limit').fill('1')
+        self.page.get_by_role('button', name='Find paths', exact=True).click()
+        expect(self.page.locator('[data-path]')).to_have_count(1)
+        expect(self.page.locator('#browser-count')).to_contain_text('more paths exist')
+        self.page.get_by_role('button', name='Reset view', exact=True).click()
+        expect(self.page.locator('[data-browse="problems"]')).to_have_attribute('aria-pressed', 'true')
+        self.assertEqual(self.page.evaluate("""() =>
+            document.querySelector('#cy')._cyreg.cy.nodes('.route-node').length
+        """), 0)
+
+    def test_graph_path_route_download_solves_and_unreachable_query_is_explicit(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('[data-browse="paths"]').click()
+        indices = self.page.evaluate("""() => {
+            const find = weight => REDUCTIONS.nodes.findIndex(node =>
+                node.name === 'MaximumIndependentSet' && node.variant.graph === 'SimpleGraph' && node.variant.weight === weight);
+            return [find('One'), find('i64'), REDUCTIONS.nodes.findIndex(node => node.name === 'Factoring')];
+        }""")
+        self.page.locator('#path-source').select_option(str(indices[0]))
+        self.page.locator('#path-target').select_option(str(indices[1]))
+        expect(self.page.locator('[data-path="1"]')).to_have_attribute('aria-current', 'true')
+        variants = self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
+            .nodes('.route-node').map(node => REDUCTIONS.nodes.find(item =>
+                item.name + '/' + Object.entries(item.variant).sort().map(([k,v]) => `${k}=${v}`).join(',') === node.id()).variant.weight)""")
+        self.assertEqual(variants, ['One', 'i64'])
+        with self.page.expect_download() as download:
+            self.page.get_by_role('link', name='Download route for pred reduce').click()
+        route = Path(download.value.path())
+        pred = str(Path(__file__).resolve().parents[1] / 'target/debug/pred')
+        instance = subprocess.run([pred, 'create', 'MIS', '--graph', '0-1,1-2,2-3,3-4,4-0', '--json'],
+                                  check=True, capture_output=True).stdout
+        bundle = subprocess.run([pred, 'reduce', '-', '--via', str(route), '--json'],
+                                input=instance, check=True, capture_output=True).stdout
+        result = json.loads(subprocess.run([pred, 'solve', '-', '--solver', 'brute-force', '--json'],
+                                          input=bundle, check=True, capture_output=True).stdout)
+        self.assertEqual(result['evaluation'], 'Max(2)')
+        chosen = result['solution']
+        self.assertEqual(sum(chosen), 2)
+        self.assertTrue(all(not (chosen[u] and chosen[v]) for u, v in [(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]))
+        self.page.locator('#path-target').select_option(str(indices[2]))
+        self.page.get_by_role('button', name='Find paths', exact=True).click()
+        expect(self.page.locator('#browser-list')).to_contain_text('No witness-capable reduction path')
+        expect(self.page.locator('[data-path]')).to_have_count(0)
+
+    def test_graph_path_search_can_be_cancelled_without_blocking_the_page(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('[data-browse="paths"]').click()
+        self.page.locator('#path-limit').fill('999')
+        indices = self.page.evaluate("""() => [
+            REDUCTIONS.nodes.findIndex(node => node.name === 'MaximumIndependentSet' &&
+                node.variant.graph === 'SimpleGraph' && node.variant.weight === 'One'),
+            REDUCTIONS.nodes.findIndex(node => node.name === 'QUBO' && node.variant.weight === 'i64')]
+        """ )
+        self.page.locator('#path-source').select_option(str(indices[0]))
+        self.page.locator('#path-target').select_option(str(indices[1]))
+        self.page.get_by_role('button', name='Cancel search', exact=True).click()
+        expect(self.page.locator('#browser-list')).to_contain_text('Search cancelled')
+        expect(self.page.get_by_role('button', name='Find paths', exact=True)).to_be_enabled()
 
     def test_graph_details_panel_is_persistent_and_resizable(self):
         self.page.goto(self.base + "graph.html")

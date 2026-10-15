@@ -89,6 +89,7 @@
           <div class="browser-modes" aria-label="Browse mode">
             <button data-browse="problems" aria-pressed="true">Problems</button>
             <button data-browse="rules" aria-pressed="false">Rules</button>
+            <button data-browse="paths" aria-pressed="false">Paths</button>
           </div>
           <input id="browser-search" type="search" placeholder="Search problems…" aria-label="Search graph list" />
           <p id="browser-count" aria-live="polite"></p>
@@ -115,6 +116,28 @@
           <div class="inspector-heading">
             <span id="selection-type">Details</span>
           </div>
+          <form id="path-controls" hidden>
+            <fieldset disabled>
+              <div class="path-endpoint-heading">
+                <label for="path-source">Start variant</label>
+                <button type="button" data-pick="source" aria-pressed="true">Pick start on graph</button>
+              </div>
+              <select id="path-source" required><option value="">Choose a start on the graph…</option></select>
+              <div class="path-endpoint-heading">
+                <label for="path-target">End variant</label>
+                <button type="button" data-pick="target" aria-pressed="false">Pick end on graph</button>
+              </div>
+              <select id="path-target" required><option value="">Choose an end on the graph…</option></select>
+              <label for="path-limit">Path limit (1–999)</label>
+              <div class="path-search-row">
+                <input id="path-limit" type="number" min="1" max="999" value="20" required />
+                <button type="submit">Find paths</button>
+              </div>
+              <label class="path-front-toggle"><input id="path-front" type="checkbox" checked /> Candidate front only</label>
+            </fieldset>
+            <button id="path-cancel" type="button" hidden>Cancel search</button>
+            <p id="path-prompt" aria-live="polite">Click a start node, then an end node. Expand a family to choose its exact variant.</p>
+          </form>
           <div id="graph-detail" class="graph-detail"></div>
         </aside>
       </div>

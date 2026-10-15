@@ -4,6 +4,7 @@ members = [
     "problemreductions-expr",
     "problemreductions-macros",
     "problemreductions-cli",
+    "problemreductions-web",
 ]
 
 [package]

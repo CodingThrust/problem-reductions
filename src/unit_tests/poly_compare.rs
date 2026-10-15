@@ -364,38 +364,6 @@ fn exact_lp_finds_fractional_points_and_rejects_infeasibility() {
     ));
 }
 
-#[test]
-fn real_graph_path_comparison_runs_from_registered_formulas() {
-    let graph = crate::rules::ReductionGraph::new();
-    let paths = graph.find_paths_up_to(
-        "MaximumIndependentSet",
-        &graph.variants_for("MaximumIndependentSet")[0],
-        "QUBO",
-        &graph.variants_for("QUBO")[0],
-        4,
-    );
-    assert!(!paths.is_empty());
-    let profiles: Vec<_> = paths
-        .iter()
-        .map(|p| graph.path_polynomial_profile(p).unwrap())
-        .collect();
-    for profile in &profiles {
-        assert!(!profile.domain.is_empty());
-        assert_eq!(
-            compare_profiles(profile, profile).verdict,
-            Verdict::Equivalent
-        );
-    }
-    let result = compare_all(&profiles);
-    assert!(!result.front.is_empty());
-    // Front comparisons must use the same full batch, not standalone two-path scopes.
-    for (i, j, c) in &result.pairs {
-        if result.front.contains(i) && result.front.contains(j) {
-            assert!(!matches!(c.verdict, Verdict::Dominated { .. }));
-        }
-    }
-}
-
 proptest::proptest! {
     #![proptest_config(proptest::test_runner::Config::with_cases(64))]
     #[test]

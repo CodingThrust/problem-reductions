@@ -31,6 +31,23 @@ No web prose is maintained separately. `problem-def` accepts `variant: (...)`;
 `reduction-rule` accepts `source-variant: (...)` and `target-variant: (...)` for
 specialized content. Omit these to publish shared family content.
 
+The graph browser's **Paths** tab searches any pair of exact registered variants.
+Click a start and end node on the graph; a family expands to let you choose an
+exact variant. The right inspector also provides synchronized endpoint dropdowns
+and a step-by-step route preview. The selected path highlights existing graph
+nodes and directed edges, with blue marking the start and orange the end.
+It computes paths, composed parameter certificates, comparisons, and the candidate
+front on demand in a Web Worker. WebAssembly compiles the same Rust sources used
+by the library for Yen path search, parameter composition, and polynomial comparison.
+Choose a limit from 1 to 999; cancelling terminates the worker.
+
+Every concrete step, including same-family variant conversions, is shown in the
+graph. The candidate front is shown by default; uncheck **Candidate front only**
+to include certified dominated paths. Equivalent and unresolved candidates remain.
+Select another path to inspect per-field proofs or counterexample growth families. Download a route for `pred reduce --via`.
+The front concerns the listed batch only. Generic certificate comparisons exclude
+exceptional cancellation families and do not predict instance runtime.
+
 `scripts/build_graph_details.py` compiles once with Typst 0.15.1 and extracts
 each article into the release's `assets/details/` directory. The URL index and
 articles load on selection; the 24 most recently used articles are cached. References load
@@ -43,7 +60,13 @@ experimental, so the build fails on export errors.
 
 ## Build and preview
 
-Use mdBook 0.5.2 and Typst 0.15.1, matching the deployment workflow.
+Use mdBook 0.5.2, Typst 0.15.1, and wasm-bindgen-cli 0.2.129, matching the deployment workflow.
+Install the browser build tools once:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+```
 
 ```sh
 make website

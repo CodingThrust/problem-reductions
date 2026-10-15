@@ -33,6 +33,11 @@ jobs:
         run: uv run --project open-questions-source/website --locked python open-questions-source/website/build.py
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install browser binding tools
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
 
       - uses: actions/setup-node@v4
         with:
