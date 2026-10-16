@@ -156,12 +156,13 @@ def check(site, *, build, open_questions, required):
                 if not (site / "open-questions" / name).is_file():
                     raise FileNotFoundError(f"Required Open Question Board output absent: {name}")
         run(["npm", "run", "test:reduction-graph-js"])
-        for pattern in ["test_website_build.py", "test_website_math.py", "test_graph_interaction_benchmark.py",
-                        "test_graph_trace_costs.py", "test_website_verification.py"]:
+        for pattern in ["test_website_build.py", "test_website_math.py", "test_website_verification.py"]:
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "-v"])
         with serve_website(site) as base:
             environment = {**os.environ, "WEBSITE_BASE_URL": base,
                            "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"}
+            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test_graph_*", "-v"],
+                env=environment)
             run([sys.executable, "scripts/test_website.py"], env=environment)
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts",
                  "-p", "test_website_baselines.py", "-v"], env=environment)

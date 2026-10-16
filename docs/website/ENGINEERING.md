@@ -134,9 +134,11 @@ WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --python 3.12.14 --no-project --w
   python -m unittest discover -s scripts -p test_graph_interaction_trace.py -v
 ```
 
-These SVG-specific harness checks are not yet part of the legacy-runtime deployment
-suite. Their adoption with the prepared runtime and broader browser/failure checks
-remains an engineering gate; unsupported instrumentation must remain explicit.
+The prepared SVG/startup runtime is now committed separately from the accessibility
+fixes. The production verifier runs these real trace/activation and cold-query
+self-checks against its actual served artifact, alongside the pure accounting
+checks. Unsupported instrumentation remains explicit. Full browser/failure
+acceptance is still pending.
 The [frame-cost pilot](baselines/2026-10-16-chromium-macos/FRAME_COSTS.md) accounts
 for overlapping main-thread slices and retains complete first-input windows. Its
 cost scope, excluded work, invalid concurrent batch and informational gate status
