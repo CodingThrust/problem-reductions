@@ -1,27 +1,27 @@
 @font-face {
   font-family: DM Sans;
-  src: url("./fonts/dm-sans-regular.ttf") format("truetype");
+  src: url("./fonts/dm-sans-regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: DM Sans;
-  src: url("./fonts/dm-sans-semibold.ttf") format("truetype");
+  src: url("./fonts/dm-sans-semibold.woff2") format("woff2");
   font-weight: 500 800;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: Instrument Serif;
-  src: url("./fonts/instrument-serif.ttf") format("truetype");
+  src: url("./fonts/instrument-serif.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: Instrument Serif;
-  src: url("./fonts/instrument-serif-italic.ttf") format("truetype");
+  src: url("./fonts/instrument-serif-italic.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
   font-display: swap;
