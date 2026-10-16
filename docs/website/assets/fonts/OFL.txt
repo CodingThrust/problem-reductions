@@ -1,9 +1,10 @@
 Copyright 2020 The DM Mono Project Authors (https://www.github.com/googlefonts/dm-mono)
+Copyright 2014 The DM Sans Project Authors (https://github.com/googlefonts/dm-fonts)
+Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)
 
-This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is copied below, and is also available with a FAQ at:
-http://scripts.sil.org/OFL
-
+These fonts (DM Mono, DM Sans and Instrument Serif) are each licensed under the
+SIL Open Font License, Version 1.1. The license is copied below, and is also
+available with a FAQ at: https://openfontlicense.org
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
