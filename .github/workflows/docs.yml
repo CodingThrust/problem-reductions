@@ -96,6 +96,7 @@ jobs:
           npm audit --audit-level=moderate
           npm run test:reduction-graph-js
           python3 -m unittest discover -s scripts -p 'test_website_build.py'
+          python3 -m unittest discover -s scripts -p 'test_graph_interaction_benchmark.py'
           python3 -m http.server 3001 --bind 127.0.0.1 --directory book &
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
