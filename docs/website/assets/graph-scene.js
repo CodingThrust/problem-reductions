@@ -8,7 +8,7 @@ window.GraphScene = class {
     };
     this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0;
     this.svg = make('svg', {class: 'graph-scene', role: 'group',
-      'aria-label': 'Problem families and directed reductions. Tab to a problem, arrow keys move between neighbours, Enter opens it.'});
+      'aria-label': 'Problem families and directed reductions. Arrows move between spatial neighbours. Page Up and Page Down visit every problem. Home and End jump to the first and last problem. Enter or Space opens controls.'});
     this.world = make('g');
     const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -4 8 8', refX: 7, refY: 0,
       markerWidth: 6, markerHeight: 6, orient: 'auto', markerUnits: 'userSpaceOnUse'});
@@ -86,17 +86,39 @@ window.GraphScene = class {
       const node = this.nodeOf(e.target);
       if (!node) return;
       this.setTabStop(node);
+      node.shape.classList.add('focused');
       node.shape.setAttribute('aria-label', this.describe(node));
       this.reveal(node);
+      this.onChange?.();
+    });
+    this.svg.addEventListener('focusout', e => {
+      this.nodeOf(e.target)?.shape.classList.remove('focused');
+      this.onChange?.();
+    });
+    this.svg.addEventListener('click', e => {
+      const node = this.nodeOf(e.target);
+      if (node && e.detail === 0) this.onNodeTap?.(node, {keyboard: true});
     });
     this.svg.addEventListener('keydown', e => {
       const node = this.nodeOf(e.target);
       if (!node || e.altKey || e.ctrlKey || e.metaKey) return;
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.onNodeTap?.(node, {keyboard: true}); return; }
+      if (e.key === ' ') { e.preventDefault(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); this.onNodeTap?.(node, {keyboard: true}); return; }
+      const index = this.nodes.indexOf(node);
+      const next = {Home: 0, End: this.nodes.length - 1,
+        PageDown: (index + 1) % this.nodes.length,
+        PageUp: (index + this.nodes.length - 1) % this.nodes.length}[e.key];
+      if (next != null) { e.preventDefault(); this.nodes[next].shape.focus(); return; }
       const direction = {ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1]}[e.key];
       if (!direction) return;
       e.preventDefault();
       this.neighbour(node, direction)?.shape.focus();
+    });
+    this.svg.addEventListener('keyup', e => {
+      const node = this.nodeOf(e.target);
+      if (node && e.key === ' ' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault(); this.onNodeTap?.(node, {keyboard: true});
+      }
     });
     this.svg.addEventListener('wheel', e => {
       e.preventDefault(); this.stop(); this.zoomAt(this.zoom * Math.exp(-e.deltaY * .002), point(e));
@@ -138,9 +160,15 @@ window.GraphScene = class {
   }
   // Keyboard focus must never land off-screen: pan the minimum distance to bring the node into view.
   reveal(node) {
-    const box = this.svg.getBoundingClientRect(), p = this.position(node), margin = 48;
+    const box = this.svg.getBoundingClientRect(), p = this.position(node);
+    const r = this.visibleRect?.() || {x: 0, y: 0, w: box.width, h: box.height};
+    this.labelBox(node);
+    const radius = (node.size / 2 + 6) * this.zoom;
+    const side = Math.min(Math.max(48, node.width / 2 + 12, radius + 12), r.w / 2);
+    const top = Math.min(Math.max(48, radius + 12), r.h / 2);
+    const bottom = Math.min(Math.max(48, node.size / 2 * this.zoom + node.height + 17), r.h / 2);
     const shift = (value, low, high) => value < low ? low - value : value > high ? high - value : 0;
-    const x = shift(p.x, margin, box.width - margin), y = shift(p.y, margin, box.height - margin);
+    const x = shift(p.x, r.x + side, r.x + r.w - side), y = shift(p.y, r.y + top, r.y + r.h - bottom);
     if (x || y) this.setViewport(this.zoom, {x: this.pan.x + x, y: this.pan.y + y});
   }
   has(item, name) { return item.shape.classList.contains(name); }
@@ -195,7 +223,7 @@ window.GraphScene = class {
     this.animation = requestAnimationFrame(step);
   }
   labelBox(node) {
-    const important = ['route', 'start', 'end', 'hover'].some(c => this.has(node, c));
+    const important = ['route', 'start', 'end', 'hover', 'focused'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
     const key = size + ':' + text;
     if (node.labelKey !== key) {

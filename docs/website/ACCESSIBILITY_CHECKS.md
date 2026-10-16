@@ -29,8 +29,9 @@ any screen-reader interaction mode required to operate the graph.
    expanded/collapsed state are understandable. Escape closes suggestions and
    leaves no stale active-option announcement.
 4. Tab into the graph. Confirm a single entry stop, visible focus and an audible
-   problem name. Follow the documented arrow behavior. Reach an isolated node using
-   the documented non-neighbor traversal, and confirm focus reveals obscured nodes.
+   problem name. Arrows move between spatial neighbors; Home/End choose the first/
+   last problem; Page Up/Down visit every problem, wrapping at the ends. Reach an
+   isolated node with those controls and confirm focus reveals obscured nodes.
    Confirm selected-route/start/end information is understandable on affected nodes.
 5. Activate a node with Enter and Space. Confirm the popover is named and focus
    enters its controls. Change a variant without losing usable focus. Escape closes

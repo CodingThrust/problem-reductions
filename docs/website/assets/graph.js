@@ -79,6 +79,7 @@ function freeRect() {
   const right = $("#details-drawer").hidden ? W : $("#details-drawer").getBoundingClientRect().left - 16;
   return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
 }
+scene.visibleRect = freeRect;
 function frame(eles, maxZoom = 1.3, animate = !reduced.matches) {
   if (!eles || !eles.length) return;
   const r = freeRect(), b = scene.bounds(eles), pad = 90;
@@ -93,7 +94,7 @@ const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = reques
 function placeLabels() {
   const r = freeRect(), boxes = [];
   const box = n => scene.labelBox(n);
-  const important = n => ["route", "start", "end", "hover"].some(c => scene.has(n, c));
+  const important = n => ["route", "start", "end", "hover", "focused"].some(c => scene.has(n, c));
   const fits = b => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
   const hit = b => boxes.some(o => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
   scene.classes(scene.nodes, "named");
@@ -239,7 +240,9 @@ function openPop(node, {keyboard = false} = {}) {
   if (keyboard) $("#pop button").focus({preventScroll: true});
 }
 function renderPop() {
-  const pop = $("#pop"); pop.replaceChildren();
+  const pop = $("#pop"), active = document.activeElement;
+  const focusGroup = pop.contains(active) ? active.closest('[role="group"]')?.getAttribute('aria-label') : null;
+  pop.replaceChildren();
   const title = el("h2", "", display(popNode.id)); title.id = "pop-title"; pop.append(title);
   const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
   const acts = el("div", "pop-actions");
@@ -250,6 +253,10 @@ function renderPop() {
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex]); pop.append(details);
   pop.hidden = false; placePop();
+  if (focusGroup) {
+    [...pop.querySelectorAll('[role="group"]')].find(group => group.getAttribute('aria-label') === focusGroup)
+      ?.querySelector('button[aria-pressed="true"]')?.focus({preventScroll: true});
+  }
 }
 function placePop() {
   if (!popNode || $("#pop").hidden) return;
@@ -454,7 +461,7 @@ function paintGraph() {
   } else if (state.source != null && state.target != null) scene.classes(scene.elements, "", "dim");
   for (const side of ["source", "target"]) if (state[side] != null)
     scene.classes([scene.byId.get(D.nodes[state[side]].name)], "dim", side === "source" ? "start" : "end");
-
+  scene.nodes.forEach(node => node.shape.setAttribute('aria-label', scene.describe(node)));
   scheduleLabels();
 }
 function select(n) {
@@ -592,7 +599,12 @@ new ResizeObserver(() => {
 state.source = defaults.Satisfiability; state.target = defaults.QUBO;
 syncEnds(); frame(scene.elements, 1, false); run();
 performance.mark("graph:interactive");
-document.fonts?.ready.then(() => { scene.nodes.forEach(n => { n.labelKey = null; }); scheduleLabels(); });
+document.fonts?.ready.then(() => {
+  scene.nodes.forEach(n => { n.labelKey = null; });
+  const focused = scene.nodes.find(node => scene.has(node, 'focused'));
+  if (focused) scene.reveal(focused);
+  scheduleLabels();
+});
 })().catch(() => {
   document.querySelector('#results').textContent = 'Cannot load graph. Reload this release and try again.';
 });

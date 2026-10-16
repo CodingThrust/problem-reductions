@@ -217,10 +217,25 @@ three new behavior checks passed in Chromium, Firefox and WebKit; the full fresh
 artifact suite passed all 55 browser workflows and graph harness checks. All
 fourteen reference image hashes remained unchanged.
 
-Stage 1 remains incomplete: variant-control focus, visible/disconnected-node access,
-drag alternatives, automated accessibility scans and the required manual/device
-checks still need implementation or verification. The sporadic long-frame defect
-remains under investigation; the trace pilot is not a claim that it was fixed.
+Keyboard navigation now includes Home/End and cyclic Page Up/Down traversal through
+all problem families in catalog order, including disconnected families. Arrows
+choose a spatial neighbor inside a 90-degree directional cone, using distance
+along the direction plus twice the lateral distance. Focus reveals the node and
+label inside the available canvas, clear of panels; focused labels reuse the
+existing important-label treatment. Variant repaint keeps focus in the same group,
+and node names refresh route/start/end state without requiring a new focus event.
+
+Direct click activation without pointer events is covered separately from pointer
+and keyboard gestures. Space activates on release. This follows the interaction
+and focus guidance in the [W3C button pattern](https://www.w3.org/WAI/ARIA/apg/patterns/button/);
+the event checks do not establish real screen-reader compatibility. The six new
+cases passed in Chromium, Firefox and WebKit; all 61 full production browser
+workflows and the graph harness checks passed on an unchanged source snapshot.
+
+Stage 1 remains incomplete: drag alternatives, responsive edge cases, automated
+accessibility scans and the required manual/device checks still need implementation
+or verification. The sporadic long-frame defect remains under investigation;
+the trace pilot is not a claim that it was fixed.
 
 Rollback: revert the isolated verification changes and use the existing
 build/preview commands. No application assets or mathematical code change

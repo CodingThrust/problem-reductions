@@ -69,11 +69,11 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .node-halo { fill: var(--ink); opacity: 0; }
 .node-label { font-family: var(--sans); font-weight: 500; fill: var(--ink-2); stroke: var(--bg); stroke-width: 5;
   paint-order: stroke; stroke-linejoin: round; visibility: hidden; pointer-events: none; }
-.scene-node.named .node-label, .scene-node:is(.route,.start,.end,.hover) .node-label { visibility: visible; }
+.scene-node.named .node-label, .scene-node:is(.route,.start,.end,.hover,.focused) .node-label { visibility: visible; }
 .scene-node.dim { opacity: .16; }
 .scene-node.ghost { opacity: .75; }
-.scene-node:is(.route,.start,.end,.hover) { opacity: 1; }
-.scene-node:is(.route,.start,.end,.hover) .node-label { fill: var(--ink); }
+.scene-node:is(.route,.start,.end,.hover,.focused) { opacity: 1; }
+.scene-node:is(.route,.start,.end,.hover,.focused) .node-label { fill: var(--ink); }
 .scene-node.route .node-disc { stroke: var(--accent); }
 .scene-node.start .node-disc { stroke: var(--start); stroke-width: 3; }
 .scene-node.end .node-disc { stroke: var(--end); stroke-width: 3; }

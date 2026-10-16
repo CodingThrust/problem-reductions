@@ -807,6 +807,85 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('article.typst-detail')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
 
+    def test_graph_node_names_track_route_and_endpoint_state(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        sat = self.page.locator('.scene-node[data-node="Satisfiability"]')
+        expect(sat).to_have_attribute('aria-label', re.compile('start of the route'), timeout=500)
+        self.choose_endpoint('source', 'MIS')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('.scene-node[data-node="MaximumIndependentSet"]')).to_have_attribute(
+            'aria-label', re.compile('start of the route'), timeout=500)
+        expect(sat).not_to_have_attribute('aria-label', re.compile('start of the route'), timeout=500)
+
+    def test_graph_click_activation_without_pointer_events_opens_controls(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('.scene-node[data-node="Satisfiability"]').dispatch_event('click', {'detail': 0})
+        expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
+        expect(self.page.get_by_role('dialog', name='Satisfiability', exact=True)).to_be_visible(timeout=500)
+
+    def test_graph_space_activation_waits_for_key_release(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('.scene-node[data-node="Satisfiability"]').focus()
+        self.page.keyboard.down('Space')
+        expect(self.page.locator('#pop')).to_be_hidden(timeout=500)
+        self.page.keyboard.up('Space')
+        expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
+
+    def test_graph_keyboard_visits_disconnected_families_and_both_ends(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        graph = self.page.evaluate('window.REDUCTIONS')
+        names = list(dict.fromkeys(node['name'] for node in graph['nodes']))
+        linked = {graph['nodes'][edge[side]]['name'] for edge in graph['edges'] for side in ['source', 'target']
+                  if graph['nodes'][edge['source']]['name'] != graph['nodes'][edge['target']]['name']}
+        isolated = next((name for name in names[1:-1] if name not in linked), None)
+        self.assertIsNotNone(isolated, 'The registry must retain an isolated-family navigation fixture')
+        node = self.page.locator(f'.scene-node[data-node="{isolated}"]')
+        node.focus()
+        node.press('PageDown')
+        expect(self.page.locator(f'.scene-node[data-node="{names[names.index(isolated) + 1]}"]')).to_be_focused(timeout=500)
+        self.page.keyboard.press('PageUp')
+        expect(node).to_be_focused(timeout=500)
+        self.page.keyboard.press('Home')
+        expect(self.page.locator(f'.scene-node[data-node="{names[0]}"]')).to_be_focused(timeout=500)
+        self.page.keyboard.press('End')
+        expect(self.page.locator(f'.scene-node[data-node="{names[-1]}"]')).to_be_focused(timeout=500)
+
+    def test_graph_keyboard_focus_reveals_a_node_hidden_by_the_search_panel(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.get_by_role('button', name='Show whole graph', exact=True).click()
+        node = self.page.locator('.scene-node[data-node="BinPacking"]')
+        dot = node.locator('.node-disc')
+        before = dot.bounding_box()
+        self.page.mouse.move(1300, 930)
+        self.page.mouse.down()
+        self.page.mouse.move(1300 + 200 - before['x'] - before['width'] / 2, 930, steps=2)
+        self.page.mouse.up()
+        panel = self.page.locator('.panel').bounding_box()
+        self.assertLess(dot.bounding_box()['x'], panel['x'] + panel['width'])
+        node.focus()
+        self.assertGreaterEqual(dot.bounding_box()['x'], panel['x'] + panel['width'] + 12)
+        expect(node.locator('.node-label')).to_be_visible(timeout=500)
+        expect(node).to_have_css('opacity', '1', timeout=500)
+
+    def test_graph_keyboard_variant_selection_keeps_focus_in_the_same_group(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        node = self.page.locator('.scene-node[data-node="MaximumIndependentSet"]')
+        node.focus()
+        node.press('Enter')
+        weight = self.page.locator('#pop [aria-label="weight"]').get_by_role('button', name='i64', exact=True)
+        weight.focus()
+        weight.press('Enter')
+        expect(weight).to_have_attribute('aria-pressed', 'true')
+        expect(weight).to_be_focused(timeout=500)
+        self.page.keyboard.press('Escape')
+        expect(node).to_be_focused(timeout=500)
+
     def test_graph_keyboard_popover_enters_controls_and_returns_to_node(self):
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
@@ -818,8 +897,6 @@ class WebsiteTests(unittest.TestCase):
         self.page.keyboard.press('Escape')
         expect(self.page.locator('#pop')).to_be_hidden()
         expect(node).to_be_focused(timeout=500)
-        node.press('Space')
-        expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
 
     def test_graph_details_from_keyboard_popover_returns_to_visible_node(self):
         self.page.goto(self.base + 'graph.html')
