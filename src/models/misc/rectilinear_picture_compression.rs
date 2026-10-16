@@ -340,9 +340,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "rectilinear_picture_compression",
-        // Config: select both maximal rectangles (the two 2x2 blocks).
-        // The maximal rectangles for this matrix are exactly:
-        // (0,0,1,1) and (2,2,3,3), so config [1,1] selects both.
+        // Each selected maximal rectangle covers one of the two disjoint 2x2 blocks.
         instance: Box::new(RectilinearPictureCompression::new(
             vec![
                 vec![true, true, false, false],

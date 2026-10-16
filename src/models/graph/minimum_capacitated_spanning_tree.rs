@@ -475,10 +475,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 1, 1, 1],          // requirements (root=0)
             3,                            // capacity
         )),
-        // Optimal: edges {(0,1),(0,2),(1,4),(3,4)} = indices {0,1,4,7}
-        // Weight = 2+1+1+1 = 5
-        // Subtree sums: subtree(1)={1,4}->req=2<=3, subtree(2)={2}->req=1<=3,
-        //   subtree(4)={4}->req=1<=3, subtree(3)={3}->req=1<=3
+        // Root 0 has branches 0-1-4-3 and 0-2, with demands 3 and 1.
         optimal_config: serde_json::json!(vec![true, true, false, false, true, false, false, true]),
         optimal_value: serde_json::json!(5),
     }]
