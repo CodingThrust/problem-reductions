@@ -63,7 +63,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .scene-edge.dim { opacity: .025; }
 .scene-edge.nbr { stroke: var(--ink-2); opacity: .45; }
 .scene-edge.ghost { stroke: var(--accent); stroke-width: 1.5; opacity: .22; }
-.scene-edge.route { stroke: var(--accent); stroke-width: 2.6; opacity: 1; marker-end: url(#route-arrow); pointer-events: stroke; cursor: pointer; }
+.scene-edge.route { stroke: var(--accent); stroke-width: 1.8; opacity: 1; marker-end: url(#route-arrow); pointer-events: stroke; cursor: pointer; }
 .scene-node { cursor: pointer; }
 .node-disc { stroke: var(--bg); stroke-width: 2; }
 .node-halo { fill: var(--ink); opacity: 0; }

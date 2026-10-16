@@ -46,9 +46,9 @@ export class GraphScene {
     this.svg = make('svg', {class: 'graph-scene', role: 'group',
       'aria-label': 'Problem families and directed reductions. Arrows move between spatial neighbours. Page Up and Page Down visit every problem. Home and End jump to the first and last problem. Enter or Space opens controls.'});
     this.world = make('g');
-    const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -4 8 8', refX: 7, refY: 0,
-      markerWidth: 6, markerHeight: 6, orient: 'auto', markerUnits: 'userSpaceOnUse'});
-    marker.append(make('path', {d: 'M0,-3 L7,0 L0,3 Z', fill: 'var(--accent)'}));
+    const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -5 10 10', refX: 9, refY: 0,
+      markerWidth: 11, markerHeight: 11, orient: 'auto', markerUnits: 'userSpaceOnUse'});
+    marker.append(make('path', {d: 'M0,-4.5 L10,0 L0,4.5 Z', fill: 'var(--accent)'}));
     defs.append(marker); this.svg.append(defs, this.world); container.append(this.svg);
     this.nodes = nodes.map(data => {
       const shape = make('g', {class: 'scene-node', 'data-node': data.id, role: 'button', tabindex: -1,
@@ -231,7 +231,7 @@ export class GraphScene {
   updatePositions() {
     for (const node of this.nodes) node.shape.setAttribute('transform', `translate(${node.x} ${node.y})`);
     for (const edge of this.edges) {
-      const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 3;
+      const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 4;
       edge.shape.setAttribute('x1', String(a.x)); edge.shape.setAttribute('y1', String(a.y));
       edge.shape.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); edge.shape.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
     }
