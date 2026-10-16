@@ -23,6 +23,39 @@ from test_website import require_open_questions
 
 
 class WebsiteVerificationTests(unittest.TestCase):
+    def test_source_changes_invalidate_the_verification_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['git', 'init', '-q', str(root)], check=True)
+            source = root / 'source.txt'
+            source.write_text('original')
+            subprocess.run(['git', '-C', str(root), 'add', 'source.txt'], check=True)
+            subprocess.run(['git', '-C', str(root), '-c', 'user.name=Test', '-c', 'user.email=test@example.org',
+                            'commit', '-qm', 'Initial source'], check=True)
+            before = check_website.source_state(root)
+            check_website.verify_source_unchanged(before, root)
+            source.write_text('changed')
+            with self.assertRaises(ValueError):
+                check_website.verify_source_unchanged(before, root)
+            source.write_text('original')
+            (root / 'new-source.txt').write_text('new source')
+            with self.assertRaises(ValueError):
+                check_website.verify_source_unchanged(before, root)
+
+    def test_output_inside_checkout_is_excluded_from_source_comparison(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['git', 'init', '-q', str(root)], check=True)
+            (root / 'source.txt').write_text('source')
+            subprocess.run(['git', '-C', str(root), 'add', 'source.txt'], check=True)
+            subprocess.run(['git', '-C', str(root), '-c', 'user.name=Test', '-c', 'user.email=test@example.org',
+                            'commit', '-qm', 'Initial source'], check=True)
+            output = root / 'output'
+            before = check_website.source_state(root, output)
+            output.mkdir()
+            (output / 'index.html').write_text('built artifact')
+            check_website.verify_source_unchanged(before, root, output)
+
     def test_canceled_asset_request_does_not_print_a_server_traceback(self):
         with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)

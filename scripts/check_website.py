@@ -69,30 +69,45 @@ def serve_website(site):
             thread.join()
 
 
-def write_provenance(site, verification):
+def source_state(root=ROOT, output=None):
     def git(*args):
-        return subprocess.check_output(["git", *args], cwd=ROOT)
+        return subprocess.check_output(["git", *args], cwd=root)
 
+    paths = ["--", "."]
+    if output is not None and output.resolve().is_relative_to(root.resolve()):
+        paths.append(":(exclude,literal)" + output.resolve().relative_to(root.resolve()).as_posix())
+    untracked = [name for name in git("ls-files", "--others", "--exclude-standard", "-z", *paths).decode().split("\0") if name]
+    nested = {}
+    for name in untracked:
+        if (root / name).is_dir():
+            revision = subprocess.run(["git", "-C", str(root / name), "rev-parse", "--verify", "HEAD"],
+                                      capture_output=True, text=True)
+            nested[name] = revision.stdout.strip() if revision.returncode == 0 else None
+    return {
+        "revision": git("rev-parse", "HEAD").decode().strip(),
+        "working_tree_status": git("status", "--porcelain", *paths).decode(),
+        "working_tree_diff_sha256": hashlib.sha256(git("diff", "--binary", "HEAD", *paths)).hexdigest(),
+        "untracked_source": {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+                             for name in untracked if (root / name).is_file()},
+        "nested_checkouts": nested,
+    }
+
+
+def verify_source_unchanged(expected, root=ROOT, output=None):
+    if source_state(root, output) != expected:
+        raise ValueError("Source checkout changed during verification; retry after edits and commits are finished")
+
+
+def write_provenance(site, verification, *, source=None):
     def digest(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     tools = {"python": sys.version, **{name: version(name) for name in
              ["playwright", "pyee", "greenlet", "typing_extensions"]}}
-    for command in ["cargo", "rustc", "node", "npm", "mdbook", "typst", "wasm-bindgen"]:
+    for command in ["git", "cargo", "rustc", "node", "npm", "mdbook", "typst", "wasm-bindgen"]:
         tools[command] = subprocess.check_output([command, "--version"], text=True).strip() if shutil.which(command) else None
-    untracked = [name for name in git("ls-files", "--others", "--exclude-standard", "-z").decode().split("\0") if name]
-    nested = {}
-    for name in untracked:
-        if (ROOT / name).is_dir():
-            revision = subprocess.run(["git", "-C", str(ROOT / name), "rev-parse", "--verify", "HEAD"],
-                                      capture_output=True, text=True)
-            nested[name] = revision.stdout.strip() if revision.returncode == 0 else None
     evidence = {
-        "revision": git("rev-parse", "HEAD").decode().strip(),
-        "working_tree_status": git("status", "--porcelain").decode(),
-        "working_tree_diff_sha256": hashlib.sha256(git("diff", "--binary", "HEAD")).hexdigest(),
-        "untracked_source": {name: digest(ROOT / name) for name in untracked if (ROOT / name).is_file()},
-        "nested_checkouts": nested,
+        **(source if source is not None else source_state(output=site)),
         "lockfiles": {name: digest(ROOT / name) for name in
                       ["Cargo.lock", "package-lock.json", "scripts/uv.lock", "scripts/website-requirements.txt"]
                       if (ROOT / name).is_file()},
@@ -122,6 +137,7 @@ def check(site, *, build, open_questions, required):
     verification = {"status": "failed", "commands": [], "open_questions_required": required,
                     "mode": "fresh_build" if build else "existing_artifact",
                     "source_role": "build_and_verifier" if build else "verifier_only"}
+    source = source_state(output=site)
     log = tempfile.TemporaryFile(mode="w+")
 
     def run(command, **kwargs):
@@ -166,12 +182,15 @@ def check(site, *, build, open_questions, required):
             run([sys.executable, "scripts/test_website.py"], env=environment)
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts",
                  "-p", "test_website_baselines.py", "-v"], env=environment)
+        verification["source_unchanged"] = False
+        verify_source_unchanged(source, output=site)
+        verification["source_unchanged"] = True
         verification["status"] = "passed"
     finally:
         log.seek(0)
         (site / "verification.log").write_text(log.read())
         log.close()
-        write_provenance(site, verification)
+        write_provenance(site, verification, source=source)
 
 
 def main():
@@ -201,8 +220,11 @@ def main():
     except OSError as error:
         parser.exit(2, f"{error}\nUse a new --output path or --site for an existing artifact.\n")
     print(f"Verification artifact: {site}", flush=True)
-    check(site, build=args.site is None, open_questions=args.open_questions,
-          required=args.require_open_questions or bool(os.environ.get("CI")) or args.open_questions is not None)
+    try:
+        check(site, build=args.site is None, open_questions=args.open_questions,
+              required=args.require_open_questions or bool(os.environ.get("CI")) or args.open_questions is not None)
+    except ValueError as error:
+        parser.exit(1, f"{error}\nArtifact and provenance retained: {site}\n")
     print(f"Verified artifact and provenance: {site}")
 
 

@@ -50,6 +50,11 @@ paths are refused, so neither a stale `book/` nor a previous scratch build can
 silently become the test target. This command does not overwrite `book/`.
 Registry/example exports and CLI snippets are regenerated at their existing
 ignored source locations; run only one build workflow per checkout at a time.
+The verifier records source state before starting and rejects a changed checkout
+before reporting success. Finish edits, staging and commits before running it, or
+use another checkout for concurrent work. The chosen output directory is excluded
+from the source comparison. Failed runs retain their original source snapshot and
+cannot be used as passed benchmark inputs.
 
 ## Open Question Board and deployment
 
