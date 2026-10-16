@@ -148,6 +148,10 @@ The [frame-cost pilot](baselines/2026-10-16-chromium-macos/FRAME_COSTS.md) accou
 for overlapping main-thread slices and retains complete first-input windows. Its
 cost scope, excluded work, invalid concurrent batch and informational gate status
 are recorded with the raw traces.
+The [post-accessibility follow-up](baselines/2026-10-16-chromium-macos/ENGINEERING_FOLLOWUP.md)
+retains ten new runs per interaction and ten cold runs on the 79-workflow artifact,
+including the added control costs, exact unchanged WASM/scene hashes and unresolved
+timing limits. It does not replace the initial baseline or establish a CI gate.
 
 The fresh required-board build and a verification-only repeat passed locally with
 all fifty browser workflows and both reference-capture workflows, plus build,
