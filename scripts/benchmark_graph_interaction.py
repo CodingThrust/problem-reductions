@@ -12,17 +12,24 @@ separate; frame observations are not independent run-level samples.
 """
 
 import argparse
+from contextlib import contextmanager, nullcontext
+import gzip
 import hashlib
 import json
 import math
 import platform
+from pathlib import Path
 import statistics
+import time
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
+
+from check_website import prepare_output
 
 PROBE = """() => {
   const probe = window.__interactionProbe = {frames: [], loaf: [], events: [],
-    loaf_status: 'unsupported', loaf_error: null};
+    loaf_status: 'unsupported', loaf_error: null, event_status: 'unsupported',
+    event_error: null, event_timing: []};
   let last = performance.now();
   const tick = () => {
     const now = performance.now();
@@ -31,10 +38,10 @@ PROBE = """() => {
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
-  for (const type of ['wheel', 'pointerdown', 'pointermove', 'pointerup'])
+  for (const type of ['wheel', 'pointerdown', 'pointermove', 'pointerup', 'keydown', 'keyup'])
     document.addEventListener(type, e => {
       if (type === 'pointermove' && !e.buttons) return;
-      probe.events.push({type, start: performance.now(), buttons: e.buttons});
+      probe.events.push({type, start: performance.now(), timestamp: e.timeStamp, buttons: e.buttons});
     }, {capture: true, passive: true});
   if (PerformanceObserver.supportedEntryTypes.includes('long-animation-frame')) {
     try {
@@ -46,6 +53,18 @@ PROBE = """() => {
       probe.loaf_status = 'supported';
     } catch (error) {
       probe.loaf_status = 'error'; probe.loaf_error = String(error);
+    }
+  }
+  if (PerformanceObserver.supportedEntryTypes.includes('event')) {
+    try {
+      new PerformanceObserver(list => {
+        for (const e of list.getEntries()) probe.event_timing.push({name: e.name,
+          start: e.startTime, duration: e.duration, processing_start: e.processingStart,
+          processing_end: e.processingEnd, interaction_id: e.interactionId});
+      }).observe({type: 'event', durationThreshold: 16, buffered: false});
+      probe.event_status = 'supported';
+    } catch (error) {
+      probe.event_status = 'error'; probe.event_error = String(error);
     }
   }
 }"""
@@ -75,6 +94,40 @@ def summarize(frames, loaf, loaf_status="supported"):
         loaf_p95_script_ms=quantile([e["script"] for e in loaf], .95),
         loaf_p95_render_ms=quantile([e["render"] for e in loaf], .95),
     )
+
+
+def first_input(probe, name):
+    event_type = "wheel" if name == "wheel_zoom" else "keydown" if name == "keyboard_activation" else "pointerdown"
+    first = next((e for e in probe["events"] if e["type"] == event_type), None)
+    assert first, f"No {event_type} input observed for {name}"
+    def containing(entries):
+        return next((f["duration"] for f in entries if f["start"] <= first["start"] < f["start"] + f["duration"]), None)
+    return {"type": event_type, "start": first["start"],
+            "raf_interval_ms": containing(probe["frames"]), "loaf_ms": containing(probe["loaf"])}
+
+
+@contextmanager
+def trace_interaction(page, path):
+    session = page.context.new_cdp_session(page)
+    events, completed = [], []
+    session.on("Tracing.dataCollected", lambda data: events.extend(data["value"]))
+    session.on("Tracing.tracingComplete", lambda data: completed.append(True))
+    session.send("Tracing.start", {"categories": "devtools.timeline,blink.user_timing,disabled-by-default-devtools.timeline",
+                                   "transferMode": "ReportEvents"})
+    try:
+        yield
+    finally:
+        try:
+            session.send("Tracing.end")
+            deadline = time.monotonic() + 5
+            while not completed and time.monotonic() < deadline:
+                page.wait_for_timeout(20)
+            assert completed, "Trace did not complete; do not use partial measurements"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("xb") as stream:
+                stream.write(gzip.compress(json.dumps({"traceEvents": events}).encode(), mtime=0))
+        finally:
+            session.detach()
 
 
 def camera(page):
@@ -109,14 +162,22 @@ def center(node):
 
 def phase(page, name):
     drag = name == "node_drag"
-    hit = None if name == "idle_1s" else target(page, drag)
+    keyboard = name == "keyboard_activation"
+    hit = None if name == "idle_1s" else target(page, drag or keyboard)
     assert name == "idle_1s" or hit, f"No visible hit target for {name}"
     node = page.locator('.scene-node[data-node="' + hit["id"] + '"] .node-disc') if drag else None
+    if keyboard:
+        page.locator('.scene-node[data-node="' + hit["id"] + '"]').focus()
     before = camera(page)
     node_before = center(node) if drag else None
     page.evaluate(PROBE)
     if name == "idle_1s":
         page.wait_for_timeout(1000)
+    elif keyboard:
+        page.keyboard.press("Enter")
+        expect(page.locator("#pop")).to_be_visible()
+        label = page.locator('.scene-node[data-node="' + hit["id"] + '"]').get_attribute("aria-label").split(",")[0]
+        expect(page.locator("#pop h2")).to_have_text(label)
     else:
         page.mouse.move(hit["x"], hit["y"])
         if name == "wheel_zoom":
@@ -143,24 +204,17 @@ def phase(page, name):
     probe = page.evaluate("() => window.__interactionProbe")
     assert probe["frames"], "No animation frames were observed"
     if name != "idle_1s":
-        event_type = "wheel" if name == "wheel_zoom" else "pointermove"
-        inputs = [e for e in probe["events"] if e["type"] == event_type]
-        assert inputs, f"No {event_type} input observed for {name}"
-        first = inputs[0]["start"]
-        probe["first_input_raf_interval_ms"] = next((f["duration"] for f in probe["frames"]
-            if f["start"] <= first < f["start"] + f["duration"]), None)
-        probe["first_input_loaf_ms"] = next((f["duration"] for f in probe["loaf"]
-            if f["start"] <= first < f["start"] + f["duration"]), None)
+        probe["first_input"] = first_input(probe, name)
     return {**summarize([f["duration"] for f in probe["frames"]], probe["loaf"], probe["loaf_status"]),
             "fresh_process": True, "verified_effect": {"before": before, "after": after,
                 "node_before": node_before, "node_after": center(node) if drag else None},
             "raw_samples": probe}
 
 
-def run(base, cpu):
+def run(base, cpu, trace_dir=None):
     rows = {}
     with sync_playwright() as p:
-        for name in ["idle_1s", "wheel_zoom", "background_pan", "node_drag"]:
+        for name in ["idle_1s", "wheel_zoom", "background_pan", "node_drag", "keyboard_activation"]:
             browser = p.chromium.launch()
             try:
                 page = browser.new_page(viewport={"width": 1440, "height": 1000}, reduced_motion="no-preference")
@@ -175,7 +229,10 @@ def run(base, cpu):
                   return done && settled && settled.startTime >= done.startTime;
                 }""")
                 page.evaluate("() => document.fonts.ready")
-                rows[name] = phase(page, name)
+                trace = trace_dir / f"{name}.json.gz" if trace_dir is not None else None
+                with trace_interaction(page, trace) if trace else nullcontext():
+                    rows[name] = phase(page, name)
+                rows[name]["trace"] = str(trace) if trace else None
                 rows[name]["browser_version"] = browser.version
                 rows[name]["html_sha256"] = hashlib.sha256(response.body()).hexdigest()
                 rows[name]["page_snapshot"] = page.evaluate("""() => ({
@@ -200,12 +257,18 @@ if __name__ == "__main__":
     parser.add_argument("--cpu", type=int, default=1)
     parser.add_argument("--repeat", type=int, default=1, help="Independent runs; keep event/frame samples separate")
     parser.add_argument("--output")
+    parser.add_argument("--trace-dir", type=Path, help="New directory for Chromium timeline traces; tracing adds overhead")
     args = parser.parse_args()
     if args.cpu < 1 or args.repeat < 1:
         parser.error("--cpu and --repeat must be positive integers")
+    if args.trace_dir is not None:
+        try:
+            args.trace_dir = prepare_output(args.trace_dir)
+        except OSError as error:
+            parser.error(str(error))
     runs = []
     for index in range(args.repeat):
-        rows = run(args.base, args.cpu)
+        rows = run(args.base, args.cpu, args.trace_dir / str(index + 1) if args.trace_dir else None)
         runs.append(rows)
         for name, row in rows.items():
             print(index + 1, name, json.dumps({k: v for k, v in row.items()
@@ -217,5 +280,7 @@ if __name__ == "__main__":
             json.dump({"cpu_throttle": args.cpu, "platform": platform.platform(),
                        "measurement_scope": "rAF cadence and >50 ms LoAF diagnostics; sub-50 ms rendering cost is unmeasured",
                        "cache_state": "fresh_browser_process_and_context_per_scenario",
+                       "trace_instrumentation": "enabled; adds overhead" if args.trace_dir else "disabled",
+                       "event_timing_scope": "discrete events at durationThreshold=16 ms, quantized durations; continuous wheel/move not covered; absent entries are not zero latency",
                        "gating": "informational; no stable CI variance or tail estimate established",
                        "run_summary": summary, "runs": runs}, f, indent=1)

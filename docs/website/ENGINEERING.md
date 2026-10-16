@@ -112,6 +112,63 @@ refuses existing output, asserts each page state and records image/source hashes
 The production verifier also exercises these desktop/mobile capture workflows;
 it does not enable a pixel comparison gate or certify visual approval.
 
+The [follow-up measurements](baselines/2026-10-16-chromium-macos/FOLLOWUP.md)
+include pointerdown, keyboard activation, cold navigation, actual search/query
+effects and sampled memory. Reproduce cold runs without concurrent builds/tests:
+
+```sh
+uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_startup.py \
+  /path/to/verified-artifact --profile desktop --repeat 10 --output /tmp/new-cold-pilot
+```
+
+Use a separate diagnostic run with `--trace` for cold-start traces, or
+`--trace-dir /tmp/new-interaction-traces` with the interaction tool. Traced timings
+include instrumentation overhead and must not be pooled with untraced baselines.
+Missing trace categories are unavailable. For the prepared SVG runtime, exercise
+the real trace/activation and cold-query self-checks against its served artifact:
+
+```sh
+WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --no-project --with playwright==1.58.0 \
+  python -m unittest discover -s scripts -p 'test_graph_*benchmark.py' -v
+WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --no-project --with playwright==1.58.0 \
+  python -m unittest discover -s scripts -p test_graph_interaction_trace.py -v
+```
+
+These SVG-specific harness checks are not yet part of the legacy-runtime deployment
+suite. Their adoption with the prepared runtime and broader browser/failure checks
+remains an engineering gate; unsupported instrumentation must remain explicit.
+
+## Browser and tool acceptance matrix
+
+The engineering acceptance targets the pinned Playwright 1.58.0 browsers below,
+Safari 27.0.1 on this Mac for manual VoiceOver testing, and a named physical mobile
+browser/screen reader. Older browser versions have not been certified. Automated
+WebKit testing does not certify Safari or iOS screen-reader behavior.
+
+| Browser | Current evidence | Remaining acceptance |
+| --- | --- | --- |
+| Chromium 145.0.7632.6 | Complete required-board artifact suite; current-appearance capture; diagnostic pilots | Failure matrix, nested deployment, automated/manual accessibility, CI variance |
+| Firefox 146.0.1 | Same initial smoke as WebKit, with explicit direct loopback access | Complete critical workflows, copy, failure recovery and accessibility |
+| WebKit 26.0 | Initial smoke: home, Atlas alias/detail, compressed scene/WASM worker, comparison, warm query and zoom | Complete critical workflows, copy, failure recovery and accessibility |
+| Safari 27.0.1 | Installed version identified | Manual keyboard/VoiceOver script and results |
+| Physical mobile | Device/browser/screen reader selection pending | Manual touch, keyboard where applicable and screen-reader results |
+
+The smoke report is in `baselines/2026-10-16-chromium-macos/browser-smoke.json.gz`;
+it records exact scope and feature detection. Firefox's default launch timed out
+before receiving the loopback response here. An explicit
+`firefox_user_prefs={"network.proxy.type": 0}` succeeded in a diagnostic navigation;
+retain that local test setting when reproducing, without changing system settings.
+The initial failure is retained separately. Firefox and WebKit lack LoAF instrumentation;
+its absence must be reported as unsupported. It cannot be compared as zero LoAFs.
+
+Current build tools are recorded per artifact rather than inferred from this
+table: the captured local build used Cargo/rustc 1.99.0, Node 24.21.0, Python
+3.12.14, mdBook 0.5.2, Typst 0.15.1 and wasm-bindgen 0.2.129. npm uses its lockfile;
+Python browser tooling uses the explicit Playwright version above. CI currently
+uses a moving runner/Rust channel and Node 22; pinning its environment and running
+the full browser/failure matrix remain required before claiming reproducibility
+or adopting cross-runner performance gates.
+
 Rollback: revert the isolated verification changes and use the existing
 build/preview commands. No application assets or mathematical code change
 as part of this increment.

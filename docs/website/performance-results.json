@@ -1993,5 +1993,454 @@
       "releases/1792145016767821000/assets/path-selection_bg.wasm.gz": 277560,
       "releases/1792145016767821000/assets/path-worker.js": 1979
     }
+  },
+  "engineering_stage0_followup": {
+    "status": "informational_pilot",
+    "source_manifest_sha256": "58ef24d8178a09e21fc0c0c484b130e1e38adcffcc65bb4b1103b555d9feb643",
+    "benchmark_scripts_sha256": {
+      "benchmark_graph_interaction.py": "e6f38c8992eef53a8c79558a3735fa4e3204e4cb51fd6681b35c515958bc431e",
+      "benchmark_graph_startup.py": "e41c584298490006c51ebe8038181fcb186c2a923d1aecf981f974e9d1aa9a04"
+    },
+    "interaction_environment": {
+      "cpu_throttle": 1,
+      "platform": "macOS-27.0.1-arm64-arm-64bit",
+      "cache_state": "fresh_browser_process_and_context_per_scenario",
+      "trace_instrumentation": "disabled",
+      "event_timing_scope": "discrete events at durationThreshold=16 ms, quantized durations; continuous wheel/move not covered; absent entries are not zero latency",
+      "gating": "informational; no stable CI variance or tail estimate established"
+    },
+    "interaction_run_summary": {
+      "idle_1s": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 17.69999998807907,
+          "p95": 19.600000023841858,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.03829009460302125
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 24.450000017881393,
+          "p95": 30.399999976158142,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.14615486639495398
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "wheel_zoom": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 21.849999994039536,
+          "p95": 26.19999998807907,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.08602282277722037
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 27.5,
+          "p95": 36.5,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.16679952651520188
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "background_pan": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 23.349999994039536,
+          "p95": 26.099999964237213,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.12152969613601586
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 27.75,
+          "p95": 34,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.1413129789319507
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "node_drag": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 24.649999976158142,
+          "p95": 26.599999964237213,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.048168875401475186
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 28.25,
+          "p95": 35.5,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.10639868729039592
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "keyboard_activation": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 18.05000001192093,
+          "p95": 26.200000047683716,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.15311238373781474
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 18.05000001192093,
+          "p95": 26.200000047683716,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.15311238373781474
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      }
+    },
+    "first_observed_input_raf_interval_ms": {
+      "wheel_zoom": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 13.349999994039536,
+        "p95": 26.400000035762787,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.3594740932446517
+      },
+      "background_pan": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 13.400000005960464,
+        "p95": 34,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.998767753552524
+      },
+      "node_drag": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 27.900000005960464,
+        "p95": 35.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.13843349023360138
+      },
+      "keyboard_activation": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 9.849999994039536,
+        "p95": 13.799999952316284,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.5024678438771705
+      }
+    },
+    "cold_environment": {
+      "platform": "macOS-27.0.1-arm64-arm-64bit",
+      "playwright_chromium_path": "/Users/xiweipan/Library/Caches/ms-playwright/chromium-1208/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+      "launch_mode": "Playwright default headless shell",
+      "profile": "desktop",
+      "http_gzip": false,
+      "repeat": 10,
+      "cpu_throttle": 1,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "device_pixel_ratio": 1,
+      "trace_instrumentation": "disabled",
+      "benchmark_script_sha256": "e41c584298490006c51ebe8038181fcb186c2a923d1aecf981f974e9d1aa9a04",
+      "browser_version": "145.0.7632.6",
+      "source_html_sha256": "59941ecd1f54408afc51c57a93d32def3a11bcaf36cf0e06954f4cf4d8beffe7",
+      "source_verification_sha256": "58ef24d8178a09e21fc0c0c484b130e1e38adcffcc65bb4b1103b555d9feb643"
+    },
+    "cold_measurement_scope": {
+      "paint_proxy": "two rAF callbacks after DOM readiness; fullReady also requires three stable camera samples and loaded fonts, not physical pixels",
+      "startup_input": "Playwright fill-to-suggestion round trip; includes automation overhead; comparison_done_at_input records whether it overlapped startup",
+      "warm_query": "input/keydown handler observation to suggestion/comparison DOM readiness; excludes presentation and OS input delay",
+      "memory": "50 ms polling: sampled peak Chromium RSS sum (may double count shared pages), sampled main-page JS heap, final WASM linear capacity; excludes unsampled peaks",
+      "trace": "union of matching slices per thread up to readiness; missing categories unavailable; not per-frame render cost"
+    },
+    "cold_run_summary": {
+      "meaningful_graph_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 64.00000002980232,
+        "p95": 114,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.24071818025838693
+      },
+      "usable_routes_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 87.55000001192093,
+        "p95": 157.10000002384186,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.26594870212927635
+      },
+      "verified_interaction_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 197.09999999403954,
+        "p95": 276.30000001192093,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.12267045433909533
+      },
+      "full_ready_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 660.9000000059605,
+        "p95": 712.6999999880791,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.03047390480856599
+      },
+      "input_latency_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 48.0,
+        "p95": 61.39999997615814,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.13264833923055067
+      },
+      "graph_construction_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.299999952316284,
+        "p95": 10.099999964237213,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.3939239262928681
+      },
+      "graph_controls_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 8.499999970197678,
+        "p95": 12.800000011920929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.17317110467065605
+      },
+      "js_downloaded_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 62830.0,
+        "p95": 62830,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "js_decoded_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 62830.0,
+        "p95": 62830,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "wasm_download_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 12.0,
+        "p95": 15.800000011920929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.17276289913940462
+      },
+      "engine_fetch_to_initialized_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 3.9000000059604645,
+        "p95": 5.899999976158142,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.21633634189086723
+      },
+      "path_search_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 5.200000017881393,
+        "p95": 9.899999976158142,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.27193863356291365
+      },
+      "comparison_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 86.7000000178814,
+        "p95": 95.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0769640270530555
+      },
+      "comparison_delivery_and_render_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 7.500048816204071,
+        "p95": 9.499951183795929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.1362778453190266
+      },
+      "scene_json_parse_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.15000000596046448,
+        "p95": 0.20000004768371582,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.49943280417317
+      },
+      "worker_metadata_json_parse_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.30000001192092896,
+        "p95": 0.6000000238418579,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.3861997078429933
+      },
+      "engine_ready_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 51.09990236163139,
+        "p95": 97.70004880428314,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.29758535779672035
+      },
+      "total_blocking_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.0,
+        "p95": 0,
+        "quantile_estimator": "nearest_rank",
+        "cv": null
+      },
+      "transferred_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 523268.0,
+        "p95": 523268,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "peak_chromium_rss_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 471.671875,
+        "p95": 478.84375,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.013910561850463144
+      },
+      "peak_page_js_heap_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.5927557945251465,
+        "p95": 4.839999198913574,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.028937328299412847
+      },
+      "wasm_memory_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 3.375,
+        "p95": 3.375,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "warm_search_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.30000001192092896,
+        "p95": 0.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.32274859214508883
+      },
+      "warm_route_query_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 20.150000035762787,
+        "p95": 31.69999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.22277645819753714
+      },
+      "ScriptDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 17.541,
+        "p95": 20.19,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0783597218745561
+      },
+      "TaskDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 182.55,
+        "p95": 254.20999999999998,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.14191717914961816
+      },
+      "LayoutDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 48.7545,
+        "p95": 56.444,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.07424917768365408
+      },
+      "RecalcStyleDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 17.6565,
+        "p95": 22.172,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.10704531134358057
+      }
+    },
+    "startup_input_before_comparison_count": 10,
+    "archives": {
+      "pointerdown-interactions.json.gz": "e44a1f64f9a24ad75fcea4bb19c596b140d9d683d30a9a908c98fa75c3dedd71",
+      "traced-interactions.json.gz": "1f761ade61dc8f42a88e9381162691941d9d9f3d2e27a27cf55cf36a83e8eb46",
+      "cold-start.json.gz": "a0a08f6b0e33ea79f15d19dc775614131d8cc24107e019ee0253281c3500f825",
+      "cold-start-trace.json.gz": "f70240368bd77661f495aef6c3ad311f6c1cbd39b8b81c649c935d4419c81a0a",
+      "cold-start-traced.json.gz": "e617479a8cbac3a8bdea16a8dffdcb7e71706240d180849d10cc64cb54880e91",
+      "interaction-traces/node_drag.json.gz": "067eca605c1d5aebfb96f93b594f030a5e8e125da77453eeffc1a237bd4c9414",
+      "interaction-traces/background_pan.json.gz": "6c658665a775d36136d592a7950c29c3e4d54a9b33b126da7e7159e1785e0fea",
+      "interaction-traces/wheel_zoom.json.gz": "6dfdf4c7ee8518fe031231c4e552497d10d2e09fdc291c305c885f5259f0285b",
+      "interaction-traces/idle_1s.json.gz": "e6a9633c97ba2650ae56eee0249ade36669d5ad998d963b8ac4db199a0e5090a",
+      "interaction-traces/keyboard_activation.json.gz": "2b62f9beba12c44ba32d81fa836370990b03452360a132060eac8237030b3471",
+      "browser-smoke.json.gz": "d4ff53793b87209322459cbec84d47962fef841f7edb4f9d449d365238ed8a93",
+      "browser-smoke-initial.json.gz": "e6f3fa1c488aa56f4c3068c9194a4e2cb307c3164a885dad19e7d9476b7b50c3"
+    }
   }
 }

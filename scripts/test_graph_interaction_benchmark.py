@@ -7,6 +7,14 @@ from benchmark_graph_interaction import summarize
 
 
 class InteractionMeasurementTests(unittest.TestCase):
+    def test_first_pan_sample_includes_pointerdown_work(self):
+        probe = {"events": [{"type": "pointerdown", "start": 12}, {"type": "pointermove", "start": 85}],
+                 "frames": [{"start": 10, "duration": 70}, {"start": 80, "duration": 16}],
+                 "loaf": [{"start": 10, "duration": 70}]}
+        first = benchmark_graph_interaction.first_input(probe, "background_pan")
+        self.assertEqual(first, {"type": "pointerdown", "start": 12,
+                                 "raf_interval_ms": 70, "loaf_ms": 70})
+
     def test_run_summary_keeps_unavailable_samples_distinct_from_zero(self):
         result = benchmark_graph_interaction.summarize_runs([None, 0, 0])
         self.assertEqual(result["samples"], 2)
