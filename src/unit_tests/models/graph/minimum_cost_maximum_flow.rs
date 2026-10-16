@@ -5,7 +5,7 @@ use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical 4-vertex diamond instance from issue #1029.
+/// Canonical 4-vertex diamond instance.
 ///
 /// Arcs (capacity, cost):
 /// - (0,1): cap=2, cost=1

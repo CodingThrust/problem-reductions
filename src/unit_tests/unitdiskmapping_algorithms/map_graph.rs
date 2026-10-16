@@ -326,11 +326,9 @@ fn test_map_config_back_standard_graphs() {
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
         let result = ksg::map_unweighted(n, &edges).unwrap();
-        // Solve MIS on mapped graph
         let grid_edges = result.edges();
         let grid_config = solve_mis_config(result.positions.len(), &grid_edges);
 
-        // Extract original config using gadget traceback
         let original_config = result.map_config_back(&grid_config).unwrap();
         // Verify it's a valid independent set
         assert!(

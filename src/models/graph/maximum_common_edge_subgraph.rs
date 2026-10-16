@@ -159,7 +159,7 @@ impl LabelledDigraph {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
+/// `BruteForceProblem::dimensions()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
 /// For each source vertex `u in V1`, `config[u]` is either an index in
 /// `0..graph_2.num_vertices` (the matched target vertex) or the sentinel
 /// value `graph_2.num_vertices` denoting `bottom` (unmatched). Feasibility

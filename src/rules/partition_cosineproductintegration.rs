@@ -68,12 +68,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partition_to_cosineproductintegration",
         build: || {
-            // sizes [3, 1, 1, 2, 2, 1]: partition {3,2,1}={6} and {1,2,1}={4}? No...
-            // Actually [3,1,1,2,2,1] sum=10, need sum=5 each.
-            // config [1,0,0,1,0,0] → selected={3,2}=5, rest={1,1,2,1}=5 ✓
-            // sign assignment: bit=1→−, bit=0→+ : (+3,−1,−1,+2,−2,−1) = 3-1-1+2-2-1=0? No, 3-1-1+2-2-1=0. Yes!
-            // Wait: config [1,0,0,1,0,0] means elements 0,3 in subset 1.
-            // For CPI: bit 1 means −a_i. So −3+1+1−2+2+1 = 0. Yes!
+            // Selecting {3, 2} splits the total into 5 + 5; with true denoting
+            // a negative sign, the target sum is -3+1+1-2+2+1 = 0.
             crate::example_db::specs::rule_example_with_witness::<_, CosineProductIntegration>(
                 Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {

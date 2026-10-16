@@ -5,7 +5,7 @@ use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Or;
 
-/// Build the canonical YES instance from issue #1024.
+/// Build the canonical YES instance.
 ///
 /// `V = {0, 1, 2}` and `A = [(0, 1), (0, 1), (1, 2), (2, 0)]`, with parallel
 /// arcs `a_0` and `a_1` between vertices `0` and `1`. The witness ordering

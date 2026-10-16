@@ -37,7 +37,6 @@ impl ReductionResult for ReductionPCSToILP {
     /// Extract schedule from ILP solution.
     ///
     /// For each task j, find the time slot t where x_{j,t} = 1.
-    /// Returns the time slot for each task (matching the `dims()` encoding of PCS).
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,

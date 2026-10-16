@@ -31,7 +31,7 @@ inventory::submit! {
 /// This is the weighted generalization of minimizing the number of tardy tasks
 /// (problem SS8 in Garey & Johnson, 1979, written $1 || sum w_j U_j$).
 ///
-/// Configurations are direct permutation encodings with `dims() = [n; n]`:
+/// Configurations are direct permutation encodings with `dimensions() = [n; n]`:
 /// each position holds the index of the task scheduled at that position.
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]

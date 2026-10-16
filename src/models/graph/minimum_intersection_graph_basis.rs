@@ -147,7 +147,6 @@ where
                 }
             }
 
-            // Count elements used (union of all subsets)
             let used: HashSet<usize> = subsets.iter().flat_map(|s| s.iter().copied()).collect();
             Min(Some(i64::try_from(used.len()).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(

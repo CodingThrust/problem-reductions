@@ -284,7 +284,6 @@ impl Problem for RectilinearPictureCompression {
                         "rectangle-selection length does not match the maximal rectangles".into(),
                     ));
                 }
-                // Count selected rectangles.
                 let selected_count = config.iter().filter(|&&selected| selected).count();
                 let selected_count = i64::try_from(selected_count).map_err(|_| {
                     crate::traits::EvaluationError::IntegerOverflow(
@@ -295,7 +294,6 @@ impl Problem for RectilinearPictureCompression {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check that all 1-entries are covered.
                 let m = self.num_rows();
                 let n = self.num_cols();
                 let mut covered = vec![vec![false; n]; m];

@@ -87,7 +87,6 @@ impl ReductionResult for ReductionEulerianPathToILP {
                 return Ok(Vec::new());
             }
 
-            // Find the unique active start arc.
             let mut current = match (0..m).find(|&a| target_solution[self.s_idx(a)] == 1) {
                 Some(a) => a,
                 None => {
@@ -261,7 +260,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "eulerianpath_to_ilp",
         build: || {
-            // Canonical issue #1025 instance: V = {0,1,2},
+            // Canonical instance: V = {0,1,2},
             // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1).
             // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
             let source =

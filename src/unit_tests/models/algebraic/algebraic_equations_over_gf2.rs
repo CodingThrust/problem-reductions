@@ -140,7 +140,6 @@ fn test_algebraic_equations_over_gf2_serialization() {
     let restored: AlgebraicEquationsOverGF2 = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_variables(), p.num_variables());
     assert_eq!(restored.num_equations(), p.num_equations());
-    // Check round-trip preserves evaluation
     assert_eq!(
         restored.evaluate(&vec![true, false, false]).unwrap(),
         Or(true)
@@ -185,7 +184,6 @@ fn test_algebraic_equations_over_gf2_validation_errors() {
 
 #[test]
 fn test_algebraic_equations_over_gf2_paper_example() {
-    // Canonical example from the issue: n=3, 3 equations, config [1,0,0]
     let p = satisfiable_problem();
     assert_eq!(p.evaluate(&vec![true, false, false]).unwrap(), Or(true));
 

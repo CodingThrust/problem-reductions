@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
-/// Positive example from the issue: 3 colors, 4 tiles, 2x2 grid.
+/// Positive example: 3 colors, 4 tiles, 2x2 grid.
 /// Tiles: t0=(0,1,2,0), t1=(0,0,2,1), t2=(2,1,0,0), t3=(2,0,0,1)
 fn example_problem() -> SquareTiling {
     SquareTiling::new(
@@ -89,7 +89,6 @@ fn test_square_tiling_solver_finds_witness() {
 
 #[test]
 fn test_square_tiling_unsatisfiable_instance() {
-    // Negative example from issue: only t0=(0,1,2,0) and t2=(2,1,0,0)
     // Both have right=1, left=0, so no horizontal match possible.
     let problem = SquareTiling::new(3, vec![(0, 1, 2, 0), (2, 1, 0, 0)], 2);
     let solver = BruteForce::new();
@@ -186,7 +185,6 @@ fn test_square_tiling_color_out_of_range_panics() {
 
 #[test]
 fn test_square_tiling_count_valid_tilings() {
-    // Issue states 16 valid tilings out of 256 for the positive example
     let problem = example_problem();
     let solver = BruteForce::new();
     let witnesses = solver.find_all_witnesses(&problem).unwrap();

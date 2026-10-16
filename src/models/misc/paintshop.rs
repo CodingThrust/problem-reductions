@@ -98,7 +98,6 @@ impl PaintShop {
     fn try_new<S: AsRef<str>>(
         sequence: Vec<S>,
     ) -> Result<Self, crate::registry::ConstructionError> {
-        // Build car-to-index mapping and count occurrences
         let mut car_count: HashMap<&str, usize> = HashMap::new();
         let mut car_to_index: HashMap<&str, usize> = HashMap::new();
         let mut car_labels: Vec<String> = Vec::new();
@@ -113,7 +112,6 @@ impl PaintShop {
             *count += 1;
         }
 
-        // Verify each car appears exactly twice
         for (car, count) in &car_count {
             if *count != 2 {
                 return Err(format!(
@@ -123,7 +121,6 @@ impl PaintShop {
             }
         }
 
-        // Convert sequence to indices
         let sequence_indices: Vec<usize> = sequence
             .iter()
             .map(|item| car_to_index[item.as_ref()])

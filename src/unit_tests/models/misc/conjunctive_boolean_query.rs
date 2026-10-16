@@ -34,7 +34,6 @@ use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
-/// Helper to build the issue example instance.
 fn issue_example() -> ConjunctiveBooleanQuery {
     let relations = vec![
         Relation {
@@ -160,7 +159,6 @@ fn test_conjunctivebooleanquery_serialization() {
 
 #[test]
 fn test_conjunctivebooleanquery_paper_example() {
-    // Same instance as the issue example — count all satisfying assignments
     let problem = issue_example();
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
@@ -171,9 +169,6 @@ fn test_conjunctivebooleanquery_paper_example() {
     //   R_0(y1, 3): y1 in {0,1}
     //   R_1(y0, y1, 5): need (y0, y1, 5) in R_1
     //     (0,1,5) yes, (0,0,5) no, (1,0,5) no, (1,1,5) no
-    //     Wait — R_1 = {(0,1,5),(1,2,5),(2,3,4),(0,4,3)}
-    //     (0,1,5): yes. (1,2,5): y0=1,y1=2 but need R_0(2,3)=(2,3) not in R_0.
-    //     So only (0,1) works given the R_0 constraint.
     assert_eq!(all.len(), 1);
     assert_eq!(all[0], vec![0, 1]);
 }

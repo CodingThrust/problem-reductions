@@ -242,7 +242,6 @@ impl FeasibleRegisterAssignment {
             order[position] = vertex;
         }
 
-        // Check topological ordering and register conflicts
         let mut computed = vec![false; n];
 
         for step in 0..n {

@@ -114,7 +114,6 @@ fn is_valid_spanning_tree<G: Graph>(graph: &G, config: &[bool]) -> bool {
         return false;
     }
 
-    // Count selected edges
     let selected_count = config.iter().filter(|&&selected| selected).count();
     if selected_count != n - 1 {
         return false;

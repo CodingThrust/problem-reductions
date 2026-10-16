@@ -108,7 +108,6 @@ impl<G: Graph> MinimumCoveringByCliques<G> {
             groups[group].insert(v);
         }
 
-        // Check that each group's vertices form a clique.
         for vertices in &groups {
             let verts: Vec<usize> = vertices.iter().copied().collect();
             for i in 0..verts.len() {
@@ -195,7 +194,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // (0,1),(1,2),(2,3),(3,0),(0,2),(4,0),(4,1),(5,2),(5,3)
     // Optimal: 4 cliques
     // edges 0,1,4 -> group 0 (clique {0,1,2})
-    // edges 2,3 -> group 1 (clique {0,2,3}... wait, (2,3) and (3,0) -> vertices {0,2,3})
+    // edges 2,3 -> group 1 (clique {0,2,3})
     // edges 5,6 -> group 2 (clique {0,1,4})
     // edges 7,8 -> group 3 (clique {2,3,5})
     // Config: [0, 0, 1, 1, 0, 2, 2, 3, 3]

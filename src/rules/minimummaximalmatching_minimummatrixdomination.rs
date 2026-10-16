@@ -335,7 +335,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummaximalmatching_to_minimummatrixdomination",
         build: || {
-            // Canonical YES instance from the issue.
             //
             // Bipartite graph B with L = {l0, l1}, R = {r0, r1, r2} and edges
             // F = {(l0, r0), (l0, r1), (l0, r2), (l1, r1), (l1, r2)}.

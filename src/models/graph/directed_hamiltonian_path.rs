@@ -31,11 +31,8 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// A configuration encodes a permutation using the Lehmer code:
-/// `dims() = [n, n-1, ..., 2, 1]`, yielding `n!` reachable configurations.
-/// Each configuration is decoded to a permutation of `0..n`, and a solution is
-/// valid when every consecutive pair `(path[i], path[i+1])` is an arc in the
-/// directed graph.
+/// A solution is a permutation of `0..n` whose consecutive vertices form directed
+/// arcs. The reference solver enumerates Lehmer codes and decodes them to paths.
 ///
 /// # Example
 ///
@@ -162,7 +159,6 @@ pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[
         seen[v] = true;
     }
 
-    // Check that consecutive pairs are directed arcs
     for i in 0..n.saturating_sub(1) {
         if !graph.has_arc(perm[i], perm[i + 1]) {
             return false;
@@ -174,7 +170,6 @@ pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 6 vertices, arcs from issue #813
     // Hamiltonian path: [0, 1, 3, 2, 4, 5]
     let graph = DirectedGraph::new(
         6,

@@ -29,7 +29,6 @@ fn test_hamiltonianpath_to_ilp_closed_loop() {
         .expect("brute-force should find a solution");
     assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
-    // Solve via ILP
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -56,7 +55,6 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
         .expect("brute-force should find a solution");
     assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
-    // Solve via ILP
     let reduction: ReductionHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

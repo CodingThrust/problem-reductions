@@ -58,7 +58,7 @@ fn test_minimum_code_generation_one_register_creation() {
 
 #[test]
 fn test_minimum_code_generation_one_register_evaluate_optimal() {
-    // Issue #900 example: optimal is 8 instructions
+    // Example: optimal is 8 instructions
     // Evaluation order: v3, v2, v1, v0
     // config[i] = position for internal vertex i
     // internal = [0,1,2,3], so config = [3, 2, 1, 0]
@@ -160,13 +160,6 @@ fn test_minimum_code_generation_one_register_invalid_permutation() {
 
 #[test]
 fn test_minimum_code_generation_one_register_solver() {
-    // Small instance: 4 vertices, 2 leaves, 2 internal
-    // v0 = op(v1, v2), v1 = op(v2, v3)
-    // Leaves: {2, 3}, Internal: {0, 1}
-    // Edges: (0,1), (0,2), (1,2), (1,3)
-    // Wait — v2 appears as both child and parent?
-    // No: v0 has children v1,v2. v1 has children v2,v3.
-    // Leaves: v2 and v3 have out-degree 0. So num_leaves=2.
     let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
@@ -229,7 +222,6 @@ fn test_minimum_code_generation_one_register_unary_ops() {
 
 #[test]
 fn test_minimum_code_generation_one_register_paper_example() {
-    // Issue #900 example
     let problem = MinimumCodeGenerationOneRegister::new(
         7,
         vec![
@@ -249,13 +241,11 @@ fn test_minimum_code_generation_one_register_paper_example() {
     let config = vec![3, 2, 1, 0];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(8)));
 
-    // Verify with brute force
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
     let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(8)));
 
-    // Verify witness
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(8));
 }

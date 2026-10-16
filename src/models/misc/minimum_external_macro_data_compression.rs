@@ -234,7 +234,6 @@ impl Problem for MinimumExternalMacroDataCompression {
                 }
             }
 
-            // Verify D symbols are valid alphabet symbols
             let d_str: Vec<usize> = d_slots[..d_len].to_vec();
             if d_str.iter().any(|&v| v >= self.alphabet_size) {
                 return Ok(Min(None));
@@ -278,7 +277,6 @@ impl Problem for MinimumExternalMacroDataCompression {
                 }
             }
 
-            // Check decoded string matches the source string
             if decoded != self.string {
                 return Ok(Min(None));
             }
@@ -342,7 +340,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Issue #441 example: alphabet {a,b,c,d,e,f} (6), s="abcdefabcdefabcdef" (18), h=2.
     // Optimal: D="abcdef"(6), C = ptr(0,6) ptr(0,6) ptr(0,6), cost = 6+3+(2-1)*3 = 12.
     // Solved via ILP reduction (brute force infeasible at this size).
     //

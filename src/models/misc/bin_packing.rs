@@ -188,11 +188,9 @@ where
         return Ok(false);
     }
     let n = sizes.len();
-    // Check all bin indices are in range
     if config.iter().any(|&b| b >= n) {
         return Ok(false);
     }
-    // Compute load per bin
     let cap_sum = capacity.to_sum();
     let mut bin_load: Vec<W::Sum> = vec![W::Sum::zero(); n];
     for (i, &bin) in config.iter().enumerate() {
@@ -202,7 +200,6 @@ where
             "summing bin loads",
         )?;
     }
-    // Check capacity constraints
     Ok(bin_load.iter().all(|load| *load <= cap_sum))
 }
 

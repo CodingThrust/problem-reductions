@@ -132,7 +132,6 @@ impl ReductionResult for ReductionEMDCToILP {
             let k = self.alphabet_size;
             let empty = k; // empty marker
 
-            // Build D-slots
             let mut d_slots = vec![empty; n];
             for j in 0..n {
                 let symbols: Vec<_> = (0..k)
@@ -410,7 +409,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(0)] = 1;
             target_config[layout.lit_var(1)] = 1;
 
-            // Verify this is correct
             let source_config = reduction.extract_solution(&target_config).unwrap();
             debug_assert_eq!(source_config[..n], [k, k]); // D empty
             debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"

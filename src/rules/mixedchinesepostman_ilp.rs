@@ -75,7 +75,6 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
 
         let l = m + 2 * q; // total available arcs
 
-        // Build available arc list with lengths
         let mut avail_arcs: Vec<(usize, usize)> = Vec::with_capacity(l);
         let mut avail_lengths: Vec<i64> = Vec::with_capacity(l);
 

@@ -74,7 +74,6 @@ impl AlgebraicEquationsOverGF2 {
     ) -> Result<(), crate::registry::ConstructionError> {
         for (eq_idx, equation) in equations.iter().enumerate() {
             for (mono_idx, monomial) in equation.iter().enumerate() {
-                // Check variable indices are in range
                 for &var in monomial {
                     if var >= num_variables {
                         return Err(format!(
@@ -84,7 +83,6 @@ impl AlgebraicEquationsOverGF2 {
                         .into());
                     }
                 }
-                // Check monomial is sorted and has no duplicates
                 for w in monomial.windows(2) {
                     if w[0] >= w[1] {
                         return Err(format!(

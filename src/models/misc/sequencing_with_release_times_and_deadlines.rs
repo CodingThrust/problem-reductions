@@ -35,9 +35,7 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Uses a permutation encoding (Lehmer code), where `config[i]` selects which
-/// remaining task to schedule next from the pool of unscheduled tasks.
-/// `dims() = [n, n-1, ..., 2, 1]`. Tasks are scheduled left-to-right: each
+/// A solution lists task indices in schedule order. Each
 /// task starts at `max(release_time, current_time)`. The schedule is feasible
 /// iff every task finishes by its deadline.
 ///
@@ -219,9 +217,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_with_release_times_and_deadlines",
-        // 5 tasks from issue example.
         // Feasible schedule order: t3, t0, t1, t2, t4
-        // Lehmer code [3,0,0,0,0] = permutation [3,0,1,2,4]
         instance: Box::new(SequencingWithReleaseTimesAndDeadlines::new(
             vec![3, 2, 4, 1, 2],
             vec![0, 1, 5, 0, 8],

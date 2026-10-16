@@ -365,7 +365,6 @@ impl Problem for ConjunctiveQueryFoldability {
                     })
                     .collect();
 
-                // Collect Q2 as a set.
                 let q2_set: HashSet<(usize, Vec<Term>)> =
                     self.query2_conjuncts.iter().cloned().collect();
 

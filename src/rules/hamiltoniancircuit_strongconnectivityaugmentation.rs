@@ -44,7 +44,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
                 return Ok(vec![]);
             }
 
-            // Build directed adjacency from selected arcs.
             let candidate_arcs = self.target.candidate_arcs();
             let mut successors = vec![Vec::new(); n];
             for (idx, &selected) in target_solution.iter().enumerate() {
@@ -108,7 +107,6 @@ impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<Simple
         }
         let graph = DirectedGraph::empty(n);
 
-        // Generate all ordered pairs (u, v) with u != v as candidate arcs.
         let mut candidate_arcs = Vec::with_capacity(n * (n - 1));
         for u in 0..n {
             for v in 0..n {
@@ -157,7 +155,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 target_config[idx] = true;
             }
 
-            // Verify the target config is valid
             assert!(
                 target.is_valid_solution(&target_config).unwrap(),
                 "canonical target config must be a valid SCA solution"

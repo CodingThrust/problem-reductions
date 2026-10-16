@@ -153,7 +153,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closeststring_to_ilp",
         build: || {
-            // Canonical issue #1032 instance: binary alphabet, the four length-3
+            // Canonical instance: binary alphabet, the four length-3
             // strings 000, 011, 101, 110. Optimum radius is 2 (achieved by any
             // binary length-3 center, e.g. 000).
             let source = ClosestString::new(

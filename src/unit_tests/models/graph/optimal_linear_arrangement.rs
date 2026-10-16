@@ -5,7 +5,6 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Issue example: 6 vertices, 7 edges
 fn issue_example() -> OptimalLinearArrangement<SimpleGraph> {
     let graph = SimpleGraph::new(
         6,
@@ -84,7 +83,6 @@ fn test_optimallineararrangement_serialization() {
     assert_eq!(deserialized.graph().num_vertices(), 6);
     assert_eq!(deserialized.graph().num_edges(), 7);
 
-    // Verify evaluation is consistent after round-trip
     let config = vec![0, 1, 2, 3, 4, 5];
     assert_eq!(
         problem.evaluate(&config).unwrap(),

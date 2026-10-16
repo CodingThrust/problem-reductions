@@ -117,7 +117,6 @@ impl MinimumAxiomSet {
                 );
             }
         }
-        // Check no duplicates
         let mut seen = vec![false; num_sentences];
         for &s in &true_sentences {
             if seen[s] {
@@ -218,7 +217,6 @@ impl Problem for MinimumAxiomSet {
                     "axiom-selection length does not match the true sentences".into(),
                 ));
             }
-            // Build the initial set of selected axioms
             let mut current = vec![false; self.num_sentences];
             let mut count = 0usize;
             for (i, &v) in config.iter().enumerate() {
@@ -228,7 +226,6 @@ impl Problem for MinimumAxiomSet {
                 }
             }
 
-            // Compute deductive closure
             deductive_closure(&mut current, &self.implications);
 
             // Check if closure equals T

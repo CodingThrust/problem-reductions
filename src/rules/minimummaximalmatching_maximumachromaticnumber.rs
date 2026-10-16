@@ -22,7 +22,7 @@ use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 pub struct ReductionMMMToAchromatic {
     target: MaximumAchromaticNumber<SimpleGraph>,
     /// Source edges in unified vertex coordinates, in the same order as
-    /// `source.graph().edges()` (which determines the source `dims()`).
+    /// `source.graph().edges()` (which determines the source solution's edge order).
     source_edges: Vec<(usize, usize)>,
 }
 
@@ -70,7 +70,6 @@ impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<B
         let n = self.graph().num_vertices();
         let source_edges = self.graph().edges();
 
-        // Build adjacency lookup over unified coordinates.
         let source_edge_set: std::collections::HashSet<(usize, usize)> = source_edges
             .iter()
             .map(|&(u, v)| if u < v { (u, v) } else { (v, u) })

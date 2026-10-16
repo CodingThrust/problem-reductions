@@ -302,7 +302,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Issue #442 example: alphabet {a,b,c} (3), s="abcabcabc" (9), h=2
     // Optimal: C = [a, b, c, ptr(0), ptr(0), EOS, EOS, EOS, EOS]
     //   active_len = 5, pointers = 2
     //   cost = 5 + (2-1)*2 = 7

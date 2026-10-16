@@ -318,7 +318,6 @@ where
                     ));
                 }
 
-                // Collect selected edges
                 let selected_indices: Vec<usize> = config
                     .iter()
                     .enumerate()
@@ -334,7 +333,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Build adjacency list and compute total weight
                 let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
                 let mut total_weight = W::Sum::zero();
                 for &idx in &selected_indices {
@@ -348,12 +346,10 @@ where
                     )?;
                 }
 
-                // Check weight bound
                 if total_weight > self.weight_bound.clone() {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check connectivity using BFS
                 let mut visited = vec![false; n];
                 let mut queue = VecDeque::new();
                 visited[0] = true;
@@ -373,7 +369,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check diameter bound (BFS from each vertex)
                 let diameter = Self::tree_diameter(&adj, n);
                 diameter <= self.diameter_bound
             })

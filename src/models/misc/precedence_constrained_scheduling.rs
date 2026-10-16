@@ -248,7 +248,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "precedence_constrained_scheduling",
-        // Issue #501 example: 8 tasks, 3 processors, deadline 4
         instance: Box::new(PrecedenceConstrainedScheduling::new(
             8,
             3,

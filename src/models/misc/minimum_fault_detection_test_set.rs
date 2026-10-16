@@ -206,7 +206,6 @@ impl MinimumFaultDetectionTestSet {
         inputs: &[usize],
         outputs: &[usize],
     ) -> Vec<HashSet<usize>> {
-        // Build adjacency lists
         let mut adj = vec![vec![]; num_vertices];
         let mut rev_adj = vec![vec![]; num_vertices];
         for &(u, v) in arcs {
@@ -327,7 +326,6 @@ impl Problem for MinimumFaultDetectionTestSet {
                 }
             }
 
-            // Check all internal vertices are covered.
             if covered.len() == required_internal_vertices {
                 Min(Some(i64::try_from(count).map_err(|_| {
                     crate::traits::EvaluationError::IntegerOverflow(

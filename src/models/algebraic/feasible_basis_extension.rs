@@ -411,7 +411,6 @@ impl Problem for FeasibleBasisExtension {
             let s = self.num_required();
             let needed = m - s;
 
-            // Count selected free columns
             let selected_free: Vec<usize> = config
                 .iter()
                 .enumerate()

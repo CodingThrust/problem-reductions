@@ -145,7 +145,6 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
 
         let flow_var = |k: usize, e: usize, dir: usize| k * flow_vars_per_k + 2 * e + dir;
 
-        // Build vertex-to-edge adjacency
         let mut vertex_edges: Vec<Vec<usize>> = vec![Vec::new(); n];
         for (e, &(u, v)) in edges.iter().enumerate() {
             vertex_edges[u].push(e);

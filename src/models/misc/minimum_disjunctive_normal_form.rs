@@ -188,7 +188,6 @@ impl Problem for MinimumDisjunctiveNormalForm {
                 ));
             }
 
-            // Collect selected prime implicants
             let selected: Vec<usize> = config
                 .iter()
                 .enumerate()
@@ -199,7 +198,6 @@ impl Problem for MinimumDisjunctiveNormalForm {
                 return Ok(Min(None));
             }
 
-            // Check that all minterms are covered
             for &mt in &self.minterms {
                 let covered = selected
                     .iter()

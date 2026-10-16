@@ -359,7 +359,6 @@ impl Problem for MinimumTardinessSequencing<i64> {
                 schedule[pos] = task;
             }
 
-            // Compute completion times using actual lengths
             let mut completion = vec![0_i64; n];
             let mut cumulative = 0_i64;
             for &task in &schedule {
@@ -422,8 +421,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             id: "minimum_tardiness_sequencing_weighted",
             // 5 tasks, lengths [3,2,2,1,2], deadlines [4,3,8,3,6], prec (0→2, 1→3)
             // Optimal schedule: t0,t4,t2,t1,t3 → 2 tardy
-            // Lehmer [0,3,1,0,0]: avail=[0,1,2,3,4] pick 0→0; [1,2,3,4] pick 3→4;
-            //   [1,2,3] pick 1→2; [1,3] pick 0→1; [3] pick 0→3
             instance: Box::new(MinimumTardinessSequencing::<i64>::with_lengths(
                 vec![3, 2, 2, 1, 2],
                 vec![4, 3, 8, 3, 6],

@@ -69,7 +69,6 @@ impl UnitDiskGraph {
         let n = positions.len();
         let mut edges = Vec::new();
 
-        // Compute all edges based on distance
         for i in 0..n {
             for j in (i + 1)..n {
                 if Self::distance(&positions[i], &positions[j])? <= radius {

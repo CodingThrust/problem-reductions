@@ -122,7 +122,6 @@ where
             if count_ones != n / 2 {
                 return Ok(Min(None));
             }
-            // Count crossing edges
             let mut cut = 0i64;
             for (u, v) in self.graph.edges() {
                 if config[u] != config[v] {

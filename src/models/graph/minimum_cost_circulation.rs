@@ -20,11 +20,11 @@
 //!
 //! # Integral-circulation restriction
 //!
-//! The mathematical formulation in issue #1030 uses continuous flows
+//! The continuous formulation allows flows
 //! `g: A -> R_{>= 0}`, but this model's registered reference solver uses a
 //! finite Cartesian space. Following the same precedent as
 //! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) and
-//! the recently added [`MinimumCostMaximumFlow`](super::MinimumCostMaximumFlow),
+//! [`MinimumCostMaximumFlow`](super::MinimumCostMaximumFlow),
 //! we therefore restrict to **integer** circulations: each variable
 //! `g(a)` ranges over `{0, 1, ..., c(a)}`. When capacities and costs are
 //! integral, the standard minimum-cost flow theory (see e.g. the MIT

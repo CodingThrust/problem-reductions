@@ -474,7 +474,7 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Issue #1026 canonical instance: path 0 - 1 - 2 with edge costs
+    // Canonical instance: path 0 - 1 - 2 with edge costs
     // c(0,1)=1, c(1,2)=6, vertex prizes p = (5, 2, 5), beta = 1, omega = 2.
     // Optimum: V_F = {0,1,2}, E_F = {(0,1)} (two components {0,1} and {2}),
     // objective = 0 + 1 + 2*2 = 5.

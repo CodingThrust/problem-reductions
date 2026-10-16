@@ -309,7 +309,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 jobs × 3 machines example from issue #506.
     // processing_times[j][i]:
     //   J1: p[0] = [3, 1, 2]
     //   J2: p[1] = [2, 3, 1]

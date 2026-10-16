@@ -200,7 +200,6 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
                     "register assignment length does not match the variables".into(),
                 ));
             }
-            // Check all register indices are in valid range
             if config.iter().any(|&register| register >= n) {
                 return Err(crate::traits::EvaluationError::InvalidConfiguration(
                     "register assignment contains an out-of-range register".into(),
@@ -219,7 +218,6 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
                 }
             }
 
-            // Count distinct registers used
             let mut used = vec![false; n];
             for &r in config {
                 used[r] = true;

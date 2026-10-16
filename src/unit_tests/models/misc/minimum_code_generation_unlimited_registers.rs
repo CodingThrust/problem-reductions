@@ -53,7 +53,7 @@ fn test_minimum_code_generation_unlimited_registers_creation() {
 
 #[test]
 fn test_minimum_code_generation_unlimited_registers_evaluate_optimal() {
-    // Issue #902 example: optimal is 4 instructions (3 OPs + 1 LOAD)
+    // Example: optimal is 4 instructions (3 OPs + 1 LOAD)
     // Evaluation order: v1, v2, v0
     // config[i] = position for internal vertex i
     // internal = [0,1,2], so v0->pos 2, v1->pos 0, v2->pos 1
@@ -69,39 +69,14 @@ fn test_minimum_code_generation_unlimited_registers_evaluate_optimal() {
 
 #[test]
 fn test_minimum_code_generation_unlimited_registers_evaluate_suboptimal() {
-    // Order: v2, v1, v0 — v2 destroys v3 first, then v1 also needs v3 as left
-    // So v1 needs a copy of v3 too, but v3 was already destroyed by v2.
-    // Wait — with unlimited registers, v3 stays in its register. When v2 executes,
-    // OP v2 overwrites v3's register. But if v1 hasn't run yet and also needs v3,
-    // then before v2 we must copy v3.
-    // Then when v1 runs, v3 is gone (overwritten by v2), but we copied it.
-    // Actually: the copy goes to a new register. So v1 can use the copy.
-    // But in our simulation, we track: before OP v2, left_child=v3 still needed
-    // by v1 (as left operand). So we LOAD (copy) v3. Cost so far: 1 LOAD + 1 OP = 2.
-    // Then OP v1: left_child=v3. But v3's register was overwritten by v2.
-    // Hmm, our simulation tracks "computed" but not register aliasing.
-    //
-    // Actually, with unlimited registers, the LOAD creates a copy in a new register.
-    // The key insight: when we count future uses, we check if the left child
-    // value is still needed. If so, we add a LOAD before the OP.
-    // After the OP, the left child's "register slot" now holds the new value.
-    // But the copy made by LOAD is in a separate register.
-    //
-    // Our simulation correctly handles this: it counts LOADs needed.
-    // Order v2(pos 0), v1(pos 1), v0(pos 2):
-    // config: v0->2, v1->1, v2->0
+    // Order v2, v1, v0 needs one LOAD to preserve v3 before v2 overwrites it,
+    // since v1 still needs v3. Together with three OPs, the cost is 4.
     let problem = MinimumCodeGenerationUnlimitedRegisters::new(
         5,
         vec![(1, 3), (2, 3), (0, 1)],
         vec![(1, 4), (2, 4), (0, 2)],
     );
     let config = vec![2, 1, 0];
-    // Step 0: OP v2, left=v3. future uses of v3 after decrement: left_uses=1 (from v1), right_uses=0.
-    //   Still needed -> LOAD v3. instructions = 2 (1 LOAD + 1 OP).
-    // Step 1: OP v1, left=v3_copy. future uses of v3 after decrement: 0.
-    //   Not needed -> no LOAD. instructions = 3 (+ 1 OP).
-    // Step 2: OP v0, left=v1. future uses of v1: 0. No LOAD. instructions = 4 (+ 1 OP).
-    // Total: 4 (same as optimal for this instance)
     assert_eq!(problem.simulate(&config).unwrap(), Some(4));
 }
 
@@ -141,7 +116,6 @@ fn test_minimum_code_generation_unlimited_registers_invalid_permutation() {
 
 #[test]
 fn test_minimum_code_generation_unlimited_registers_solver() {
-    // Issue #902 example
     let problem = MinimumCodeGenerationUnlimitedRegisters::new(
         5,
         vec![(1, 3), (2, 3), (0, 1)],
@@ -211,7 +185,6 @@ fn test_minimum_code_generation_unlimited_registers_no_copy_needed() {
 
 #[test]
 fn test_minimum_code_generation_unlimited_registers_paper_example() {
-    // Issue #902 example
     let problem = MinimumCodeGenerationUnlimitedRegisters::new(
         5,
         vec![(1, 3), (2, 3), (0, 1)],
@@ -222,13 +195,11 @@ fn test_minimum_code_generation_unlimited_registers_paper_example() {
     let config = vec![2, 0, 1];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 
-    // Verify with brute force
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
     let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(4)));
 
-    // Verify witness
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
 }

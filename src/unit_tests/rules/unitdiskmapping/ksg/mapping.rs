@@ -29,7 +29,6 @@ fn test_map_weighted_triangle() {
 fn test_mapping_result_config_back_unweighted() {
     let edges = vec![(0, 1)];
     let result = map_unweighted(2, &edges).unwrap();
-    // Create a dummy config
     let config: Vec<usize> = vec![0; result.positions.len()];
     let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 2);
@@ -39,7 +38,6 @@ fn test_mapping_result_config_back_unweighted() {
 fn test_mapping_result_config_back_weighted() {
     let edges = vec![(0, 1)];
     let result = map_weighted(2, &edges).unwrap();
-    // Create a dummy config
     let config: Vec<usize> = vec![0; result.positions.len()];
     let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 2);
@@ -57,11 +55,9 @@ fn test_mapping_result_config_back_rejects_wrong_length() {
 
 #[test]
 fn test_map_config_copyback_simple() {
-    // Create a simple copyline
     let line = CopyLine::new(0, 1, 1, 1, 1, 3);
     let lines = vec![line];
 
-    // Create config with some nodes selected
     let locs = lines[0].copyline_locations(PADDING, SPACING);
     let (rows, cols) = (20, 20);
     let mut config = vec![vec![0; cols]; rows];

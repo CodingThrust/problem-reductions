@@ -215,7 +215,6 @@ impl Problem for ConsecutiveOnesSubmatrix {
                         "column-selection length does not match the matrix".into(),
                     ));
                 }
-                // Collect selected column indices
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()

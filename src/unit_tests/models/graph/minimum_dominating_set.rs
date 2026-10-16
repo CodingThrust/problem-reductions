@@ -101,7 +101,6 @@ fn test_isolated_vertex() {
     // Vertex 2 is isolated, must be selected
     for sol in &solutions {
         assert!(sol[2]);
-        // Verify it's a valid dominating set
         assert!(Problem::evaluate(&problem, sol).unwrap().is_valid());
     }
 }

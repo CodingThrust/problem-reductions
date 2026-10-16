@@ -174,7 +174,6 @@ fn is_feasible_deletion<G: Graph>(graph: &G, config: &[bool]) -> bool {
         }
     }
 
-    // Find connected components by BFS.
     let mut visited = vec![false; n];
     for start in 0..n {
         if visited[start] {

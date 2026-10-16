@@ -266,7 +266,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "prime_attribute_name",
-        // Issue Example 1: 6 attributes, 3 FDs, query=3 -> YES
         instance: Box::new(PrimeAttributeName::new(
             6,
             vec![

@@ -191,14 +191,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   Filler [15,16): task 6(len=1)
             //   Slot 1 [16,31): tasks 3(len=4), 4(len=6), 5(len=5) -> times [16,20), [20,26), [26,31)
             // Permutation: [0,1,2,6,3,4,5]
-            // Lehmer code: [0,0,0,3,0,0,0]
-            //   remaining=[0,1,2,3,4,5,6], pick 0 -> 0, remaining=[1,2,3,4,5,6]
-            //   remaining=[1,2,3,4,5,6], pick 0 -> 1, remaining=[2,3,4,5,6]
-            //   remaining=[2,3,4,5,6], pick 0 -> 2, remaining=[3,4,5,6]
-            //   remaining=[3,4,5,6], pick 3 -> 6, remaining=[3,4,5]
-            //   remaining=[3,4,5], pick 0 -> 3, remaining=[4,5]
-            //   remaining=[4,5], pick 0 -> 4, remaining=[5]
-            //   remaining=[5], pick 0 -> 5
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 SequencingWithReleaseTimesAndDeadlines,

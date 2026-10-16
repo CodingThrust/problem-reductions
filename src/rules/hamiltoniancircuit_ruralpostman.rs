@@ -127,7 +127,6 @@ impl ReduceTo<Decision<RuralPostman<SimpleGraph, i64>>> for HamiltonianCircuit<S
         let source_edges: Vec<(usize, usize)> = self.graph().edges();
         let m = source_edges.len();
 
-        // Build target graph with 2n vertices
         let num_target_edges = n + 2 * m;
         let mut target_edges = Vec::with_capacity(num_target_edges);
         let mut edge_weights = Vec::with_capacity(num_target_edges);

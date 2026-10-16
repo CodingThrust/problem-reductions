@@ -214,7 +214,6 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[boo
         return false;
     }
 
-    // Build adjacency list from selected edges
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     let mut selected_count = 0usize;
     let mut involved = vec![false; n];

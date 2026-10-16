@@ -149,7 +149,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source_config = vec![0, 1, 2, 0];
             let target_config = vec![0, 1, 2, 0, 2, 0, 1, 1];
 
-            // Verify the target config is valid
             assert!(
                 target
                     .evaluate(&target_config)

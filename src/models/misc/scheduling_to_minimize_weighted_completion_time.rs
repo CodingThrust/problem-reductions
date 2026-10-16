@@ -37,7 +37,7 @@ inventory::submit! {
 /// # Representation
 ///
 /// Each task has a variable in `{0, ..., m-1}` representing its processor
-/// assignment, giving `dims() = [m; n]`.
+/// assignment, giving `dimensions() = [m; n]`.
 ///
 /// # Example
 ///

@@ -160,7 +160,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumcontactmapoverlap_to_ilp",
         build: || {
-            // Canonical instance from issue #1043:
+            // Canonical instance:
             //   G_1: n_1 = 4, E_1 = {{0,2}, {1,3}}
             //   G_2: n_2 = 5, E_2 = {{0,3}, {1,4}, {0,2}}
             // Optimal CMO alignment 0->0, 1->1, 2->3, 3->4 preserves 2 contacts.

@@ -277,7 +277,6 @@ fn is_spanning_tree<G: Graph>(graph: &G, config: &[bool]) -> bool {
         return false;
     }
 
-    // Build adjacency and BFS from vertex 0
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -315,7 +314,6 @@ fn check_capacity<G: Graph, W: WeightElement>(
     let n = graph.num_vertices();
     let edges = graph.edges();
 
-    // Build adjacency list with edge indices
     let mut adj: Vec<Vec<(usize, usize)>> = vec![vec![]; n]; // (neighbor, edge_idx)
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -344,7 +342,6 @@ fn check_capacity<G: Graph, W: WeightElement>(
         }
     }
 
-    // Compute subtree sums bottom-up
     let mut subtree_sum: Vec<W::Sum> = requirements.iter().map(|r| r.to_sum()).collect();
     for &v in order.iter().rev() {
         if v != root {

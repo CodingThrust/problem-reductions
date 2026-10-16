@@ -154,7 +154,6 @@ impl Problem for MinimumMatrixDomination {
                     "selected-entry vector length does not match the matrix".into(),
                 ));
             }
-            // Collect the set of selected 1-entry indices
             let selected: Vec<usize> = config
                 .iter()
                 .enumerate()

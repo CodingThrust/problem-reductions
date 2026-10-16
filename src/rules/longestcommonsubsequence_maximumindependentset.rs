@@ -53,14 +53,12 @@ impl ReductionResult for ReductionLCSToIS {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            // Collect selected match nodes with their characters
             let mut selected: Vec<(usize, usize)> = target_solution
                 .iter()
                 .enumerate()
                 .filter(|(_, &v)| v)
                 .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
                 .collect();
-            // Sort by position in the first string
             selected.sort_by_key(|&(pos, _)| pos);
 
             // Build config: characters followed by padding
@@ -109,7 +107,6 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
                 })
                 .collect();
 
-            // Generate all k-tuples (Cartesian product of position lists)
             let tuples = cartesian_product(&positions_per_string);
             for tuple in tuples {
                 match_nodes.push(tuple);
@@ -190,7 +187,6 @@ fn cartesian_product(lists: &[Vec<usize>]) -> Vec<Vec<usize>> {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    /// Build the example from the issue: k=2, s1="ABAC", s2="BACA", alphabet={A,B,C}.
     fn lcs_abac_baca() -> LongestCommonSubsequence {
         // A=0, B=1, C=2
         LongestCommonSubsequence::new(
@@ -205,7 +201,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
-            // Issue example: MIS solution {v2, v4, v5} gives LCS "BAC" (length 3).
+            // MIS solution {v2, v4, v5} gives LCS "BAC" (length 3).
             // Match nodes (ordered by character):
             //   c=A(0): v0=(0,1), v1=(0,3), v2=(2,1), v3=(2,3)
             //   c=B(1): v4=(1,0)

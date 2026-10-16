@@ -327,7 +327,6 @@ impl SpinGlassBuilder {
                 .ok_or("circuit SpinGlass coupling overflow")?;
         }
 
-        // Add fields
         for (local_idx, field) in gadget.problem.fields().iter().enumerate() {
             let global_idx = spin_map[local_idx];
             self.fields[global_idx] = self.fields[global_idx]

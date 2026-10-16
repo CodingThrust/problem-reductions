@@ -210,7 +210,6 @@ impl Problem for ResourceConstrainedScheduling {
                 let d = self.deadline as usize;
                 let r = self.num_resources();
 
-                // Check config length
                 if config.len() != n {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "schedule length does not match the tasks".into(),
@@ -242,12 +241,10 @@ impl Problem for ResourceConstrainedScheduling {
                         }
                     }
 
-                    // Check processor capacity
                     if slot_tasks.len() > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
 
-                    // Check resource bounds
                     for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
                         if usage > bound {
                             return Ok(crate::types::Or(false));

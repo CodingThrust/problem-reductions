@@ -22,7 +22,7 @@
 //!   - `b_v` at local index `v`
 //!   - `h_v` at local index `n + v`
 //!
-//! In unified vertex space (used by `BicliqueCover::dims()`):
+//! In the unified vertex space used by biclique witnesses:
 //!
 //! - `a_v` -> `v`
 //! - `g_v` -> `n + v`
@@ -234,7 +234,7 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
     }
 }
 
-/// Build the canonical forward witness described in the issue.
+/// Build a forward witness from a source coloring.
 ///
 /// For each source vertex `v` (with `v in 0..n`), create one guard biclique
 ///

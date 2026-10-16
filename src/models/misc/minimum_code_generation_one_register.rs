@@ -385,14 +385,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_one_register",
-        // Issue #900 example: 7 vertices, leaves {4,5,6}, internal {0,1,2,3}
-        // Edges: (0,1),(0,2),(1,3),(1,4),(2,3),(2,5),(3,5),(3,6)
-        // Optimal order: v3, v2, v1, v0 with positions [3, 2, 1, 0]
-        // Wait — config[i] = position for internal vertex i.
-        // Internal vertices sorted: [0, 1, 2, 3]
-        // Optimal evaluation order: v3, v2, v1, v0
-        // v3 at position 0, v2 at position 1, v1 at position 2, v0 at position 3
-        // So config = [3, 2, 1, 0] (internal idx 0=v0 -> pos 3, idx 1=v1 -> pos 2, ...)
+        // Evaluating v3, v2, v1, v0 gives positions [3, 2, 1, 0] for internal vertices.
         instance: Box::new(MinimumCodeGenerationOneRegister::new(
             7,
             vec![

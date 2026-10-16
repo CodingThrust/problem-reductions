@@ -66,7 +66,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
                 ));
             }
 
-            // Collect selected edges (those with config value 1)
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
             for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
                 if target_solution[i] {
@@ -75,7 +74,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
                 }
             }
 
-            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
             if adj.iter().any(|neighbors| neighbors.len() != 2) {
                 return Err(crate::rules::ExtractionError::invalid(
                     "selected edges do not give every source vertex degree two",
@@ -147,7 +145,6 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircu
         // Edgeless initial graph
         let initial_graph = SimpleGraph::empty(n);
 
-        // Create potential edges for all pairs (u, v) with u < v
         let mut potential_weights = Vec::new();
         let mut potential_edges = Vec::new();
         for u in 0..n {

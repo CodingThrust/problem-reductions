@@ -64,7 +64,7 @@ inventory::submit! {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![|V_2| + 1; |V_1|]`. For each source vertex `i`,
+/// `BruteForceProblem::dimensions()` returns `vec![|V_2| + 1; |V_1|]`. For each source vertex `i`,
 /// `config[i] = 0` denotes `bot` (unmatched) and `config[i] = j + 1` denotes
 /// "matched to vertex `j in V_2`". Feasibility requires that the nonzero
 /// entries are pairwise distinct (injectivity) and strictly increasing along
@@ -317,7 +317,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Canonical example from the issue:
     //   G_1: n_1 = 4, E_1 = {{0,2}, {1,3}}
     //   G_2: n_2 = 5, E_2 = {{0,3}, {1,4}, {0,2}}
     // Optimal alignment: 0->0, 1->1, 2->3, 3->4 (encoded as [1, 2, 4, 5]).

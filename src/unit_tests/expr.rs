@@ -698,9 +698,6 @@ fn test_parse_unclosed_function_error() {
 
 #[test]
 fn test_parse_expect_mismatch() {
-    // "exp(n]" — expects RParen, gets unexpected token ']'
-    // Actually ']' is an invalid char so tokenizer catches it first.
-    // Use "exp(n +" to trigger expect mismatch (expects RParen, gets Plus).
     let err = Expr::try_parse("exp(n +").unwrap_err();
     assert!(
         err.to_string().contains("expected") || err.to_string().contains("end of input"),

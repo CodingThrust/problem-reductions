@@ -46,7 +46,7 @@ inventory::submit! {
 /// - The last element equals `target_vertex`
 /// - Consecutive entries are adjacent in the graph
 ///
-/// The search space has `dims() = [n; n]` (each position can hold any of `n`
+/// The search space has `dimensions() = [n; n]` (each position can hold any of `n`
 /// vertices), so brute-force enumerates `n^n` configurations.
 ///
 /// # Type Parameters
@@ -255,12 +255,10 @@ pub(crate) fn is_valid_hamiltonian_st_path<G: Graph>(
         seen[v] = true;
     }
 
-    // Check endpoint constraints
     if config[0] != source || config[n - 1] != target {
         return false;
     }
 
-    // Check consecutive vertices are adjacent
     for i in 0..n.saturating_sub(1) {
         if !graph.has_edge(config[i], config[i + 1]) {
             return false;
@@ -272,7 +270,6 @@ pub(crate) fn is_valid_hamiltonian_st_path<G: Graph>(
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Instance from issue #831: 6 vertices, s=0, t=5
     // Hamiltonian s-t path: [0, 3, 2, 1, 4, 5]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_path_between_two_vertices_simplegraph",

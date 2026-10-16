@@ -314,7 +314,6 @@ impl MinimumCodeGenerationUnlimitedRegisters {
             let lc = self.left_child(v);
             let rc = self.right_child(v);
 
-            // Check dependencies
             if let Some(l) = lc {
                 if !computed[l] {
                     return Ok(None);
@@ -409,7 +408,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_unlimited_registers",
-        // Issue #902 example: 5 vertices, leaves {3,4}, internal {0,1,2}
         // left_arcs: (1,3),(2,3),(0,1)
         // right_arcs: (1,4),(2,4),(0,2)
         // Optimal order: v1,v2,v0 with 1 copy of v3 = 4 instructions

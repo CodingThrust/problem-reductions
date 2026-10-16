@@ -159,7 +159,6 @@ where
                     ));
                 }
 
-                // Collect selected edges
                 let selected: Vec<(usize, usize)> = config
                     .iter()
                     .enumerate()
@@ -175,7 +174,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check connectivity using BFS on selected edges
                 let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
                 let mut degree = vec![0usize; n];
                 for &(u, v) in &selected {
@@ -185,7 +183,6 @@ where
                     degree[v] += 1;
                 }
 
-                // Check max degree constraint
                 if degree.iter().any(|&d| d > self.max_degree) {
                     return Ok(crate::types::Or(false));
                 }

@@ -39,7 +39,7 @@ inventory::submit! {
 /// This is problem SS14 in Garey & Johnson (1979), written
 /// $1 | s_{ij} | \text{feasibility}$.
 ///
-/// Configurations are direct permutation encodings with `dims() = [n; n]`:
+/// Configurations are direct permutation encodings with `dimensions() = [n; n]`:
 /// each position holds the index of the task scheduled at that position.
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]

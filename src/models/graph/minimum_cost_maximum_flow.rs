@@ -14,8 +14,8 @@
 //!
 //! # Integral-flow restriction
 //!
-//! The mathematical CellRouter formulation in issue #1029 uses
-//! continuous flows `f: A -> R_{>= 0}`, but this model's registered reference
+//! The continuous formulation allows flows
+//! `f: A -> R_{>= 0}`, but this model's registered reference
 //! solver uses a finite Cartesian space. Following the same precedent as
 //! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) (see
 //! `src/models/graph/minimum_edge_cost_flow.rs`), we therefore restrict

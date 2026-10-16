@@ -228,7 +228,6 @@ impl Problem for EquilibriumPoint {
                     if alt == solution[i] {
                         continue;
                     }
-                    // Build alternative assignment with player i using alt.
                     let mut alt_assignment = solution.clone();
                     alt_assignment[i] = alt;
                     let alt_payoff = self.eval_payoff(i, &alt_assignment)?;

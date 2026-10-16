@@ -177,7 +177,6 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Se
             }
         }
 
-        // Set clique edges.
         for i in 0..m {
             for j in (i + 1)..m {
                 edges.push((s_index(i), s_index(j)));

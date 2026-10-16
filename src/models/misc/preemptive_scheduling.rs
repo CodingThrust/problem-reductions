@@ -319,7 +319,6 @@ impl Problem for PreemptiveScheduling {
                 }
             }
 
-            // Check processor capacity at each time slot
             for u in 0..d {
                 let active_count = solution.iter().filter(|task| task[u]).count();
                 if active_count > self.num_processors {

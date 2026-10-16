@@ -252,14 +252,12 @@ where
                 return Ok(Min(None));
             }
 
-            // Check size bounds
             let count_v1 = config.iter().filter(|&&x| !x).count();
             let count_v2 = config.iter().filter(|&&x| x).count();
             if count_v1 > self.size_bound || count_v2 > self.size_bound {
                 return Ok(Min(None));
             }
 
-            // Compute cut weight
             let mut cut_weight = W::Sum::zero();
             for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
                 if config[*u] != config[*v] {
