@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {performance} from 'node:perf_hooks';
+import {parseWasmComparison} from '../docs/website/assets/wasm-comparison-data.mts';
 
 const script = fileURLToPath(import.meta.url);
 if (process.argv[2] === '--sample') {
@@ -23,12 +24,12 @@ if (process.argv[2] === '--sample') {
   const encoded = performance.now();
   const raw = api[engine](query);
   const compared = performance.now();
-  const result = JSON.parse(raw);
+  const result = parseWasmComparison(raw, routes.paths.length, engine === 'summarize_paths' ? 'summary' : 'full');
   const parsed = performance.now();
   fs.writeFileSync(outputFile, raw);
   console.log(JSON.stringify({routes: routes.paths.length, truncated: routes.truncated,
     init_ms: initialized-started, search_ms: enumerated-initialized,
-    encode_ms: encoded-enumerated, compare_ms: compared-encoded, parse_ms: parsed-compared,
+    encode_ms: encoded-enumerated, compare_ms: compared-encoded, parse_validate_ms: parsed-compared,
     bytes: Buffer.byteLength(raw), wasm_mib: wasm.memory.buffer.byteLength/1048576,
     peak_rss_mib: process.resourceUsage().maxRSS/1024, counts: result.counts, front: result.front.length}));
 } else {

@@ -32,7 +32,9 @@ class WebsiteBuildTests(unittest.TestCase):
                          'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts',
                          'docs/website/graph-details.schema.json', 'docs/website/assets/graph-details.validator.mjs',
                          'docs/website/assets/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
-                         'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts']:
+                         'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts',
+                         'docs/website/wasm-comparison.schema.json', 'docs/website/assets/wasm-comparison.validator.mjs',
+                         'docs/website/assets/wasm-comparison.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
@@ -47,9 +49,10 @@ class WebsiteBuildTests(unittest.TestCase):
 
     def test_rust_contract_check_rejects_stale_schema(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'schema.json'
-            shutil.copyfile(ROOT / 'docs/website/wasm-paths.schema.json', path)
-            command = [str(ROOT / 'target/debug/examples/export_frontend_schema'), '--check', str(path)]
+            for name in ['wasm-paths', 'wasm-comparison']:
+                shutil.copyfile(ROOT / f'docs/website/{name}.schema.json', Path(directory) / f'{name}.schema.json')
+            path = Path(directory) / 'wasm-comparison.schema.json'
+            command = [str(ROOT / 'target/debug/examples/export_frontend_schema'), '--check', directory]
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             schema = json.loads(path.read_text())

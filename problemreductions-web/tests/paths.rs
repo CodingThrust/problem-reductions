@@ -107,6 +107,8 @@ fn browser_summary_keeps_profiles_counts_and_front_without_pair_payloads() {
     let input = json!({"graph": graph, "paths": routes["paths"]}).to_string();
     let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
     let summary: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
+    assert_eq!(summary["schema_version"], 5);
+    assert_eq!(summary["mode"], "generic");
     assert_eq!(summary["profiles"], full["profiles"]);
     assert_eq!(
         summary["counts"],
@@ -114,6 +116,121 @@ fn browser_summary_keeps_profiles_counts_and_front_without_pair_payloads() {
     );
     assert_eq!(summary["front"], json!([2]));
     assert!(summary.get("pairs").is_none());
+}
+
+#[test]
+fn comparison_retains_exact_wide_rational_coefficients() {
+    use num_bigint::{BigInt, BigUint};
+    use num_rational::BigRational;
+    use problemreductions_web::{
+        expr::{Expr, Symbol},
+        polynomial::Poly,
+    };
+    use std::collections::BTreeMap;
+
+    let mut graph = graph();
+    graph["edges"] = json!([graph["edges"][0]]);
+    graph["edges"][0]["parameters"][0]["formula"] = json!("9007199254740993 / 7 * n");
+    graph["edges"][0]["parameters"][0]["contract"] = json!("upper_bound");
+    let routes: Value = serde_json::from_str(
+        &find_paths(
+            &json!({
+                "graph": graph, "source": 0, "target": 2, "limit": 1
+            })
+            .to_string(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let input = json!({"graph":graph, "paths":routes["paths"]}).to_string();
+    let result: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
+    let field = &result["profiles"][0]["fields"]["n"];
+    let certificate = field["certificate"].as_str().unwrap();
+    assert_eq!(field["accuracy"]["kind"], "upper_bound");
+    let poly = Poly::from_expr(&Expr::try_parse(certificate).unwrap()).unwrap();
+    assert_eq!(
+        poly.terms(),
+        &BTreeMap::from([(
+            BTreeMap::from([(Symbol::new("n").unwrap(), BigUint::from(1u8))]),
+            BigRational::new(BigInt::from(9007199254740993u64), BigInt::from(7u8))
+        )])
+    );
+    let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
+    assert_eq!(full["profiles"], result["profiles"]);
+    assert_eq!(full["pairs"], json!([]));
+    assert!(result.get("pairs").is_none());
+}
+
+#[test]
+fn comparison_retains_explicit_null_certificates_and_typed_unavailable_reasons() {
+    for (parameter, expected_reason) in [
+        (
+            json!({"field":"n", "contract":"unavailable", "reason":"Target count is not certified"}),
+            "unavailable",
+        ),
+        (
+            json!({"field":"n", "contract":"exact", "formula":"n^-1"}),
+            "not_polynomial",
+        ),
+    ] {
+        let mut graph = graph();
+        graph["edges"] = json!([graph["edges"][0]]);
+        graph["edges"][0]["parameters"] = json!([parameter]);
+        let routes: Value = serde_json::from_str(
+            &find_paths(
+                &json!({
+                    "graph":graph, "source":0, "target":2, "limit":1
+                })
+                .to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let result: Value = serde_json::from_str(
+            &summarize_paths(
+                &json!({
+                    "graph":graph, "paths":routes["paths"]
+                })
+                .to_string(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let field = &result["profiles"][0]["fields"]["n"];
+        assert_eq!(field.get("certificate"), Some(&Value::Null));
+        assert_eq!(field["accuracy"]["kind"], "unavailable");
+        assert_eq!(field["accuracy"]["reason"]["kind"], expected_reason);
+        assert!(field["accuracy"]["reason"]["detail"]
+            .as_str()
+            .is_some_and(|detail| !detail.is_empty()));
+    }
+}
+
+#[test]
+fn nondominated_comparisons_omit_dominance_and_keep_both_routes() {
+    for (formula, verdict) in [
+        ("n", "Equivalent"),
+        ("m", "Incomparable"),
+        ("n^-1", "Unknown"),
+    ] {
+        let mut graph = graph();
+        graph["edges"][0]["parameters"][0]["formula"] = json!(formula);
+        let routes: Value = serde_json::from_str(
+            &find_paths(&json!({"graph":graph, "source":0, "target":2, "limit":20}).to_string())
+                .unwrap(),
+        )
+        .unwrap();
+        let input = json!({"graph":graph, "paths":routes["paths"]}).to_string();
+        let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
+        let summary: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
+        assert_eq!(full["front"], json!([1, 2]));
+        assert_eq!(full["counts"][verdict], 1);
+        assert_eq!(full["pairs"], json!([{"paths":[1,2],"verdict":verdict}]));
+        assert_eq!(summary["front"], full["front"]);
+        assert_eq!(summary["counts"], full["counts"]);
+        assert_eq!(summary["profiles"], full["profiles"]);
+        assert!(summary.get("pairs").is_none());
+    }
 }
 
 #[test]

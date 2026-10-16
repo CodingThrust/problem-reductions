@@ -3,7 +3,7 @@
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory and migration checklist, not a claim that contracts are implemented.
 Generated production artifacts are fingerprinted by `check_website.py`. Scene and
-documentation-index and WASM path-result contracts passed local production checks;
+documentation-index and WASM path/comparison-result contracts passed local production checks;
 other rows remain open.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
@@ -18,7 +18,7 @@ other rows remain open.
 | Worker → main thread `{phase,result}` or `{phase,error}` | `graph.js`: `onmessage` | Untyped envelope; stale worker identity checked | Validate phase and mutually exclusive result/error shape plus the appropriate payload; retain worker termination, identity checks and bounded cache |
 | JSON strings for `find_paths`, `compare_paths`, `summarize_paths` | `problemreductions-web/src/lib.rs` | Typed Rust `Deserialize` requests and semantic validation | Derive request schemas from real wire structs; validate browser-side requests before serialization and preserve Rust validation |
 | WASM path response string | `path-worker.js` calls strict `wasm-paths-data.mts`: parse unknown, validate, then post routes | Rust `WasmPathResult`, version 1; Schemars-derived serialization schema; generated guard/types; safe step counts and chain continuity checked | Local malformed-input, real-worker rejection and all-engine production checks passed; request/metadata/envelope validation and registered-endpoint cross-checks remain open |
-| WASM comparison response strings | Worker consumes summary; benchmark tool exercises full and summary APIs | Dynamic Rust `json!`; comparison `schema_version` is already 5 | Serialized wire structs covering counts, profiles, verdicts and optional `pairs`/`dominates`; retain version compatibility, exact strings and semantic equality |
+| WASM comparison response strings | Worker consumes summary through strict `wasm-comparison-data.mts`; benchmark sample mode validates full and summary APIs | Typed Rust responses; Schemars-derived schema preserves version 5; generated guard/types, safe counts/indices and cross-field checks before use | Local negative-input, semantic before/after, exact rational and all-engine production checks passed; preserve pair/front/coordinate relationships, exact strings, absent/null semantics and independent native proof verification; request/envelope contracts remain open |
 | Built Open Question Board `registry.json` and its related payloads | Separately built board scripts under `open-questions/` | Owned by the private board project; this repo tests real navigation, registry use and prompt generation | Record that build's own schema/validation coverage when auditing all delivered pages; do not claim this repo's TS migration validates external scripts |
 
 ## Shared requirements for the contract stage
@@ -51,8 +51,10 @@ other rows remain open.
   types/runtime validators, alongside Python-owned artifact schemas. Confirm the
   actual Serde union/optional-field representations in one complete migration
   before extending the migration. Ajv standalone guards and generated TS types now
-  cover the two Python-owned contracts and the first Rust response. Comparison
-  contracts, request schemas and remaining payloads are still open.
+  cover the two Python-owned contracts and both Rust response contracts. Request
+  schemas, worker envelopes and remaining payloads are still open. The legacy path
+  benchmark's default entry discovery also needs repair for the current Vite output;
+  only its direct sample mode is currently verified.
 
 ## Related boundaries that are not JSON parsing
 

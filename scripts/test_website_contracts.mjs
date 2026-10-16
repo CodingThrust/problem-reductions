@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
 import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
+import { parseWasmComparison } from '../docs/website/assets/wasm-comparison-data.mts';
 
 function scene() {
   return {
@@ -178,5 +179,128 @@ test('WASM path validation rejects incorrect step counts and discontinuous varia
     const value = pathResult();
     mutate(value);
     assert.throws(() => parseWasmPathResult(JSON.stringify(value)));
+  }
+});
+
+function comparison(full = false) {
+  return { schema_version: 5, mode: 'generic',
+    counts: { Dominated: 1, Equivalent: 0, Incomparable: 0, Unknown: 0 }, front: [2],
+    profiles: ['n^2', 'n'].map(certificate => ({ source_coordinates: ['m', 'n'],
+      fields: { n: { certificate, accuracy: { kind: 'exact' } } } })),
+    ...(full ? { pairs: [{ paths: [1, 2], verdict: 'Dominated', dominates: { winner: 2, loser: 1 } }] } : {}),
+  };
+}
+
+test('comparison validation preserves exact strings, profile ordering and optional pair omission', () => {
+  for (const full of [false, true]) {
+    const value = comparison(full);
+    value.profiles[0].fields.n.certificate = '9007199254740993 * 7^-1 * n^9007199254740993';
+    const result = parseWasmComparison(JSON.stringify(value), 2, full ? 'full' : 'summary');
+    assert.deepEqual(result, value);
+    assert.equal(Object.hasOwn(result, 'pairs'), full);
+  }
+});
+
+test('comparison validation rejects malformed shapes, versions and unsafe numeric counts', () => {
+  for (const mutate of [
+    value => { value.schema_version = 4; },
+    value => { value.mode = 'other'; },
+    value => { value.counts.Unknown = 0.5; },
+    value => { value.counts.Unknown = -1; },
+    value => { value.counts.Unknown = 9007199254740992; },
+    value => { value.profiles[0].fields.n.certificate = 1; },
+    value => { delete value.profiles[0].fields.n.certificate; },
+    value => { value.profiles[0].fields.n.accuracy.kind = 'guessed'; },
+    value => { value.profiles[0].source_coordinates = 'n'; },
+    value => { value.profiles[0].fields[''] = value.profiles[0].fields.n; delete value.profiles[0].fields.n; },
+    value => { value.pairs = null; },
+  ]) {
+    const value = comparison();
+    mutate(value);
+    assert.throws(() => parseWasmComparison(JSON.stringify(value), 2, 'summary'));
+  }
+});
+
+test('comparison validation checks profile, coordinate, front and aggregate references', () => {
+  for (const mutate of [
+    value => { value.profiles.pop(); },
+    value => { value.counts.Dominated = 0; },
+    value => { value.front = [0]; },
+    value => { value.front = [3]; },
+    value => { value.front = [2, 2]; },
+    value => { value.front = []; },
+    value => { value.profiles[0].source_coordinates = ['n', 'n']; },
+    value => { value.profiles[0].fields.n.certificate = 'missing'; },
+    value => { value.profiles[0].fields.n.certificate = null; },
+    value => { value.profiles[0].fields.n.accuracy = { kind: 'unavailable', reason: { kind: 'missing_field' } }; },
+    value => { value.pairs = []; },
+  ]) {
+    const value = comparison();
+    mutate(value);
+    assert.throws(() => parseWasmComparison(JSON.stringify(value), 2, 'summary'));
+  }
+});
+
+test('full comparisons require every pair, matching counts, dominance endpoints and the resulting front', () => {
+  for (const mutate of [
+    value => { delete value.pairs; },
+    value => { value.pairs = []; },
+    value => { value.pairs[0].paths = [1, 3]; },
+    value => { value.pairs[0].paths = [2, 2]; },
+    value => { value.pairs[0].paths = [2, 1]; },
+    value => { value.pairs[0].dominates = { winner: 3, loser: 1 }; },
+    value => { value.pairs[0].dominates = { winner: 1, loser: 1 }; },
+    value => { delete value.pairs[0].dominates; },
+    value => { value.pairs[0].verdict = 'Equivalent'; },
+    value => { value.counts = { Dominated: 0, Equivalent: 1, Incomparable: 0, Unknown: 0 }; },
+    value => { value.front = [1]; },
+  ]) {
+    const value = comparison(true);
+    mutate(value);
+    assert.throws(() => parseWasmComparison(JSON.stringify(value), 2, 'full'));
+  }
+});
+
+test('comparison validation accepts nondominated verdicts and all declared unavailable-reason shapes', () => {
+  for (const verdict of ['Equivalent', 'Incomparable', 'Unknown']) {
+    const value = comparison(true);
+    value.counts = { Dominated: 0, Equivalent: 0, Incomparable: 0, Unknown: 0 };
+    value.counts[verdict] = 1;
+    value.front = [1, 2];
+    value.pairs = [{ paths: [1, 2], verdict }];
+    value.profiles[0].fields.n.certificate = verdict === 'Incomparable' ? 'm' : 'n';
+    if (verdict === 'Unknown') value.profiles[0].fields.n = {
+      certificate: null, accuracy: { kind: 'unavailable', reason: { kind: 'missing_field' } },
+    };
+    assert.deepEqual(parseWasmComparison(JSON.stringify(value), 2, 'full'), value);
+  }
+  for (const reason of [{ kind: 'not_polynomial', detail: 'n^-1' }, { kind: 'unavailable', detail: 'No bound' },
+    { kind: 'missing_field' }, { kind: 'validity' }, { kind: 'resource_limit', detail: 'No certificate' }]) {
+    const value = comparison();
+    value.counts = { Dominated: 0, Equivalent: 0, Incomparable: 0, Unknown: 1 };
+    value.front = [1, 2];
+    value.profiles[0].fields.n = { certificate: null, accuracy: { kind: 'unavailable', reason } };
+    assert.deepEqual(parseWasmComparison(JSON.stringify(value), 2, 'summary'), value);
+  }
+});
+
+test('comparison validation covers empty batches and rejects repeated pairs in a larger batch', () => {
+  for (const mode of ['full', 'summary']) {
+    const value = { schema_version: 5, mode: 'generic', profiles: [], front: [],
+      counts: { Dominated: 0, Equivalent: 0, Incomparable: 0, Unknown: 0 }, ...(mode === 'full' ? { pairs: [] } : {}) };
+    assert.deepEqual(parseWasmComparison(JSON.stringify(value), 0, mode), value);
+  }
+  const value = comparison(true);
+  value.profiles = ['n', 'n^2', 'n^3'].map(certificate => ({ source_coordinates: ['n'],
+    fields: { n: { certificate, accuracy: { kind: 'upper_bound' } } } }));
+  value.counts.Dominated = 3;
+  value.front = [1];
+  value.pairs = [[1, 2], [1, 3], [2, 3]].map(([winner, loser]) => ({ paths: [winner, loser],
+    verdict: 'Dominated', dominates: { winner, loser } }));
+  assert.deepEqual(parseWasmComparison(JSON.stringify(value), 3, 'full'), value);
+  value.pairs[1] = value.pairs[0];
+  assert.throws(() => parseWasmComparison(JSON.stringify(value), 3, 'full'));
+  for (const count of [-1, NaN, 9007199254740992]) {
+    assert.throws(() => parseWasmComparison(JSON.stringify(comparison()), count, 'summary'));
   }
 });

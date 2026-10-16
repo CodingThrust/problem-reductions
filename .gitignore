@@ -95,6 +95,7 @@ claude-output.log
 !docs/website/graph-scene.schema.json
 !docs/website/graph-details.schema.json
 !docs/website/wasm-paths.schema.json
+!docs/website/wasm-comparison.schema.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/

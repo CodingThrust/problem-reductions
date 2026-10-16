@@ -14,9 +14,8 @@ pub mod types;
 
 use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
-use poly_compare::{compare_all_verdicts, compare_summary, Profile, Side, Verdict};
+use poly_compare::{compare_all_verdicts, compare_summary, Profile, Reason, Side, Verdict};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
@@ -171,6 +170,17 @@ struct WasmPathResult {
 /// Generate the browser response contract without adding schema tooling to WASM builds.
 #[cfg(feature = "schema-export")]
 pub fn path_response_schema() -> schemars::Schema {
+    response_schema::<WasmPathResult>()
+}
+
+/// Generate the version-5 comparison response contract.
+#[cfg(feature = "schema-export")]
+pub fn comparison_response_schema() -> schemars::Schema {
+    response_schema::<WasmComparisonResult>()
+}
+
+#[cfg(feature = "schema-export")]
+fn response_schema<T: schemars::JsonSchema>() -> schemars::Schema {
     let mut settings = schemars::generate::SchemaSettings::draft2020_12().for_serialize();
     // JSON numeric bounds carry the domain; Rust's integer formats are nonstandard.
     settings
@@ -185,9 +195,145 @@ pub fn path_response_schema() -> schemars::Schema {
                 }
             },
         )));
-    settings
-        .into_generator()
-        .into_root_schema_for::<WasmPathResult>()
+    settings.into_generator().into_root_schema_for::<T>()
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields,
+    extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-comparison")))]
+struct WasmComparisonResult {
+    #[cfg_attr(feature = "schema-export", schemars(extend("const" = 5)))]
+    schema_version: u8,
+    #[cfg_attr(feature = "schema-export", schemars(extend("const" = "generic")))]
+    mode: &'static str,
+    profiles: Vec<ComparisonProfile>,
+    #[cfg_attr(
+        feature = "schema-export",
+        schemars(inner(range(min = 1, max = 9007199254740991u64)))
+    )]
+    front: Vec<usize>,
+    counts: ComparisonCounts,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema-export", schemars(with = "Vec<ComparisonPair>"))]
+    pairs: Option<Vec<ComparisonPair>>,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+#[serde(rename_all = "PascalCase")]
+struct ComparisonCounts {
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    dominated: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    equivalent: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    incomparable: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    unknown: usize,
+}
+
+impl From<[usize; 4]> for ComparisonCounts {
+    fn from([dominated, equivalent, incomparable, unknown]: [usize; 4]) -> Self {
+        Self {
+            dominated,
+            equivalent,
+            incomparable,
+            unknown,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+struct ComparisonPair {
+    #[cfg_attr(
+        feature = "schema-export",
+        schemars(inner(range(min = 1, max = 9007199254740991u64)))
+    )]
+    paths: [usize; 2],
+    #[cfg_attr(feature = "schema-export", schemars(extend("enum" = Verdict::ALL)))]
+    verdict: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "schema-export", schemars(with = "Dominance"))]
+    dominates: Option<Dominance>,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+struct Dominance {
+    #[cfg_attr(
+        feature = "schema-export",
+        schemars(range(min = 1, max = 9007199254740991u64))
+    )]
+    winner: usize,
+    #[cfg_attr(
+        feature = "schema-export",
+        schemars(range(min = 1, max = 9007199254740991u64))
+    )]
+    loser: usize,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+struct ComparisonProfile {
+    #[cfg_attr(feature = "schema-export", schemars(inner(length(min = 1))))]
+    source_coordinates: Vec<String>,
+    #[cfg_attr(feature = "schema-export", schemars(extend("propertyNames" = {"type": "string", "minLength": 1})))]
+    fields: BTreeMap<String, ComparisonField>,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+struct ComparisonField {
+    #[cfg_attr(feature = "schema-export", schemars(length(min = 1)))]
+    certificate: Option<String>,
+    accuracy: ComparisonAccuracy,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ComparisonAccuracy {
+    Exact,
+    UpperBound,
+    Unavailable { reason: ComparisonReason },
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ComparisonReason {
+    NotPolynomial { detail: String },
+    Unavailable { detail: String },
+    MissingField,
+    Validity,
+    ResourceLimit { detail: String },
+}
+
+impl From<&Reason> for ComparisonReason {
+    fn from(reason: &Reason) -> Self {
+        match reason {
+            Reason::NotPolynomial(detail) => Self::NotPolynomial {
+                detail: detail.clone(),
+            },
+            Reason::Unavailable(error) => Self::Unavailable {
+                detail: error.to_string(),
+            },
+            Reason::MissingField => Self::MissingField,
+            Reason::Validity => Self::Validity,
+            Reason::ResourceLimit(detail) => Self::ResourceLimit {
+                detail: (*detail).to_string(),
+            },
+        }
+    }
 }
 #[derive(Deserialize)]
 struct ComparisonQuery {
@@ -302,45 +448,97 @@ fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError
         );
         profiles.push(profile);
     }
-    let mut response = if summary_only {
+    let (front, counts, pairs) = if summary_only {
         let result = compare_summary(&profiles);
-        json!({"front":result.front.iter().map(|i|i+1).collect::<Vec<_>>(),
-            "counts":Verdict::ALL.iter().zip(result.counts).collect::<BTreeMap<_,_>>()})
+        (result.front, result.counts, None)
     } else {
         let result = compare_all_verdicts(&profiles);
-        let pairs: Vec<_> = result
+        let pairs = result
             .pairs
             .iter()
             .map(|(i, j, comparison)| {
-                let mut pair = json!({"paths":[i+1,j+1], "verdict":comparison.verdict});
-                if let Verdict::Dominated { worse } = comparison.verdict {
+                let dominates = if let Verdict::Dominated { worse } = comparison.verdict {
                     let (winner, loser) = if worse == Side::Left {
                         (j + 1, i + 1)
                     } else {
                         (i + 1, j + 1)
                     };
-                    pair["dominates"] = json!({"winner":winner,"loser":loser});
+                    Some(Dominance { winner, loser })
+                } else {
+                    None
+                };
+                ComparisonPair {
+                    paths: [i + 1, j + 1],
+                    verdict: comparison.verdict.name(),
+                    dominates,
                 }
-                pair
             })
             .collect();
-        let mut response = json!({"front":result.front.iter().map(|i|i+1).collect::<Vec<_>>(),
-            "counts":Verdict::ALL.iter().zip(result.counts()).collect::<BTreeMap<_,_>>()});
-        response["pairs"] = serde_json::Value::Array(pairs);
-        response
+        let counts = result.counts();
+        (result.front, counts, Some(pairs))
     };
-    let profiles: Vec<_> = profiles.iter().map(|profile| {
-        let fields: BTreeMap<_, _> = profile.fields.iter().map(|(name, field)| {
-            let (certificate, accuracy) = match &field.certificate {
-                Ok((poly, relation)) => (Some(poly.to_expr().to_string()), json!({"kind":relation})),
-                Err(reason) => (None, json!({"kind":"unavailable", "reason":reason})),
-            };
-            (name, json!({"certificate":certificate, "accuracy":accuracy}))
-        }).collect();
-        json!({"source_coordinates":profile.domain.iter().map(ToString::to_string).collect::<Vec<_>>(), "fields":fields})
-    }).collect();
-    response["schema_version"] = json!(5);
-    response["mode"] = json!("generic");
-    response["profiles"] = serde_json::Value::Array(profiles);
-    Ok(serde_json::to_string(&response)?)
+    let profiles = profiles
+        .iter()
+        .map(|profile| {
+            let fields = profile
+                .fields
+                .iter()
+                .map(|(name, field)| {
+                    let (certificate, accuracy) = match &field.certificate {
+                        Ok((poly, relation)) => (
+                            Some(poly.to_expr().to_string()),
+                            match relation {
+                                ParameterRelation::Exact => ComparisonAccuracy::Exact,
+                                ParameterRelation::UpperBound => ComparisonAccuracy::UpperBound,
+                            },
+                        ),
+                        Err(reason) => (
+                            None,
+                            ComparisonAccuracy::Unavailable {
+                                reason: reason.into(),
+                            },
+                        ),
+                    };
+                    (
+                        name.clone(),
+                        ComparisonField {
+                            certificate,
+                            accuracy,
+                        },
+                    )
+                })
+                .collect();
+            ComparisonProfile {
+                source_coordinates: profile.domain.iter().map(ToString::to_string).collect(),
+                fields,
+            }
+        })
+        .collect();
+    Ok(serde_json::to_string(&WasmComparisonResult {
+        schema_version: 5,
+        mode: "generic",
+        profiles,
+        front: front.into_iter().map(|index| index + 1).collect(),
+        counts: counts.into(),
+        pairs,
+    })?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn comparison_reason_wire_format_matches_native_proof_format() {
+        for reason in [
+            Reason::MissingField,
+            Reason::Validity,
+            Reason::ResourceLimit("Exact arithmetic budget exhausted"),
+        ] {
+            assert_eq!(
+                serde_json::to_value(ComparisonReason::from(&reason)).unwrap(),
+                serde_json::to_value(reason).unwrap()
+            );
+        }
+    }
 }

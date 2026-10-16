@@ -1,0 +1,310 @@
+{
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/wasm-comparison",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WasmComparisonResult",
+  "type": "object",
+  "properties": {
+    "counts": {
+      "$ref": "#/$defs/ComparisonCounts"
+    },
+    "front": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "maximum": 9007199254740991,
+        "minimum": 1
+      }
+    },
+    "mode": {
+      "type": "string",
+      "const": "generic"
+    },
+    "pairs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ComparisonPair"
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ComparisonProfile"
+      }
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 5,
+      "maximum": 255,
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "profiles",
+    "front",
+    "counts"
+  ],
+  "$defs": {
+    "ComparisonAccuracy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "exact"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "upper_bound"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "reason": {
+              "$ref": "#/$defs/ComparisonReason"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "ComparisonCounts": {
+      "type": "object",
+      "properties": {
+        "Dominated": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "Equivalent": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "Incomparable": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "Unknown": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "Dominated",
+        "Equivalent",
+        "Incomparable",
+        "Unknown"
+      ]
+    },
+    "ComparisonField": {
+      "type": "object",
+      "properties": {
+        "accuracy": {
+          "$ref": "#/$defs/ComparisonAccuracy"
+        },
+        "certificate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "certificate",
+        "accuracy"
+      ]
+    },
+    "ComparisonPair": {
+      "type": "object",
+      "properties": {
+        "dominates": {
+          "$ref": "#/$defs/Dominance"
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "maximum": 9007199254740991,
+            "minimum": 1
+          },
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "Dominated",
+            "Equivalent",
+            "Incomparable",
+            "Unknown"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "paths",
+        "verdict"
+      ]
+    },
+    "ComparisonProfile": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ComparisonField"
+          },
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source_coordinates",
+        "fields"
+      ]
+    },
+    "ComparisonReason": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "detail": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "not_polynomial"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "detail"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "detail": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "unavailable"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "detail"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "missing_field"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "validity"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "detail": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "const": "resource_limit"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "detail"
+          ]
+        }
+      ]
+    },
+    "Dominance": {
+      "type": "object",
+      "properties": {
+        "loser": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        },
+        "winner": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "winner",
+        "loser"
+      ]
+    }
+  }
+}

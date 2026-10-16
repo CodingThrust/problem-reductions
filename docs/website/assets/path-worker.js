@@ -1,5 +1,6 @@
 import init, { find_paths, summarize_paths } from "./path-selection.js";
 import { parseWasmPathResult } from './wasm-paths-data.mts';
+import { parseWasmComparison } from './wasm-comparison-data.mts';
 
 performance.mark("engine:script");
 const graph = fetch(new URL('./path-graph.json.gz', import.meta.url)).then(async (response) => {
@@ -40,7 +41,7 @@ self.onmessage = async ({data}) => {
     phase = "comparison";
     if (result.paths.length) {
       performance.mark("engine:comparison-start");
-      const comparison = JSON.parse(summarize_paths(JSON.stringify({graph, paths: result.paths})));
+      const comparison = parseWasmComparison(summarize_paths(JSON.stringify({graph, paths: result.paths})), result.paths.length, 'summary');
       performance.mark("engine:comparison-end");
       self.postMessage({phase, result: comparison});
     }

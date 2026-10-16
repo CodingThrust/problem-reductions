@@ -4,8 +4,9 @@ Follow [FRONTEND_PLAN.md](FRONTEND_PLAN.md). Preserve the current appearance;
 Claude's design phase starts after the verified engineering handoff. The
 [data boundary inventory](DATA_BOUNDARIES.md) tracks the remaining contracts.
 
-Keep frontend work on its own local branch. Generated screenshots, traces, raw
-samples and run reports belong outside Git or in CI artifacts. Commit source,
+Develop on the user-selected branch and keep changes independently reviewable.
+Generated screenshots, traces, raw samples and run reports belong outside Git or
+in CI artifacts. Commit source,
 tests, contracts, configuration and concise maintained documentation. Feature
 pushes require explicit authorization.
 
@@ -71,7 +72,7 @@ module delivery. Runtime contracts migrate incrementally.
 The worker buffers decompressed WASM before binding initialization. Native Firefox
 cold-query replays exposed a pre-existing streaming stall before Vite; buffered
 initialization passed the diagnostic replays and subsequent production workflows.
-The temporary input buffer currently holds 805,798 bytes. The exact browser cause remains
+The temporary input buffer currently holds 776,965 bytes. The exact browser cause remains
 unconfirmed. Compression, early preload, worker termination and bounded caches are
 preserved. This compatibility fix does not establish that the sporadic frame hitch
 is fixed.
@@ -121,13 +122,28 @@ invalid endpoint reaching the main thread; it now receives an actionable error
 before routes are posted. Metadata, requests, cached routes and worker envelopes
 still need their own contracts.
 
+`compare_paths` and `summarize_paths` now serialize typed Rust wire responses with
+the existing comparison version 5. Schemars derives `wasm-comparison.schema.json`;
+the strict `wasm-comparison-data.mts` consumer validates unknown JSON before the
+worker posts it or the benchmark uses it. Checks cover safe counts/indices, profile
+counts, coordinate references, certificate/accuracy consistency, pair completeness,
+dominance endpoints and the full result's front. Exact certificate strings retain
+wide integers and rational coefficients. Full results require `pairs`; summaries
+omit it. Nondominated pairs omit `dominates`; unavailable certificates remain null.
+This validates the wire contract, not mathematical truth; native proof checks remain
+independent. Native adapter tests cover all four verdicts, wide rational bounds and
+unavailable results. Five real before/after queries, a wide rational fixture and all
+four verdict fixtures agreed semantically with the prior WASM build. Changed adapter
+coverage was 81/82 executable lines; the schema CLI's 20 changed executable lines and
+the strict comparison parser's lines/branches were fully covered.
+
 Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
 so production does not compile schemas or require dynamic evaluation.
 `json-schema-to-typescript` 16.0.0 generates matching strict declarations. Typescript
 6.0.3 matches the lint parser's supported range (`@typescript-eslint/parser` 8.71.2).
 These tools are development dependencies. TS source/declarations are removed from
 published assets after Vite emission. The public commands generate/check the Rust
-schema before the standalone validators and declarations:
+schemas before the standalone validators and declarations:
 
 ```sh
 npm run generate:frontend-contracts
@@ -153,7 +169,7 @@ All fourteen screenshots matched; no raw TS/declarations were published.
 
 The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
 After the Rust path-result contract, ten isolated untraced cold runs measured 76,992
-decoded startup JS bytes (+10,449 for the worker validator). WASM is 805,798 raw /
+decoded startup JS bytes (+10,449 for the worker validator). WASM was 805,798 raw /
 277,440 gzip bytes, down 868/120 bytes after typed response serialization. Five
 before/after route queries and a wide rational-bound fixture agreed semantically
 on ordered routes, variants, profiles, certificates, verdicts and optional fields;
@@ -168,13 +184,31 @@ the retained batch's `scene-contract/`, `details-contract/`, `typed-scene/` and
 The worker paths-start/end interval was 4.35/4.8 ms median/sampled p95; it includes
 request serialization, native search/output serialization, parsing and validation.
 
+After the comparison contract, ten fresh untraced cold runs measured 110,215 decoded
+startup JS bytes (+33,223). WASM fell to 776,965 raw / 267,409 gzip bytes
+(-28,833/-10,031). Graph/routes readiness was 52.35/74.55 ms median and 61.4/87.8 ms
+sampled p95. Full readiness was 641.75/664.9 ms; fill-to-suggestion was 32.55/40.9 ms,
+with all ten inputs preceding comparison completion. The combined worker comparison
+interval rose from 69.3/72.7 to 75.1/87.5 ms. This includes request serialization,
+native computation/output serialization, JSON parsing and validation; it does not
+isolate validator cost. A separate ten-process-per-API Node batch on 100 genuine
+routes measured parsing plus validation at 12.03/14.59 ms full and 8.91/9.37 ms summary.
+These measurements remain informational; the observed increase is not waived as a
+statistical non-regression. All fourteen screenshots matched exactly. Evidence is
+retained externally in `wasm-comparison-contract/`.
+
+The path benchmark's sample mode now validates full/summary results and reports
+`parse_validate_ms` rather than calling the combined interval `parse_ms`. Its legacy
+default HTML entry lookup still fails on the current Vite `graph.js` entry; that
+discovery repair remains open. The adopted startup/interaction harnesses are separate.
+
 A separate two-route wide-exponent stress fixture also traps in the pre-fix WASM
 comparator (`unreachable`). Its suspected cause is resource growth while computing
 exact witness coefficients; the trap cause has not been profiled. The reproducer
 is retained in `wide-growth/`. This existing extreme-input limitation remains open;
 the frontend precision fix preserves the mathematical engine unchanged.
 
-Other data boundaries, comparison wire structs, worker envelopes and
+Other data boundaries, request wire structs, worker envelopes and
 remaining application files still need migration.
 Rollback this slice's schema, generated code, producer version/validation and loader
 entry together, restoring a complete prior release while retaining Vite. Revert the
@@ -187,6 +221,10 @@ independently, retaining the regression evidence and documenting the restored de
 Roll back the Rust path-result type/version, schema exporter and generated files,
 worker parser/caller and their build checks together. Deploy the prior complete
 release, preserving Vite and the independent scene/details contracts.
+Roll back comparison wire structs, schema/generated guards, parser and worker/tool
+callers together to the prior complete release, retaining the independent path,
+scene and documentation contracts. Revert the exporter/fixture changes with that
+slice so generation and drift checks stay aligned.
 
 ## Open Question Board and CI
 
