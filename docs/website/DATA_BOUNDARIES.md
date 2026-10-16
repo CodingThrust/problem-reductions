@@ -3,9 +3,13 @@
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory of implemented application contracts and their acceptance limits.
 Generated production artifacts are fingerprinted by `check_website.py`. All application
-JSON boundaries listed below passed local production checks. Fresh CI and manual/device
+JSON boundaries listed below passed local production checks before delivery cleanup. Fresh CI and manual/device
 acceptance remain open; the separately owned Open Question Board is outside this
 application's contract migration.
+
+Delivery cleanup preserves these contracts. [Validator measurements and budgets](ENGINEERING.md#validator-delivery-and-size-budgets-2026-10-16)
+record shared static helpers, realm-specific guard loading and the remaining browser
+verification gap. All eleven schemas are consumed by the generator; none is unused.
 
 | Payload / producer | Consumer | Current protection | Required invariant / acceptance scope |
 | --- | --- | --- | --- |

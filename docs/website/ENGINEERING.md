@@ -84,6 +84,86 @@ compatibility checks. Never combine old HTML/data with newly compiled modules.
 
 ## Runtime contracts and strict migration
 
+### Validator delivery and size budgets (2026-10-16)
+
+All eleven standalone guards now build together, sharing the Ajv Unicode-length
+helper and bundler interop helper (`validator-runtime*.mjs`, 432 bytes combined).
+These are static helpers, not eleven complete Ajv schema compilers. Application
+and worker builds discard unused generated guards. Bundle-module inspection found
+the request-envelope guard unnecessarily retained on Graph's main thread and the
+reply-envelope guard unnecessarily retained in the worker; both are now removed.
+Graph retains scene, reply-envelope, path and comparison guards, plus the shared
+documentation guard. Home/Atlas retains Atlas and documentation guards. The small
+documentation guard remains eager with the shared loader; its JSON/articles stay
+lazy. Native-export and both native-request guards are build/test-only. Worker
+metadata/request validation stays in the worker; response validation is required
+in both realms. Helpers are shared within each realm, not across worker isolation.
+
+Measurements use Node 24.21.0, Vite 8.3.4 and default `gzipSync` compression on this
+Apple M6. The Stage 0 reference is the passed `b6c019fdd2` artifact
+(`problem-reductions-stage0-with-board`); current emissions use this checkout's
+sources and existing generated registry/WASM assets, without rebuilding Rust.
+Values are payload bytes, excluding HTTP headers, not observed network transfers.
+
+| JavaScript scope (raw / gzip bytes) | Stage 0 | Before cleanup | After cleanup |
+| --- | ---: | ---: | ---: |
+| Eleven generated guards, including shared helpers | 0 / 0 | 361,871 / 47,195 | 209,906 / 30,104 |
+| Graph main thread, including shared details chunk | 50,622 / 16,677 | 117,042 / 24,571 | 106,325 / 23,289 |
+| Home/Atlas main thread, including shared details chunk | 91,279 / 20,762 | 131,394 / 26,664 | 131,072 / 26,453 |
+| Worker entry and its bundled dependencies | 1,979 / 755 | 85,313 / 10,766 | 76,473 / 9,777 |
+| Unique application JS across both pages and worker | 137,450 / 36,281 | 324,285 / 58,894 | 304,392 / 56,405 |
+
+Generated-source size is not added to emitted JS: guards are already bundled into
+those entries. The unchanged external WASM binding adds 10,229 / 2,436 bytes to a
+Graph navigation; WASM/data/fonts are separate. The complete migration's increase
+over Stage 0 includes validation and controller changes, not just runtime helpers.
+Cleanup saves 19,893 raw / 2,489 gzip emitted bytes. Against Stage 0, Graph adds
+55,703 raw / 6,612 gzip bytes: at the baseline's 200,000 bytes/s this models
+279 / 33 ms of serialization time, excluding request latency, contention and CPU.
+
+Ten alternating old/new fresh Node processes per scope measured module import
+(file reads, parsing and initialization; excludes process startup/validation):
+
+| Scope, median / sampled p95 ms | Before cleanup | After cleanup |
+| --- | ---: | ---: |
+| All eleven guards | 3.05 / 4.42 | 3.38 / 3.77 |
+| Graph guards | 1.35 / 1.52 | 1.45 / 1.84 |
+| Atlas guard | 0.61 / 0.69 | 0.84 / 0.96 |
+| Worker guards | 1.32 / 1.50 | 1.39 / 1.76 |
+
+Stage 0 has no validator import/validation cost. Shared imports add small local
+loading overhead despite reducing bytes; no startup speedup is claimed. These
+ten-sample maxima are informational, not browser-startup or stable-tail gates.
+Browser startup, actual transfers and screenshot equality could not be remeasured:
+the sandbox denies Chromium's Mach-port registration. Raw measurement scripts,
+samples and module inventories are outside Git in `/tmp/frontend-review/`.
+
+Blocking deterministic budgets, with about 5% raw / 6% gzip production headroom:
+
+- `build_frontend.mjs`: all emitted `.js` chunks/assets, worker included and shared
+  chunks counted once, at most **320,000 raw / 60,000 gzip bytes**. External binding
+  JS, mdBook, Open Question Board and non-JS resources are outside this budget.
+- `test:frontend-contracts`: committed guards and runtime helpers together, at most
+  **230,000 raw / 34,000 gzip bytes** (about 10% / 13% headroom).
+
+The build budget runs in Python builds and CI. The contract suite exercises budget
+rejection with a real oversized Vite input. Budget changes require a measured,
+reviewed explanation; do not increase them automatically with schema generation.
+
+Guards/declarations stay committed and are marked `linguist-generated` in
+`.gitattributes`. This preserves a read-only `check:frontend-contracts` comparison
+on fresh checkouts, direct Python builds and isolated drift fixtures. Generating
+only at build time would add initialization/manifest machinery to those callers.
+The existing schema drift fixture also checks tampering with the shared runtime.
+
+Fonts now use WOFF2 throughout Home, Graph and the guide theme. Lossless compression
+reduces the four replaced files from 223,052 to 89,988 bytes. All original glyph
+outlines, advance metrics, hint programs and non-container tables compare equal
+after decoding. Graph's existing unhinted italic subset and variable Sans remain
+byte-identical; Home uses a separate full hinted italic face and static Sans weights
+to preserve rendering. Only font URLs/formats and preloads changed in CSS/HTML.
+Font-table equivalence is verified; pixel equality still requires the browser gate.
+
 The first completed local slice uses `graph-scene.schema.json` (version 2) for
 Python producer validation and browser validation. `graph-startup.ts` parses as
 `unknown`; the generated schema guard and `graph-scene-data.mts` reference checks

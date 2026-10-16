@@ -44,6 +44,8 @@ class WebsiteBuildTests(unittest.TestCase):
                          *[f'docs/website/{name}.schema.json' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request']],
                          *[f'docs/website/assets/{name}.validator{suffix}' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request'] for suffix in ['.mjs', '.d.mts']]]:
                 shutil.copyfile(ROOT / name, root / name)
+            for path in (ROOT / 'docs/website/assets').glob('validator-runtime*.mjs'):
+                shutil.copyfile(path, assets / path.name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -51,6 +53,12 @@ class WebsiteBuildTests(unittest.TestCase):
             schema = json.loads(schema_path.read_text())
             schema['properties']['schema_version']['const'] += 1
             schema_path.write_text(json.dumps(schema))
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Contract drift', result.stderr)
+            shutil.copyfile(ROOT / 'docs/website/graph-scene.schema.json', schema_path)
+            runtime = assets / 'validator-runtime.mjs'
+            runtime.write_text(runtime.read_text() + '\n')
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('Contract drift', result.stderr)

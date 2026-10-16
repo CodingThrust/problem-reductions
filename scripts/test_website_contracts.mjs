@@ -4,6 +4,10 @@ import {validateWasmComparisonRequest} from '../docs/website/assets/wasm-compari
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
 import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
@@ -11,6 +15,28 @@ import { parseWasmComparison, validateComparisonParameters } from '../docs/websi
 import { validatePathGraphData } from '../docs/website/assets/path-graph-data.mts';
 import { validatePathRequest, validatePathReply } from '../docs/website/assets/path-worker-data.mts';
 import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/assets/atlas-data.mts';
+
+test('standalone contracts stay within the generated-code size budget', () => {
+  const assets = new URL('../docs/website/assets/', import.meta.url);
+  const bundles = readdirSync(assets).filter(name => name.endsWith('.validator.mjs') || name.startsWith('validator-runtime'))
+    .map(name => readFileSync(new URL(name, assets)));
+  assert.ok(bundles.reduce((sum, bytes) => sum + bytes.length, 0) <= 230_000, 'Generated validators exceed 230 kB raw');
+  assert.ok(bundles.reduce((sum, bytes) => sum + gzipSync(bytes).length, 0) <= 34_000, 'Generated validators exceed 34 kB gzip');
+});
+
+test('production build rejects JavaScript over the delivery budget', () => {
+  const source = mkdtempSync(join(tmpdir(), 'frontend-budget-'));
+  try {
+    for (const name of ['index', 'graph']) writeFileSync(join(source, `${name}.html`),
+      '<script type="module" src="./large.js"></script>');
+    writeFileSync(join(source, 'large.js'), `document.body.textContent = "${'x'.repeat(350_000)}";`);
+    const result = spawnSync(process.execPath, ['scripts/build_frontend.mjs', source, join(source, 'out')], { encoding: 'utf8' });
+    assert.notEqual(result.status, 0, 'Oversized production JavaScript was accepted');
+    assert.match(result.stderr, /JavaScript size budget/);
+  } finally {
+    rmSync(source, { recursive: true, force: true });
+  }
+});
 
 function scene() {
   return {

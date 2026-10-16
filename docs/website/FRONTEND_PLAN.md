@@ -308,6 +308,8 @@ precision loss; malformed encodings fail clearly. Parsed mathematical outputs ma
 independent fixtures and existing pair verdicts/certificates, including ordering and
 absent/null distinctions. Measure validator/serialization startup, transfer and WASM
 size costs against Stage 0 and adopted budgets; no mathematical regression.
+The current byte measurements, blocking budgets and browser-measurement limits are
+recorded in [ENGINEERING.md](ENGINEERING.md#validator-delivery-and-size-budgets-2026-10-16).
 
 Rollback: revert one complete schema/producer/consumer slice together. Restore its
 previous self-contained release; never deploy a new producer with an old consumer.
