@@ -237,9 +237,16 @@ Deliverables:
   browsers; record supported real-browser versions and manual Safari/mobile results.
   Keep engine-specific tracing informational where unavailable, never fabricate parity.
 - Test the finalized production artifact at root and nested base paths: scene and
-  compressed JSON, compressed WASM streaming through generated glue, workers,
+  compressed JSON, compressed WASM delivery/decompression and generated-glue
+  initialization, workers,
   article/index lazy loading, navigation, CSP, preloads and immutable release URLs.
   Keep large resources off pages that do not need them.
+- Buffer decompressed WASM bytes inside the worker before binding initialization.
+  Real Firefox replay exposed a pre-existing streamed-compilation stall after rapid
+  cold query changes; buffered initialization passed the diagnostic replays. Keep
+  compressed network delivery, early preload, the unchanged Rust binary/string API,
+  worker termination and bounded caching. Measure the temporary buffer and startup
+  cost; this is a compatibility fix, not a renderer or mathematical-engine change.
 
 Acceptance: the existing JS app passes production-artifact behavior and CSP tests with
 unchanged appearance; TS emission and separate strict checking both work; lint passes.

@@ -407,7 +407,7 @@ function compute(source, target, limit, onPaths) {
     if (cached.polynomial_comparison || !cached.paths.length) return Promise.resolve(cached);
   }
   return new Promise((resolve, reject) => {
-    try { worker ||= new Worker("./assets/path-worker.js", { type: "module" }); } catch (err) { reject(err); return; }
+    try { worker ||= new Worker(new URL('./path-worker.js', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
     const engine = worker;
     let result = cached;
     worker.onmessage = ({ data }) => {

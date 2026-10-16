@@ -37,8 +37,13 @@ def finalize(output):
             return f'<script{attrs} src="{root}{target.as_posix()}"></script>'
 
         html = re.sub(r"<script\b([^>]*)>(.*?)</script>", externalize, html, flags=re.S)
-        html = re.sub(r'((?:src|href)="[^"?#]+\.(?:js|css))"',
-                      lambda m: m[1] + f'?release={release.split("/")[1]}"', html)
+        def version_resource(match):
+            # These assets move into the immutable release; imports and preloads must use the same URL.
+            if re.search(r"(?<=[\"'/])assets/", match[1]):
+                return match[0]
+            return match[1] + f'?release={release.split("/")[1]}"'
+
+        html = re.sub(r'((?:src|href)="[^"?#]+\.(?:js|css))"', version_resource, html)
         html = re.sub(r"(<head\b[^>]*>)", lambda m: m[0] +
                       f'<meta http-equiv="Content-Security-Policy" content="{policy}">', html, count=1)
         page.write_text(html)

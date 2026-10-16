@@ -10,12 +10,23 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from build_graph_details import build_details
 from finalize_website import finalize
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def build_frontend(output):
+    with tempfile.TemporaryDirectory(prefix='problem-reductions-frontend-') as directory:
+        compiled = Path(directory)
+        subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(output), str(compiled)], check=True)
+        for path in (output / 'assets').iterdir():
+            if path.suffix in {'.js', '.css'} and path.name != 'path-selection.js':
+                path.unlink()
+        shutil.copytree(compiled, output, dirs_exist_ok=True)
 
 
 def expression_mathml(expression):
@@ -264,6 +275,7 @@ def build(output, graph_path, schemas_path, open_questions=None):
                     str(ROOT / "target/wasm32-unknown-unknown/release/problemreductions_web.wasm")], check=True)
     wasm = output / "assets/path-selection_bg.wasm"
     wasm.with_suffix('.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
+    build_frontend(output)
     finalize(output)
     if open_questions is not None:
         publish_open_questions(open_questions, output / "open-questions")

@@ -155,6 +155,9 @@ def check(site, *, build, open_questions, required):
     try:
         if build:
             run(["npm", "ci"])
+        run(["npm", "run", "typecheck"])
+        run(["npm", "run", "lint:frontend"])
+        if build:
             run(["make", "website-data"])
             run(["mdbook", "build", "--dest-dir", str(site)])
             run(["typst", "compile", "--root", ".", "docs/paper/reductions.typ", str(site / "reductions.pdf")])
@@ -173,15 +176,37 @@ def check(site, *, build, open_questions, required):
                     raise FileNotFoundError(f"Required Open Question Board output absent: {name}")
         run(["npm", "run", "test:reduction-graph-js"])
         for pattern in ["test_website_build.py", "test_website_math.py", "test_website_verification.py"]:
-            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "-v"])
+            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "--durations", "5", "-v"])
         with serve_website(site) as base:
             environment = {**os.environ, "WEBSITE_BASE_URL": base,
                            "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"}
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test_graph_*", "-v"],
                 env=environment)
-            run([sys.executable, "scripts/test_website.py"], env=environment)
+            verification["browser_checks"] = {"root": [], "nested": [], "failure_recovery": []}
+            for engine in ["chromium", "firefox", "webkit"]:
+                run([sys.executable, "scripts/test_website.py", "--durations", "5"],
+                    env={**environment, "WEBSITE_BROWSER": engine})
+                verification["browser_checks"]["root"].append(engine)
+                run([sys.executable, "scripts/test_website_failures.py", "--durations", "5", "-v"],
+                    env={**environment, "WEBSITE_BROWSER": engine, "WEBSITE_SITE_DIR": str(site.resolve())})
+                verification["browser_checks"]["failure_recovery"].append(engine)
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts",
                  "-p", "test_website_baselines.py", "-v"], env=environment)
+        with tempfile.TemporaryDirectory(prefix="problem-reductions-nested-") as directory:
+            root = Path(directory)
+            (root / "research").mkdir()
+            (root / "research/reductions").symlink_to(site.resolve(), target_is_directory=True)
+            with serve_website(root) as base:
+                cases = ["test_alias_search_and_reset", "test_large_resources_load_only_when_needed",
+                         "test_graph_path_route_copy_solves_and_unreachable_query_is_explicit",
+                         "test_graph_details_load_lazily_reuse_family_article_and_preserve_atlas_variant",
+                         "test_reduction_evidence_and_typst_proof", "test_published_documentation_resources_and_csp",
+                         "test_home_navigation_opens_question_board"]
+                for engine in ["chromium", "firefox", "webkit"]:
+                    run([sys.executable, "scripts/test_website.py", "--durations", "5", *["WebsiteTests." + name for name in cases]],
+                        env={**os.environ, "WEBSITE_BASE_URL": base + "research/reductions/", "WEBSITE_BROWSER": engine,
+                             "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"})
+                    verification["browser_checks"]["nested"].append(engine)
         verification["source_unchanged"] = False
         verify_source_unchanged(source, output=site)
         verification["source_unchanged"] = True

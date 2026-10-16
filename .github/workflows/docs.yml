@@ -66,7 +66,7 @@ jobs:
 
       - name: Build and verify deployment artifact
         run: |
-          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install --with-deps chromium
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install --with-deps chromium firefox webkit
           uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-source/website/dist --require-open-questions
           npm audit --audit-level=moderate
           git diff --exit-code -- Cargo.lock package-lock.json

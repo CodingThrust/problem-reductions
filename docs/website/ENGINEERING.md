@@ -7,7 +7,7 @@ gaps and the minimum contract migration requirements.
 
 ## Fresh production artifact
 
-Prerequisites match deployment: Node 22 or later, the Rust toolchain and
+Prerequisites match deployment: Node 24.21.0, the Rust toolchain and
 `wasm32-unknown-unknown` target, wasm-bindgen-cli 0.2.129, mdBook 0.5.2,
 Typst 0.15.1, `uv`, and the repository's native HiGHS build requirements.
 Keep Cargo on its normal PATH so local build scheduling and caching apply.
@@ -17,10 +17,10 @@ the active Cargo shim. It checks required executables before creating output or
 starting the build. Missing tools produce an actionable error, not a traceback.
 No shell configuration or Apple's Python installation is changed.
 
-Install the pinned browser once:
+Install the pinned browsers once:
 
 ```sh
-uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install chromium
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install chromium firefox webkit
 ```
 
 Build and verify with one command:
@@ -55,6 +55,78 @@ before reporting success. Finish edits, staging and commits before running it, o
 use another checkout for concurrent work. The chosen output directory is excluded
 from the source comparison. Failed runs retain their original source snapshot and
 cannot be used as passed benchmark inputs.
+
+## Minimal frontend build integration
+
+The integration pins Vite 8.3.4, TypeScript 7.0.2 and ESLint 10.12.0.
+`scripts/build_frontend.mjs` builds the two existing HTML entry points after Python
+data generation and wasm-bindgen, before finalization. It uses relative URLs and
+module workers. A narrow worker resolver preserves the generated `path-selection.js`
+binding beside the worker; Rust computation and its string API are unchanged.
+Vite emits stable filenames inside the existing immutable release directory.
+Finalization may then rewrite URLs without invalidating a content-hashed filename.
+Owned modules and their HTML preloads use the same immutable URL, without an extra
+query string that would download a shared module twice.
+CSS minification is disabled: the first candidate changed Graph pixels through
+color/alpha transformations; the same fourteen screenshots match exactly with
+that transformation disabled. CSS/markup ownership and current appearance stay intact.
+The separate board build, mdBook, API and paper still follow their existing paths.
+
+Rapid cold query changes exposed a pre-existing Firefox worker initialization
+failure, also reproduced before Vite. In ten native replays, six pre-Vite queries
+stalled; streamed compilation could stay pending even after decompression finished.
+An initialization keepalive and separate streaming compilation did not solve it.
+Buffered initialization passed all ten diagnostic replays. The worker now buffers
+the decompressed 806,666-byte module before calling the unchanged generated binding.
+Compressed network delivery, early preload, termination cancellation, bounded caching
+and the Rust binary/string API remain intact. This adds a temporary worker buffer;
+post-change startup/memory measurements are still required. Do not claim the exact
+underlying browser cause, or describe this as a fix for the separate long-frame hitch.
+
+Run `npm run typecheck` and `npm run lint:frontend` separately. The verifier requires
+both, independently of Vite emission. The strict `noEmit` configuration is ready
+for incremental migration; existing JavaScript remains explicitly outside semantic
+type checking (`checkJs: false`) until its contract slice migrates. No application
+TypeScript has been introduced. A two-page real-browser fixture proves TypeScript
+emission, CSS delivery and finalized CSP; a separate positive/negative compiler
+fixture verifies strict checking and absence of emitted JS. The adopted lint rules
+cover concrete JavaScript correctness errors, with no mass formatting or style rules.
+
+Production verification also reuses seven critical workflows under
+`/research/reductions/`, against the same artifact via a temporary directory alias:
+lazy data, compressed scene/WASM and workers, copy/reduce/solve, details/Atlas,
+proof/documentation/PDF/API/CSP and the required board. This extends delivery
+coverage without a second deployment pipeline. The verifier runs the full root
+suite and those seven nested workflows in Chromium, Firefox and WebKit, recording
+completed engines in provenance. WebKit clipboard checks use actual native paste
+when script reads are denied. Firefox/WebKit explicitly report unsupported CDP
+network throttling; ordering still runs, using an eager-worker state snapshot at
+main-script entry rather than rounded timestamps. Native multipoint injection is unavailable outside Chromium and remains
+a required physical-mobile check.
+
+Eight failure/recovery workflows use temporary mutable copies of the real production
+assets over HTTP: missing worker, invalid WASM, corrupt path metadata, cancellation
+before paths, offline worker startup, missing documentation index/article, and scene
+failure followed by reload. Restoring real bytes must recover a usable copied route;
+the source artifact is untouched. HTTP response gates make cancellation precede paths
+and let the eager worker start before the scene's 404 arrives. The latter checks actual
+worker closure; Firefox's pre-execution worker-close reporting was inconclusive in the
+immediate-error diagnostic, so that timing is not claimed as verified resource cleanup.
+The existing root suite also checks cancellation during comparison. Test durations are
+recorded; none exceeded five seconds in the full local production run. The complete
+root, failure and nested suites passed in all three engines with required board output.
+All fourteen screenshots match the pre-Vite controls. Isolated post-bundle cold and
+interaction pilots, raw samples/traces, source provenance and their limitations are in
+[the Vite build evidence](baselines/2026-10-16-chromium-macos/VITE_BUILD.md). Startup JS
+fell to 46,832 decoded bytes; WASM hashes are unchanged. Cold route readiness increased
+about 11 ms median, with timing gates still informational. CI and required manual
+acceptance remain unverified. Claude's design phase remains unstarted.
+
+Rollback the isolated Vite integration, HTML module entries, worker URL changes and
+tooling together, restoring Python's asset-copy path and a prior complete static
+release. Retain the diagnostic fixtures and compatible delivery checks. Do not mix
+compiled scripts with old HTML/data or introduce application TS before this
+emission/checking boundary is established.
 
 ## Open Question Board and deployment
 
@@ -169,9 +241,9 @@ WebKit testing does not certify Safari or iOS screen-reader behavior.
 
 | Browser | Current evidence | Remaining acceptance |
 | --- | --- | --- |
-| Chromium 145.0.7632.6 | Complete required-board artifact suite; current-appearance capture; diagnostic pilots | Failure matrix, nested deployment, automated/manual accessibility, CI variance |
-| Firefox 146.0.1 | Same initial smoke as WebKit, with explicit direct loopback access | Complete critical workflows, copy, failure recovery and accessibility |
-| WebKit 26.0 | Initial smoke: home, Atlas alias/detail, compressed scene/WASM worker, comparison, warm query and zoom | Complete critical workflows, copy, failure recovery and accessibility |
+| Chromium 145.0.7632.6 | Complete required-board root, failure and nested suites; eight axe states; fourteen exact appearance matches; isolated pilots | Manual acceptance, GitHub CI and timing calibration |
+| Firefox 146.0.1 | Complete required-board root, failure and nested suites, including axe, native query/copy and CLI checks; direct loopback setting | Physical multi-touch; pre-execution closure reporting; manual acceptance; GitHub CI |
+| WebKit 26.0 | Complete required-board root, failure and nested suites, including axe and native clipboard paste | Physical multi-touch, Safari/manual acceptance and GitHub CI |
 | Safari 27.0.1 | Installed version identified | Manual keyboard/VoiceOver script and results |
 | Physical mobile | Device/browser/screen reader selection pending | Manual touch, keyboard where applicable and screen-reader results |
 

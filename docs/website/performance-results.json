@@ -3126,5 +3126,574 @@
       "sampled RSS can double-count shared pages; polling and page heap miss other memory and unsampled peaks",
       "Chromium headless loopback results do not certify physical mobile performance or assistive technology"
     ]
+  },
+  "engineering_vite_followup": {
+    "recorded_at": "2026-10-16T14:33:33.694367+00:00",
+    "build_source": "fresh passed Vite artifact; original revision and dirty-source fingerprints retained in vite-source-verification.json.gz",
+    "artifact_verification_sha256": "ea60ef8423c1286e9de8a7a5ef2bd3513cdd56ec66220a080e1b6ef28f929a14",
+    "scope": "isolated untraced cold-start pilot, followed by isolated traced interactions; no concurrent builds, browser suites or capture jobs",
+    "gating": "informational timing; uncertainty, practical margin and CI variance not calibrated; ten-run nearest-rank p95 is the maximum",
+    "files": {
+      "vite-source-verification.json.gz": {
+        "sha256": "3875f4d31e266101361bdd05e58e3f214c88aff2d20390f6947568ad1bfbd269",
+        "bytes": 181209
+      },
+      "vite-production-verification.log.gz": {
+        "sha256": "90845e81cbaf31c3c6521b979ed04ed64fe370f814660f4e2ecfb57c24cdffe1",
+        "bytes": 42865
+      },
+      "vite-screenshots.json.gz": {
+        "sha256": "ac9928e618e8fce34f7a3c1d48b420a6e68968c882751b8edde2593a84672675",
+        "bytes": 1100
+      },
+      "vite-cold-start.json.gz": {
+        "sha256": "ad494c1521d9f9cfe29ae973a8da9cc79fbd6860d8cd55db1ecb3be45dfdfd98",
+        "bytes": 15305
+      },
+      "vite-interactions.json.gz": {
+        "sha256": "2296cbe4b80af04d0cb21dff7fdd9375e1127c78ca8433ab5dc156bf29437d8c",
+        "bytes": 46315
+      },
+      "vite-interaction-traces.tar.gz": {
+        "sha256": "89dcf1e2abd2d4f320487a774a81563c7f40e52b4376bc48e05be4941ee0b0f9",
+        "bytes": 2742491
+      },
+      "vite-firefox-initialization-diagnostic.tar.gz": {
+        "sha256": "f0d3824d688ea3166465f6bc394a92cc0d2597695ebac105705bf5acd5a9701d",
+        "bytes": 3386
+      }
+    },
+    "browser_checks": {
+      "root": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "nested": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "failure_recovery": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ]
+    },
+    "screenshots": {
+      "matched_pre_vite": 14,
+      "reference": "focus-semantics-screenshots.json.gz",
+      "images": "vite-appearance/"
+    },
+    "first_input_raf_ms": {
+      "wheel_zoom": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 13.0,
+        "p95": 17.700000047683716,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.2349814089028552
+      },
+      "background_pan": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 28.299999982118607,
+        "p95": 38.60000002384186,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.36959802265947594
+      },
+      "node_drag": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 21.55000001192093,
+        "p95": 30.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.7594924555556243
+      },
+      "keyboard_activation": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 6.9000000059604645,
+        "p95": 24.899999976158142,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.6797395228302673
+      }
+    },
+    "frame_cadence": {
+      "idle_1s": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 18.149999976158142,
+          "p95": 19.80000001192093,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.036782791216324016
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 24.05000001192093,
+          "p95": 26.69999998807907,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.1422384187553032
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "wheel_zoom": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 21.549999982118607,
+          "p95": 26.30000001192093,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.11374192472565563
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 26.69999998807907,
+          "p95": 30,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.09632815310979642
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "background_pan": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 25.25,
+          "p95": 26.100000023841858,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.021142728936655118
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 28.349999994039536,
+          "p95": 38.60000002384186,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.130790147494235
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "node_drag": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 24.80000001192093,
+          "p95": 25.599999964237213,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.05031866162714657
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 27.500000029802322,
+          "p95": 30.5,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.05955099726638772
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "keyboard_activation": {
+        "p95_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 17.55000001192093,
+          "p95": 24.899999976158142,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.12998971006721216
+        },
+        "max_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 17.55000001192093,
+          "p95": 24.899999976158142,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.12998971006721216
+        },
+        "loaf_count": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 0.0,
+          "p95": 0,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      }
+    },
+    "main_thread_slice_costs": {
+      "idle_1s": {
+        "p95_active_script_render_ms": {
+          "samples": 0,
+          "unavailable": 10,
+          "median": null,
+          "p95": null,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        },
+        "first_input_script_render_ms": {
+          "samples": 0,
+          "unavailable": 10,
+          "median": null,
+          "p95": null,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "wheel_zoom": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.7755,
+          "p95": 2.259,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.09413115911049959
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.8425000000000002,
+          "p95": 3.241,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.16503626921288952
+        }
+      },
+      "background_pan": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.5710000000000002,
+          "p95": 1.857,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.085556202380151
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.6955,
+          "p95": 2.213,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.1807793781363228
+        }
+      },
+      "node_drag": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.6555,
+          "p95": 2.98,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.10972312489239959
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.7814999999999999,
+          "p95": 2.98,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.40097590461322896
+        }
+      },
+      "keyboard_activation": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 3.3275,
+          "p95": 4.249,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.11981368547653062
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 3.3275,
+          "p95": 4.249,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.11981368547653062
+        }
+      }
+    },
+    "cold_start": {
+      "meaningful_graph_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 55.00000002980232,
+        "p95": 61,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.07431354069220839
+      },
+      "usable_routes_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 82.30000001192093,
+        "p95": 92.19999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.1270099987044996
+      },
+      "verified_interaction_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 190.69999998807907,
+        "p95": 220.4000000357628,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0705557269278354
+      },
+      "full_ready_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 646.6500000357628,
+        "p95": 667,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.014204234604739121
+      },
+      "input_latency_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 37.900000005960464,
+        "p95": 45.89999997615814,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.10085625880931226
+      },
+      "graph_construction_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 3.6500000059604645,
+        "p95": 4.099999964237213,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.08384615598787819
+      },
+      "graph_controls_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 9.399999976158142,
+        "p95": 11.800000011920929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.1851263880498538
+      },
+      "js_downloaded_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 46832.0,
+        "p95": 46832,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "js_decoded_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 46832.0,
+        "p95": 46832,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "wasm_download_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 10.650000005960464,
+        "p95": 15.799999952316284,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.1982642480437204
+      },
+      "engine_fetch_to_initialized_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.350000023841858,
+        "p95": 7.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.248422949396973
+      },
+      "path_search_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.850000023841858,
+        "p95": 7.299999952316284,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.16404491254004033
+      },
+      "comparison_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 82.75000002980232,
+        "p95": 88.89999997615814,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.045713592016559466
+      },
+      "comparison_delivery_and_render_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 5.050097674131393,
+        "p95": 6.099902391433716,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.07252785469399706
+      },
+      "scene_json_parse_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.15000000596046448,
+        "p95": 0.20000004768371582,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.35136432408279145
+      },
+      "worker_metadata_json_parse_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.3499999940395355,
+        "p95": 0.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.28631079485243877
+      },
+      "engine_ready_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 54.35004881024361,
+        "p95": 66.19999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.18052793689813038
+      },
+      "total_blocking_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.0,
+        "p95": 0,
+        "quantile_estimator": "nearest_rank",
+        "cv": null
+      },
+      "transferred_bytes": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 506631.0,
+        "p95": 506631,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "peak_chromium_rss_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 464.2265625,
+        "p95": 475.21875,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.012759704923117919
+      },
+      "peak_page_js_heap_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.676086902618408,
+        "p95": 5.006462097167969,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.030919557182223948
+      },
+      "wasm_memory_mib": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 3.375,
+        "p95": 3.375,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0
+      },
+      "warm_search_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 0.25,
+        "p95": 0.3999999761581421,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.2689253260685178
+      },
+      "warm_route_query_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 19.80000001192093,
+        "p95": 29.19999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.2414178237411004
+      },
+      "ScriptDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 16.052,
+        "p95": 17.746000000000002,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.05635714801304711
+      },
+      "TaskDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 154.1455,
+        "p95": 161.10399999999998,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.040151843650556504
+      },
+      "LayoutDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 41.1265,
+        "p95": 45.784,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.07542218450668456
+      },
+      "RecalcStyleDuration": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 13.427,
+        "p95": 14.654,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.05029894563592024
+      }
+    },
+    "assets": {
+      "graph-scene.json.gz": {
+        "sha256": "6d57486a23fa77f6da0b4a317f2a3c3f1bddf0f59bac6f59bc46a96ca674129c",
+        "bytes": 11076
+      },
+      "path-graph.json.gz": {
+        "sha256": "ecdb0f6c131324ccd858b48c23c62bae6e55c98a1b16a3b06660984dcae91935",
+        "bytes": 14480
+      },
+      "path-selection_bg.wasm": {
+        "sha256": "dcfacb0ce8383219e897426e43f4bd686b3a61fb6db9fe4ae1779b5e049732d3",
+        "bytes": 806666
+      },
+      "path-selection_bg.wasm.gz": {
+        "sha256": "bb34f4062d72ea7a08b03526b24ce6961bc96b407bd46710565fcf18db4222b1",
+        "bytes": 277560
+      }
+    },
+    "limits": [
+      "No physical display refresh or physical mobile certification",
+      "Named main-thread slice union excludes GPU, raster threads and unclassified work; tracing adds overhead",
+      "RSS samples sum Chromium processes and can double count shared pages; 50 ms polling misses short peaks",
+      "Main-page heap and WASM linear capacity do not isolate the temporary 806666-byte worker input buffer",
+      "No LoAF in these fifty runs does not establish that the earlier sporadic hitch is fixed",
+      "Firefox pre-execution worker-close reporting remains inconclusive; the failure test observes closure after WASM fetch starts"
+    ]
   }
 }
