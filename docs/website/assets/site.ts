@@ -99,7 +99,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
     const variants = summary.nodes.filter(node => node.name === name), category = variants[0]!.category;
     return {name, category,
       search: `${name} ${nameOf(name)} ${description(name)} ${(names.get(name)?.aliases || []).join(' ')}`.toLowerCase(),
-      html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connections</span></div></div><span aria-hidden="true">↗</span></a>`};
+      html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connection${edgesOf(name).length === 1 ? '' : 's'}</span></div></div><span aria-hidden="true">↗</span></a>`};
   }).sort((a, b) => nameOf(a.name).localeCompare(nameOf(b.name)));
 
   function notify(message: string) {
