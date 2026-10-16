@@ -155,8 +155,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
     if (output / "open-questions").exists():
         shutil.rmtree(output / "open-questions")
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
-    shutil.copyfile(ROOT / "node_modules/cytoscape/dist/cytoscape.min.js", output / "assets/cytoscape.min.js")
-    shutil.copyfile(ROOT / "node_modules/cytoscape/LICENSE", output / "assets/cytoscape.LICENSE")
     for name in ("sat", "qubo"):
         subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
                         str(output / "assets" / f"{name}.svg")], check=True)
@@ -242,7 +240,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
     layout = json.loads(subprocess.run(
         ["node", str(ROOT / "scripts/generate_website_graph_layout.js"), str(graph_path)],
         check=True, capture_output=True, text=True).stdout)
-    details = json.loads((output / "assets/graph-details.json").read_text())
     build_problem_records(output / "assets/problem-data", site_nodes, site_edges, schemas)
     summary = {
         "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
@@ -250,14 +247,16 @@ def build(output, graph_path, schemas_path, open_questions=None):
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
-    (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
-        {"layout": layout,
-         "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
-                   for edge in edges], "aliases": graph["aliases"],
-         "details": details,
-         "schemas": summary["schemas"],
-         "nodes": [{key: node[key] for key in ("name", "category", "variant", "default", "parameter_names")}
-                   for node in nodes]}, separators=(",", ":")) + ";\n")
+    scene = {"layout": layout, "aliases": graph["aliases"],
+             "edges": summary["edges"],
+             "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
+    engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
+              "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
+                        for edge in edges]}
+    for name, data in (("graph-scene", scene), ("path-graph", engine)):
+        # Portable compression also works on static preview servers without Content-Encoding.
+        (output / f"assets/{name}.json.gz").write_bytes(gzip.compress(
+            json.dumps(data, separators=(",", ":")).encode(), mtime=0))
     subprocess.run(["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "problemreductions-web"],
                    cwd=ROOT, check=True)
     subprocess.run(["wasm-bindgen", "--target", "web", "--no-typescript", "--out-name", "path-selection",

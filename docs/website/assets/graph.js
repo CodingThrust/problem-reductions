@@ -1,20 +1,18 @@
 
 (async () => {
 "use strict";
+performance.mark("graph:script");
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-const D = window.REDUCTIONS;
-window.GRAPH_DETAILS = D.details;
+const D = window.REDUCTIONS = await window.graphStartup.scene;
+performance.mark("graph:scene-parsed");
 const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.name, i]] : []));
 const aliasMap = D.aliases;
-const css = getComputedStyle(document.documentElement);
-const tok = (n) => css.getPropertyValue("--" + n).trim();
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 760px)");
 
 /* ---------- Registry model ---------- */
-const schemas = new Map(D.schemas.map((s) => [s.name, s]));
-const display = (name) => schemas.get(name)?.display_name || name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+const display = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
 const shortName = (name) => (aliasMap[name] || []).find((a) => /^[A-Z0-9-]{2,6}$/.test(a)) || display(name);
 const families = new Map();
 D.nodes.forEach((n, i) => {
@@ -70,32 +68,10 @@ const nodeSize = (deg) => Math.max(6, Math.min(22, 6 + 2.4 * Math.sqrt(deg)));
 const pos = new Map();
 for (const f of families.values()) pos.set(f.name, { x: D.layout[f.name].x * 1.6, y: D.layout[f.name].y * 1.6 });
 const cat = { graph: "#a9d68a", formula: "#8cc4c7", set: "#e0a988", algebraic: "#e2cf73", misc: "#c39bd3" };
-const cy = cytoscape({
-  container: $("#cy"), layout: { name: "preset" }, minZoom: 0.1, maxZoom: 3,
-  boxSelectionEnabled: false, textureOnViewport: true, pixelRatio: "auto",
-  style: [
-    { selector: "node", style: { width: "data(size)", height: "data(size)", "background-color": "data(color)", "border-width": 2, "border-color": tok("bg"),
-      label: "", "font-family": "DM Sans, sans-serif", "font-size": 11, "font-weight": 500, color: tok("ink-2"), "text-valign": "bottom", "text-margin-y": 5,
-      "text-wrap": "wrap", "text-max-width": 180, "text-outline-color": tok("bg"), "text-outline-width": 2.5, "line-height": 1.25 } },
-    { selector: "node.named", style: { label: "data(label)" } },
-    { selector: "edge", style: { "curve-style": "straight", width: 0.7, "line-color": tok("ink"), opacity: 0.09 } },
-    { selector: ".dim", style: { opacity: 0.16 } },
-    { selector: "edge.dim", style: { opacity: 0.025 } },
-    { selector: "node.hover", style: { "underlay-color": tok("ink"), "underlay-opacity": 0.12, "underlay-padding": 5, "underlay-shape": "ellipse", label: "data(label)", color: tok("ink"), opacity: 1, "z-index": 20 } },
-    { selector: "edge.nbr", style: { opacity: 0.45, "line-color": tok("ink-2") } },
-    { selector: "edge.ghost", style: { width: 1.5, "line-color": tok("accent"), opacity: 0.22 } },
-    { selector: "node.ghost", style: { opacity: 0.75 } },
-    { selector: "edge.route", style: { width: 2.6, "line-color": tok("accent"), opacity: 1, "target-arrow-shape": "triangle", "target-arrow-color": tok("accent"), "arrow-scale": 0.9, "z-index": 10 } },
-    { selector: "node.route", style: { opacity: 1, label: "data(routeLabel)", color: tok("ink"), "border-color": tok("accent"), "border-width": 2, "z-index": 11 } },
-    { selector: "node.start", style: { opacity: 1, "border-color": tok("start"), "border-width": 3, "underlay-color": tok("start"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
-    { selector: "node.end", style: { opacity: 1, "border-color": tok("end"), "border-width": 3, "underlay-color": tok("end"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
-    { selector: "node.pulse", style: { "underlay-color": tok("accent"), "underlay-opacity": 0.4, "underlay-padding": 12 } },
-  ],
-});
-cy.batch(() => {
-  cy.add([...families.values()].map((f) => ({ data: { id: f.name, label: display(f.name), size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, routeLabel: display(f.name) }, position: { ...pos.get(f.name) } })));
-  cy.add([...famEdges.values()].map(({ s, t }) => ({ data: { id: s + "→" + t, source: s, target: t } })));
-});
+const scene = new GraphScene($("#cy"), [...families.values()].map(f => ({id: f.name, label: display(f.name),
+  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, ...pos.get(f.name)})), [...famEdges.values()]);
+performance.mark("graph:renderer-created");
+performance.mark("graph:constructed");
 
 function freeRect() {
   const W = innerWidth, H = innerHeight, top = $(".site-header").getBoundingClientRect().bottom;
@@ -103,48 +79,45 @@ function freeRect() {
   const right = $("#details-drawer").hidden ? W : $("#details-drawer").getBoundingClientRect().left - 16;
   return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
 }
-function frame(eles, maxZoom = 1.3) {
+function frame(eles, maxZoom = 1.3, animate = !reduced.matches) {
   if (!eles || !eles.length) return;
-  const r = freeRect(), b = eles.boundingBox({ includeLabels: false }), pad = 90;
+  const r = freeRect(), b = scene.bounds(eles), pad = 90;
   const zoom = Math.max(0.1, Math.min((r.w - 2 * pad) / Math.max(b.w, 1), (r.h - 2 * pad) / Math.max(b.h, 1), maxZoom));
   const pan = { x: r.x + r.w / 2 - (b.x1 + b.x2) / 2 * zoom, y: r.y + r.h / 2 - (b.y1 + b.y2) / 2 * zoom };
-  cy.stop();
-  if (reduced.matches) cy.viewport({ zoom, pan }); else cy.animate({ zoom, pan }, { duration: 450, easing: "ease-in-out-cubic" });
+  scene.frame(zoom, pan, animate);
 }
 
 /* Labels keep a constant screen size; important labels are placed first and any label that would collide is skipped. */
 let labelRaf = 0;
 const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = requestAnimationFrame(placeLabels); };
 function placeLabels() {
-  const z = cy.zoom(), r = freeRect();
-  cy.batch(() => { cy.nodes().style("font-size", 11 / z).removeClass("named"); cy.nodes(".route, .start, .end").style("font-size", 12 / z); });
-  const boxes = [];
-  const box = (n) => n.renderedBoundingBox({ includeNodes: false, includeLabels: true, includeOverlays: false, includeUnderlays: false });
-  const fits = (b) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
-  const hit = (b) => boxes.some((o) => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
-  cy.nodes(".route, .start, .end, .hover").forEach((n) => boxes.push(box(n)));
+  const r = freeRect(), boxes = [];
+  const box = n => scene.labelBox(n);
+  const important = n => ["route", "start", "end", "hover"].some(c => scene.has(n, c));
+  const fits = b => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
+  const hit = b => boxes.some(o => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
+  scene.classes(scene.nodes, "named");
+  scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named = [];
-  cy.nodes().not(".route, .start, .end, .hover, .dim").filter((n) => n.visible()).sort((a, b) => b.data("deg") - a.data("deg")).forEach((n) => {
-    n.addClass("named"); const b = box(n); n.removeClass("named");
+  scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
+    const b = box(n);
     if (fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
   });
-  cy.collection(named).addClass("named");
+  scene.classes(named, "", "named");
   placePop();
 }
-cy.on("zoom pan", scheduleLabels);
-cy.on("drag", "node", () => { scheduleLabels(); });
-
-/* Hover lights up a node and its connections; while a path is shown it only reveals the name. */
-cy.on("mouseover", "node", (e) => {
-  const n = e.target; n.addClass("hover"); $("#cy").style.cursor = "pointer";
-  if (!state.result) { cy.elements().not(n.closedNeighborhood()).addClass("dim"); n.connectedEdges().addClass("nbr"); }
+scene.onChange = scheduleLabels;
+scene.onDrag = () => { scheduleLabels(); placePop(); };
+scene.onHover = (n, over) => {
+  scene.classes([n], over ? "" : "hover", over ? "hover" : "");
+  if (!state.result) {
+    if (over) {
+      scene.classes(scene.elements.filter(e => e !== n && !families.get(n.id).nbrs.has(e.id)), "", "dim");
+      scene.classes(scene.edges.filter(e => e.source === n || e.target === n), "dim", "nbr");
+    } else scene.classes(scene.elements, "dim nbr");
+  }
   scheduleLabels();
-});
-cy.on("mouseout", "node", (e) => {
-  e.target.removeClass("hover"); $("#cy").style.cursor = "";
-  if (!state.result) cy.elements().removeClass("dim nbr");
-  scheduleLabels();
-});
+};
 
 /* ---------- State ---------- */
 const state = { source: null, target: null, limit: 20, result: null, selected: null, showSlower: false, busy: false };
@@ -192,7 +165,7 @@ function setEnd(side, index) {
   if (state.source != null && state.target != null) run();
   else {
     state.result = null; paintGraph(); renderResults();
-    frame(cy.getElementById(D.nodes[index].name), 1.2);
+    frame([scene.byId.get(D.nodes[index].name)], 1.2);
     if (side === "source") $("#target").focus();
   }
 }
@@ -260,13 +233,13 @@ function routeVariantOf(name) {
 }
 function openPop(node) {
   popNode = node;
-  const name = node.id();
+  const name = node.id;
   popIndex = [state.source, state.target].find((i) => i != null && D.nodes[i].name === name) ?? routeVariantOf(name) ?? defaults[name];
   renderPop();
 }
 function renderPop() {
   const pop = $("#pop"); pop.replaceChildren();
-  pop.append(el("h2", "", display(popNode.id())));
+  pop.append(el("h2", "", display(popNode.id)));
   const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
   const acts = el("div", "pop-actions");
   const a = el("button", "b-start", "Start"), b = el("button", "b-end", "End");
@@ -279,15 +252,14 @@ function renderPop() {
 }
 function placePop() {
   if (!popNode || $("#pop").hidden) return;
-  const pop = $("#pop"), p = popNode.renderedPosition(), r = freeRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  const pop = $("#pop"), p = scene.position(popNode), r = freeRect(), w = pop.offsetWidth, h = pop.offsetHeight;
   let x = p.x + 20; if (x + w > r.x + r.w - 12) x = p.x - 20 - w;
   pop.style.left = Math.max(r.x + 12, x) + "px";
   pop.style.top = Math.max(r.y + 12, Math.min(p.y - h / 2, r.y + r.h - h - 12)) + "px";
 }
 function closePop() { popNode = null; $("#pop").hidden = true; }
-cy.on("tap", "node", (e) => openPop(e.target));
-cy.on("tap", (e) => { if (e.target === cy) closePop(); });
-cy.on("position", "node", (e) => { if (e.target === popNode) placePop(); });
+scene.onNodeTap = openPop;
+scene.onBackgroundTap = closePop;
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { closePop(); closeDetails(); }
   if (e.key === "/" && (!phone.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
@@ -321,7 +293,7 @@ function showDetails(title, key, parentKey) {
   closePop(); drawer.hidden = false; $(".dock").hidden = true;
   // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
   if (opening && !phone.matches && state.result && state.selected) {
-    const r = freeRect(), b = routeEls(state.selected).renderedBoundingBox({ includeLabels: false });
+    const r = freeRect(), b = scene.bounds(routeEls(state.selected), true);
     if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
   }
   $("#details-title").textContent = title; body.scrollTop = 0;
@@ -356,15 +328,16 @@ function closeDetails() {
   scheduleLabels();
 }
 function pulseAndFrame(name) {
-  const node = cy.getElementById(name); node.addClass("pulse");
-  setTimeout(() => node.removeClass("pulse"), 1000); frame(node, 1.6);
+  const node = scene.byId.get(name); scene.classes([node], "", "pulse");
+  setTimeout(() => scene.classes([node], "pulse"), 1000); frame([node], 1.6);
 }
 $("#close-details").onclick = closeDetails;
-cy.on("tap", "edge.route", (e) => {
+scene.onEdgeTap = (edge) => {
+  if (!scene.has(edge, "route")) return;
   const step = state.result?.paths[state.selected - 1].path.find((s) =>
-    s.from.name === e.target.source().id() && s.to.name === e.target.target().id());
+    s.from.name === edge.source.id && s.to.name === edge.target.id);
   if (step) showRule(step);
-});
+};
 phone.addEventListener("change", syncDrawerModal);
 $("#details-drawer").addEventListener("keydown", (e) => {
   if (!phone.matches || e.key !== "Tab") return;
@@ -375,7 +348,8 @@ $("#details-drawer").addEventListener("keydown", (e) => {
 });
 
 /* ---------- Path engine ---------- */
-let worker = null, reqId = 0, clock = 0;
+let worker = window.graphStartup.worker, reqId = 0, clock = 0;
+window.graphStartup.worker = null;
 const cache = new Map();
 function stopWorker() { worker?.terminate(); worker = null; }
 function compute(source, target, limit, onPaths) {
@@ -391,6 +365,7 @@ function compute(source, target, limit, onPaths) {
     let result = cached;
     worker.onmessage = ({ data }) => {
       if (worker !== engine) return;
+      performance.mark(`graph:${data.phase}-received`);
       if (data.error) { stopWorker(); reject(new Error(data.error)); return; }
       if (data.phase === "paths") {
         result = data.result; cache.set(key, result); onPaths(result);
@@ -402,7 +377,8 @@ function compute(source, target, limit, onPaths) {
       resolve(result);
     };
     worker.onerror = (ev) => { ev.preventDefault(); if (worker !== engine) return; stopWorker(); reject(new Error("engine")); };
-    worker.postMessage({ graph: {nodes:D.nodes, edges:D.edges}, source, target, limit, ...(cached ? {paths: cached.paths} : {}) });
+    performance.mark("graph:request-posted");
+    worker.postMessage({ source, target, limit, ...(cached ? {paths: cached.paths} : {}) });
   });
 }
 function orderPaths(result) {
@@ -418,7 +394,7 @@ async function run() {
   clearInterval(clock);
   state.result = null; state.selected = null; state.picked = false; state.showSlower = false; state.busy = true;
   paintGraph(); renderResults();
-  frame(cy.collection([cy.getElementById(D.nodes[state.source].name), cy.getElementById(D.nodes[state.target].name)]), 1.1);
+  frame([scene.byId.get(D.nodes[state.source].name), scene.byId.get(D.nodes[state.target].name)], 1.1);
   if (state.source === state.target) { state.busy = false; renderResults("same"); return; }
   const started = Date.now();
   clock = setInterval(() => { const s = $("#elapsed"); if (s) s.textContent = Math.round((Date.now() - started) / 1000) + " s"; }, 1000);
@@ -427,6 +403,7 @@ async function run() {
       if (id !== reqId || !paths.paths.length) return;
       orderPaths(paths); state.result = paths;
       select(paths.order[0]);
+      performance.mark("graph:routes-rendered");
     });
     if (id !== reqId) return;
     clearInterval(clock); state.busy = false;
@@ -434,6 +411,7 @@ async function run() {
     orderPaths(result); state.result = result;
     // Until the user picks a route, show the best one; afterwards the comparison only re-ranks rows.
     if (state.picked) { paintGraph(); renderResults(); } else select(result.order[0]);
+    performance.mark("graph:comparison-rendered");
   } catch (err) {
     if (id !== reqId) return;
     clearInterval(clock); state.busy = false; state.result = null; state.selected = null; renderResults("error"); paintGraph();
@@ -448,29 +426,31 @@ function endpoints(route) { return [route.path[0].from, ...route.path.map((s) =>
 function routeEls(n) {
   const ids = new Set();
   state.result.paths[n - 1].path.forEach((s) => { ids.add(s.from.name); ids.add(s.to.name); if (s.from.name !== s.to.name) ids.add(s.from.name + "→" + s.to.name); });
-  return cy.collection([...ids].map((id) => cy.getElementById(id)));
+  return [...ids].map(id => scene.byId.get(id));
 }
 function paintGraph() {
-  cy.batch(() => {
-    cy.elements().removeClass("dim ghost route start end nbr");
-    cy.nodes().forEach((n) => n.data("routeLabel", display(n.id())));
-    if (state.result && state.selected) {
-      cy.elements().addClass("dim");
-      (state.result.polynomial_comparison?.front || []).forEach((n) => routeEls(n).removeClass("dim").addClass("ghost"));
-      routeEls(state.selected).removeClass("dim ghost").addClass("route");
-      const labelled = new Set();
-      endpoints(state.result.paths[state.selected - 1]).forEach((e) => {
-        if (!multi(e.name) || labelled.has(e.name)) return;
-        labelled.add(e.name);
-        const def = D.nodes[defaults[e.name]].variant;
-        const diff = Object.entries(e.variant).filter(([k, v]) => def[k] !== v).map(([k, v]) => k + ": " + v);
-        if (diff.length) cy.getElementById(e.name).data("routeLabel", display(e.name) + "\n" + diff.join("  "));
-      });
-    } else if (state.source != null && state.target != null) cy.elements().addClass("dim");
-    for (const side of ["source", "target"]) if (state[side] != null) {
-      cy.getElementById(D.nodes[state[side]].name).removeClass("dim").addClass(side === "source" ? "start" : "end");
-    }
-  });
+  scene.classes(scene.elements, "dim ghost route start end nbr");
+  scene.nodes.forEach(n => { n.routeLabel = display(n.id); });
+  if (state.result && state.selected) {
+    scene.classes(scene.elements, "", "dim");
+    (state.result.polynomial_comparison?.front || []).forEach(n => scene.classes(routeEls(n), "dim", "ghost"));
+    const selected = routeEls(state.selected);
+    scene.classes(selected, "dim ghost", "route");
+    // Selected paths stay above the rest of the scene for reliable edge hit testing.
+    selected.filter(n => !n.label).forEach(n => scene.world.append(n.shape));
+    scene.nodes.forEach(n => scene.world.append(n.shape));
+    const labelled = new Set();
+    endpoints(state.result.paths[state.selected - 1]).forEach(e => {
+      if (!multi(e.name) || labelled.has(e.name)) return;
+      labelled.add(e.name);
+      const def = D.nodes[defaults[e.name]].variant;
+      const diff = Object.entries(e.variant).filter(([k,v]) => def[k] !== v).map(([k,v]) => k + ": " + v);
+      if (diff.length) scene.byId.get(e.name).routeLabel = display(e.name) + "\n" + diff.join("  ");
+    });
+  } else if (state.source != null && state.target != null) scene.classes(scene.elements, "", "dim");
+  for (const side of ["source", "target"]) if (state[side] != null)
+    scene.classes([scene.byId.get(D.nodes[state[side]].name)], "dim", side === "source" ? "start" : "end");
+
   scheduleLabels();
 }
 function select(n) {
@@ -594,11 +574,11 @@ function renderResults(status) {
 }
 
 /* ---------- Dock and resize ---------- */
-const zoomBy = (k) => { const r = freeRect(); cy.zoom({ level: Math.max(0.1, Math.min(3, cy.zoom() * k)), renderedPosition: { x: r.x + r.w / 2, y: r.y + r.h / 2 } }); };
+const zoomBy = (k) => { const r = freeRect(); scene.stop(); scene.zoomAt(scene.zoom * k, { x: r.x + r.w / 2, y: r.y + r.h / 2 }); };
 $("#zoom-in").onclick = () => zoomBy(1.3);
 $("#zoom-out").onclick = () => zoomBy(1 / 1.3);
-$("#fit").onclick = () => frame(cy.elements(), 1);
-addEventListener("resize", () => { cy.resize(); scheduleLabels(); placePop(); });
+$("#fit").onclick = () => frame(scene.elements, 1);
+addEventListener("resize", () => { scheduleLabels(); placePop(); });
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--header-height", $(".site-header").getBoundingClientRect().height + "px");
   scheduleLabels();
@@ -606,6 +586,9 @@ new ResizeObserver(() => {
 
 /* ---------- Start on a real example ---------- */
 state.source = defaults.Satisfiability; state.target = defaults.QUBO;
-syncEnds(); cy.fit(cy.elements(), 40); run();
-document.fonts?.ready.then(scheduleLabels);
-})();
+syncEnds(); frame(scene.elements, 1, false); run();
+performance.mark("graph:interactive");
+document.fonts?.ready.then(() => { scene.nodes.forEach(n => { n.labelKey = null; }); scheduleLabels(); });
+})().catch(() => {
+  document.querySelector('#results').textContent = 'Cannot load graph. Reload this release and try again.';
+});

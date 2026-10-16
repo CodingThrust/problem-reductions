@@ -127,13 +127,14 @@ class WebsiteTests(unittest.TestCase):
         }'''))
         requests.clear()
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#cy canvas').first).to_be_visible()
+        expect(self.page.locator('#cy svg.graph-scene').first).to_be_visible()
         self.assertFalse(any('layout-bundle' in url or 'graph-details.' in url for url in requests))
+        self.assertFalse(self.page.evaluate('Boolean(window.GRAPH_DETAILS)'))
         self.open_problem_popover('BinPacking')
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
         self.assertFalse(any('layout-bundle' in url for url in requests))
-        self.assertEqual(sum('graph-details.json' in url for url in requests), 0)
+        self.assertEqual(sum('graph-details.json' in url for url in requests), 1)
 
     def test_csp_blocks_inline_event_handlers(self):
         self.visit()
@@ -190,7 +191,7 @@ class WebsiteTests(unittest.TestCase):
                                ('.variant-control select', 15), ('.typst-detail p', 16)]:
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        expect(self.page.locator("#cy svg.graph-scene").first).to_be_visible()
         for selector, size in [('.brand', 22), ('.end input', 16), ('.path .chain', 14)]:
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
 
@@ -326,7 +327,7 @@ class WebsiteTests(unittest.TestCase):
     def test_legacy_reduction_graph_url_redirects(self):
         self.page.goto(self.base + 'reduction-graph.html')
         self.page.wait_for_url(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        expect(self.page.locator("#cy svg.graph-scene").first).to_be_visible()
 
     def test_legacy_question_board_url_redirects(self):
         require_open_questions(self.page.request, self.base,
@@ -405,13 +406,8 @@ class WebsiteTests(unittest.TestCase):
     def open_problem_popover(self, name):
         # Initial path selection moves the camera; wait before positioning the node for a click.
         self.page.wait_for_function("() => !!document.querySelector('.path') && !document.querySelector('.size.pending')")
-        point = self.page.evaluate("""name => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const node = cy.getElementById(name), z = cy.zoom();
-            cy.stop(); cy.pan({x: 690 - node.position('x') * z, y: 320 - node.position('y') * z});
-            return node.renderedPosition();
-        }""", name)
-        self.page.locator('#cy').click(position=point)
+        self.page.get_by_role('button', name='Show whole graph', exact=True).click()
+        self.page.locator(f'[data-node="{name}"] .node-disc').click()
         expect(self.page.locator('#pop')).to_be_visible()
 
     def copy_route(self):
@@ -428,21 +424,100 @@ class WebsiteTests(unittest.TestCase):
                 constructor(...args) {
                     super(...args);
                     window.pathWorkerStarts++;
-                    // Register after the app's handler so the observer sees the rendered result.
-                    queueMicrotask(() => this.addEventListener('message', e => {
+                }
+                set onmessage(handler) {
+                    super.onmessage = handler;
+                    if (this.observing) return;
+                    this.observing = true;
+                    // Register after the application's handler, including eagerly started workers.
+                    this.addEventListener('message', e => {
                         window.pathMessages.push(e.data);
                         window.onPathMessage?.(e.data);
-                    }));
+                    });
                 }
+                get onmessage() { return super.onmessage; }
             };
         })()""")
 
     def test_graph_brand_returns_home(self):
         self.visit()
         self.page.get_by_role('link', name='Graph', exact=True).click()
-        expect(self.page.locator('#cy canvas').first).to_be_visible()
+        expect(self.page.locator('#cy svg.graph-scene').first).to_be_visible()
         self.page.get_by_role('link', name='Reduction paths', exact=True).click()
         expect(self.page.locator('main .hero')).to_be_visible()
+
+    def test_graph_pan_zoom_and_node_drag_preserve_route(self):
+        self.page.goto(self.base + 'graph.html')
+        route = self.copy_route()
+        self.page.get_by_role('button', name='Show whole graph', exact=True).click()
+        node = self.page.locator('[data-node="Satisfiability"] .node-disc')
+        center = lambda: node.evaluate('e => {const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2,r:r.width/2}}')
+        before = center()
+        self.page.mouse.move(1300, 930)
+        self.page.mouse.down()
+        self.page.mouse.move(1330, 950, steps=3)
+        self.page.mouse.up()
+        moved = center()
+        self.assertAlmostEqual(moved['x'] - before['x'], 30, delta=1)
+        self.assertAlmostEqual(moved['y'] - before['y'], 20, delta=1)
+        self.page.get_by_role('button', name='Zoom in', exact=True).click()
+        zoomed = center()
+        self.assertAlmostEqual(zoomed['r'] / moved['r'], 1.3, delta=.02)
+        self.page.mouse.move(zoomed['x'], zoomed['y'])
+        self.page.mouse.down()
+        self.page.mouse.move(zoomed['x'] + 50, zoomed['y'] + 40, steps=5)
+        self.page.mouse.up()
+        dragged = center()
+        self.assertAlmostEqual(dragged['x'] - zoomed['x'], 50, delta=1)
+        self.assertAlmostEqual(dragged['y'] - zoomed['y'], 40, delta=1)
+        self.assertEqual(self.copy_route(), route)
+
+    def test_graph_touch_pinch_keeps_center_and_route(self):
+        self.page.goto(self.base + 'graph.html')
+        route = self.copy_route()
+        matrix = lambda: self.page.locator('svg.graph-scene > g').evaluate('e => {const m=e.getCTM(); return {z:m.a,x:m.e,y:m.f}}')
+        before = matrix()
+        session = self.context.new_cdp_session(self.page)
+        session.send('Emulation.setTouchEmulationEnabled', {'enabled': True, 'maxTouchPoints': 2})
+        def touch(kind, points):
+            session.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': [
+                {'x': x, 'y': y, 'id': i} for i, (x, y) in enumerate(points)]})
+        touch('touchStart', [(700, 400), (900, 400)])
+        touch('touchMove', [(650, 400), (950, 400)])
+        touch('touchEnd', [])
+        after = matrix()
+        self.assertAlmostEqual(after['z']/before['z'], 1.5, delta=.02)
+        self.assertAlmostEqual((800-after['x'])/after['z'], (800-before['x'])/before['z'], delta=1)
+        self.assertAlmostEqual((400-after['y'])/after['z'], (400-before['y'])/before['z'], delta=1)
+        touch('touchStart', [(1000, 800)])
+        touch('touchMove', [(1030, 810)])
+        touch('touchCancel', [])
+        panned = matrix()
+        self.assertAlmostEqual(panned['x']-after['x'], 30, delta=1)
+        self.assertAlmostEqual(panned['y']-after['y'], 10, delta=1)
+        self.assertEqual(self.copy_route(), route)
+
+    def test_graph_animated_frame_fits_route_and_wheel_zoom_keeps_cursor_anchor(self):
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.page.goto(self.base + 'graph.html')
+        self.page.wait_for_function('''() => {
+            const done = performance.getEntriesByName('graph:comparison-rendered').at(-1);
+            const camera = performance.getEntriesByName('graph:camera-settled').at(-1);
+            return done && camera && camera.startTime >= done.startTime;
+        }''')
+        self.assertTrue(self.page.locator('.scene-node.route .node-disc').evaluate_all('''nodes => nodes.every(n => {
+            const r=n.getBoundingClientRect(); return r.left >= 392 && r.right <= innerWidth && r.top >= 85 && r.bottom <= innerHeight;
+        })'''))
+        route = self.copy_route()
+        matrix = lambda: self.page.locator('svg.graph-scene > g').evaluate('e => {const m=e.getCTM(); return {z:m.a,x:m.e,y:m.f}}')
+        before = matrix()
+        self.page.mouse.move(1100, 500)
+        self.page.mouse.wheel(0, 100)
+        self.page.wait_for_function('(z) => document.querySelector("svg.graph-scene > g").getCTM().a < z', arg=before['z'])
+        after = matrix()
+        self.assertAlmostEqual((1100-after['x'])/after['z'], (1100-before['x'])/before['z'], delta=1)
+        self.assertAlmostEqual((500-after['y'])/after['z'], (500-before['y'])/before['z'], delta=1)
+        self.assertEqual(self.copy_route(), route)
 
     def test_graph_has_site_navigation_above_the_canvas(self):
         self.page.goto(self.base + 'graph.html')
@@ -482,6 +557,20 @@ class WebsiteTests(unittest.TestCase):
         }''')
         self.assertIsNotNone(timings['wasm'])
         self.assertLess(timings['wasm'], timings['graph'])
+
+    def test_graph_worker_starts_before_scene_initialization(self):
+        session = self.context.new_cdp_session(self.page)
+        session.send('Network.enable')
+        session.send('Network.emulateNetworkConditions', {'offline': False, 'latency': 20,
+                     'downloadThroughput': 600000, 'uploadThroughput': 600000})
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.path').first).to_be_visible()
+        timings = self.page.evaluate('''() => {
+            return {worker:performance.getEntriesByName('graph:worker-started')[0]?.startTime,
+                    renderer:performance.getEntriesByName('graph:script')[0].startTime};
+        }''')
+        self.assertIsNotNone(timings['worker'])
+        self.assertLess(timings['worker'], timings['renderer'])
 
     def test_graph_reuses_idle_engine_and_releases_old_cached_queries(self):
         self.observe_path_worker()
@@ -544,8 +633,7 @@ class WebsiteTests(unittest.TestCase):
             chains.add(tuple(names))
             row.click()
             self.assertEqual(self.copy_route(), route)
-            self.assertEqual(set(self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
-                .nodes('.route').map(n => n.id())""")), set(names))
+            self.assertEqual(set(self.page.locator('.scene-node.route').evaluate_all('(nodes) => nodes.map(n => n.dataset.node)')), set(names))
             groups = []
             for point in points:
                 if groups and groups[-1][0] == point['name']:
@@ -636,21 +724,21 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#details-drawer')).to_be_hidden()
         self.open_problem_popover('MaximumIndependentSet')
         self.page.locator('#pop [aria-label="weight"]').get_by_role('button', name='i64', exact=True).click()
-        before = self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
-            return {pan:cy.pan(), zoom:cy.zoom(), route:cy.elements('.route').map(n => n.id())}; }""")
+        before = self.page.locator('.scene-node.route').evaluate_all('(nodes) => nodes.map(n => n.dataset.node)')
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('#details-title')).to_have_text('Maximum Independent Set')
         expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
         expect(self.page.locator('#drawer-atlas')).to_have_attribute('href', re.compile('variant=graph%3DSimpleGraph%2Cweight%3Di64'))
         expect(self.page.locator('.dock')).to_be_hidden()
         # Opening details keeps the route; the camera may only move so the route stays clear of the drawer.
-        after = self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
-            return {route:cy.elements('.route').map(n => n.id())}; }""")
-        self.assertEqual(after['route'], before['route'])
+        after = self.page.locator('.scene-node.route').evaluate_all('(nodes) => nodes.map(n => n.dataset.node)')
+        self.assertEqual(after, before)
         self.page.wait_for_timeout(600)
-        self.assertTrue(self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
-            const b = cy.elements('.route').renderedBoundingBox({includeLabels: false});
-            return b.x2 <= document.querySelector('#details-drawer').getBoundingClientRect().left; }"""))
+        self.assertTrue(self.page.evaluate("""() => {
+            const right = document.querySelector('#details-drawer').getBoundingClientRect().left;
+            return [...document.querySelectorAll('.scene-node.route .node-disc')]
+                .every(n => n.getBoundingClientRect().right <= right);
+        }"""))
         self.page.keyboard.press('Escape')
         expect(self.page.locator('#details-drawer')).to_be_hidden()
         expect(self.page.locator('.dock')).to_be_visible()
@@ -688,13 +776,11 @@ class WebsiteTests(unittest.TestCase):
             self.assertEqual(query[key], [','.join(f'{k}={v}' for k, v in sorted(rule[side]['variant'].items()))])
         title = self.page.locator('#details-title').inner_text()
         self.page.get_by_role('button', name='Close details', exact=True).click()
-        point = self.page.evaluate("""id => {
-            const cy = document.querySelector('#cy')._cyreg.cy, edge = cy.getElementById(id);
-            const p = edge.midpoint(), z = cy.zoom();
-            cy.stop(); cy.pan({x:690 - p.x*z, y:320 - p.y*z});
-            return edge.renderedMidpoint();
-        }""", rule['from']['name'] + '→' + rule['to']['name'])
-        self.page.locator('#cy').click(position=point)
+        edge = self.page.locator('[data-edge="' + rule['from']['name'] + '→' + rule['to']['name'] + '"]')
+        point = edge.evaluate("""e => { const p = new DOMPoint((+e.getAttribute('x1') + +e.getAttribute('x2'))/2,
+            (+e.getAttribute('y1') + +e.getAttribute('y2'))/2).matrixTransform(e.getScreenCTM()); return {x:p.x,y:p.y}; }""")
+        self.page.mouse.click(point['x'], point['y'])
+        expect(self.page.locator('#details-drawer')).to_be_visible()
         expect(self.page.locator('#details-title')).to_have_text(title)
         expect(self.page.locator('#drawer-atlas')).to_have_attribute('href', href)
         self.assertEqual(self.copy_route(), route)
@@ -708,7 +794,7 @@ class WebsiteTests(unittest.TestCase):
         self.open_problem_popover('MaximumIndependentSet')
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
-        self.assertFalse(any('graph-details.json' in url for url in requests))
+        self.assertEqual(sum('graph-details.json' in url for url in requests), 1)
         self.page.keyboard.press('Escape')
         self.open_problem_popover('MaximumIndependentSet')
         self.page.locator('#pop [aria-label="weight"]').get_by_role('button', name='i64', exact=True).click()
@@ -785,7 +871,7 @@ def responsive_check(width):
                     "document.documentElement.scrollWidth > innerWidth"
                 ), f"Horizontal overflow at {width}px on {route}")
         self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
+        expect(self.page.locator("#cy svg.graph-scene").first).to_be_visible()
         self.assertFalse(self.page.evaluate(
             "document.documentElement.scrollWidth > innerWidth"
         ), f"Horizontal overflow at {width}px on graph.html")

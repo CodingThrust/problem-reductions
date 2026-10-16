@@ -58,6 +58,29 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   radial-gradient(ellipse at 62% 48%, transparent 35%, rgba(0,0,0,.4)),
   radial-gradient(circle at 1px 1px, rgba(237,242,232,.045) 1px, transparent 0) 0 0 / 24px 24px; }
 #cy { position: absolute; inset: 0; }
+.graph-scene { width: 100%; height: 100%; touch-action: none; user-select: none; }
+.scene-edge { stroke: var(--ink); stroke-width: .7; opacity: .09; pointer-events: none; }
+.scene-edge.dim { opacity: .025; }
+.scene-edge.nbr { stroke: var(--ink-2); opacity: .45; }
+.scene-edge.ghost { stroke: var(--accent); stroke-width: 1.5; opacity: .22; }
+.scene-edge.route { stroke: var(--accent); stroke-width: 2.6; opacity: 1; marker-end: url(#route-arrow); pointer-events: stroke; cursor: pointer; }
+.scene-node { cursor: pointer; }
+.node-disc { stroke: var(--bg); stroke-width: 2; }
+.node-halo { fill: var(--ink); opacity: 0; }
+.node-label { font-family: var(--sans); font-weight: 500; fill: var(--ink-2); stroke: var(--bg); stroke-width: 5;
+  paint-order: stroke; stroke-linejoin: round; visibility: hidden; pointer-events: none; }
+.scene-node.named .node-label, .scene-node:is(.route,.start,.end,.hover) .node-label { visibility: visible; }
+.scene-node.dim { opacity: .16; }
+.scene-node.ghost { opacity: .75; }
+.scene-node:is(.route,.start,.end,.hover) { opacity: 1; }
+.scene-node:is(.route,.start,.end,.hover) .node-label { fill: var(--ink); }
+.scene-node.route .node-disc { stroke: var(--accent); }
+.scene-node.start .node-disc { stroke: var(--start); stroke-width: 3; }
+.scene-node.end .node-disc { stroke: var(--end); stroke-width: 3; }
+.scene-node.hover .node-halo { opacity: .12; }
+.scene-node.start .node-halo { fill: var(--start); opacity: .22; }
+.scene-node.end .node-halo { fill: var(--end); opacity: .22; }
+.scene-node.pulse .node-halo { fill: var(--accent); opacity: .4; r: 20; }
 
 /* Panel */
 .site-header { z-index: 4; }
