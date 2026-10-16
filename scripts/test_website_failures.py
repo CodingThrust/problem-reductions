@@ -96,6 +96,38 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def test_graph_recovers_after_corrupt_engine_metadata(self):
         self.assert_engine_recovery('path-graph.json.gz', gzip.compress(b'{invalid JSON', mtime=0))
 
+    def test_graph_growth_preserves_wide_exponents_and_exact_degree_sums(self):
+        resource = self.assets / 'path-graph.json.gz'
+        graph = json.loads(gzip.decompress(resource.read_bytes()))
+        edge = next(edge for edge in graph['edges']
+                    if graph['nodes'][edge['source']]['name'] == 'GraphPartitioning'
+                    and graph['nodes'][edge['source']]['default']
+                    and graph['nodes'][edge['target']]['name'] == 'QUBO'
+                    and graph['nodes'][edge['target']]['default'])
+        formulas = {
+            'num_vars': 'num_vertices^9007199254740993 + num_edges^9007199254740992',
+            'num_quadratic_terms': 'num_edges^9007199254740992 * num_vertices',
+        }
+        for parameter in edge['parameters']:
+            parameter['formula'] = formulas[parameter['field']]
+            parameter['contract'] = 'exact'
+        graph['edges'] = [edge]
+        resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
+        self.page.goto(self.base + 'graph.html')
+        self.choose_endpoint('source', 'Graph Partitioning')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('1 best route')
+        expect(self.page.locator('.path .size')).to_have_text('n⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³', timeout=1000)
+        summaries = self.page.locator('.growth').evaluate('''dl => Object.fromEntries(
+            [...dl.querySelectorAll('dt')].map(term => [term.textContent, term.nextElementSibling.textContent]))''')
+        self.assertEqual(summaries['vars'], 'Θ(vertices⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³)')
+        quadratic = summaries['quadratic terms']
+        self.assertRegex(quadratic, r'^Θ\([^()]+\)$')
+        # Product factors commute; their exact exponents and multiplicity must agree.
+        self.assertCountEqual(quadratic.removeprefix('Θ(').removesuffix(')').split('·'),
+                              ['edges⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹²', 'vertices'])
+        route = self.copy_route()
+        self.assertEqual([step['to']['name'] for step in route['path']], ['QUBO'])
+
     def cancel_pending_engine(self):
         # Hold the real HTTP response so cancellation deterministically precedes path results.
         self.engine_release.clear()

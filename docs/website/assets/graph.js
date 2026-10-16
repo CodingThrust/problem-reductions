@@ -1,4 +1,5 @@
 import { GraphScene } from "./graph-scene.ts";
+import { growth, pathDegree, sizeBadge, compareDegrees } from "./graph-growth.mts";
 
 (async () => {
 "use strict";
@@ -41,30 +42,6 @@ function kvNode(variant) {
   return span;
 }
 
-/* ---------- Growth summaries ---------- */
-const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
-const sup = (d) => Number.isInteger(d) ? String(d).replace(/\d/g, (c) => SUP[c]) : "^" + d;
-const memo = new WeakMap();
-function growth(field) {
-  if (memo.has(field)) return memo.get(field);
-  let out = { degree: null, lead: "unavailable" };
-  if (field.certificate != null) {
-    const terms = field.certificate.split(" + ").map((t) => {
-      const vars = [...t.matchAll(/([A-Za-z_]\w*)(?:\^([\d.]+))?/g)].map((m) => ({ v: m[1].replace(/^num_/, ""), e: m[2] ? Number(m[2]) : 1 }));
-      return { d: vars.reduce((a, x) => a + x.e, 0), txt: vars.map((x) => x.v + (x.e === 1 ? "" : sup(x.e))).join("·") || "1" };
-    });
-    const degree = Math.max(0, ...terms.map((t) => t.d));
-    const lead = [...new Set(terms.filter((t) => t.d === degree).map((t) => t.txt))];
-    out = { degree, lead: (field.accuracy.kind === "exact" ? "Θ(" : "O(") + lead.slice(0, 3).join(" + ") + (lead.length > 3 ? " + …" : "") + ")" };
-  }
-  memo.set(field, out);
-  return out;
-}
-const pathDegree = (profile) => {
-  const degrees = Object.values(profile.fields).map((f) => growth(f).degree);
-  return degrees.some((d) => d == null) ? null : Math.max(0, ...degrees);
-};
-const sizeBadge = (d) => d == null ? "?" : d === 0 ? "1" : d === 1 ? "n" : "n" + sup(d);
 const prettyField = (f) => f.replace(/^num_/, "").replaceAll("_", " ");
 
 /* ---------- Graph ---------- */
@@ -433,7 +410,7 @@ function orderPaths(result) {
   const c = result.polynomial_comparison;
   const degrees = c?.profiles.map(pathDegree);
   result.order = result.paths.map((_, i) => i + 1).sort((a, b) =>
-    (c ? (c.front.includes(b) - c.front.includes(a)) || (degrees[a - 1] ?? Infinity) - (degrees[b - 1] ?? Infinity) : 0) ||
+    (c ? (c.front.includes(b) - c.front.includes(a)) || compareDegrees(degrees[a - 1], degrees[b - 1]) : 0) ||
     result.paths[a - 1].steps - result.paths[b - 1].steps || a - b);
 }
 async function run() {

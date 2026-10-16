@@ -36,8 +36,9 @@ documentation-index contracts passed local production checks; other rows remain 
   separate finite-number domain. Audit numeric defaults/bounds in schema metadata
   as well as the obvious mathematical response fields.
 - Certificate exponents are arbitrary-precision integers in `src/polynomial.rs`.
-  `graph.js` still converts them through `Number` in growth summaries; remove that
-  precision loss before claiming end-to-end exactness.
+  `graph-growth.mts` now uses `bigint` for displayed degrees, degree sums and route
+  ordering, preserving the original certificate strings. A real single-route WASM
+  fixture covers exponents beyond 2^53; remaining wire validation is still open.
 - Keep numeric indices and small counts only with explicit safe-integer and domain
   checks. Do not convert exact mathematical values through floating point to
   satisfy a TypeScript type. Test wide integers and fractions independently.

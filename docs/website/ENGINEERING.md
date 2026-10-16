@@ -99,6 +99,14 @@ Its actual node/edge inputs, callbacks, pointer gestures, keyboard traversal,
 camera operations and label measurements are strictly checked. Existing DOM/CSS
 ownership stays intact; there is no renderer abstraction or additional renderer.
 
+`graph-growth.mts` owns the existing certificate growth summaries. Exponents,
+monomial degree sums and degree ordering use `bigint`; certificate/coefficient
+strings stay unchanged. A real WASM-backed browser case first reproduced exponent
+9007199254740993 rounding down to 9007199254740992. It now verifies the exact badge,
+leading term, degree sum and copied route. Pure checks also cover rational
+coefficient preservation, adjacent wide-degree ordering and unavailable values.
+Node coverage for this module measured 100% of lines and 97.9% of branches.
+
 Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
 so production does not compile schemas or require dynamic evaluation.
 `json-schema-to-typescript` 16.0.0 generates matching strict declarations. Typescript
@@ -119,19 +127,27 @@ fail the check and typed source reaches lint's control-flow rules. The unknown-
 category browser test failed on the preceding artifact, then passed before any SVG
 was rendered on rejection. The invalid-index browser case also failed on the prior
 artifact and now confirms rejection and successful retry after repairing the real
-HTTP resource. Latest required-board verification passed 79 root cases, ten failure
-cases and seven nested workflows per engine, with the documented multi-touch skips.
+HTTP resource. Latest required-board verification passed 79 root cases, eleven
+failure and data-contract cases, and seven nested workflows per engine, with the
+documented multi-touch skips.
 All fourteen screenshots matched; no raw TS/declarations were published.
 
 The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
-After scene typing, ten isolated untraced cold runs measured 66,447 decoded startup
-JS bytes (+5,460 for index migration and +584 for scene typing); WASM hashes are
-unchanged. Graph/route readiness proxies were 50.55/73.0 ms median and 63.5/76.4 ms
-sampled p95. Startup fill-to-suggestion round trips were 37.35/42.1 ms; all ten inputs preceded comparison
+After the precision fix, ten isolated untraced cold runs measured 66,543 decoded
+startup JS bytes (+96 over scene typing); WASM hashes are unchanged. Graph/route
+readiness proxies were 50.1/71.95 ms median and 58.3/83.9 ms sampled p95. Startup
+fill-to-suggestion round trips were 29.85/36.8 ms; all ten inputs preceded comparison
 completion. A separate ten-process first lazy-index batch measured validation at
 1.6/1.7 ms median/sampled p95. These are informational observations, not speedup,
 tail-stability or non-regression certificates. Evidence is stored externally under
-the retained batch's `scene-contract/`, `details-contract/` and `typed-scene/`.
+the retained batch's `scene-contract/`, `details-contract/`, `typed-scene/` and
+`wide-growth/`.
+
+A separate two-route wide-exponent stress fixture also traps in the pre-fix WASM
+comparator (`unreachable`). Its suspected cause is resource growth while computing
+exact witness coefficients; the trap cause has not been profiled. The reproducer
+is retained in `wide-growth/`. This existing extreme-input limitation remains open;
+the frontend precision fix preserves the mathematical engine unchanged.
 
 Other data boundaries, exact mathematical wire structs, worker envelopes and
 remaining application files still need migration.
@@ -141,6 +157,8 @@ documentation-index schema, producer version/validation and shared consumer toge
 independently of the scene migration.
 Roll back scene typing by restoring its prior class, global caller and HTML entry
 together; that change is independent of both data-contract slices.
+Revert the growth helper and its caller together to roll back precision formatting
+independently, retaining the regression evidence and documenting the restored defect.
 
 ## Open Question Board and CI
 

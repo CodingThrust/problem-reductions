@@ -4,12 +4,12 @@
   "scripts": {
     "build:frontend": "node scripts/build_frontend.mjs",
     "typecheck": "tsc --project tsconfig.json",
-    "lint:frontend": "eslint docs/website/assets scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs",
+    "lint:frontend": "eslint docs/website/assets scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs scripts/test_website_growth.mjs",
     "generate:reduction-graph-layout": "node scripts/generate_reduction_graph_layout.js",
     "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js",
     "generate:frontend-contracts": "node scripts/generate_website_contracts.mjs",
     "check:frontend-contracts": "node scripts/generate_website_contracts.mjs --check",
-    "test:frontend-contracts": "node --test scripts/test_website_contracts.mjs"
+    "test:frontend-contracts": "node --test scripts/test_website_contracts.mjs scripts/test_website_growth.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/parser": "8.71.2",
