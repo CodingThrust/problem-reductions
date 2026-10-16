@@ -1826,5 +1826,172 @@
     "wasm_gzip_bytes": 279856,
     "cytoscape_bytes": 434037,
     "cytoscape_gzip_bytes": 135891
+  },
+  "engineering_stage0_pilot": {
+    "date": "2026-10-16",
+    "status": "informational_pilot",
+    "reference_directory": "docs/website/baselines/2026-10-16-chromium-macos",
+    "source_revision": "b6c019fdd2c6eff176ed0891cdd3e0a94546b5fe",
+    "source_graph_html_sha256": "59941ecd1f54408afc51c57a93d32def3a11bcaf36cf0e06954f4cf4d8beffe7",
+    "source_manifest_sha256": "58ef24d8178a09e21fc0c0c484b130e1e38adcffcc65bb4b1103b555d9feb643",
+    "benchmark_script_sha256": "093c8e427931b9547150af68d0f233b8366df971245ad28059fb399d107b2a3e",
+    "source_state": "working tree SVG preparation; dirty-state and source fingerprints in source-verification.json.gz",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "browser": "145.0.7632.6",
+    "playwright": "1.58.0",
+    "cache_state": "fresh_browser_process_and_context_per_scenario",
+    "cpu_throttle": 1,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "device_pixel_ratio": 1,
+    "refresh_rate_hz": null,
+    "refresh_rate_note": "headless rAF cadence is recorded; physical display refresh not measured",
+    "gating": "informational; no stable CI variance or tail estimate established",
+    "run_p95_raf_interval_ms": {
+      "idle_1s": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 20.69999998807907,
+        "p95": 23.100000023841858,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.09834782399904679
+      },
+      "wheel_zoom": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 22.80000001192093,
+        "p95": 25.599999964237213,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.11253266384245876
+      },
+      "background_pan": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 23.75,
+        "p95": 35.799999952316284,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.16314355034536762
+      },
+      "node_drag": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 23.650000005960464,
+        "p95": 24.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.05233460282994167
+      }
+    },
+    "first_input_raf_interval_ms": {
+      "wheel_zoom": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 16.150000005960464,
+        "p95": 26.399999976158142,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.33487399293315384
+      },
+      "background_pan": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 32.89999997615814,
+        "p95": 48.69999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.32012386275161836
+      },
+      "node_drag": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 22.150000005960464,
+        "p95": 40,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.4442845503670569
+      }
+    },
+    "cold_idle_control_dom_and_worker_marks": {
+      "controls_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 46.89999997615814,
+        "p95": 88.69999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.27097967983716037
+      },
+      "routes_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 65.7999999821186,
+        "p95": 107.30000001192093,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.22398556360236244
+      },
+      "comparison_dom_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 157.89999997615814,
+        "p95": 208.10000002384186,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.1262627328194308
+      },
+      "engine_fetch_through_init_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 4.0,
+        "p95": 5.800000011920929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.16636503964512872
+      },
+      "path_search_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 5.8499999940395355,
+        "p95": 8.800000011920929,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.18857582964255123
+      },
+      "comparison_compute_ms": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 89.60000002384186,
+        "p95": 107.5,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.0931045162536991
+      }
+    },
+    "long_frames": [
+      {
+        "run": 5,
+        "scenario": "wheel_zoom",
+        "start": 765.8000000119209,
+        "duration": 70.69999998807907,
+        "script": 0,
+        "render": 44.60000002384186
+      },
+      {
+        "run": 10,
+        "scenario": "background_pan",
+        "start": 918.1000000238419,
+        "duration": 63.09999996423721,
+        "script": 0,
+        "render": 0.5999999642372131
+      }
+    ],
+    "limitations": [
+      "rAF cadence is not handler/render cost or input-to-presentation latency",
+      "first pan/drag sample uses first pointermove; pointerdown latency is not measured",
+      "ten-run nearest-rank p95 is the maximum, not a stable tail estimate",
+      "DOM marks do not certify visible pixels or startup-input responsiveness",
+      "page heap is rounded/nonstandard; worker heap and process RSS not measured",
+      "no physical mobile, manual screen reader, cross-engine or CI variance acceptance yet"
+    ],
+    "artifact_sizes": {
+      "releases/1792145016767821000/assets/graph-scene.js": 11946,
+      "releases/1792145016767821000/assets/graph-scene.json.gz": 11076,
+      "releases/1792145016767821000/assets/graph.js": 31202,
+      "releases/1792145016767821000/assets/path-selection_bg.wasm": 806666,
+      "releases/1792145016767821000/assets/path-selection_bg.wasm.gz": 277560,
+      "releases/1792145016767821000/assets/path-worker.js": 1979
+    }
   }
 }

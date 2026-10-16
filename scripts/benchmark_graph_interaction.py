@@ -12,9 +12,11 @@ separate; frame observations are not independent run-level samples.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import platform
+import statistics
 
 from playwright.sync_api import sync_playwright
 
@@ -52,6 +54,15 @@ PROBE = """() => {
 def quantile(values, q):
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, math.ceil(q * len(ordered)) - 1)] if ordered else None
+
+
+def summarize_runs(values):
+    available = [value for value in values if value is not None]
+    mean = statistics.mean(available) if available else None
+    return {"samples": len(available), "unavailable": len(values) - len(available),
+            "median": statistics.median(available) if available else None,
+            "p95": quantile(available, .95), "quantile_estimator": "nearest_rank",
+            "cv": statistics.stdev(available) / abs(mean) if len(available) > 1 and mean else None}
 
 
 def summarize(frames, loaf, loaf_status="supported"):
@@ -157,7 +168,7 @@ def run(base, cpu):
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 if cpu > 1:
                     page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": cpu})
-                page.goto(base.rstrip("/") + "/graph.html")
+                response = page.goto(base.rstrip("/") + "/graph.html")
                 page.wait_for_function("""() => {
                   const done = performance.getEntriesByName('graph:comparison-rendered').at(-1);
                   const settled = performance.getEntriesByName('graph:camera-settled').at(-1);
@@ -166,6 +177,17 @@ def run(base, cpu):
                 page.evaluate("() => document.fonts.ready")
                 rows[name] = phase(page, name)
                 rows[name]["browser_version"] = browser.version
+                rows[name]["html_sha256"] = hashlib.sha256(response.body()).hexdigest()
+                rows[name]["page_snapshot"] = page.evaluate("""() => ({
+                  device_pixel_ratio: devicePixelRatio, viewport: {width: innerWidth, height: innerHeight},
+                  dom_nodes: document.getElementsByTagName('*').length,
+                  page_js_heap_bytes_approx: performance.memory?.usedJSHeapSize ?? null,
+                  time_origin: performance.timeOrigin,
+                  marks: performance.getEntriesByType('mark').map(e => ({name: e.name, start: e.startTime}))
+                })""")
+                rows[name]["worker_snapshots"] = [worker.evaluate("""() => ({time_origin: performance.timeOrigin,
+                  marks: performance.getEntriesByType('mark').map(e => ({name: e.name, start: e.startTime}))})""")
+                  for worker in page.workers]
                 assert not errors, errors
             finally:
                 browser.close()
@@ -186,9 +208,14 @@ if __name__ == "__main__":
         rows = run(args.base, args.cpu)
         runs.append(rows)
         for name, row in rows.items():
-            print(index + 1, name, json.dumps({k: v for k, v in row.items() if k not in {"raw_samples", "verified_effect"}}))
+            print(index + 1, name, json.dumps({k: v for k, v in row.items()
+                if k not in {"raw_samples", "verified_effect", "page_snapshot", "worker_snapshots"}}), flush=True)
     if args.output:
+        summary = {name: {key: summarize_runs([row[name][key] for row in runs])
+                         for key in ["p95_ms", "max_ms", "loaf_count"]} for name in runs[0]}
         with open(args.output, "w") as f:
             json.dump({"cpu_throttle": args.cpu, "platform": platform.platform(),
                        "measurement_scope": "rAF cadence and >50 ms LoAF diagnostics; sub-50 ms rendering cost is unmeasured",
-                       "runs": runs}, f, indent=1)
+                       "cache_state": "fresh_browser_process_and_context_per_scenario",
+                       "gating": "informational; no stable CI variance or tail estimate established",
+                       "run_summary": summary, "runs": runs}, f, indent=1)

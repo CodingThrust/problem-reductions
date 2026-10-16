@@ -96,6 +96,19 @@ def write_provenance(site, verification):
     return evidence
 
 
+def verified_artifact(site):
+    report = json.loads((site / "verification.json").read_text())
+    if report.get("verification", {}).get("status") != "passed" or not report.get("artifacts"):
+        raise ValueError("Use a production artifact with passed verification and artifact hashes")
+    for name, expected in report["artifacts"].items():
+        path = site / name
+        if not path.resolve().is_relative_to(site.resolve()):
+            raise ValueError(f"Artifact path leaves the verified directory: {name}")
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError(f"Artifact changed or missing since verification: {name}")
+    return report
+
+
 def check(site, *, build, open_questions, required):
     verification = {"status": "failed", "commands": [], "open_questions_required": required}
     log = tempfile.TemporaryFile(mode="w+")
@@ -135,8 +148,11 @@ def check(site, *, build, open_questions, required):
         for pattern in ["test_website_build.py", "test_website_math.py", "test_graph_interaction_benchmark.py", "test_website_verification.py"]:
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "-v"])
         with serve_website(site) as base:
-            run([sys.executable, "scripts/test_website.py"], env={**os.environ,
-                "WEBSITE_BASE_URL": base, "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"})
+            environment = {**os.environ, "WEBSITE_BASE_URL": base,
+                           "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"}
+            run([sys.executable, "scripts/test_website.py"], env=environment)
+            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts",
+                 "-p", "test_website_baselines.py", "-v"], env=environment)
         verification["status"] = "passed"
     finally:
         log.seek(0)

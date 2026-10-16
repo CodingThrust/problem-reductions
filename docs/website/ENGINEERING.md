@@ -91,6 +91,27 @@ uncertainty and reference-device requirements pass. Browser compatibility,
 manual screen-reader checks, screenshots and performance gates are tracked
 separately; a passing Chromium verification command does not certify them.
 
+The [initial reference capture and pilot](baselines/2026-10-16-chromium-macos/README.md)
+retain raw samples, screenshots, source hashes, limitations and pending acceptance.
+Run the interaction pilot against the served verified artifact:
+
+```sh
+uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_interaction.py \
+  http://127.0.0.1:PORT/ --repeat 10 --output /tmp/interactions.json
+```
+
+Capture the current appearance from a passed, unchanged artifact:
+
+```sh
+uv run --no-project --with playwright==1.58.0 python scripts/capture_website_baselines.py \
+  /path/to/verified-artifact --output /tmp/new-reference-capture
+```
+
+The capture command verifies all recorded artifact hashes before and after capture,
+refuses existing output, asserts each page state and records image/source hashes.
+The production verifier also exercises these desktop/mobile capture workflows;
+it does not enable a pixel comparison gate or certify visual approval.
+
 Rollback: revert the isolated verification changes and use the existing
 build/preview commands. No application assets or mathematical code change
 as part of this increment.

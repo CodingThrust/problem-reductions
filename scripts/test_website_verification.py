@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import os
+import json
 import shutil
 import subprocess
 import sys
@@ -79,6 +80,33 @@ class WebsiteVerificationTests(unittest.TestCase):
             self.assertEqual(evidence["artifacts"]["index.html"],
                              "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
             self.assertEqual(evidence["verification"], {"result": "passed"})
+
+    def test_baseline_inputs_must_match_the_verified_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            site = Path(directory)
+            page = site / "index.html"
+            page.write_text("verified contents")
+            write_provenance(site, {"status": "passed"})
+            self.assertIn("index.html", check_website.verified_artifact(site)["artifacts"])
+            page.write_text("changed after verification")
+            with self.assertRaises(ValueError):
+                check_website.verified_artifact(site)
+
+    def test_baseline_rejects_failed_reports_and_external_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            site = root / "site"
+            site.mkdir()
+            (site / "index.html").write_text("abc")
+            write_provenance(site, {"status": "failed"})
+            with self.assertRaises(ValueError):
+                check_website.verified_artifact(site)
+            (root / "outside").write_text("abc")
+            report = write_provenance(site, {"status": "passed"})
+            report["artifacts"] = {"../outside": report["artifacts"]["index.html"]}
+            (site / "verification.json").write_text(json.dumps(report))
+            with self.assertRaises(ValueError):
+                check_website.verified_artifact(site)
 
     def test_absent_question_board_skips_only_in_optional_mode(self):
         with tempfile.TemporaryDirectory() as directory, sync_playwright() as p:
