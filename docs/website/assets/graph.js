@@ -231,15 +231,16 @@ function routeVariantOf(name) {
   const hit = endpoints(r).find((e) => e.name === name);
   return hit ? indexOf.get(keyOf(hit)) : null;
 }
-function openPop(node) {
+function openPop(node, {keyboard = false} = {}) {
   popNode = node;
   const name = node.id;
   popIndex = [state.source, state.target].find((i) => i != null && D.nodes[i].name === name) ?? routeVariantOf(name) ?? defaults[name];
   renderPop();
+  if (keyboard) $("#pop button").focus({preventScroll: true});
 }
 function renderPop() {
   const pop = $("#pop"); pop.replaceChildren();
-  pop.append(el("h2", "", display(popNode.id)));
+  const title = el("h2", "", display(popNode.id)); title.id = "pop-title"; pop.append(title);
   const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
   const acts = el("div", "pop-actions");
   const a = el("button", "b-start", "Start"), b = el("button", "b-end", "End");
@@ -257,11 +258,15 @@ function placePop() {
   pop.style.left = Math.max(r.x + 12, x) + "px";
   pop.style.top = Math.max(r.y + 12, Math.min(p.y - h / 2, r.y + r.h - h - 12)) + "px";
 }
-function closePop() { popNode = null; $("#pop").hidden = true; }
+function closePop(restoreFocus = false) {
+  const opener = popNode?.shape;
+  popNode = null; $("#pop").hidden = true;
+  if (restoreFocus) opener?.focus({preventScroll: true});
+}
 scene.onNodeTap = openPop;
-scene.onBackgroundTap = closePop;
+scene.onBackgroundTap = () => closePop();
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { closePop(); closeDetails(); }
+  if (e.key === "Escape") { closePop(true); closeDetails(); }
   if (e.key === "/" && (!phone.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
 });
 
@@ -289,7 +294,7 @@ function showDetails(title, key, parentKey) {
   if (state.result) state.picked = true;
   const drawer = $("#details-drawer"), body = $("#drawer-body"), atlas = $("#drawer-atlas");
   const opening = drawer.hidden;
-  if (opening) drawerOpener = document.activeElement;
+  if (opening) drawerOpener = $("#pop").contains(document.activeElement) ? popNode.shape : document.activeElement;
   closePop(); drawer.hidden = false; $(".dock").hidden = true;
   // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
   if (opening && !phone.matches && state.result && state.selected) {
@@ -437,8 +442,7 @@ function paintGraph() {
     const selected = routeEls(state.selected);
     scene.classes(selected, "dim ghost", "route");
     // Selected paths stay above the rest of the scene for reliable edge hit testing.
-    selected.filter(n => !n.label).forEach(n => scene.world.append(n.shape));
-    scene.nodes.forEach(n => scene.world.append(n.shape));
+    selected.filter(n => !n.label).forEach(n => scene.world.insertBefore(n.shape, scene.nodes[0].shape));
     const labelled = new Set();
     endpoints(state.result.paths[state.selected - 1]).forEach(e => {
       if (!multi(e.name) || labelled.has(e.name)) return;

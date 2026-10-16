@@ -807,6 +807,43 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('article.typst-detail')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
 
+    def test_graph_keyboard_popover_enters_controls_and_returns_to_node(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        node = self.page.locator('.scene-node[data-node="Satisfiability"]')
+        node.focus()
+        node.press('Enter')
+        expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
+        expect(self.page.get_by_role('dialog', name='Satisfiability', exact=True)).to_be_visible(timeout=500)
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#pop')).to_be_hidden()
+        expect(node).to_be_focused(timeout=500)
+        node.press('Space')
+        expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
+
+    def test_graph_details_from_keyboard_popover_returns_to_visible_node(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        node = self.page.locator('.scene-node[data-node="Satisfiability"]')
+        node.focus()
+        node.press('Enter')
+        self.page.locator('#pop .pop-details').focus()
+        self.page.keyboard.press('Enter')
+        expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#details-drawer')).to_be_hidden()
+        expect(node).to_be_focused(timeout=500)
+
+    def test_graph_comparison_completion_preserves_existing_node_focus(self):
+        self.observe_path_worker()
+        self.page.add_init_script("""window.onPathMessage = (message) => {
+            if (message.phase === 'paths')
+                document.querySelector('.scene-node[data-node="Satisfiability"]').focus();
+        };""")
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('.scene-node[data-node="Satisfiability"]')).to_be_focused(timeout=500)
+
     def test_graph_mobile_drawer_isolates_background_and_restores_focus(self):
         self.page.set_viewport_size({'width': 390, 'height': 844})
         self.page.goto(self.base + 'graph.html')

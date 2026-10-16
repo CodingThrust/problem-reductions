@@ -205,7 +205,14 @@ initial capture. No CSS or appearance change was needed. Rollback this isolated
 focus fix to restore the previous behavior, with its known modal-isolation defect;
 retain the failing regression tests as evidence until the fix is restored.
 
-Stage 1 remains incomplete: popover keyboard focus/return, disconnected-node access,
+The next focus fix gives the popover its problem name, moves Enter/Space activation
+into its controls, and returns Escape/Details focus to the originating graph node.
+Comparison completion reorders route edges without detaching focused nodes. All
+three new behavior checks passed in Chromium, Firefox and WebKit; the full fresh
+artifact suite passed all 55 browser workflows and graph harness checks. All
+fourteen reference image hashes remained unchanged.
+
+Stage 1 remains incomplete: variant-control focus, visible/disconnected-node access,
 drag alternatives, automated accessibility scans and the required manual/device
 checks still need implementation or verification. The sporadic long-frame defect
 remains under investigation; the trace pilot is not a claim that it was fixed.
