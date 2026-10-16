@@ -232,11 +232,33 @@ the event checks do not establish real screen-reader compatibility. The six new
 cases passed in Chromium, Firefox and WebKit; all 61 full production browser
 workflows and the graph harness checks passed on an unchanged source snapshot.
 
-Stage 1 remains incomplete: drag alternatives, responsive edge cases, automated
-accessibility scans and the required manual/device checks still need implementation
-or verification. The sporadic long-frame defect remains under investigation;
-the trace pilot is not a claim that it was fixed.
+Pinned axe-core 4.14.0 now checks eight rendered Atlas/Graph states on the actual
+production artifact, including empty suggestions, popover and both drawer modes.
+It is a test-only dependency. Serious/critical violations and invalid explicit
+roles fail the suite; every other violation and every incomplete result is retained
+for review. An incomplete contrast result is not a passing contrast check.
 
-Rollback: revert the isolated verification changes and use the existing
-build/preview commands. No application assets or mathematical code change
-as part of this increment.
+Those checks exposed empty-listbox/active-option defects and invalid document-link
+roles. Search now clears stale active descendants, exposes an empty-result status,
+and survives refocus before a queued blur. Variant repaint preserves endpoint focus.
+Generated footnote roles belong to their links; following notes/backlinks transfers
+keyboard focus to the destination. Overflowing examples have an explicit Tab stop
+and reuse the existing focus indicator, which fixes WebKit's missing native Tab stop.
+The scroll check uses a 100 ms keypress: an immediate down/up pair did not initiate
+WebKit's first native scroll. No application scroll handler was added.
+
+The fresh required-board artifact passed all 73 browser workflows and the existing
+mathematical/build/harness checks. Its fourteen reference image hashes still match
+the initial capture exactly. The focused cross-browser evidence and outstanding
+scan findings are recorded in
+[ACCESSIBILITY.md](baselines/2026-10-16-chromium-macos/ACCESSIBILITY.md).
+
+Stage 1 remains incomplete: drag alternatives, responsive edge cases, scan follow-ups
+and the required manual/device checks still need implementation or verification.
+The sporadic long-frame defect remains under investigation; the trace pilot is not
+a claim that it was fixed.
+
+Rollback each accessibility fix independently, retaining its regression test as
+evidence of the known defect. Revert the scan integration and its test-only pin
+together if necessary; keep the existing fresh-artifact build/preview command.
+No mathematical implementation changed.

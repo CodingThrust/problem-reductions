@@ -52,6 +52,127 @@ class WebsiteTests(unittest.TestCase):
     def visit(self, route="home"):
         self.page.goto(self.base + "#" + route)
 
+    def assert_accessible(self, state):
+        source = Path(__file__).resolve().parents[1] / 'node_modules/axe-core/axe.min.js'
+        self.page.evaluate(source.read_text())
+        report = self.page.evaluate('''async () => {
+            const result = await axe.run(document);
+            const summarize = (rules) => rules.map(rule => ({id: rule.id, impact: rule.impact,
+                help_url: rule.helpUrl, nodes: rule.nodes.map(node => ({target: node.target, reason: node.failureSummary}))}));
+            return {engine: result.testEngine, environment: result.testEnvironment,
+                violations: summarize(result.violations), needs_review: summarize(result.incomplete)};
+        }''')
+        self.assertEqual(report['engine']['version'], '4.14.0')
+        print('Accessibility:', json.dumps({'state': state, **report}), flush=True)
+        blocking = [rule for rule in report['violations']
+                    if rule['impact'] in ['serious', 'critical'] or rule['id'] == 'aria-allowed-role']
+        self.assertEqual(blocking, [], json.dumps(blocking, indent=2))
+
+    def test_accessibility_atlas(self):
+        self.visit('atlas')
+        expect(self.page.locator('.atlas-row').first).to_be_visible()
+        self.assert_accessible('atlas')
+
+    def test_accessibility_atlas_details(self):
+        self.visit('problem/MaximumIndependentSet')
+        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
+        self.assert_accessible('atlas-details')
+
+    def test_problem_code_block_is_reachable_and_scrolls_with_keyboard(self):
+        self.visit('problem/MaximumIndependentSet')
+        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
+        code = self.page.locator('.typst-detail pre').first
+        self.page.locator('#main').focus()
+        for _ in range(40):
+            self.page.keyboard.press('Tab')
+            if code.evaluate('(node) => node === document.activeElement'):
+                break
+        else:
+            self.fail('Scrollable code could not be reached with Tab')
+        self.page.evaluate('() => document.fonts.ready')
+        self.assertGreater(code.evaluate('(node) => node.scrollHeight - node.clientHeight'), 0)
+        before = code.evaluate('(node) => node.scrollTop')
+        self.page.keyboard.press('ArrowUp' if before > 0 else 'ArrowDown', delay=100)
+        self.page.wait_for_function('({node, before}) => node.scrollTop !== before',
+                                    arg={'node': code.element_handle(), 'before': before}, timeout=500)
+
+    def test_accessibility_atlas_empty(self):
+        self.visit('atlas')
+        self.page.locator('#atlas-search').fill('NoSuchRegisteredProblem')
+        expect(self.page.locator('.empty-state')).to_be_visible()
+        self.assert_accessible('atlas-empty')
+
+    def test_accessibility_graph(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.assert_accessible('graph')
+
+    def test_accessibility_graph_empty_suggestions(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('#source').fill('NoSuchRegisteredProblem')
+        expect(self.page.locator('#suggest')).to_contain_text('No matching problem')
+        self.assert_accessible('graph-empty-suggestions')
+
+    def test_accessibility_graph_popover(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('.scene-node[data-node="Satisfiability"]').focus()
+        self.page.keyboard.press('Enter')
+        self.assert_accessible('graph-popover')
+
+    def test_accessibility_graph_desktop_drawer(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('.steps button').first.click()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('Definition')
+        self.assert_accessible('graph-desktop-drawer')
+
+    def test_accessibility_graph_mobile_drawer(self):
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('.steps button').first.click()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('Definition')
+        self.assert_accessible('graph-mobile-drawer')
+
+    def test_graph_combobox_clears_active_option_on_close_and_empty_results(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        source = self.page.locator('#source')
+        source.fill('MIS')
+        expect(source).to_have_attribute('aria-activedescendant', 'opt-0')
+        source.press('Escape')
+        self.assertIsNone(source.get_attribute('aria-activedescendant'))
+        source.fill('NoSuchRegisteredProblem')
+        self.assertIsNone(source.get_attribute('aria-activedescendant'))
+        expect(self.page.get_by_role('status')).to_contain_text('No matching problem', timeout=500)
+        expect(self.page.locator('#suggest [role="option"]')).to_have_attribute('aria-disabled', 'true', timeout=500)
+
+    def test_graph_endpoint_variant_repaint_preserves_keyboard_focus(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.choose_endpoint('source', 'MIS')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        weight = self.page.locator('#source-options [aria-label="weight"]').get_by_role('button', name='i64', exact=True)
+        weight.focus()
+        weight.press('Enter')
+        expect(weight).to_have_attribute('aria-pressed', 'true')
+        expect(weight).to_be_focused(timeout=500)
+
+    def test_graph_footnotes_have_link_roles_and_restore_reference_focus(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('.steps button').first.click()
+        reference = self.page.locator('#drawer-body article a[role="doc-noteref"]').first
+        expect(reference).to_be_visible(timeout=500)
+        origin = reference.locator('..').get_attribute('id')
+        target = reference.get_attribute('href')[1:]
+        note = self.page.locator(f'#drawer-body [id="{target}"]')
+        backlink = note.locator(f'a[role="doc-backlink"][href="#{origin}"]')
+        expect(backlink).to_be_visible(timeout=500)
+        reference.click()
+        expect(note).to_be_focused(timeout=500)
+        backlink.click()
+        expect(reference).to_be_focused(timeout=500)
+
     def test_alias_search_and_reset(self):
         self.visit("atlas")
         self.page.locator("#atlas-search").fill("MIS")

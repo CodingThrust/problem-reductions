@@ -124,7 +124,16 @@ scene.onHover = (n, over) => {
 const state = { source: null, target: null, limit: 20, result: null, selected: null, showSlower: false, busy: false };
 
 /* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
+function focusedVariantGroup(root) {
+  const active = document.activeElement;
+  return active && root.contains(active) ? active.closest('[role="group"]')?.getAttribute('aria-label') : null;
+}
+function restoreVariantGroup(root, name) {
+  if (name) [...root.querySelectorAll('[role="group"]')].find(group => group.getAttribute('aria-label') === name)
+    ?.querySelector('button[aria-pressed="true"]')?.focus({preventScroll: true});
+}
 function variantOptions(container, index, onPick) {
+  const focused = focusedVariantGroup(container);
   container.replaceChildren();
   const fam = families.get(D.nodes[index].name);
   const cur = D.nodes[index].variant;
@@ -148,6 +157,7 @@ function variantOptions(container, index, onPick) {
     container.append(row);
   });
   container.hidden = !container.childElementCount;
+  restoreVariantGroup(container, focused);
 }
 
 function syncEnds() {
@@ -193,7 +203,11 @@ function showSuggest(side) {
   suggestRows = matches(input.value === (state[side] == null ? "" : display(D.nodes[state[side]].name)) ? "" : input.value);
   active = 0;
   box.replaceChildren();
-  if (!suggestRows.length) box.append(el("div", "note", "No matching problem"));
+  if (!suggestRows.length) {
+    const empty = el("div", "note", "No matching problem");
+    empty.setAttribute("role", "option"); empty.setAttribute("aria-disabled", "true"); box.append(empty);
+  }
+  $("#search-status").textContent = suggestRows.length ? "" : "No matching problem";
   suggestRows.forEach((f, i) => {
     const b = el("button"); b.type = "button"; b.setAttribute("role", "option"); b.id = "opt-" + i;
     b.append(el("span", "", display(f.name)));
@@ -208,15 +222,25 @@ function showSuggest(side) {
 }
 function markActive() {
   [...$("#suggest").querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-selected", String(i === active)));
-  $("#" + (suggestFor || "source")).setAttribute("aria-activedescendant", "opt-" + active);
+  for (const side of ["source", "target"]) $("#" + side).removeAttribute("aria-activedescendant");
+  if (suggestFor && suggestRows.length) $("#" + suggestFor).setAttribute("aria-activedescendant", "opt-" + active);
 }
-function hideSuggest() { $("#suggest").hidden = true; for (const s of ["source", "target"]) $("#" + s).setAttribute("aria-expanded", "false"); suggestFor = null; }
+function hideSuggest() {
+  $("#suggest").hidden = true; $("#search-status").textContent = "";
+  for (const side of ["source", "target"]) {
+    $("#" + side).setAttribute("aria-expanded", "false"); $("#" + side).removeAttribute("aria-activedescendant");
+  }
+  suggestFor = null;
+}
 function pick(i) { const f = suggestRows[i]; if (!f) return; const side = suggestFor; hideSuggest(); $("#" + side).blur(); setEnd(side, defaults[f.name]); }
 for (const side of ["source", "target"]) {
   const input = $("#" + side);
   input.addEventListener("focus", () => { input.select(); showSuggest(side); });
   input.addEventListener("input", () => showSuggest(side));
-  input.addEventListener("blur", () => setTimeout(() => { if (suggestFor === side) hideSuggest(); syncEnds(); }, 0));
+  input.addEventListener("blur", () => setTimeout(() => {
+    if (document.activeElement !== input && suggestFor === side) hideSuggest();
+    syncEnds();
+  }, 0));
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); active = (active + (e.key === "ArrowDown" ? 1 : -1) + suggestRows.length) % Math.max(1, suggestRows.length); markActive(); }
     else if (e.key === "Enter") { e.preventDefault(); pick(active); }
@@ -240,8 +264,7 @@ function openPop(node, {keyboard = false} = {}) {
   if (keyboard) $("#pop button").focus({preventScroll: true});
 }
 function renderPop() {
-  const pop = $("#pop"), active = document.activeElement;
-  const focusGroup = pop.contains(active) ? active.closest('[role="group"]')?.getAttribute('aria-label') : null;
+  const pop = $("#pop"), focusGroup = focusedVariantGroup(pop);
   pop.replaceChildren();
   const title = el("h2", "", display(popNode.id)); title.id = "pop-title"; pop.append(title);
   const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
@@ -253,10 +276,7 @@ function renderPop() {
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex]); pop.append(details);
   pop.hidden = false; placePop();
-  if (focusGroup) {
-    [...pop.querySelectorAll('[role="group"]')].find(group => group.getAttribute('aria-label') === focusGroup)
-      ?.querySelector('button[aria-pressed="true"]')?.focus({preventScroll: true});
-  }
+  restoreVariantGroup(pop, focusGroup);
 }
 function placePop() {
   if (!popNode || $("#pop").hidden) return;

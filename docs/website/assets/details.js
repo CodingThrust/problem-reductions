@@ -3,6 +3,12 @@
   const detailCache = new Map();
   let manifest;
   let renderRequest = 0;
+  function normalizeReferenceRoles(container) {
+    for (const wrapper of container.querySelectorAll('sup[role="doc-noteref"], sup[role="doc-backlink"]')) {
+      for (const link of wrapper.querySelectorAll('a[href]')) link.setAttribute('role', wrapper.getAttribute('role'));
+      wrapper.removeAttribute('role');
+    }
+  }
   window.loadDetailsIndex = function() {
     if (window.GRAPH_DETAILS) return Promise.resolve(window.GRAPH_DETAILS);
     manifest ||= fetch('./assets/graph-details.json').then(response => {
@@ -65,6 +71,11 @@
       event.preventDefault();
       const references = target.closest("details");
       if (references) references.open = true;
+      const focus = target.matches('sup') ? target.querySelector('a[href]') : target;
+      if (focus) {
+        if (!focus.matches('a[href], button, input, select, textarea, summary, [tabindex]')) focus.tabIndex = -1;
+        focus.focus({preventScroll: true});
+      }
       target.scrollIntoView({ block: "nearest" });
     };
 
@@ -115,6 +126,8 @@
       if (!article.isConnected) return;
       // HTML is generated at build time from the repository's Typst source.
       article.innerHTML = content;
+      article.querySelectorAll('pre').forEach(code => { code.tabIndex = 0; });
+      normalizeReferenceRoles(article);
       const citations = new Set([...article.querySelectorAll('a[role="doc-biblioref"]')]
         .map((link) => link.hash.slice(1)));
       if (citations.size) {
@@ -139,12 +152,13 @@
           }
         });
       }
-      if (article.querySelector('[role="doc-noteref"] a')) {
+      if (article.querySelector('a[role="doc-noteref"]')) {
         const notes = document.createElement("aside");
         notes.className = "typst-detail detail-footnotes";
         try {
           notes.innerHTML = await loadDetail("footnotes");
-          const used = new Set([...article.querySelectorAll('[role="doc-noteref"] a')].map((link) => link.hash.slice(1)));
+          normalizeReferenceRoles(notes);
+          const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.hash.slice(1)));
           notes.querySelectorAll('li').forEach((item) => {
             if (!used.has(item.id)) item.remove();
           });
