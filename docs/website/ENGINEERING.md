@@ -575,3 +575,16 @@ Fourteen focused checks passed, including a real traced keyboard activation; the
 parser agreed with independent analysis of all 40 gesture traces. One further harness
 run verified all five scenarios and 30 pointer samples each for pan and drag.
 Raw evidence is retained outside Git in `2026-10-16-final-interactions`.
+
+## Cold-start delivery (2026-10-16)
+
+Slow-4G profile (1.6 Mbps, 100 ms RTT, 4x CPU, Chromium, text compressed): the
+transfer of the path engine dominates. The browser WASM build alone uses
+`opt-level = "z"` and `panic = "abort"` (`build_website.py`); the workspace release
+profile used by the CLI and tests is unchanged. Gzipped size: 267 KB to 167 KB
+(raw 777 KB to 549 KB). First routes: about 2.25 s to 1.8 s (3-5 runs each; treat as
+directional). Unthrottled, path search time is unchanged (66 vs 69 ms) and the
+comparison summary takes 204 ms instead of 129 ms; it already follows the routes.
+`graph.html` also preloads the scene and path-graph JSON, so the scene appears at
+about 0.97 s in every run instead of 1.0 to 1.45 s. A low-priority WASM preload made
+no difference. Not yet measured: real hosting, physical devices, Firefox and WebKit timing.

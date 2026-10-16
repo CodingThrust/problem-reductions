@@ -672,33 +672,6 @@ class WebsiteTests(unittest.TestCase):
         self.assertAlmostEqual(dragged['y'] - zoomed['y'], 40, delta=1)
         self.assertEqual(self.copy_route(), route)
 
-    def test_graph_move_buttons_reposition_node_and_connected_edge(self):
-        self.page.goto(self.base + 'graph.html')
-        route = self.copy_route()
-        self.open_problem_popover('Satisfiability')
-        node = self.page.locator('[data-node="Satisfiability"] .node-disc')
-        other = self.page.locator('[data-node="QUBO"] .node-disc')
-        center = lambda item: item.evaluate('e => {const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}}')
-        edge = self.page.locator('.scene-edge.route[data-edge^="Satisfiability→"]').first
-        self.assertEqual(edge.count(), 1)
-        other_before = center(other)
-        for direction, dx, dy in [('left', -40, 0), ('up', 0, -40), ('right', 40, 0), ('down', 0, 40)]:
-            before = center(node)
-            button = self.page.get_by_role('button', name=f'Move problem {direction}', exact=True)
-            expect(button).to_be_visible(timeout=500)
-            button.focus()
-            button.press('Enter')
-            expect(button).to_be_focused(timeout=500)
-            after = center(node)
-            self.assertAlmostEqual(after['x'] - before['x'], dx, delta=1)
-            self.assertAlmostEqual(after['y'] - before['y'], dy, delta=1)
-            endpoint = edge.evaluate('e => {const m=e.getCTM(); return {x:e.x1.baseVal.value*m.a+m.e,y:e.y1.baseVal.value*m.d+m.f}}')
-            self.assertAlmostEqual(endpoint['x'], after['x'], delta=1)
-            self.assertAlmostEqual(endpoint['y'], after['y'], delta=1)
-            self.assertEqual(center(other), other_before)
-        self.page.keyboard.press('Escape')
-        self.assertEqual(self.copy_route(), route)
-
     def test_graph_mobile_navigation_controls_are_visible_and_operable(self):
         self.context.close()
         self.context = self.browser.new_context(viewport={'width': 320, 'height': 640},
@@ -733,15 +706,13 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
         self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').focus()
         self.page.keyboard.press('Enter')
-        move = self.page.get_by_role('button', name='Move problem down', exact=True)
-        expect(move).to_have_count(1, timeout=500)
         details = self.page.locator('#pop .pop-details')
         for _ in range(20):
             if details.evaluate('e=>e===document.activeElement'):
                 break
             self.page.keyboard.press('Tab')
         else:
-            self.fail('Popover details cannot be reached from its variant and movement controls')
+            self.fail('Popover details cannot be reached from its variant controls')
         bounds = self.page.locator('#pop').bounding_box()
         header = self.page.locator('.site-header').bounding_box()
         panel = self.page.locator('.panel').bounding_box()

@@ -29,7 +29,6 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 760px)");
 // Keep the minimum supported 320px graph viewport beside the 392px and 456px side-panel areas.
 const modalDetails = matchMedia("(max-width: 1167px)");
-const directions = [["left", "←", -1, 0], ["up", "↑", 0, -1], ["right", "→", 1, 0], ["down", "↓", 0, 1]] as const;
 
 // Scene references and route indices below rely on the validated boundary contracts.
 /* ---------- Registry model ---------- */
@@ -270,16 +269,6 @@ function renderPop() {
   a.type = b.type = "button";
   a.addEventListener("click", () => setEnd("source", popIndex!)); b.addEventListener("click", () => setEnd("target", popIndex!));
   acts.append(a, b); pop.append(acts);
-  const move = el("div", "options"), row = el("div", "opt-row");
-  row.setAttribute("role", "group"); row.setAttribute("aria-label", "Move problem");
-  row.append(el("span", "opt-key", "Move"));
-  for (const [name, arrow, dx, dy] of directions) {
-    const button = el("button", "opt", arrow); button.type = "button";
-    button.setAttribute("aria-label", "Move problem " + name);
-    button.onclick = () => scene.moveNode(popNode!, dx * 40, dy * 40);
-    row.append(button);
-  }
-  move.append(row); pop.append(move);
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex!]!); pop.append(details);
   pop.hidden = false; placePop();
