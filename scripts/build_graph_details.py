@@ -97,7 +97,7 @@ def deduplicate_glyphs(content):
 
 def build_details(output):
     started = time.monotonic()
-    subprocess.run(['node', str(ROOT / 'scripts/generate_website_contracts.mjs'), '--check'], check=True)
+    subprocess.run(['npm', 'run', 'check:frontend-contracts'], cwd=ROOT, check=True)
     with tempfile.TemporaryDirectory(prefix="reduction-details-") as directory:
         html_path = Path(directory) / "details.html"
         subprocess.run([

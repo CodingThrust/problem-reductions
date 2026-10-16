@@ -15,7 +15,7 @@ pub mod types;
 use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
 use poly_compare::{compare_all_verdicts, compare_summary, Profile, Side, Verdict};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
@@ -104,29 +104,90 @@ pub fn find_paths(input: &str) -> Result<String, JsError> {
     );
     let truncated = paths.len() > query.limit;
     paths.truncate(query.limit);
-    let endpoint = |i: usize| json!({"name":nodes[i].name,"variant":nodes[i].variant});
-    let routes: Vec<_> = paths.iter().map(|path| json!({"steps":path.len()-1,
-        "path":path.windows(2).map(|p| json!({"from":endpoint(p[0]),"to":endpoint(p[1])})).collect::<Vec<_>>()
-    })).collect();
-    Ok(serde_json::to_string(
-        &json!({"paths":routes,"truncated":truncated}),
-    )?)
+    let endpoint = |i: usize| Endpoint {
+        name: nodes[i].name.clone(),
+        variant: nodes[i].variant.clone(),
+    };
+    let routes = paths
+        .iter()
+        .map(|path| Route {
+            steps: path.len() - 1,
+            path: path
+                .windows(2)
+                .map(|pair| Step {
+                    from: endpoint(pair[0]),
+                    to: endpoint(pair[1]),
+                })
+                .collect(),
+        })
+        .collect();
+    Ok(serde_json::to_string(&WasmPathResult {
+        schema_version: 1,
+        paths: routes,
+        truncated,
+    })?)
 }
 
-#[derive(Deserialize, PartialEq)]
+#[derive(Deserialize, Serialize, PartialEq)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
 struct Endpoint {
+    #[cfg_attr(feature = "schema-export", schemars(length(min = 1)))]
     name: String,
     variant: BTreeMap<String, String>,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
 struct Step {
     from: Endpoint,
     to: Endpoint,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
 struct Route {
+    #[cfg_attr(
+        feature = "schema-export",
+        schemars(range(min = 1, max = 9007199254740991u64))
+    )]
     steps: usize,
+    #[cfg_attr(feature = "schema-export", schemars(length(min = 1)))]
     path: Vec<Step>,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields,
+    extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-paths")))]
+struct WasmPathResult {
+    #[cfg_attr(feature = "schema-export", schemars(extend("const" = 1)))]
+    schema_version: u8,
+    #[cfg_attr(feature = "schema-export", schemars(length(max = 999)))]
+    paths: Vec<Route>,
+    truncated: bool,
+}
+
+/// Generate the browser response contract without adding schema tooling to WASM builds.
+#[cfg(feature = "schema-export")]
+pub fn path_response_schema() -> schemars::Schema {
+    let mut settings = schemars::generate::SchemaSettings::draft2020_12().for_serialize();
+    // JSON numeric bounds carry the domain; Rust's integer formats are nonstandard.
+    settings
+        .transforms
+        .push(Box::new(schemars::transform::RecursiveTransform(
+            |schema: &mut schemars::Schema| {
+                if matches!(
+                    schema.get("format").and_then(|value| value.as_str()),
+                    Some("uint" | "uint8")
+                ) {
+                    schema.remove("format");
+                }
+            },
+        )));
+    settings
+        .into_generator()
+        .into_root_schema_for::<WasmPathResult>()
 }
 #[derive(Deserialize)]
 struct ComparisonQuery {

@@ -96,6 +96,23 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def test_graph_recovers_after_corrupt_engine_metadata(self):
         self.assert_engine_recovery('path-graph.json.gz', gzip.compress(b'{invalid JSON', mtime=0))
 
+    def test_worker_rejects_invalid_path_results_before_posting_routes(self):
+        resource = self.assets / 'path-graph.json.gz'
+        graph = json.loads(gzip.decompress(resource.read_bytes()))
+        source = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'Satisfiability' and node['default'])
+        target = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'QUBO' and node['default'])
+        graph['nodes'][source]['name'] = ''
+        resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
+        self.page.goto(self.base + 'index.html')
+        reply = self.page.evaluate('''({url, source, target}) => new Promise((resolve, reject) => {
+            const worker = new Worker(url, {type: 'module'});
+            worker.onmessage = event => { worker.terminate(); resolve(event.data); };
+            worker.onerror = event => { worker.terminate(); reject(new Error(event.message)); };
+            worker.postMessage({source, target, limit: 1});
+        })''', {'url': self.base + self.assets.relative_to(self.site).as_posix() + '/path-worker.js',
+                'source': source, 'target': target})
+        self.assertEqual(reply, {'phase': 'paths', 'error': 'Invalid path result contract. Reload the current release.'})
+
     def test_graph_growth_preserves_wide_exponents_and_exact_degree_sums(self):
         resource = self.assets / 'path-graph.json.gz'
         graph = json.loads(gzip.decompress(resource.read_bytes()))

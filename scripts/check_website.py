@@ -156,6 +156,7 @@ def check(site, *, build, open_questions, required):
         if build:
             run(["npm", "ci"])
         run(["npm", "run", "check:frontend-contracts"])
+        run(["cargo", "test", "--locked", "-p", "problemreductions-web", "--features", "schema-export", "--test", "paths"])
         run(["npm", "run", "test:frontend-contracts"])
         run(["npm", "run", "typecheck"])
         run(["npm", "run", "lint:frontend"])
@@ -233,9 +234,9 @@ def main():
     if args.open_questions and not all((args.open_questions / name).is_file() for name in ["index.html", "registry.json"]):
         parser.error("--open-questions must contain index.html and registry.json")
     os.environ["PATH"] = tool_path(os.environ)
-    tools = ["git", "node", "npm"]
+    tools = ["git", "node", "npm", "cargo", "rustc"]
     if args.site is None:
-        tools += ["make", "bash", "python3", "cargo", "rustc", "mdbook", "typst", "wasm-bindgen"]
+        tools += ["make", "bash", "python3", "mdbook", "typst", "wasm-bindgen"]
     missing = [command for command in tools if shutil.which(command) is None]
     if missing:
         parser.error(f"Missing required tools: {', '.join(missing)}. "

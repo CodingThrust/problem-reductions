@@ -48,6 +48,9 @@ verification: the verifier rejects source changes made during the run. Use a
 separate checkout for concurrent work. For an existing complete artifact, use
 `--site /path/to/artifact`; its provenance explicitly identifies verification-only
 mode and does not claim the current checkout built an externally supplied artifact.
+`Cargo.lock` is now tracked, matching the existing local dependency resolution.
+Schema generation/checking uses `--locked`; CI's lockfile drift check can now detect
+Rust resolution changes. There are no dependency upgrades in this adoption.
 
 ## Build integration and rollback
 
@@ -68,7 +71,7 @@ module delivery. Runtime contracts migrate incrementally.
 The worker buffers decompressed WASM before binding initialization. Native Firefox
 cold-query replays exposed a pre-existing streaming stall before Vite; buffered
 initialization passed the diagnostic replays and subsequent production workflows.
-This adds a temporary 806,666-byte input buffer. The exact browser cause remains
+The temporary input buffer currently holds 805,798 bytes. The exact browser cause remains
 unconfirmed. Compression, early preload, worker termination and bounded caches are
 preserved. This compatibility fix does not establish that the sporadic frame hitch
 is fixed.
@@ -107,12 +110,24 @@ leading term, degree sum and copied route. Pure checks also cover rational
 coefficient preservation, adjacent wide-degree ordering and unavailable values.
 Node coverage for this module measured 100% of lines and 97.9% of branches.
 
+`find_paths` now serializes a Rust `WasmPathResult` with `schema_version: 1`.
+Schemars 1.2.2 derives `wasm-paths.schema.json` from the response/route structs in
+serialization mode, including closed objects, required fields and exact safe-integer
+bounds. Its native-only `schema-export` feature is absent from normal WASM builds.
+The worker calls strict `wasm-paths-data.mts`: parse unknown, validate shape/version,
+check step counts and chain continuity, then use the result. Variant maps compare
+semantically without reordering routes. A real-worker test first demonstrated an
+invalid endpoint reaching the main thread; it now receives an actionable error
+before routes are posted. Metadata, requests, cached routes and worker envelopes
+still need their own contracts.
+
 Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
 so production does not compile schemas or require dynamic evaluation.
 `json-schema-to-typescript` 16.0.0 generates matching strict declarations. Typescript
 6.0.3 matches the lint parser's supported range (`@typescript-eslint/parser` 8.71.2).
 These tools are development dependencies. TS source/declarations are removed from
-published assets after Vite emission. Regenerate and check with:
+published assets after Vite emission. The public commands generate/check the Rust
+schema before the standalone validators and declarations:
 
 ```sh
 npm run generate:frontend-contracts
@@ -122,26 +137,36 @@ npm run typecheck
 npm run lint:frontend
 ```
 
-Direct Python builds also check generation drift. Fixtures prove stale schemas
-fail the check and typed source reaches lint's control-flow rules. The unknown-
+Direct Python builds also check generation drift. Fixtures prove stale Rust schemas
+and standalone validators fail their respective checks. Native path tests run in
+the verifier; a separate 146-case native math/proof run passed locally. Scoped
+coverage measured all 39 added executable Rust adapter lines, all 24 schema-export
+CLI lines and all branches/lines of the strict path parser. Fixtures also confirm
+typed source reaches lint's control-flow rules. The unknown-
 category browser test failed on the preceding artifact, then passed before any SVG
 was rendered on rejection. The invalid-index browser case also failed on the prior
 artifact and now confirms rejection and successful retry after repairing the real
-HTTP resource. Latest required-board verification passed 79 root cases, eleven
+HTTP resource. Latest required-board verification passed 79 root cases, twelve
 failure and data-contract cases, and seven nested workflows per engine, with the
 documented multi-touch skips.
 All fourteen screenshots matched; no raw TS/declarations were published.
 
 The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
-After the precision fix, ten isolated untraced cold runs measured 66,543 decoded
-startup JS bytes (+96 over scene typing); WASM hashes are unchanged. Graph/route
-readiness proxies were 50.1/71.95 ms median and 58.3/83.9 ms sampled p95. Startup
-fill-to-suggestion round trips were 29.85/36.8 ms; all ten inputs preceded comparison
+After the Rust path-result contract, ten isolated untraced cold runs measured 76,992
+decoded startup JS bytes (+10,449 for the worker validator). WASM is 805,798 raw /
+277,440 gzip bytes, down 868/120 bytes after typed response serialization. Five
+before/after route queries and a wide rational-bound fixture agreed semantically
+on ordered routes, variants, profiles, certificates, verdicts and optional fields;
+the path response's added version is the declared difference. Graph/route readiness
+proxies were 52.5/73.45 ms median and 57.3/79.3 ms sampled p95. Startup
+fill-to-suggestion round trips were 29.9/38.5 ms; all ten inputs preceded comparison
 completion. A separate ten-process first lazy-index batch measured validation at
 1.6/1.7 ms median/sampled p95. These are informational observations, not speedup,
 tail-stability or non-regression certificates. Evidence is stored externally under
 the retained batch's `scene-contract/`, `details-contract/`, `typed-scene/` and
-`wide-growth/`.
+`wide-growth/`, with the latest response evidence in `wasm-path-contract/`.
+The worker paths-start/end interval was 4.35/4.8 ms median/sampled p95; it includes
+request serialization, native search/output serialization, parsing and validation.
 
 A separate two-route wide-exponent stress fixture also traps in the pre-fix WASM
 comparator (`unreachable`). Its suspected cause is resource growth while computing
@@ -149,7 +174,7 @@ exact witness coefficients; the trap cause has not been profiled. The reproducer
 is retained in `wide-growth/`. This existing extreme-input limitation remains open;
 the frontend precision fix preserves the mathematical engine unchanged.
 
-Other data boundaries, exact mathematical wire structs, worker envelopes and
+Other data boundaries, comparison wire structs, worker envelopes and
 remaining application files still need migration.
 Rollback this slice's schema, generated code, producer version/validation and loader
 entry together, restoring a complete prior release while retaining Vite. Revert the
@@ -159,6 +184,9 @@ Roll back scene typing by restoring its prior class, global caller and HTML entr
 together; that change is independent of both data-contract slices.
 Revert the growth helper and its caller together to roll back precision formatting
 independently, retaining the regression evidence and documenting the restored defect.
+Roll back the Rust path-result type/version, schema exporter and generated files,
+worker parser/caller and their build checks together. Deploy the prior complete
+release, preserving Vite and the independent scene/details contracts.
 
 ## Open Question Board and CI
 

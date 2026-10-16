@@ -35,7 +35,7 @@ fn paths_arrive_without_composing_or_comparing_parameter_formulas() {
     .unwrap();
     assert_eq!(
         result,
-        json!({"truncated":true, "paths":[{
+        json!({"schema_version":1, "truncated":true, "paths":[{
             "steps":1, "path":[{"from":{"name":"Source", "variant":{}},
                 "to":{"name":"Target", "variant":{"weight":"i64"}}}]
         }]})
@@ -129,6 +129,9 @@ fn unreachable_and_identical_endpoints_have_no_routes() {
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(result, json!({"paths":[],"truncated":false}));
+        assert_eq!(
+            result,
+            json!({"schema_version":1,"paths":[],"truncated":false})
+        );
     }
 }

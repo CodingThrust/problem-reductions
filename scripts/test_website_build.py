@@ -31,7 +31,8 @@ class WebsiteBuildTests(unittest.TestCase):
             for name in ['scripts/generate_website_contracts.mjs', 'docs/website/graph-scene.schema.json',
                          'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts',
                          'docs/website/graph-details.schema.json', 'docs/website/assets/graph-details.validator.mjs',
-                         'docs/website/assets/graph-details.validator.d.mts']:
+                         'docs/website/assets/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
+                         'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
@@ -43,6 +44,20 @@ class WebsiteBuildTests(unittest.TestCase):
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('Contract drift', result.stderr)
+
+    def test_rust_contract_check_rejects_stale_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'schema.json'
+            shutil.copyfile(ROOT / 'docs/website/wasm-paths.schema.json', path)
+            command = [str(ROOT / 'target/debug/examples/export_frontend_schema'), '--check', str(path)]
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            schema = json.loads(path.read_text())
+            schema['properties']['schema_version']['const'] = 2
+            path.write_text(json.dumps(schema))
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Rust contract drift', result.stderr)
 
     def test_frontend_lint_checks_typescript_control_flow(self):
         with tempfile.TemporaryDirectory() as directory:

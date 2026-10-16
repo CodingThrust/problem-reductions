@@ -3,7 +3,8 @@
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory and migration checklist, not a claim that contracts are implemented.
 Generated production artifacts are fingerprinted by `check_website.py`. Scene and
-documentation-index contracts passed local production checks; other rows remain open.
+documentation-index and WASM path-result contracts passed local production checks;
+other rows remain open.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
 | --- | --- | --- | --- |
@@ -16,7 +17,7 @@ documentation-index contracts passed local production checks; other rows remain 
 | Main thread → worker `{source,target,limit,paths?}` | `path-worker.js`: `onmessage` | Untyped structured clone; WASM later validates a constructed request | Validate incoming unknown against a request union, version, safe index/limit bounds and optional cached route shape |
 | Worker → main thread `{phase,result}` or `{phase,error}` | `graph.js`: `onmessage` | Untyped envelope; stale worker identity checked | Validate phase and mutually exclusive result/error shape plus the appropriate payload; retain worker termination, identity checks and bounded cache |
 | JSON strings for `find_paths`, `compare_paths`, `summarize_paths` | `problemreductions-web/src/lib.rs` | Typed Rust `Deserialize` requests and semantic validation | Derive request schemas from real wire structs; validate browser-side requests before serialization and preserve Rust validation |
-| WASM path response string | `path-worker.js`: `JSON.parse(find_paths(...))` | Dynamic Rust `json!` response; no output type/schema or consumer validation | A serialized wire response struct and generated schema/types/validator; parse as unknown and validate before posting routes |
+| WASM path response string | `path-worker.js` calls strict `wasm-paths-data.mts`: parse unknown, validate, then post routes | Rust `WasmPathResult`, version 1; Schemars-derived serialization schema; generated guard/types; safe step counts and chain continuity checked | Local malformed-input, real-worker rejection and all-engine production checks passed; request/metadata/envelope validation and registered-endpoint cross-checks remain open |
 | WASM comparison response strings | Worker consumes summary; benchmark tool exercises full and summary APIs | Dynamic Rust `json!`; comparison `schema_version` is already 5 | Serialized wire structs covering counts, profiles, verdicts and optional `pairs`/`dominates`; retain version compatibility, exact strings and semantic equality |
 | Built Open Question Board `registry.json` and its related payloads | Separately built board scripts under `open-questions/` | Owned by the private board project; this repo tests real navigation, registry use and prompt generation | Record that build's own schema/validation coverage when auditing all delivered pages; do not claim this repo's TS migration validates external scripts |
 
@@ -50,7 +51,8 @@ documentation-index contracts passed local production checks; other rows remain 
   types/runtime validators, alongside Python-owned artifact schemas. Confirm the
   actual Serde union/optional-field representations in one complete migration
   before extending the migration. Ajv standalone guards and generated TS types now
-  cover the two Python-owned contracts; Rust mathematical contracts remain open.
+  cover the two Python-owned contracts and the first Rust response. Comparison
+  contracts, request schemas and remaining payloads are still open.
 
 ## Related boundaries that are not JSON parsing
 

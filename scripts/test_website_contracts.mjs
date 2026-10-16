@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
 import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
+import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
 
 function scene() {
   return {
@@ -124,5 +125,58 @@ test('documentation index rejects URLs outside the current release article subtr
     const value = details();
     value.entries['problem:Alpha'] = url;
     assert.throws(() => validateDetailsIndexData(value, page, articles), url);
+  }
+});
+
+function pathResult() {
+  const source = { name: 'Source', variant: {} };
+  const middle = { name: 'Middle', variant: { graph: 'SimpleGraph', weight: 'One' } };
+  const target = { name: 'Target', variant: { weight: 'i64' } };
+  return { schema_version: 1, truncated: false, paths: [
+    { steps: 2, path: [{ from: source, to: middle },
+      { from: { name: 'Middle', variant: { weight: 'One', graph: 'SimpleGraph' } }, to: target }] },
+    { steps: 1, path: [{ from: source, to: target }] },
+  ] };
+}
+
+test('WASM path validation preserves route ordering and variant key semantics', () => {
+  const result = pathResult();
+  assert.deepEqual(parseWasmPathResult(JSON.stringify(result)), result);
+  assert.deepEqual(parseWasmPathResult('{"paths":[],"truncated":false,"schema_version":1}'),
+    { schema_version: 1, paths: [], truncated: false });
+});
+
+test('WASM path validation rejects invalid versions, shapes and integer domains', () => {
+  for (const mutate of [
+    value => { delete value.schema_version; },
+    value => { value.schema_version = 2; },
+    value => { value.truncated = 'false'; },
+    value => { value.paths[0].steps = 0.5; },
+    value => { value.paths[0].steps = -1; },
+    value => { value.paths[0].steps = 9007199254740992; },
+    value => { value.paths[0].path[0].from.name = ''; },
+    value => { value.paths[0].path[0].from.variant = null; },
+    value => { value.paths[0].path[0].to.variant.weight = 1; },
+    value => { value.paths = Array(1000).fill(value.paths[0]); },
+    value => { value.paths[0].path = []; },
+  ]) {
+    const value = pathResult();
+    mutate(value);
+    assert.throws(() => parseWasmPathResult(JSON.stringify(value)));
+  }
+  for (const text of ['{invalid', 'null', '[]']) assert.throws(() => parseWasmPathResult(text));
+});
+
+test('WASM path validation rejects incorrect step counts and discontinuous variants', () => {
+  for (const mutate of [
+    value => { value.paths[0].steps = 1; },
+    value => { value.paths[0].path[1].from.name = 'Missing'; },
+    value => { value.paths[0].path[1].from.variant.weight = 'i64'; },
+    value => { delete value.paths[0].path[1].from.variant.graph; },
+    value => { value.paths = []; value.truncated = true; },
+  ]) {
+    const value = pathResult();
+    mutate(value);
+    assert.throws(() => parseWasmPathResult(JSON.stringify(value)));
   }
 });

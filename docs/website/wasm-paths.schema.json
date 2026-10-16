@@ -1,0 +1,90 @@
+{
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/wasm-paths",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WasmPathResult",
+  "type": "object",
+  "properties": {
+    "paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Route"
+      },
+      "maxItems": 999
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "maximum": 255,
+      "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "paths",
+    "truncated"
+  ],
+  "$defs": {
+    "Endpoint": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "variant"
+      ]
+    },
+    "Route": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "minItems": 1
+        },
+        "steps": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "steps",
+        "path"
+      ]
+    },
+    "Step": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/Endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/Endpoint"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to"
+      ]
+    }
+  }
+}
