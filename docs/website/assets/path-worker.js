@@ -17,7 +17,10 @@ function loadEngine() {
     performance.mark("engine:headers");
     if (!response.ok) throw new Error(`Cannot load path engine (${response.status})`);
     const wasm = response.body.pipeThrough(new DecompressionStream('gzip'));
-    await init({module_or_path: new Response(wasm, {headers: {'Content-Type': 'application/wasm'}})});
+    // shortcut: Buffering avoids a Firefox streaming stall; revisit if module growth makes this buffer material.
+    const bytes = await new Response(wasm).arrayBuffer();
+    performance.mark("engine:wasm-decoded");
+    await init({module_or_path: bytes});
     performance.mark("engine:initialized");
   })();
 }

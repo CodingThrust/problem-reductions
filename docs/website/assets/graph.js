@@ -1,7 +1,7 @@
 
 (async () => {
 "use strict";
-performance.mark("graph:script");
+performance.mark("graph:script", {detail: {eager_worker: Boolean(window.graphStartup?.worker)}});
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 const D = window.REDUCTIONS = await window.graphStartup.scene;
@@ -646,5 +646,7 @@ document.fonts?.ready.then(() => {
   scheduleLabels();
 });
 })().catch(() => {
+  window.graphStartup?.worker?.terminate();
+  if (window.graphStartup) window.graphStartup.worker = null;
   document.querySelector('#results').textContent = 'Cannot load graph. Reload this release and try again.';
 });

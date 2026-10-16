@@ -49,9 +49,8 @@ any screen-reader interaction mode required to operate the graph.
    dragging. Confirm equivalent content remains reachable using keyboard controls,
    and that pointer/touch dragging still behaves correctly.
 9. During a real path search, cancel and run it again. Confirm status announcements,
-   recovered controls and the final route. Exercise error/retry using the documented
-   failure-test setup once implemented; confirm an actionable message and successful
-   recovery. That fixture is pending; cancellation alone cannot pass this task.
+   recovered controls and the final route. Exercise error/retry using the diagnostic copy below; confirm an actionable
+   message and successful recovery. Cancellation alone cannot pass this task.
 
 ## Physical mobile tasks
 
@@ -80,3 +79,16 @@ and the final engineering handoff incomplete while blocking defects or required
 manual checks remain open. Recheck affected tasks after a fix, preserving independent
 mathematical, screenshot and performance evidence. Claude's visual phase starts
 only after the complete engineering handoff gate passes.
+
+## Manual error/retry setup
+
+Copy the verified artifact into a separate disposable directory; keep the verified
+original unchanged. In the copy, rename `releases/<release>/assets/path-graph.json.gz`
+to `path-graph.json.gz.saved`. Serve the copy with `python -m http.server 3001 --bind
+127.0.0.1 --directory /path/to/copy` using the project's Python environment. Open Graph
+and read the engine error. Restore the metadata filename, activate the SAT → QUBO
+example, and confirm that loading completes, routes return, and copying works. Record
+the announcement and focus behavior. This intentionally damaged copy is a manual
+diagnostic, not a verified benchmark or deployment artifact. The automated counterpart
+is `scripts/test_website_failures.py`, run by the production verifier in all three
+browser engines.
