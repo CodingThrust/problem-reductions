@@ -34,7 +34,8 @@ class WebsiteBuildTests(unittest.TestCase):
                          'docs/website/assets/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
                          'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts',
                          'docs/website/wasm-comparison.schema.json', 'docs/website/assets/wasm-comparison.validator.mjs',
-                         'docs/website/assets/wasm-comparison.validator.d.mts']:
+                         'docs/website/assets/wasm-comparison.validator.d.mts', 'docs/website/path-graph.schema.json',
+                         'docs/website/assets/path-graph.validator.mjs', 'docs/website/assets/path-graph.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)

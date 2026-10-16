@@ -5,6 +5,7 @@ import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.
 import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
 import { parseWasmComparison } from '../docs/website/assets/wasm-comparison-data.mts';
+import { validatePathGraphData } from '../docs/website/assets/path-graph-data.mts';
 
 function scene() {
   return {
@@ -180,6 +181,106 @@ test('WASM path validation rejects incorrect step counts and discontinuous varia
     mutate(value);
     assert.throws(() => parseWasmPathResult(JSON.stringify(value)));
   }
+});
+
+function pathGraph() {
+  return { schema_version: 1, nodes: [
+    { name: 'Source', variant: { graph: 'SimpleGraph', weight: 'One' }, default: true, parameter_names: ['m', 'n'] },
+    { name: 'Target', variant: {}, default: true, parameter_names: ['size'] },
+  ], edges: [{ source: 0, target: 1, witness: true, turing: false, parameter_contract_error: null,
+    parameters: [{ field: 'size', contract: 'upper_bound',
+      formula: '9007199254740993 * n^9007199254740993 * 7^-1', reason: null }] }] };
+}
+
+test('path metadata preserves exact formulas, ordering and explicit nulls', () => {
+  const value = pathGraph();
+  assert.deepEqual(validatePathGraphData(value), value);
+  const variants = structuredClone(value);
+  variants.nodes.push({ ...structuredClone(variants.nodes[0]), variant: { weight: 'i64', graph: 'SimpleGraph' }, default: false });
+  variants.edges[0].parameters[0].contract = 'exact';
+  variants.edges[0].turing = true;
+  variants.edges[0].witness = false;
+  assert.deepEqual(validatePathGraphData(variants), variants);
+  const unavailable = structuredClone(value);
+  unavailable.edges[0].parameters[0] = { field: 'size', contract: 'unavailable', formula: null, reason: 'No certified bound' };
+  assert.deepEqual(validatePathGraphData(unavailable), unavailable);
+  const invalidContract = structuredClone(value);
+  invalidContract.edges[0].parameter_contract_error = 'Missing native parameter contract';
+  invalidContract.edges[0].parameters = [];
+  assert.deepEqual(validatePathGraphData(invalidContract), invalidContract);
+  assert.deepEqual(validatePathGraphData({ schema_version: 1, nodes: value.nodes, edges: [] }),
+    { schema_version: 1, nodes: value.nodes, edges: [] });
+  const unparameterized = structuredClone(value);
+  unparameterized.nodes[1].parameter_names = [];
+  unparameterized.edges[0].parameters = [];
+  assert.deepEqual(validatePathGraphData(unparameterized), unparameterized);
+});
+
+test('path metadata rejects malformed versions, shapes, flags and unsafe indices', () => {
+  for (const mutate of [
+    value => { delete value.schema_version; },
+    value => { value.schema_version = 2; },
+    value => { value.nodes = []; },
+    value => { value.nodes[0].name = ''; },
+    value => { value.nodes[0].default = 1; },
+    value => { value.nodes[0].variant.weight = 1; },
+    value => { value.nodes[0].parameter_names = ['n', 'n']; },
+    value => { value.edges[0].source = -1; },
+    value => { value.edges[0].source = 0.5; },
+    value => { value.edges[0].target = 9007199254740992; },
+    value => { value.edges[0].witness = 'true'; },
+    value => { value.edges[0].turing = null; },
+    value => { delete value.edges[0].parameter_contract_error; },
+    value => { value.edges[0].parameter_contract_error = ''; },
+  ]) {
+    const value = pathGraph(); mutate(value);
+    assert.throws(() => validatePathGraphData(value));
+  }
+  for (const value of [null, [], 'metadata']) assert.throws(() => validatePathGraphData(value));
+});
+
+test('path metadata rejects ambiguous variants, defaults, edges and target-field references', () => {
+  for (const mutate of [
+    value => { value.nodes.push({ ...value.nodes[0], variant: { weight: 'One', graph: 'SimpleGraph' } }); },
+    value => { value.nodes.push({ ...value.nodes[0], variant: { weight: 'i64' } }); },
+    value => { value.nodes[0].default = false; },
+    value => { value.edges[0].source = 2; },
+    value => { value.edges[0].target = 2; },
+    value => { value.edges.push(structuredClone(value.edges[0])); },
+    value => { value.edges[0].parameters[0].field = 'unknown'; },
+    value => { value.edges[0].parameters.push(structuredClone(value.edges[0].parameters[0])); },
+    value => { value.edges[0].parameters = []; },
+  ]) {
+    const value = pathGraph(); mutate(value);
+    assert.throws(() => validatePathGraphData(value));
+  }
+});
+
+test('path metadata validates parameter tags and nullable formula/reason semantics', () => {
+  for (const mutate of [
+    field => { field.contract = 'guessed'; },
+    field => { field.formula = 9007199254740992; },
+    field => { field.formula = ''; },
+    field => { field.formula = null; },
+    field => { delete field.formula; },
+    field => { field.reason = 'Unexpected reason on a certified formula'; },
+    field => { delete field.reason; },
+    field => { field.contract = 'unavailable'; },
+    field => { field.contract = 'unavailable'; field.formula = null; field.reason = ''; },
+  ]) {
+    const value = pathGraph(); mutate(value.edges[0].parameters[0]);
+    assert.throws(() => validatePathGraphData(value));
+  }
+});
+
+test('the metadata producer accepts a valid graph and rejects a missing target contract', () => {
+  const value = pathGraph();
+  const run = data => spawnSync(process.execPath, ['scripts/validate_website_data.mjs', 'path-graph'],
+    { input: JSON.stringify(data), encoding: 'utf8' });
+  const valid = run(value);
+  assert.equal(valid.status, 0, valid.stderr);
+  value.edges[0].parameters = [];
+  assert.notEqual(run(value).status, 0);
 });
 
 function comparison(full = false) {

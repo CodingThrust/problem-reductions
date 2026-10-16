@@ -291,6 +291,8 @@ def summarize(rows):
                                   if 'graph:scene-json-parsed' in marks else None),
             'worker_metadata_json_parse_ms': (w['engine:metadata-parsed'] - w['engine:metadata-decoded']
                                               if 'engine:metadata-decoded' in w else None),
+            'worker_metadata_validation_ms': (w['engine:metadata-validated'] - w['engine:metadata-parsed']
+                                               if 'engine:metadata-validated' in w and 'engine:metadata-parsed' in w else None),
             'engine_ready_ms': offset + w['engine:initialized'],
             'total_blocking_ms': sum(max(0, min(t['duration'], ready-t['start'])-50)
                                      for t in row['longTasks'] if t['start'] < ready)
@@ -359,6 +361,7 @@ def main():
                        'startup_input': 'Playwright fill-to-suggestion round trip; includes automation overhead; comparison_done_at_input records whether it overlapped startup',
                        'warm_query': 'input/keydown handler observation to suggestion/comparison DOM readiness; excludes presentation and OS input delay',
                        'memory': '50 ms polling: sampled peak Chromium RSS sum (may double count shared pages), sampled main-page JS heap, final WASM linear capacity; excludes unsampled peaks',
+                       'metadata_validation': 'worker schema and cross-field validation interval after JSON parsing; missing marks are unavailable, not zero',
                        'trace': 'union of matching slices per thread up to readiness; missing categories unavailable; not per-frame render cost'}}
         (args.output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
         print(json.dumps(results['summary'], indent=2))

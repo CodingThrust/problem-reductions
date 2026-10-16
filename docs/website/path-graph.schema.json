@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/path-graph",
+  "title": "PathGraphData",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "nodes", "edges"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "nodes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "variant", "default", "parameter_names"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "variant": {
+            "type": "object", "propertyNames": {"minLength": 1},
+            "additionalProperties": {"type": "string", "minLength": 1}
+          },
+          "default": {"type": "boolean"},
+          "parameter_names": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source", "target", "witness", "turing", "parameters", "parameter_contract_error"],
+        "properties": {
+          "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "witness": {"type": "boolean"},
+          "turing": {"type": "boolean"},
+          "parameter_contract_error": {"type": ["string", "null"], "minLength": 1},
+          "parameters": {"type": "array", "items": {"$ref": "#/$defs/Parameter"}}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Parameter": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["field", "contract", "formula", "reason"],
+          "properties": {
+            "field": {"type": "string", "minLength": 1},
+            "contract": {"type": "string", "enum": ["exact", "upper_bound"]},
+            "formula": {"type": "string", "minLength": 1},
+            "reason": {"type": "null"}
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["field", "contract", "formula", "reason"],
+          "properties": {
+            "field": {"type": "string", "minLength": 1},
+            "contract": {"type": "string", "const": "unavailable"},
+            "formula": {"type": "null"},
+            "reason": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    }
+  }
+}

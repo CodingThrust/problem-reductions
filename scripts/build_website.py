@@ -262,12 +262,13 @@ def build(output, graph_path, schemas_path, open_questions=None):
     scene = {"schema_version": 1, "layout": layout, "aliases": graph["aliases"],
              "edges": summary["edges"],
              "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
-    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'graph-scene'],
-                   input=json.dumps(scene), text=True, check=True)
-    engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
+    engine = {"schema_version": 1,
+              "nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
               "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
                         for edge in edges]}
     for name, data in (("graph-scene", scene), ("path-graph", engine)):
+        subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), name],
+                       input=json.dumps(data), text=True, check=True)
         # Portable compression also works on static preview servers without Content-Encoding.
         (output / f"assets/{name}.json.gz").write_bytes(gzip.compress(
             json.dumps(data, separators=(",", ":")).encode(), mtime=0))

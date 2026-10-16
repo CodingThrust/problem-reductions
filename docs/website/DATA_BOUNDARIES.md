@@ -3,7 +3,7 @@
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory and migration checklist, not a claim that contracts are implemented.
 Generated production artifacts are fingerprinted by `check_website.py`. Scene and
-documentation-index and WASM path/comparison-result contracts passed local production checks;
+documentation-index, path-metadata and WASM path/comparison-result contracts passed local production checks;
 other rows remain open.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
@@ -11,7 +11,7 @@ other rows remain open.
 | Native graph and schema exports (`examples/export_graph.rs`, `examples/export_schemas.rs`) | `scripts/build_website.py`: `json.loads` | Node presence and endpoint bounds checked; Python dictionaries have no shared schema | Validate export shape before indexing it; retain endpoint checks and validate the derived artifacts below |
 | `home-data.js`, emitted by Python as `window.REDUCTIONS` | `assets/site.js` | Executable object assignment; no runtime shape check | Validate the initial object as unknown before catalog access; validate producer output too; type generation alone cannot protect an embedded object |
 | `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.js` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates and remaining rows stay open |
-| `path-graph.json.gz`, emitted by Python | `assets/path-worker.js`: decompress, `JSON.parse` | HTTP status check; later Rust deserialization and endpoint validation | Validate the worker's parsed unknown before caching/using it; parameter contracts and formulas remain exact strings; retain Rust's validation |
+| `path-graph.json.gz`, emitted by Python | `assets/path-worker.js`: decompress, parse unknown, call strict `path-graph-data.mts` | Version-1 schema and generated guard/types; same producer/consumer validation; safe indices, unique variants/defaults/edges, coordinate and target-field checks | Local malformed-input, real-browser rejection/retry and all-engine production/nested checks passed; preserve exact formula strings, tagged nullable fields and explicit native contract errors; request/envelope and returned-route reference checks remain open |
 | Per-family `problem-data/*.json`, emitted by `build_problem_records` | `assets/site.js`: `response.json()` | HTTP check; producer test covers incident endpoints and reindexing | Schema for nodes/edges/schemas plus endpoint-reference checks; distinguish absent optional metadata from null |
 | `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.ts`: parsed unknown, validated before caching; shared by graph and Atlas | Versioned schema, generated guard/types, producer validation; URLs confined to the current release's article subtree; anchor targets checked | Local malformed-input and all-engine rejection/retry, production and nested-path checks passed; preserve bounded cache, HTML safety guard and CSP; CI/manual gates remain open |
 | Main thread → worker `{source,target,limit,paths?}` | `path-worker.js`: `onmessage` | Untyped structured clone; WASM later validates a constructed request | Validate incoming unknown against a request union, version, safe index/limit bounds and optional cached route shape |
@@ -51,7 +51,7 @@ other rows remain open.
   types/runtime validators, alongside Python-owned artifact schemas. Confirm the
   actual Serde union/optional-field representations in one complete migration
   before extending the migration. Ajv standalone guards and generated TS types now
-  cover the two Python-owned contracts and both Rust response contracts. Request
+  cover the three Python-owned contracts and both Rust response contracts. Request
   schemas, worker envelopes and remaining payloads are still open. The legacy path
   benchmark's default entry discovery also needs repair for the current Vite output;
   only its direct sample mode is currently verified.

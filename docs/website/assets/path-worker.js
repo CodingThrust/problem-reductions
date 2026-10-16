@@ -1,14 +1,18 @@
 import init, { find_paths, summarize_paths } from "./path-selection.js";
 import { parseWasmPathResult } from './wasm-paths-data.mts';
 import { parseWasmComparison } from './wasm-comparison-data.mts';
+import { validatePathGraphData } from './path-graph-data.mts';
 
 performance.mark("engine:script");
 const graph = fetch(new URL('./path-graph.json.gz', import.meta.url)).then(async (response) => {
   if (!response.ok) throw new Error(`Cannot load path metadata (${response.status})`);
   const text = await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
   performance.mark("engine:metadata-decoded");
-  const result = JSON.parse(text);
+  /** @type {unknown} */
+  const value = JSON.parse(text);
   performance.mark("engine:metadata-parsed");
+  const result = validatePathGraphData(value);
+  performance.mark("engine:metadata-validated");
   return result;
 });
 let engine;

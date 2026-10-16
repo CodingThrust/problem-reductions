@@ -1,11 +1,12 @@
 """Trace accounting and a cold navigation through the real mathematical engine."""
 
 import os
+import copy
 import unittest
 
 from playwright.sync_api import sync_playwright
 
-from benchmark_graph_startup import sample, trace_cpu
+from benchmark_graph_startup import sample, summarize, trace_cpu
 
 
 class StartupTraceTests(unittest.TestCase):
@@ -42,6 +43,20 @@ class ColdNavigationTests(unittest.TestCase):
         self.assertTrue(row["verification"]["warm_query_route"].startswith("Maximum Independent Set → "))
         self.assertTrue(row["verification"]["warm_query_route"].endswith("QUBO"))
         self.assertGreater(row["warm_query"]["route_dom_ms"], 0)
+        validation = summarize([row])["worker_metadata_validation_ms"]
+        marks = {mark['name']: mark['start'] for mark in row['workers'][0]['marks']}
+        self.assertIn('engine:metadata-validated', marks)
+        self.assertEqual(validation['samples'], 1)
+        self.assertGreaterEqual(validation['median'], 0)
+        self.assertLessEqual(marks['engine:metadata-parsed'], marks['engine:metadata-validated'])
+        self.assertLessEqual(marks['engine:metadata-validated'],
+                             min(mark['start'] for mark in row['workers'][0]['marks'] if mark['name'] == 'engine:paths-start'))
+        missing = copy.deepcopy(row)
+        missing['workers'][0]['marks'] = [mark for mark in missing['workers'][0]['marks']
+                                          if mark['name'] != 'engine:metadata-validated']
+        unavailable = summarize([missing])["worker_metadata_validation_ms"]
+        self.assertEqual(unavailable['unavailable'], 1)
+        self.assertIsNone(unavailable['median'])
 
 
 if __name__ == "__main__":

@@ -119,8 +119,23 @@ The worker calls strict `wasm-paths-data.mts`: parse unknown, validate shape/ver
 check step counts and chain continuity, then use the result. Variant maps compare
 semantically without reordering routes. A real-worker test first demonstrated an
 invalid endpoint reaching the main thread; it now receives an actionable error
-before routes are posted. Metadata, requests, cached routes and worker envelopes
+before routes are posted. Requests, cached routes and worker envelopes
 still need their own contracts.
+
+`path-graph.schema.json` (version 1) now covers the Python-produced worker metadata.
+The producer and strict `path-graph-data.mts` consumer share shape and cross-field
+checks. The worker parses unknown, validates once, then retains the typed graph.
+Checks reject unsafe/dangling indices, duplicate variants independent of key order,
+ambiguous defaults or edges, repeated parameter coordinates, and duplicate/unknown
+or missing target fields. Parameter tags require exact/upper-bound formulas with
+null reasons, or unavailable fields with null formulas and nonempty reasons.
+Explicit native contract errors may retain an empty parameter list so route discovery
+and later native error reporting remain available. Exact formula strings are preserved;
+Rust still parses expressions and validates the mathematics. Metadata rejection now
+precedes the existing path-response guard. A real-browser negative test first showed
+duplicate coordinates being accepted, then verified rejection and successful retry
+after repairing the actual resource. The strict helper's coverage was 100% of lines
+and 96.7% of branches. Worker typing and incoming/outgoing message contracts remain open.
 
 `compare_paths` and `summarize_paths` now serialize typed Rust wire responses with
 the existing comparison version 5. Schemars derives `wasm-comparison.schema.json`;
@@ -162,40 +177,45 @@ typed source reaches lint's control-flow rules. The unknown-
 category browser test failed on the preceding artifact, then passed before any SVG
 was rendered on rejection. The invalid-index browser case also failed on the prior
 artifact and now confirms rejection and successful retry after repairing the real
-HTTP resource. Latest required-board verification passed 79 root cases, twelve
+HTTP resource. Latest required-board verification passed 79 root cases, thirteen
 failure and data-contract cases, and seven nested workflows per engine, with the
 documented multi-touch skips.
 All fourteen screenshots matched; no raw TS/declarations were published.
 
-The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
-After the Rust path-result contract, ten isolated untraced cold runs measured 76,992
-decoded startup JS bytes (+10,449 for the worker validator). WASM was 805,798 raw /
-277,440 gzip bytes, down 868/120 bytes after typed response serialization. Five
-before/after route queries and a wide rational-bound fixture agreed semantically
-on ordered routes, variants, profiles, certificates, verdicts and optional fields;
-the path response's added version is the declared difference. Graph/route readiness
-proxies were 52.5/73.45 ms median and 57.3/79.3 ms sampled p95. Startup
-fill-to-suggestion round trips were 29.9/38.5 ms; all ten inputs preceded comparison
-completion. A separate ten-process first lazy-index batch measured validation at
-1.6/1.7 ms median/sampled p95. These are informational observations, not speedup,
-tail-stability or non-regression certificates. Evidence is stored externally under
-the retained batch's `scene-contract/`, `details-contract/`, `typed-scene/` and
-`wide-growth/`, with the latest response evidence in `wasm-path-contract/`.
-The worker paths-start/end interval was 4.35/4.8 ms median/sampled p95; it includes
-request serialization, native search/output serialization, parsing and validation.
+Earlier isolated pilots measured scene validation at 0.75/0.90 ms and first lazy-index
+validation at 1.6/1.7 ms median/sampled p95. A ten-process-per-API Node batch on 100
+genuine routes measured comparison parsing plus validation at 12.03/14.59 ms full
+and 8.91/9.37 ms summary. These are informational costs, not stable-tail estimates.
+Earlier evidence is retained under `scene-contract/`, `details-contract/`,
+`typed-scene/`, `wide-growth/`, `wasm-path-contract/` and `wasm-comparison-contract/`.
 
-After the comparison contract, ten fresh untraced cold runs measured 110,215 decoded
-startup JS bytes (+33,223). WASM fell to 776,965 raw / 267,409 gzip bytes
-(-28,833/-10,031). Graph/routes readiness was 52.35/74.55 ms median and 61.4/87.8 ms
-sampled p95. Full readiness was 641.75/664.9 ms; fill-to-suggestion was 32.55/40.9 ms,
-with all ten inputs preceding comparison completion. The combined worker comparison
-interval rose from 69.3/72.7 to 75.1/87.5 ms. This includes request serialization,
-native computation/output serialization, JSON parsing and validation; it does not
-isolate validator cost. A separate ten-process-per-API Node batch on 100 genuine
-routes measured parsing plus validation at 12.03/14.59 ms full and 8.91/9.37 ms summary.
-These measurements remain informational; the observed increase is not waived as a
-statistical non-regression. All fourteen screenshots matched exactly. Evidence is
-retained externally in `wasm-comparison-contract/`.
+After metadata validation, decoded startup JS is 131,276 bytes (+21,061 over the
+comparison-contract slice). WASM remains byte-identical at 776,965 raw / 267,409 gzip
+bytes. Before/after metadata nodes/edges, route ordering, variants, profiles, exact
+certificates, verdicts and optional fields agreed semantically; metadata version 1
+is the declared addition. All fourteen screenshots matched exactly.
+
+The first ten-run cold batch measured metadata validation at 2.7/3.2 ms and showed
+variable graph/route readiness at 63.95/133.1 and 87.4/164.6 ms. A separate control
+alternated ten old/new fresh-browser pairs in AB/BA order without concurrent builds,
+tests or captures. Median/sampled-p95 observations were:
+
+| Metric | Before metadata guard | After metadata guard |
+| --- | ---: | ---: |
+| Graph readiness proxy | 61.05 / 138.2 ms | 60.95 / 65.5 ms |
+| Route readiness proxy | 78.35 / 167.9 ms | 84.2 / 112.3 ms |
+| Full readiness proxy | 656.9 / 746.8 ms | 667.2 / 694.1 ms |
+| Fill-to-suggestion round trip | 41.6 / 57.5 ms | 41.0 / 46.5 ms |
+| Metadata validation after JSON parsing | unavailable | 3.05 / 3.6 ms |
+
+The control did not reproduce the graph-readiness median difference, but route/full
+readiness medians rose 5.85/10.3 ms. These costs are recorded, not waived as statistical
+non-regression. All twenty control inputs preceded comparison completion. Keep the
+first batch and paired control separate; ten observations still make nearest-rank
+p95 the maximum. Raw samples include variation and instrumentation support. The
+startup report now distinguishes metadata JSON parsing from schema/reference
+validation and reports missing validation marks as unavailable. Evidence is retained
+externally in `path-metadata-contract/`; timing gates and the earlier hitch stay open.
 
 The path benchmark's sample mode now validates full/summary results and reports
 `parse_validate_ms` rather than calling the combined interval `parse_ms`. Its legacy
@@ -225,6 +245,9 @@ Roll back comparison wire structs, schema/generated guards, parser and worker/to
 callers together to the prior complete release, retaining the independent path,
 scene and documentation contracts. Revert the exporter/fixture changes with that
 slice so generation and drift checks stay aligned.
+Roll back metadata schema/version, generated code, worker/producer validation and
+their tests together to the prior complete release. Restore the previous metadata
+measurement scope at the same time, retaining the independent response contracts.
 
 ## Open Question Board and CI
 
