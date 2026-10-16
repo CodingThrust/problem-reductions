@@ -297,6 +297,22 @@ document.addEventListener("keydown", (e) => {
 const variantKey = (variant) => Object.entries(variant).sort().map(([k, v]) => k + "=" + v).join(",");
 const detailId = (endpoint) => endpoint.name + "/" + variantKey(endpoint.variant);
 let drawerOpener = null;
+const drawerBackground = new Map();
+function syncDrawerModal() {
+  const drawer = $("#details-drawer"), modal = phone.matches && !drawer.hidden;
+  if (modal) {
+    drawer.setAttribute("aria-modal", "true");
+    for (const node of document.body.children) {
+      if (!(node instanceof HTMLElement) || node === drawer || drawerBackground.has(node)) continue;
+      drawerBackground.set(node, node.inert); node.inert = true;
+    }
+    if (!drawer.contains(document.activeElement)) $("#close-details").focus({preventScroll: true});
+  } else {
+    drawer.removeAttribute("aria-modal");
+    for (const [node, inert] of drawerBackground) node.inert = inert;
+    drawerBackground.clear();
+  }
+}
 function showDetails(title, key, parentKey) {
   if (state.result) state.picked = true;
   const drawer = $("#details-drawer"), body = $("#drawer-body"), atlas = $("#drawer-atlas");
@@ -308,7 +324,6 @@ function showDetails(title, key, parentKey) {
     const r = freeRect(), b = routeEls(state.selected).renderedBoundingBox({ includeLabels: false });
     if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
   }
-  if (phone.matches) drawer.setAttribute("aria-modal", "true"); else drawer.removeAttribute("aria-modal");
   $("#details-title").textContent = title; body.scrollTop = 0;
   const endpoint = (value) => value.split("/").map(encodeURIComponent);
   if (key.startsWith("problem:")) {
@@ -324,7 +339,7 @@ function showDetails(title, key, parentKey) {
     if (index == null || index < 0) return;
     showProblem(D.nodes[index]); pulseAndFrame(name);
   });
-  $("#close-details").focus({preventScroll: true}); scheduleLabels(); placePop();
+  $("#close-details").focus({preventScroll: true}); syncDrawerModal(); scheduleLabels(); placePop();
 }
 function showProblem(endpoint) {
   showDetails(display(endpoint.name), "problem:" + detailId(endpoint), "problem:" + endpoint.name);
@@ -336,6 +351,7 @@ function showRule(step) {
 function closeDetails() {
   if ($("#details-drawer").hidden) return;
   $("#details-drawer").hidden = true; $(".dock").hidden = false;
+  syncDrawerModal();
   if (drawerOpener?.isConnected) drawerOpener.focus({preventScroll: true});
   scheduleLabels();
 }
@@ -349,10 +365,7 @@ cy.on("tap", "edge.route", (e) => {
     s.from.name === e.target.source().id() && s.to.name === e.target.target().id());
   if (step) showRule(step);
 });
-phone.addEventListener("change", () => {
-  if (phone.matches && !$("#details-drawer").hidden) $("#details-drawer").setAttribute("aria-modal", "true");
-  else $("#details-drawer").removeAttribute("aria-modal");
-});
+phone.addEventListener("change", syncDrawerModal);
 $("#details-drawer").addEventListener("keydown", (e) => {
   if (!phone.matches || e.key !== "Tab") return;
   const items = [...$("#details-drawer").querySelectorAll('a[href], button, summary, [tabindex="0"]')].filter((n) => n.getClientRects().length);

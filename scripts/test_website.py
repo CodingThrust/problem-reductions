@@ -721,6 +721,48 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('article.typst-detail')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
 
+    def test_graph_mobile_drawer_isolates_background_and_restores_focus(self):
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        opener = self.page.locator('.steps button').first
+        opener.focus()
+        opener.press('Enter')
+        expect(self.page.locator('#details-drawer')).to_have_attribute('aria-modal', 'true', timeout=500)
+        close = self.page.get_by_role('button', name='Close details', exact=True)
+        expect(close).to_be_focused(timeout=500)
+        self.page.locator('#source').evaluate('(input) => input.focus()')
+        expect(close).to_be_focused(timeout=500)
+        for _ in range(40):
+            self.page.keyboard.press('Tab')
+            self.assertTrue(self.page.evaluate("document.activeElement.closest('#details-drawer') !== null"))
+            if close.evaluate('(button) => button === document.activeElement'):
+                break
+        else:
+            self.fail('Tab did not cycle back to the close control')
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#details-drawer')).to_be_hidden()
+        expect(opener).to_be_focused(timeout=500)
+        self.page.locator('#source').focus()
+        expect(self.page.locator('#source')).to_be_focused(timeout=500)
+
+    def test_graph_drawer_changes_modal_behavior_when_resized(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('.steps .name').first.click()
+        self.assertIsNone(self.page.locator('#details-drawer').get_attribute('aria-modal'))
+        self.page.locator('#source').focus()
+        expect(self.page.locator('#source')).to_be_focused(timeout=500)
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        expect(self.page.locator('#details-drawer')).to_have_attribute('aria-modal', 'true', timeout=500)
+        expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+        self.page.locator('#source').evaluate('(input) => input.focus()')
+        expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+        self.page.set_viewport_size({'width': 1440, 'height': 1000})
+        expect(self.page.locator('#details-drawer')).not_to_have_attribute('aria-modal', 'true', timeout=500)
+        self.page.locator('#source').focus()
+        expect(self.page.locator('#source')).to_be_focused(timeout=500)
+
     def test_graph_mobile_drawer_has_no_horizontal_scroll(self):
         self.page.set_viewport_size({'width':390, 'height':844})
         self.page.goto(self.base + 'graph.html')

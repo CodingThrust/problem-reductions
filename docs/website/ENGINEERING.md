@@ -187,6 +187,27 @@ before claiming CI reproducibility or adopting cross-runner performance gates.
 Verification-only provenance labels the current checkout as the verifier source;
 it does not claim to identify the build source of an externally supplied artifact.
 
+## Accessibility implementation progress
+
+The first drawer fix makes background content inert while the mobile modal is
+open, moves focus inside when resizing from desktop to mobile, and restores prior
+background inert states when closing or returning to desktop. Desktop details
+remain nonmodal. Tests exercise Tab containment, blocked background focus, Escape
+return from route details, and both responsive transitions. The same two behavior
+tests passed with real Chromium 145.0.7632.6, Firefox 146.0.1 and WebKit 26.0 on the
+prepared SVG artifact, and with the previous Cytoscape runtime in Chromium.
+
+A fresh required-board artifact passed all 52 browser workflows and capture/build
+checks after this fix. Its fourteen reference image hashes exactly match the
+initial capture. No CSS or appearance change was needed. Rollback this isolated
+focus fix to restore the previous behavior, with its known modal-isolation defect;
+retain the failing regression tests as evidence until the fix is restored.
+
+Stage 1 remains incomplete: popover keyboard focus/return, disconnected-node access,
+drag alternatives, automated accessibility scans and the required manual/device
+checks still need implementation or verification. The sporadic long-frame defect
+remains under investigation; the trace pilot is not a claim that it was fixed.
+
 Rollback: revert the isolated verification changes and use the existing
 build/preview commands. No application assets or mathematical code change
 as part of this increment.
