@@ -672,25 +672,6 @@ class WebsiteTests(unittest.TestCase):
         self.assertAlmostEqual(dragged['y'] - zoomed['y'], 40, delta=1)
         self.assertEqual(self.copy_route(), route)
 
-    def test_graph_pan_buttons_move_view_without_changing_route(self):
-        self.page.goto(self.base + 'graph.html')
-        route = self.copy_route()
-        world = self.page.locator('svg.graph-scene > g')
-        matrix = lambda: world.evaluate('e => {const m=e.getCTM(); return {z:m.a,x:m.e,y:m.f}}')
-        node = self.page.locator('.scene-node[data-node="Satisfiability"]')
-        position = node.get_attribute('transform')
-        for direction, dx, dy in [('left', -80, 0), ('up', 0, -80), ('right', 80, 0), ('down', 0, 80)]:
-            before = matrix()
-            button = self.page.get_by_role('button', name=f'Pan graph {direction}', exact=True)
-            expect(button).to_be_visible(timeout=500)
-            button.click()
-            after = matrix()
-            self.assertAlmostEqual(after['x'] - before['x'], dx, delta=1)
-            self.assertAlmostEqual(after['y'] - before['y'], dy, delta=1)
-            self.assertEqual(after['z'], before['z'])
-            self.assertEqual(node.get_attribute('transform'), position)
-        self.assertEqual(self.copy_route(), route)
-
     def test_graph_move_buttons_reposition_node_and_connected_edge(self):
         self.page.goto(self.base + 'graph.html')
         route = self.copy_route()
@@ -741,9 +722,7 @@ class WebsiteTests(unittest.TestCase):
         self.assertAlmostEqual(zoom() / before, 1.3, delta=.02)
         controls.get_by_role('button', name='Zoom out', exact=True).tap()
         self.assertAlmostEqual(zoom(), before, delta=.001)
-        before_pan = world.evaluate('e=>e.getCTM().e')
-        controls.get_by_role('button', name='Pan graph left', exact=True).tap()
-        self.assertAlmostEqual(world.evaluate('e=>e.getCTM().e') - before_pan, -80, delta=1)
+        controls.get_by_role('button', name='Zoom in', exact=True).tap()
         panned = world.get_attribute('transform')
         controls.get_by_role('button', name='Show whole graph', exact=True).tap()
         self.assertNotEqual(world.get_attribute('transform'), panned)

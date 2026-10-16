@@ -639,9 +639,6 @@ const zoomBy = (k: number) => { const r = freeRect(); scene.stop(); scene.zoomAt
 $("#zoom-in").onclick = () => zoomBy(1.3);
 $("#zoom-out").onclick = () => zoomBy(1 / 1.3);
 $("#fit").onclick = () => frame(scene.elements, 1);
-for (const [name, , dx, dy] of directions) $("#pan-" + name).onclick = () => {
-  scene.stop(); scene.setViewport(scene.zoom, {x: scene.pan.x + dx * 80, y: scene.pan.y + dy * 80});
-};
 addEventListener("resize", () => { scheduleLabels(); placePop(); });
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--header-height", $(".site-header").getBoundingClientRect().height + "px");
