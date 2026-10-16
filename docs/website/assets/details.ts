@@ -92,7 +92,7 @@ export async function renderDetails(detail: HTMLElement, title: string, variant:
     const focus = target.matches('sup') ? target.querySelector('a[href]') : target;
     if (focus instanceof HTMLElement || focus instanceof SVGElement) {
       if (!focus.matches('a[href], button, input, select, textarea, summary, [tabindex]')) focus.tabIndex = -1;
-      focus.focus({preventScroll: true});
+      focus.focus({ preventScroll: true });
     }
     target.scrollIntoView({ block: "nearest" });
   };
