@@ -172,11 +172,13 @@ def sample_browser(browser, url, cpu, trace_path):
     assert 'best route' in page.locator('#results').inner_text()
     row = page.evaluate('''() => ({...startup, timeOrigin:performance.timeOrigin,
        marks:performance.getEntriesByType('mark').map(e=>({name:e.name,start:e.startTime})),
+       measures:performance.getEntriesByType('measure').map(e=>({name:e.name,duration:e.duration})),
        resources:performance.getEntriesByType('resource').map(e=>e.toJSON()),
        navigation:performance.getEntriesByType('navigation')[0].toJSON(),
        paint:performance.getEntriesByType('paint').map(e=>e.toJSON())})''')
     row['workers'] = [worker.evaluate('''() => ({timeOrigin:performance.timeOrigin,
        marks:performance.getEntriesByType('mark').map(e=>({name:e.name,start:e.startTime})),
+       measures:performance.getEntriesByType('measure').map(e=>({name:e.name,duration:e.duration})),
        resources:performance.getEntriesByType('resource').map(e=>e.toJSON())})''') for worker in page.workers]
     row['wasm_memory_bytes'] = page.workers[0].evaluate('''async () => {
         const api = await import(new URL('./path-selection.js', location.href));
@@ -293,6 +295,12 @@ def summarize(rows):
                                               if 'engine:metadata-decoded' in w else None),
             'worker_metadata_validation_ms': (w['engine:metadata-validated'] - w['engine:metadata-parsed']
                                                if 'engine:metadata-validated' in w and 'engine:metadata-parsed' in w else None),
+            'worker_request_validation_ms': next((m['duration'] for m in worker.get('measures', [])
+                                                   if m['name'] == 'engine:request-validation'), None),
+            'path_message_validation_ms': next((m['duration'] for m in row.get('measures', [])
+                                                if m['name'] == 'graph:paths-validation'), None),
+            'comparison_message_validation_ms': next((m['duration'] for m in row.get('measures', [])
+                                                      if m['name'] == 'graph:comparison-validation'), None),
             'engine_ready_ms': offset + w['engine:initialized'],
             'total_blocking_ms': sum(max(0, min(t['duration'], ready-t['start'])-50)
                                      for t in row['longTasks'] if t['start'] < ready)
@@ -362,6 +370,7 @@ def main():
                        'warm_query': 'input/keydown handler observation to suggestion/comparison DOM readiness; excludes presentation and OS input delay',
                        'memory': '50 ms polling: sampled peak Chromium RSS sum (may double count shared pages), sampled main-page JS heap, final WASM linear capacity; excludes unsampled peaks',
                        'metadata_validation': 'worker schema and cross-field validation interval after JSON parsing; missing marks are unavailable, not zero',
+                       'message_validation': 'first request in worker and first paths/comparison replies on main thread; schema/reference checks only, missing measures unavailable',
                        'trace': 'union of matching slices per thread up to readiness; missing categories unavailable; not per-frame render cost'}}
         (args.output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
         print(json.dumps(results['summary'], indent=2))

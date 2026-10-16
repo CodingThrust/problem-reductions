@@ -1,6 +1,6 @@
 import tsParser from '@typescript-eslint/parser';
 
-export default [{
+export default [{ ignores: ['docs/website/assets/path-selection.d.ts'] }, {
   files: ['docs/website/assets/**/*.{js,mjs,ts,mts}', 'scripts/build_frontend.mjs'],
   rules: {
     'constructor-super': 'error',

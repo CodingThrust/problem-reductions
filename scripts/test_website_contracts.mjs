@@ -4,18 +4,19 @@ import { spawnSync } from 'node:child_process';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
 import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
-import { parseWasmComparison } from '../docs/website/assets/wasm-comparison-data.mts';
+import { parseWasmComparison, validateComparisonParameters } from '../docs/website/assets/wasm-comparison-data.mts';
 import { validatePathGraphData } from '../docs/website/assets/path-graph-data.mts';
+import { validatePathRequest, validatePathReply } from '../docs/website/assets/path-worker-data.mts';
 
 function scene() {
   return {
-    schema_version: 1,
+    schema_version: 2,
     nodes: [
       { name: 'Alpha', category: 'graph', variant: { weight: 'One' }, default: true },
       { name: 'Alpha', category: 'graph', variant: { weight: 'i64' }, default: false },
       { name: 'Beta', category: 'misc', variant: {}, default: true },
     ],
-    edges: [{ source: 1, target: 2 }, { source: 0, target: 2 }],
+    edges: [{ source: 1, target: 2, witness: true, turing: false }, { source: 0, target: 2, witness: false, turing: true }],
     aliases: { Alpha: ['ALPHA'], Beta: [] },
     layout: { Alpha: { x: -0.5, y: 2 }, Beta: { x: 3.25, y: -1 } },
   };
@@ -29,7 +30,9 @@ test('scene validation preserves variants, edge ordering and fractional layout',
 test('scene validation rejects malformed shapes, versions and unsafe indices', () => {
   for (const mutate of [
     value => { delete value.schema_version; },
-    value => { value.schema_version = 2; },
+    value => { value.schema_version = 1; },
+    value => { delete value.edges[0].witness; },
+    value => { value.edges[0].turing = null; },
     value => { value.nodes[0].category = 'unknown'; },
     value => { value.nodes[0].default = 'true'; },
     value => { value.layout.Alpha.x = Infinity; },
@@ -283,6 +286,110 @@ test('the metadata producer accepts a valid graph and rejects a missing target c
   assert.notEqual(run(value).status, 0);
 });
 
+function protocolGraph() {
+  const graph = pathGraph();
+  graph.nodes.push({ name: 'Middle', variant: {}, default: true, parameter_names: ['size'] });
+  graph.edges.push({ ...structuredClone(graph.edges[0]), target: 2 },
+    { ...structuredClone(graph.edges[0]), source: 2, parameters: [{ field: 'size', contract: 'exact', formula: 'size', reason: null }] });
+  return graph;
+}
+function protocolPaths() {
+  const graph = protocolGraph();
+  const endpoint = i => ({ name: graph.nodes[i].name, variant: graph.nodes[i].variant });
+  return { schema_version: 1, truncated: false, paths: [[0, 1], [0, 2, 1]].map(indices => ({
+    steps: indices.length - 1, path: indices.slice(1).map((to, i) => ({ from: endpoint(indices[i]), to: endpoint(to) })),
+  })) };
+}
+function protocolRequest(cached = false) {
+  return { schema_version: 1, kind: cached ? 'compare' : 'search', source: 0, target: 1, limit: 2,
+    ...(cached ? { cached: protocolPaths() } : {}) };
+}
+
+test('worker request contracts preserve search and cached comparison inputs', () => {
+  for (const cached of [false, true]) {
+    const request = protocolRequest(cached);
+    assert.deepEqual(validatePathRequest(request, protocolGraph()), request);
+  }
+  const graph = protocolGraph();
+  graph.edges = graph.edges.map(({ source, target, witness, turing }) => ({ source, target, witness, turing }));
+  assert.deepEqual(validatePathRequest(protocolRequest(true), graph), protocolRequest(true));
+});
+
+test('worker requests reject unsupported versions, malformed unions and invalid limits', () => {
+  for (const mutate of [
+    value => { delete value.schema_version; }, value => { value.schema_version = 2; },
+    value => { value.kind = 'other'; }, value => { value.limit = 0; }, value => { value.limit = 1000; },
+    value => { value.limit = 1.5; }, value => { value.source = -1; }, value => { value.target = 3; },
+    value => { value.source = 9007199254740992; }, value => { value.cached = protocolPaths(); },
+    value => { value.kind = 'compare'; }, value => { value.extra = true; },
+  ]) {
+    const request = protocolRequest(); mutate(request);
+    assert.throws(() => validatePathRequest(request, protocolGraph()));
+  }
+  for (const value of [null, [], 'request']) assert.throws(() => validatePathRequest(value, protocolGraph()));
+});
+
+test('cached worker routes must match the query, limit and registered simple paths', () => {
+  for (const mutate of [
+    value => { value.cached = null; }, value => { value.cached.paths = []; },
+    value => { value.cached.paths[0].steps = 2; }, value => { value.cached.paths[0].path[0].from.name = 'Missing'; },
+    value => { value.cached.paths[0].path[0].to.variant = { weight: 'i64' }; },
+    value => { value.source = 2; }, value => { value.target = 2; }, value => { value.limit = 1; },
+    value => { value.cached.paths[1] = structuredClone(value.cached.paths[0]); },
+    value => { value.cached.paths.pop(); value.cached.truncated = true; },
+  ]) {
+    const request = protocolRequest(true); mutate(request);
+    assert.throws(() => validatePathRequest(request, protocolGraph()));
+  }
+  for (const mutate of [
+    graph => { graph.edges.shift(); }, graph => { graph.edges[0].witness = false; },
+    graph => { graph.edges[0].turing = true; },
+  ]) {
+    const graph = protocolGraph(); mutate(graph);
+    assert.throws(() => validatePathRequest(protocolRequest(true), graph));
+  }
+  const graph = protocolGraph(), request = protocolRequest(true);
+  graph.edges.push({ ...structuredClone(graph.edges[0]), source: 2, target: 0 });
+  const back = { from: request.cached.paths[1].path[0].to, to: request.cached.paths[0].path[0].from };
+  request.cached.paths[0] = { steps: 3, path: [request.cached.paths[1].path[0], back, request.cached.paths[0].path[0]] };
+  assert.throws(() => validatePathRequest(request, graph));
+});
+
+test('worker replies validate payloads and require paths before comparison', () => {
+  const graph = protocolGraph(), request = protocolRequest(), paths = protocolPaths();
+  const first = { schema_version: 1, phase: 'paths', result: paths };
+  assert.deepEqual(validatePathReply(first, graph, request), first);
+  const last = { schema_version: 1, phase: 'comparison', result: comparison() };
+  assert.deepEqual(validatePathReply(last, graph, request, paths), last);
+  for (const phase of ['paths', 'comparison']) {
+    const error = { schema_version: 1, phase, error: 'Cannot complete the query' };
+    assert.deepEqual(validatePathReply(error, graph, request, paths), error);
+  }
+  assert.throws(() => validatePathReply(last, graph, request));
+  assert.throws(() => validatePathReply(first, graph, request, paths));
+  assert.throws(() => validatePathReply(first, graph, protocolRequest(true), paths));
+  const empty = { schema_version: 1, truncated: false, paths: [] };
+  assert.throws(() => validatePathReply(last, graph, request, empty));
+  assert.deepEqual(validatePathReply({ ...first, result: empty }, graph, request), { ...first, result: empty });
+});
+
+test('worker replies reject malformed envelopes, results and inconsistent comparison counts', () => {
+  const graph = protocolGraph(), request = protocolRequest(), paths = protocolPaths();
+  for (const mutate of [
+    value => { value.schema_version = 2; }, value => { value.phase = 'ready'; }, value => { delete value.result; },
+    value => { value.error = 'Both results and errors are forbidden'; }, value => { value.result = null; },
+    value => { value.result.paths[0].steps = 0; }, value => { value.result.paths[0].path[0].to.name = 'Missing'; },
+  ]) {
+    const value = { schema_version: 1, phase: 'paths', result: structuredClone(paths) }; mutate(value);
+    assert.throws(() => validatePathReply(value, graph, request));
+  }
+  for (const value of [null, [], { schema_version: 1, phase: 'paths', error: '' },
+    { schema_version: 1, phase: 'comparison', result: { ...comparison(), profiles: [] } },
+    { schema_version: 1, phase: 'comparison', result: { ...comparison(), pairs: [] } }]) {
+    assert.throws(() => validatePathReply(value, graph, request, paths));
+  }
+});
+
 function comparison(full = false) {
   return { schema_version: 5, mode: 'generic',
     counts: { Dominated: 1, Equivalent: 0, Incomparable: 0, Unknown: 0 }, front: [2],
@@ -299,6 +406,23 @@ test('comparison validation preserves exact strings, profile ordering and option
     const result = parseWasmComparison(JSON.stringify(value), 2, full ? 'full' : 'summary');
     assert.deepEqual(result, value);
     assert.equal(Object.hasOwn(result, 'pairs'), full);
+  }
+});
+
+test('comparison results retain source coordinates and target fields from the selected registry variants', () => {
+  const value = comparison();
+  value.profiles[0].source_coordinates = ['n', 'm'];
+  const original = structuredClone(value);
+  validateComparisonParameters(value, ['m', 'n'], ['n']);
+  assert.deepEqual(value, original);
+  for (const mutate of [
+    value => { value.profiles[0].source_coordinates.pop(); },
+    value => { value.profiles[0].source_coordinates.push('unknown'); },
+    value => { delete value.profiles[0].fields.n; },
+    value => { value.profiles[0].fields.other = value.profiles[0].fields.n; },
+  ]) {
+    const invalid = comparison(); mutate(invalid);
+    assert.throws(() => validateComparisonParameters(invalid, ['m', 'n'], ['n']));
   }
 });
 

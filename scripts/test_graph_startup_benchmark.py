@@ -57,6 +57,17 @@ class ColdNavigationTests(unittest.TestCase):
         unavailable = summarize([missing])["worker_metadata_validation_ms"]
         self.assertEqual(unavailable['unavailable'], 1)
         self.assertIsNone(unavailable['median'])
+        measured = summarize([row])
+        for metric in ['worker_request_validation_ms', 'path_message_validation_ms', 'comparison_message_validation_ms']:
+            self.assertEqual(measured[metric]['samples'], 1)
+            self.assertGreaterEqual(measured[metric]['median'], 0)
+        missing = copy.deepcopy(row)
+        missing.pop('measures', None)
+        missing['workers'][0].pop('measures', None)
+        unsupported = summarize([missing])
+        for metric in ['worker_request_validation_ms', 'path_message_validation_ms', 'comparison_message_validation_ms']:
+            self.assertEqual(unsupported[metric]['unavailable'], 1)
+            self.assertIsNone(unsupported[metric]['median'])
 
 
 if __name__ == "__main__":

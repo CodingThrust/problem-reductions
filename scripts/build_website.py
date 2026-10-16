@@ -259,8 +259,8 @@ def build(output, graph_path, schemas_path, open_questions=None):
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
-    scene = {"schema_version": 1, "layout": layout, "aliases": graph["aliases"],
-             "edges": summary["edges"],
+    scene = {"schema_version": 2, "layout": layout, "aliases": graph["aliases"],
+             "edges": [{key: edge[key] for key in ("source", "target", "witness", "turing")} for edge in edges],
              "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
     engine = {"schema_version": 1,
               "nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
@@ -274,7 +274,7 @@ def build(output, graph_path, schemas_path, open_questions=None):
             json.dumps(data, separators=(",", ":")).encode(), mtime=0))
     subprocess.run(["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "problemreductions-web"],
                    cwd=ROOT, check=True)
-    subprocess.run(["wasm-bindgen", "--target", "web", "--no-typescript", "--out-name", "path-selection",
+    subprocess.run(["wasm-bindgen", "--target", "web", "--out-name", "path-selection",
                     "--out-dir", str(output / "assets"),
                     str(ROOT / "target/wasm32-unknown-unknown/release/problemreductions_web.wasm")], check=True)
     wasm = output / "assets/path-selection_bg.wasm"

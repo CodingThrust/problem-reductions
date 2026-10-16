@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "nodes", "edges", "aliases", "layout"],
   "properties": {
-    "schema_version": {"const": 1, "type": "integer"},
+    "schema_version": {"const": 2, "type": "integer"},
     "nodes": {
       "type": "array", "minItems": 1,
       "items": {
@@ -24,10 +24,12 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["source", "target"],
+        "required": ["source", "target", "witness", "turing"],
         "properties": {
           "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
-          "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+          "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "witness": {"type": "boolean"},
+          "turing": {"type": "boolean"}
         }
       }
     },

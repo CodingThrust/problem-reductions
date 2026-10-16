@@ -83,7 +83,7 @@ compatibility checks. Never combine old HTML/data with newly compiled modules.
 
 ## Runtime contracts and strict migration
 
-The first completed local slice uses `graph-scene.schema.json` (version 1) for
+The first completed local slice uses `graph-scene.schema.json` (version 2) for
 Python producer validation and browser validation. `graph-startup.ts` parses as
 `unknown`; the generated schema guard and `graph-scene-data.mts` reference checks
 run before scene construction. They reject unsafe indices, nonfinite coordinates,
@@ -98,7 +98,7 @@ Vite treats a literal directory URL relative to `import.meta.url` as a source as
 Lazy article loading, the 24-entry cache, eviction/retry, references, footnotes,
 generated-HTML safety validation, CSP and existing markup/styles are preserved.
 
-The existing SVG class is now `graph-scene.ts`, imported directly by `graph.js`.
+The existing SVG class is now `graph-scene.ts`, imported directly by `graph.ts`.
 Its actual node/edge inputs, callbacks, pointer gestures, keyboard traversal,
 camera operations and label measurements are strictly checked. Existing DOM/CSS
 ownership stays intact; there is no renderer abstraction or additional renderer.
@@ -228,8 +228,35 @@ exact witness coefficients; the trap cause has not been profiled. The reproducer
 is retained in `wide-growth/`. This existing extreme-input limitation remains open;
 the frontend precision fix preserves the mathematical engine unchanged.
 
-Other data boundaries, request wire structs, worker envelopes and
-remaining application files still need migration.
+`graph.ts` and `path-worker.ts` now migrate the complete controller and worker
+under the existing strict configuration. Worker requests/replies use version-1
+schemas; incoming structured clones are unknown until validated. Cached/returned
+routes must match the query and registered witness edges, with paths preceding
+comparison. Scene version 2 carries witness/Turing capabilities for that check.
+Comparison coordinates/fields must match the selected native registry variants.
+Internal typed requests rely on these established invariants instead of repeating
+runtime validation. The existing eight-entry cache, termination/retry behavior,
+DOM, CSS, renderer and Rust/WASM algorithms are preserved.
+
+The binding declaration `assets/path-selection.d.ts` comes from pinned
+wasm-bindgen; regenerate it when the exported Rust API changes. Vite emits only
+JavaScript, and generated declarations are removed from production assets.
+Existing contract/browser suites cover this migration; no new test files or
+frameworks were added. Request/reply validation measures distinguish measured
+cost from unavailable instrumentation. Run full acceptance at stage boundaries;
+do not repeat cold pilots or coverage runs for type-only edits.
+
+Local controller/worker acceptance passed the fresh production command above:
+strict checking, lint, contract drift, mathematical workflows and root/nested
+production plus recovery checks in Chromium, Firefox and WebKit. The two existing
+CDP-only multitouch skips remain explicit. CSS and WASM bytes are unchanged;
+manual accessibility and CI acceptance remain open. No new benchmark pilot was
+run for the type migration.
+
+Home/Atlas data boundaries, request wire structs and `site.js` still need migration.
+Rollback the worker protocol, scene capability version, validators, producer and
+both typed entry points together to the prior complete release; preserve the
+independent path/comparison schemas and Vite integration.
 Rollback this slice's schema, generated code, producer version/validation and loader
 entry together, restoring a complete prior release while retaining Vite. Revert the
 documentation-index schema, producer version/validation and shared consumer together

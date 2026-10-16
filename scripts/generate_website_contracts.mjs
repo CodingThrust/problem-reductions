@@ -9,7 +9,8 @@ import { build } from 'vite';
 const root = new URL('../', import.meta.url);
 const outputs = {};
 for (const [name, exportName] of [['graph-scene', 'validateGraphScene'], ['graph-details', 'validateGraphDetails'],
-  ['wasm-paths', 'validateWasmPaths'], ['wasm-comparison', 'validateWasmComparison'], ['path-graph', 'validatePathGraph']]) {
+  ['wasm-paths', 'validateWasmPaths'], ['wasm-comparison', 'validateWasmComparison'], ['path-graph', 'validatePathGraph'],
+  ['path-worker-request', 'validatePathRequestEnvelope'], ['path-worker-reply', 'validatePathReplyEnvelope']]) {
   const schema = JSON.parse(await readFile(new URL(`docs/website/${name}.schema.json`, root), 'utf8'));
   const ajv = new Ajv2020({ strict: true, code: { source: true } });
   ajv.addSchema(schema);

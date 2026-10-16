@@ -8,6 +8,10 @@ function sameEndpoint(left: Endpoint, right: Endpoint): boolean {
 
 export function parseWasmPathResult(text: string): WasmPathResult {
   const value: unknown = JSON.parse(text);
+  return validateWasmPathResultData(value);
+}
+
+export function validateWasmPathResultData(value: unknown): WasmPathResult {
   const error = () => new Error('Invalid path result contract. Reload the current release.');
   if (!validateWasmPaths(value)) throw error();
   if (value.truncated && !value.paths.length) throw error();

@@ -23,7 +23,7 @@ window.graphStartup = {
 };
 window.graphStartup.scene.catch(() => {});
 try {
-  const worker = window.graphStartup.worker = new Worker(new URL('./path-worker.js', import.meta.url), {type: 'module'});
+  const worker = window.graphStartup.worker = new Worker(new URL('./path-worker.ts', import.meta.url), {type: 'module'});
   performance.mark('graph:worker-started');
   worker.addEventListener('error', (event) => {
     event.preventDefault();

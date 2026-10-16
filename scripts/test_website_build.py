@@ -35,14 +35,17 @@ class WebsiteBuildTests(unittest.TestCase):
                          'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts',
                          'docs/website/wasm-comparison.schema.json', 'docs/website/assets/wasm-comparison.validator.mjs',
                          'docs/website/assets/wasm-comparison.validator.d.mts', 'docs/website/path-graph.schema.json',
-                         'docs/website/assets/path-graph.validator.mjs', 'docs/website/assets/path-graph.validator.d.mts']:
+                         'docs/website/assets/path-graph.validator.mjs', 'docs/website/assets/path-graph.validator.d.mts',
+                         'docs/website/path-worker-request.schema.json', 'docs/website/assets/path-worker-request.validator.mjs',
+                         'docs/website/assets/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
+                         'docs/website/assets/path-worker-reply.validator.mjs', 'docs/website/assets/path-worker-reply.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             schema_path = root / 'docs/website/graph-scene.schema.json'
             schema = json.loads(schema_path.read_text())
-            schema['properties']['schema_version']['const'] = 2
+            schema['properties']['schema_version']['const'] += 1
             schema_path.write_text(json.dumps(schema))
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)

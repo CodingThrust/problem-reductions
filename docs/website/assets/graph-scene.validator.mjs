@@ -24,7 +24,7 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 		],
 		properties: {
 			schema_version: {
-				const: 1,
+				const: 2,
 				type: "integer"
 			},
 			nodes: {
@@ -70,7 +70,12 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 				items: {
 					type: "object",
 					additionalProperties: !1,
-					required: ["source", "target"],
+					required: [
+						"source",
+						"target",
+						"witness",
+						"turing"
+					],
 					properties: {
 						source: {
 							type: "integer",
@@ -81,7 +86,9 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 							type: "integer",
 							minimum: 0,
 							maximum: 9007199254740991
-						}
+						},
+						witness: { type: "boolean" },
+						turing: { type: "boolean" }
 					}
 				}
 			},
@@ -137,11 +144,11 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 					params: { type: "integer" },
 					message: "must be integer"
 				}], !1;
-				if (n !== 1) return i.errors = [{
+				if (n !== 2) return i.errors = [{
 					instancePath: t + "/schema_version",
 					schemaPath: "#/properties/schema_version/const",
 					keyword: "const",
-					params: { allowedValue: 1 },
+					params: { allowedValue: 2 },
 					message: "must be equal to constant"
 				}], !1;
 				var u = !0;
@@ -286,14 +293,14 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 								let e = n[r];
 								if (e && typeof e == "object" && !Array.isArray(e)) {
 									let n;
-									if (e.source === void 0 && (n = "source") || e.target === void 0 && (n = "target")) return i.errors = [{
+									if (e.source === void 0 && (n = "source") || e.target === void 0 && (n = "target") || e.witness === void 0 && (n = "witness") || e.turing === void 0 && (n = "turing")) return i.errors = [{
 										instancePath: t + "/edges/" + r,
 										schemaPath: "#/properties/edges/items/required",
 										keyword: "required",
 										params: { missingProperty: n },
 										message: "must have required property '" + n + "'"
 									}], !1;
-									for (let n in e) if (n !== "source" && n !== "target") return i.errors = [{
+									for (let n in e) if (n !== "source" && n !== "target" && n !== "witness" && n !== "turing") return i.errors = [{
 										instancePath: t + "/edges/" + r,
 										schemaPath: "#/properties/edges/items/additionalProperties",
 										keyword: "additionalProperties",
@@ -367,6 +374,30 @@ var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e
 											}
 											var f = !0;
 										} else var f = !0;
+										if (f) {
+											if (e.witness !== void 0) {
+												if (typeof e.witness != "boolean") return i.errors = [{
+													instancePath: t + "/edges/" + r + "/witness",
+													schemaPath: "#/properties/edges/items/properties/witness/type",
+													keyword: "type",
+													params: { type: "boolean" },
+													message: "must be boolean"
+												}], !1;
+												var f = !0;
+											} else var f = !0;
+											if (f) {
+												if (e.turing !== void 0) {
+													if (typeof e.turing != "boolean") return i.errors = [{
+														instancePath: t + "/edges/" + r + "/turing",
+														schemaPath: "#/properties/edges/items/properties/turing/type",
+														keyword: "type",
+														params: { type: "boolean" },
+														message: "must be boolean"
+													}], !1;
+													var f = !0;
+												} else var f = !0;
+											}
+										}
 									}
 								} else return i.errors = [{
 									instancePath: t + "/edges/" + r,

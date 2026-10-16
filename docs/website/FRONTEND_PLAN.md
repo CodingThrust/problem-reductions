@@ -54,6 +54,22 @@ refactors. This is a sequential workflow, not parallel workstreams.
    independently reviewable on the user-selected branch; do not push feature work
    without explicit authorization.
 
+## Implementation and verification cadence
+
+Complete coherent modules within a stage before running its relevant existing
+suite. Reuse current behavior tests for migrations and refactors. Add a focused
+regression test only for meaningful new behavior, a confirmed defect, or an
+important invariant without existing coverage; do not expand test infrastructure
+or chase coverage percentages. Use targeted checks during implementation only to
+diagnose actual issues. Reserve the complete production suite for major milestones
+and final acceptance. Repeat benchmarks only for performance changes or a concrete
+performance concern, and keep evidence summaries concise.
+
+Validate untrusted inputs at entry, then trust documented internal invariants.
+Do not add redundant guards, hidden fallbacks, speculative abstractions, or
+intermediate compatibility layers. Migrate complete modules directly where that
+is simpler. Keep all existing mathematical, accessibility, and delivery gates.
+
 ## Starting observations and evidence limits (2026-10-16)
 
 - The current source has no bundler, TypeScript checking, or linting. Globals connect

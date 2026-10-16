@@ -1,7 +1,23 @@
 import { validateWasmComparison, type WasmComparisonResult } from './wasm-comparison.validator.mjs';
 
+export function validateComparisonParameters(value: WasmComparisonResult, source: readonly string[], target: readonly string[]): void {
+  const coordinates = new Set(source), fields = new Set(target);
+  for (const profile of value.profiles) {
+    const names = Object.keys(profile.fields);
+    if (new Set(profile.source_coordinates).size !== coordinates.size
+        || profile.source_coordinates.some(name => !coordinates.has(name))
+        || names.length !== fields.size || names.some(name => !fields.has(name))) {
+      throw new Error('Comparison parameters do not match the registered endpoints. Reload the current release.');
+    }
+  }
+}
+
 export function parseWasmComparison(text: string, pathCount: number, mode: 'full' | 'summary'): WasmComparisonResult {
   const value: unknown = JSON.parse(text);
+  return validateWasmComparisonData(value, pathCount, mode);
+}
+
+export function validateWasmComparisonData(value: unknown, pathCount: number, mode: 'full' | 'summary'): WasmComparisonResult {
   const error = () => new Error('Invalid comparison result contract. Reload the current release.');
   if (!Number.isSafeInteger(pathCount) || pathCount < 0 || !validateWasmComparison(value)) throw error();
   if (value.profiles.length !== pathCount) throw error();

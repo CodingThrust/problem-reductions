@@ -601,10 +601,12 @@ class WebsiteTests(unittest.TestCase):
             const NativeWorker = window.Worker;
             window.pathMessages = [];
             window.pathWorkerStarts = 0;
+            window.pathWorkers = [];
             window.Worker = class extends NativeWorker {
                 constructor(...args) {
                     super(...args);
                     window.pathWorkerStarts++;
+                    window.pathWorkers.push(this);
                 }
                 set onmessage(handler) {
                     super.onmessage = handler;
