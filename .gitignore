@@ -74,6 +74,7 @@ tarpaulin-report.html
 # Generated documents
 *.pdf
 docs/website/baselines/
+/docs/website/*preview.png
 
 # Reference packages (downloaded for comparison)
 pkgref/
@@ -91,7 +92,6 @@ claude-output.log
 !package.json
 !package-lock.json
 !tsconfig.json
-!docs/website/performance-results.json
 !docs/website/graph-scene.schema.json
 !docs/website/graph-details.schema.json
 !docs/website/wasm-paths.schema.json

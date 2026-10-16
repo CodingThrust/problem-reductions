@@ -50,8 +50,8 @@ experimental, so the build fails on export errors.
 
 Measured on 15–16 October 2026 on a 32 GiB Apple M6, Node 24.21 and Chromium 145
 (Playwright 1.58), using release WASM builds. The baseline already includes the
-previous website fixes. [Raw samples and regression fingerprints](performance-results.json)
-record the actual inputs, memory definitions and artifact hashes. Times below
+previous website fixes. Raw samples and regression fingerprints are retained outside Git
+and record the actual inputs, memory definitions and artifact hashes. Times below
 are medians of three fresh processes, excluding enumeration, WASM initialization,
 JavaScript parsing and file writes. The widest registered query's baseline has
 one sample. These development measurements are not device or CDN guarantees.
