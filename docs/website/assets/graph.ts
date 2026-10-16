@@ -574,7 +574,7 @@ function pathDetail(n: number) {
     catch { const t = el("textarea", "copy-text"); t.readOnly = true; t.value = json; copy.after(t); t.select(); }
   });
   d.append(ol);
-  if (dl.children.length) d.append(el("h3", "growth-title", "Size of the reduced problem"), dl);
+  if (dl.children.length) d.append(el("p", "growth-title", "Size of the reduced problem"), dl);
   d.append(copy);
   return d;
 }
