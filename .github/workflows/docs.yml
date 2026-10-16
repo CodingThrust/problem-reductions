@@ -94,13 +94,7 @@ jobs:
           python3 -m pip install playwright==1.58.0
           python3 -m playwright install --with-deps chromium
           npm audit --audit-level=moderate
-          npm run test:reduction-graph-js
-          python3 -m unittest discover -s scripts -p 'test_website_build.py'
-          python3 -m unittest discover -s scripts -p 'test_graph_interaction_benchmark.py'
-          python3 -m http.server 3001 --bind 127.0.0.1 --directory book &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          python3 scripts/test_website.py
+          python3 scripts/check_website.py --site book --require-open-questions
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

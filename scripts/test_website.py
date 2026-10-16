@@ -12,6 +12,14 @@ from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright, expect
 
 
+def require_open_questions(request, base, *, required):
+    response = request.get(urljoin(base, 'open-questions/registry.json'))
+    if response.status == 404 and not required:
+        raise unittest.SkipTest('Open Question Board absent; include its build with --open-questions')
+    if response.status != 200:
+        raise AssertionError(f'Open Question Board registry is required (HTTP {response.status})')
+
+
 class WebsiteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -63,6 +71,8 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('main .hero')).to_be_visible()
 
     def test_home_navigation_opens_question_board(self):
+        require_open_questions(self.page.request, self.base,
+                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
         self.visit()
         tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open questions', exact=True)
         tab.click()
@@ -313,15 +323,21 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('navigation', name='Documentation resources').get_by_role('link', name='Home ↗', exact=True).click()
         expect(self.page.locator('main .hero')).to_be_visible()
 
-    def test_legacy_documentation_urls_redirect(self):
+    def test_legacy_reduction_graph_url_redirects(self):
         self.page.goto(self.base + 'reduction-graph.html')
         self.page.wait_for_url(self.base + 'graph.html')
         expect(self.page.locator("#cy canvas").first).to_be_visible()
+
+    def test_legacy_question_board_url_redirects(self):
+        require_open_questions(self.page.request, self.base,
+                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
         self.page.goto(self.base + 'open-problems.html')
         self.page.wait_for_url(self.base + 'open-questions/')
         expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
 
     def test_legacy_open_questions_hash_opens_question_board(self):
+        require_open_questions(self.page.request, self.base,
+                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
         self.visit('open-questions')
         expect(self.page).to_have_url(self.base + 'open-questions/')
         expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()

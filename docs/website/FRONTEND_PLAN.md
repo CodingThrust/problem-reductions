@@ -2,6 +2,8 @@
 
 Status: revised scope accepted on 2026-10-16; engineering implementation starts with
 Stage 0. Existing working-tree preparation is not evidence that a stage has passed.
+See [engineering checks](ENGINEERING.md) for the fresh-artifact command and evidence
+limits. Stage 0 remains in progress until all of its acceptance criteria pass.
 
 The goal is a small research platform that is mathematically rigorous, fast,
 accessible, and maintainable. Keep the shared Rust/WASM mathematics and the static,
@@ -60,9 +62,11 @@ refactors. This is a sequential workflow, not parallel workstreams.
 - The earlier headless rAF p95 of about 26 ms is also present while idle and is not a
   renderer-cost result. A reported 68-82 ms first pan/drag hitch needs confirmation
   with the repaired harness before attribution or optimization.
-- The current interaction harness captures a node rectangle before earlier camera
-  changes, does not assert the intended drag occurred, and suppresses instrumentation
-  errors. Its measurements must not set budgets until Stage 0 repairs these gaps.
+- The earlier interaction harness captured a node rectangle before camera changes,
+  did not assert the intended drag occurred, and suppressed instrumentation errors.
+  The Stage 0 repair now asserts gesture effects, isolates first interactions and
+  reports observer support. Sub-50 ms render cost and stable timing gates remain
+  unverified; do not infer them from the repaired rAF/LoAF diagnostics.
 - WASM inputs are deserialized Rust structs; outputs use dynamic `json!` assembly.
   `find_paths`, `compare_paths`, and `summarize_paths` exchange JSON strings. Exported
   wasm-bindgen declarations describe those strings, not their payloads. Comparison
