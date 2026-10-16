@@ -340,7 +340,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "rectilinear_picture_compression",
-        // Each selected maximal rectangle covers one of the two disjoint 2x2 blocks.
         instance: Box::new(RectilinearPictureCompression::new(
             vec![
                 vec![true, true, false, false],

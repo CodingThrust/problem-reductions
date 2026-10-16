@@ -206,7 +206,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Selecting (0,1), (1,0), (3,4), and (4,3) dominates every 1-entry by row or column.
     let matrix = vec![
         vec![false, true, false, false, false, false],
         vec![true, false, true, false, false, false],

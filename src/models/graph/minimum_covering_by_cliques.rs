@@ -190,11 +190,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Optimal edge clique cover:
-    // edges 0,1,4 -> {0,1,2}
-    // edges 2,3   -> {0,2,3}
-    // edges 5,6   -> {0,1,4}
-    // edges 7,8   -> {2,3,5}
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_covering_by_cliques_simplegraph",
         instance: Box::new(MinimumCoveringByCliques::new(SimpleGraph::new(

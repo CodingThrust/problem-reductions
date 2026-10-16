@@ -393,7 +393,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // The selected edges trace the outer hexagon once, covering all required edges.
     let graph = SimpleGraph::new(
         6,
         vec![

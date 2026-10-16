@@ -396,8 +396,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // The tree has hub 3 and branches 3-0-1, 3-2, and 3-4, giving diameter 3.
-    // Its four unit-weight edges meet the weight bound.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bounded_diameter_spanning_tree_simplegraph",
         instance: Box::new(BoundedDiameterSpanningTree::new(
