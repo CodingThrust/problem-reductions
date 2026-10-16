@@ -48,6 +48,10 @@ refactors. This is a sequential workflow, not parallel workstreams.
    work. Do not claim unavailable browser, hardware, or manual checks have passed.
 7. No aesthetic redesign or visual exploration until phase one is complete, committed,
    verified, and handed off to Claude.
+8. Keep screenshots, traces, raw benchmark samples and generated run reports outside
+   Git, in local evidence storage or CI artifacts. Commit source, tests, contracts,
+   configuration and concise maintained documentation. Keep frontend work separate
+   from mathematical PRs; do not push feature work without explicit authorization.
 
 ## Starting observations and evidence limits (2026-10-16)
 

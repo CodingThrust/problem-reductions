@@ -1,8 +1,5 @@
 """Account for nested script/render slices without treating frame waits as work."""
 
-import gzip
-import json
-from pathlib import Path
 import unittest
 
 from benchmark_graph_interaction import trace_frame_costs
@@ -47,14 +44,6 @@ class FrameCostTests(unittest.TestCase):
         report = trace_frame_costs(events, "wheel")
         self.assertEqual(report["status"], "unsupported")
         self.assertIsNone(report["first_input_script_render_ms"])
-
-    def test_recorded_chromium_trace_retains_the_actual_first_wheel_dispatch(self):
-        path = Path(__file__).resolve().parents[1] / "docs/website/baselines/2026-10-16-chromium-macos/interaction-traces/wheel_zoom.json.gz"
-        report = trace_frame_costs(json.loads(gzip.decompress(path.read_bytes()))["traceEvents"], "wheel")
-        self.assertEqual(report["status"], "supported")
-        self.assertGreater(report["first_input_script_render_ms"], .607)
-        self.assertGreater(len(report["active_script_render_ms"]), 10)
-
 
 if __name__ == "__main__":
     unittest.main()

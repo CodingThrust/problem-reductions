@@ -9,7 +9,7 @@ import unittest
 
 from playwright.sync_api import sync_playwright
 
-from benchmark_graph_interaction import phase, trace_interaction
+from benchmark_graph_interaction import phase, trace_frame_costs, trace_interaction
 
 
 @unittest.skipUnless(os.environ.get("WEBSITE_BASE_URL"), "Needs an explicitly served production artifact")
@@ -30,6 +30,9 @@ class InteractionTraceTests(unittest.TestCase):
                 self.assertTrue(any(event["type"] == "keydown" for event in result["raw_samples"]["events"]))
                 entries = json.loads(gzip.decompress(path.read_bytes()))["traceEvents"]
                 self.assertTrue(any(e["name"] == "EventDispatch" and e.get("args", {}).get("data", {}).get("type") == "keydown" for e in entries))
+                costs = trace_frame_costs(entries, 'keydown')
+                self.assertEqual(costs['status'], 'supported')
+                self.assertGreater(costs['first_input_script_render_ms'], 0)
             finally:
                 browser.close()
 

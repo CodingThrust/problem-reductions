@@ -74,6 +74,7 @@ tarpaulin-report.html
 
 # Generated documents
 *.pdf
+docs/website/baselines/
 
 # Reference packages (downloaded for comparison)
 pkgref/
