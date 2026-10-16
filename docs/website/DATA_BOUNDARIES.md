@@ -2,13 +2,14 @@
 
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory and migration checklist, not a claim that contracts are implemented.
-Generated production artifacts are fingerprinted by `check_website.py`.
+Generated production artifacts are fingerprinted by `check_website.py`. The scene-only
+contract slice passed local production checks; it does not certify other rows.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
 | --- | --- | --- | --- |
 | Native graph and schema exports (`examples/export_graph.rs`, `examples/export_schemas.rs`) | `scripts/build_website.py`: `json.loads` | Node presence and endpoint bounds checked; Python dictionaries have no shared schema | Validate export shape before indexing it; retain endpoint checks and validate the derived artifacts below |
 | `home-data.js`, emitted by Python as `window.REDUCTIONS` | `assets/site.js` | Executable object assignment; no runtime shape check | Validate the initial object as unknown before catalog access; validate producer output too; type generation alone cannot protect an embedded object |
-| `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.js`: decompress, `JSON.parse`; consumed by `graph.js` | HTTP status check only | Schema for nodes, edges, aliases and layout; finite coordinates, valid indices and existing family IDs; version and actionable failure before scene construction |
+| `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.js` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates and remaining rows stay open |
 | `path-graph.json.gz`, emitted by Python | `assets/path-worker.js`: decompress, `JSON.parse` | HTTP status check; later Rust deserialization and endpoint validation | Validate the worker's parsed unknown before caching/using it; parameter contracts and formulas remain exact strings; retain Rust's validation |
 | Per-family `problem-data/*.json`, emitted by `build_problem_records` | `assets/site.js`: `response.json()` | HTTP check; producer test covers incident endpoints and reindexing | Schema for nodes/edges/schemas plus endpoint-reference checks; distinguish absent optional metadata from null |
 | `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.js`: `response.json()`, shared by graph and Atlas | HTTP check and rejected-fetch cache eviction | Schema for `entries` and `anchors`; validate URLs against the same origin/release and retain retry/eviction behavior |

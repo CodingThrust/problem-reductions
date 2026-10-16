@@ -4,17 +4,23 @@
   "scripts": {
     "build:frontend": "node scripts/build_frontend.mjs",
     "typecheck": "tsc --project tsconfig.json",
-    "lint:frontend": "eslint docs/website/assets scripts/build_frontend.mjs",
+    "lint:frontend": "eslint docs/website/assets scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs",
     "generate:reduction-graph-layout": "node scripts/generate_reduction_graph_layout.js",
-    "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js"
+    "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js",
+    "generate:frontend-contracts": "node scripts/generate_website_contracts.mjs",
+    "check:frontend-contracts": "node scripts/generate_website_contracts.mjs --check",
+    "test:frontend-contracts": "node --test scripts/test_website_contracts.mjs"
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "8.71.2",
+    "ajv": "8.20.0",
     "axe-core": "4.14.0",
     "cytoscape": "3.33.1",
     "cytoscape-fcose": "2.2.0",
     "elkjs": "0.9.3",
     "eslint": "10.12.0",
-    "typescript": "7.0.2",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "6.0.3",
     "vite": "8.3.4"
   }
 }

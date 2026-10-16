@@ -6,6 +6,7 @@ import itertools
 import math
 import re
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -20,6 +21,42 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebsiteBuildTests(unittest.TestCase):
+    def test_generated_scene_contract_drift_fails_the_build_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'workspace with spaces'
+            (root / 'scripts').mkdir(parents=True)
+            assets = root / 'docs/website/assets'
+            assets.mkdir(parents=True)
+            (root / 'node_modules').symlink_to(ROOT / 'node_modules', target_is_directory=True)
+            for name in ['scripts/generate_website_contracts.mjs', 'docs/website/graph-scene.schema.json',
+                         'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts']:
+                shutil.copyfile(ROOT / name, root / name)
+            command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            schema_path = root / 'docs/website/graph-scene.schema.json'
+            schema = json.loads(schema_path.read_text())
+            schema['properties']['schema_version']['const'] = 2
+            schema_path.write_text(json.dumps(schema))
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Contract drift', result.stderr)
+
+    def test_frontend_lint_checks_typescript_control_flow(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'docs/website/assets/route.ts'
+            source.parent.mkdir(parents=True)
+            config = root / 'eslint.config.mjs'
+            config.write_text(f'export {{default}} from "{(ROOT / "eslint.config.mjs").as_uri()}";\n')
+            source.write_text('export function route(value: number) { switch (value) { '
+                              'case 1: return "first"; case 1: return "second"; default: return "other"; } }')
+            result = subprocess.run([str(ROOT / 'node_modules/.bin/eslint'), str(source), '--format', 'json'],
+                                    cwd=root, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn('no-duplicate-case', [message['ruleId'] for report in json.loads(result.stdout)
+                                               for message in report['messages']])
+
     def test_frontend_build_emits_typescript_for_both_pages(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

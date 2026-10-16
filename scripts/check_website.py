@@ -155,6 +155,8 @@ def check(site, *, build, open_questions, required):
     try:
         if build:
             run(["npm", "ci"])
+        run(["npm", "run", "check:frontend-contracts"])
+        run(["npm", "run", "test:frontend-contracts"])
         run(["npm", "run", "typecheck"])
         run(["npm", "run", "lint:frontend"])
         if build:

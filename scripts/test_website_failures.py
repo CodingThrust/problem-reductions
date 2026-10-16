@@ -149,6 +149,15 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         article = self.site / manifest['entries']['problem:MaximumIndependentSet']
         self.assert_detail_recovery(article, 'Cannot load documentation (404)')
 
+    def test_graph_rejects_unknown_scene_category_before_rendering(self):
+        resource = self.assets / 'graph-scene.json.gz'
+        scene = json.loads(gzip.decompress(resource.read_bytes()))
+        scene['nodes'][0]['category'] = 'unregistered-category'
+        resource.write_bytes(gzip.compress(json.dumps(scene).encode(), mtime=0))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results')).to_contain_text('Cannot load graph', timeout=1000)
+        expect(self.page.locator('svg.graph-scene')).to_have_count(0)
+
     def test_graph_scene_failure_releases_worker_and_reload_recovers(self):
         resource = self.assets / 'graph-scene.json.gz'
         original = resource.read_bytes()

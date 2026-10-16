@@ -77,6 +77,49 @@ Rollback build integration, module entries and worker URL changes together to th
 prior Python asset-copy path and a complete prior static release. Keep useful
 compatibility checks. Never combine old HTML/data with newly compiled modules.
 
+## Graph-scene contract and strict migration
+
+The first completed local slice uses `graph-scene.schema.json` (version 1) for
+Python producer validation and browser validation. `graph-startup.ts` parses as
+`unknown`; the generated schema guard and `graph-scene-data.mts` reference checks
+run before scene construction. They reject unsafe indices, nonfinite coordinates,
+unsupported versions, duplicate variants independent of key order, invalid defaults,
+orphan aliases and incomplete/extra layout entries. Rust mathematics is unchanged.
+
+Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
+so production does not compile schemas or require dynamic evaluation.
+`json-schema-to-typescript` 16.0.0 generates matching strict declarations. Typescript
+6.0.3 matches the lint parser's supported range (`@typescript-eslint/parser` 8.71.2).
+These tools are development dependencies. TS source/declarations are removed from
+published assets after Vite emission. Regenerate and check with:
+
+```sh
+npm run generate:frontend-contracts
+npm run check:frontend-contracts
+npm run test:frontend-contracts
+npm run typecheck
+npm run lint:frontend
+```
+
+Direct Python builds also check generation drift. Fixtures prove stale schemas
+fail the check and typed source reaches lint's control-flow rules. The unknown-
+category browser test failed on the preceding artifact, then passed before any SVG
+was rendered on rejection. Required-board verification passed 79 root cases, nine
+failure cases and seven nested workflows per engine, with the documented multi-touch
+skips. All fourteen screenshots matched; no raw TS/declarations were published.
+
+Ten isolated untraced cold runs measured scene validation at 0.75 ms median /
+0.90 ms sampled p95. Startup JS is 60,403 decoded bytes, up 13,571 over Vite alone;
+WASM is unchanged. Graph/route readiness proxies were 49.9/74.45 ms median and
+67.0/101.6 ms sampled p95. All ten startup inputs preceded comparison completion.
+These are informational observations, not speedup/non-regression certificates.
+Raw evidence is stored externally under the retained batch's `scene-contract/`.
+
+Other data boundaries, exact mathematical wire structs, worker envelopes, the
+existing GraphScene interface and remaining application files still need migration.
+Rollback this slice's schema, generated code, producer version/validation and loader
+entry together, restoring a complete prior release while retaining Vite.
+
 ## Open Question Board and CI
 
 The board is a separate build. Include actual built output with:

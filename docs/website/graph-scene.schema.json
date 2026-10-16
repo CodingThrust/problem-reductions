@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/graph-scene",
+  "title": "GraphSceneData",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "nodes", "edges", "aliases", "layout"],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "nodes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "category", "variant", "default"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "category": {"enum": ["graph", "formula", "set", "algebraic", "misc"], "type": "string"},
+          "variant": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+          "default": {"type": "boolean"}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+        }
+      }
+    },
+    "aliases": {
+      "type": "object",
+      "additionalProperties": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["x", "y"],
+        "properties": {"x": {"type": "number"}, "y": {"type": "number"}}
+      }
+    }
+  }
+}

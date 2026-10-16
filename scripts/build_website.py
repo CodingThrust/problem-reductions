@@ -24,7 +24,7 @@ def build_frontend(output):
         compiled = Path(directory)
         subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(output), str(compiled)], check=True)
         for path in (output / 'assets').iterdir():
-            if path.suffix in {'.js', '.css'} and path.name != 'path-selection.js':
+            if path.suffix in {'.js', '.mjs', '.css', '.ts', '.mts'} and path.name != 'path-selection.js':
                 path.unlink()
         shutil.copytree(compiled, output, dirs_exist_ok=True)
 
@@ -151,6 +151,7 @@ def build_problem_records(output, nodes, edges, schemas):
 
 
 def build(output, graph_path, schemas_path, open_questions=None):
+    subprocess.run(['node', str(ROOT / 'scripts/generate_website_contracts.mjs'), '--check'], check=True)
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
     nodes, edges = graph["nodes"], graph["edges"]
@@ -258,9 +259,11 @@ def build(output, graph_path, schemas_path, open_questions=None):
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
-    scene = {"layout": layout, "aliases": graph["aliases"],
+    scene = {"schema_version": 1, "layout": layout, "aliases": graph["aliases"],
              "edges": summary["edges"],
              "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'graph-scene'],
+                   input=json.dumps(scene), text=True, check=True)
     engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
               "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
                         for edge in edges]}

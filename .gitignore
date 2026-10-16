@@ -93,6 +93,7 @@ claude-output.log
 !package-lock.json
 !tsconfig.json
 !docs/website/performance-results.json
+!docs/website/graph-scene.schema.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/

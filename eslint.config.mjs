@@ -1,5 +1,7 @@
+import tsParser from '@typescript-eslint/parser';
+
 export default [{
-  files: ['docs/website/assets/**/*.js', 'scripts/build_frontend.mjs'],
+  files: ['docs/website/assets/**/*.{js,mjs,ts,mts}', 'scripts/build_frontend.mjs'],
   rules: {
     'constructor-super': 'error',
     'for-direction': 'error',
@@ -14,4 +16,7 @@ export default [{
     'use-isnan': 'error',
     'valid-typeof': 'error',
   },
+}, {
+  files: ['docs/website/assets/**/*.{ts,mts}'],
+  languageOptions: { parser: tsParser },
 }];
