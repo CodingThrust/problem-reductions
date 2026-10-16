@@ -9,14 +9,69 @@ import subprocess
 import tempfile
 import unittest
 
+from playwright.sync_api import expect, sync_playwright
+
 from build_graph_details import SafeDetailHTML
 import build_website
 from finalize_website import finalize
+from check_website import serve_website
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebsiteBuildTests(unittest.TestCase):
+    def test_frontend_build_emits_typescript_for_both_pages(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, output = root / 'source', root / 'output'
+            source.mkdir()
+            style = ':root { --grid: rgba(237, 242, 232, .045); } body { background: #0b110d; } '
+            style += 'output { color: rgb(1, 2, 3); background: '
+            style += 'radial-gradient(ellipse at 62% 48%, transparent 35%, rgba(0,0,0,.4)), '
+            style += 'radial-gradient(circle at 1px 1px, var(--grid) 1px, transparent 0) 0 0 / 24px 24px; '
+            style += 'display: inline-block; width: 40px; height: 40px; }'
+            (source / 'style.css').write_text(style)
+            for page, value in [('index', 21), ('graph', 22)]:
+                (source / f'{page}.html').write_text('<!doctype html><html><head><link rel="stylesheet" href="./style.css"></head><body>'
+                    f'<output></output><script type="module" src="./{page}.ts"></script></body></html>')
+                (source / f'{page}.ts').write_text(f'const value: number = {value}; '
+                    'document.querySelector("output")!.textContent = String(value * 2);')
+            result = subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(source), str(output)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            (source / 'index.ts').unlink()
+            (source / 'graph.ts').unlink()
+            finalize(output)
+            with serve_website(output) as base, sync_playwright() as p:
+                browser = p.chromium.launch()
+                try:
+                    page = browser.new_page()
+                    for name, value in [('index', '42'), ('graph', '44')]:
+                        page.set_content(f'<!doctype html><html><head><style>{style}</style></head><body><output>{value}</output></body></html>')
+                        reference = page.locator('output').screenshot()
+                        page.goto(base + name + '.html')
+                        expect(page.locator('output')).to_have_text(value)
+                        expect(page.locator('output')).to_have_css('color', 'rgb(1, 2, 3)')
+                        self.assertEqual(page.locator('output').screenshot(), reference,
+                                         'The build changed rendered CSS pixels')
+                finally:
+                    browser.close()
+
+    def test_strict_type_checking_rejects_errors_without_emitting_javascript(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'main.ts'
+            config = root / 'tsconfig.json'
+            config.write_text(json.dumps({'extends': str(ROOT / 'tsconfig.json'), 'include': ['main.ts']}))
+            source.write_text('function double(value: number) { return value * 2; }\ndouble(21);\n')
+            command = [str(ROOT / 'node_modules/.bin/tsc'), '--project', str(config)]
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            source.write_text('function double(value) { return value * 2; }\ndouble(21);\n')
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0, 'Strict checking accepted an implicit any parameter')
+            self.assertFalse((root / 'main.js').exists(), 'The separate checker emitted runtime code')
+
     def test_problem_records_preserve_variants_and_incident_endpoints(self):
         nodes = [{'name': name, 'variant': {'weight': weight}} for name, weight in
                  [('Neighbor', 'One'), ('Source', 'One'), ('Target', 'One'), ('Source', 'i64'), ('Remote', 'One'), ('Source', 'f64')]]
