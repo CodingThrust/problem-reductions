@@ -335,7 +335,7 @@
       </div>
       <div class="wrap reading-layout">
         <div class="reading-content">
-          <div class="reference-tools" aria-label="Problem tools">
+          <div class="reference-tools" role="group" aria-label="Problem tools">
             <button aria-expanded="false" aria-controls="problem-connections">Connections <span>${incoming.length + outgoing.length}</span></button>
             <button aria-expanded="false" aria-controls="problem-fields">Instance fields <span>${schema?.fields?.length || 0}</span></button>
             <button aria-expanded="false" aria-controls="problem-commands">CLI commands</button>

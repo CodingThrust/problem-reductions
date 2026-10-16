@@ -126,6 +126,12 @@
       if (!article.isConnected) return;
       // HTML is generated at build time from the repository's Typst source.
       article.innerHTML = content;
+      // Atlas embeds these sections directly below its page h1; Graph has a drawer h2.
+      if (detail.classList.contains('reference-detail')) for (const heading of article.querySelectorAll('h3')) {
+        const replacement = document.createElement('h2');
+        for (const attribute of heading.attributes) replacement.setAttribute(attribute.name, attribute.value);
+        replacement.append(...heading.childNodes); heading.replaceWith(replacement);
+      }
       article.querySelectorAll('pre').forEach(code => { code.tabIndex = 0; });
       normalizeReferenceRoles(article);
       const citations = new Set([...article.querySelectorAll('a[role="doc-biblioref"]')]

@@ -10,6 +10,8 @@ const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.na
 const aliasMap = D.aliases;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 760px)");
+// Keep the minimum supported 320px graph viewport beside the 392px and 456px side-panel areas.
+const modalDetails = matchMedia("(max-width: 1167px)");
 const directions = [["left", "←", -1, 0], ["up", "↑", 0, -1], ["right", "→", 1, 0], ["down", "↓", 0, 1]];
 
 /* ---------- Registry model ---------- */
@@ -77,7 +79,7 @@ performance.mark("graph:constructed");
 function freeRect() {
   const W = innerWidth, H = innerHeight, top = $(".site-header").getBoundingClientRect().bottom;
   if (phone.matches) return { x: 0, y: top, w: W, h: Math.max(1, $(".panel").getBoundingClientRect().top - top) };
-  const right = $("#details-drawer").hidden ? W : $("#details-drawer").getBoundingClientRect().left - 16;
+  const right = $("#details-drawer").hidden || modalDetails.matches ? W : $("#details-drawer").getBoundingClientRect().left - 16;
   return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
 }
 scene.visibleRect = freeRect;
@@ -307,7 +309,7 @@ scene.onNodeTap = openPop;
 scene.onBackgroundTap = () => closePop();
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { closePop(true); closeDetails(); }
-  if (e.key === "/" && (!phone.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
+  if (e.key === "/" && (!modalDetails.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
 });
 
 /* ---------- On-demand articles ---------- */
@@ -316,7 +318,7 @@ const detailId = (endpoint) => endpoint.name + "/" + variantKey(endpoint.variant
 let drawerOpener = null;
 const drawerBackground = new Map();
 function syncDrawerModal() {
-  const drawer = $("#details-drawer"), modal = phone.matches && !drawer.hidden;
+  const drawer = $("#details-drawer"), modal = modalDetails.matches && !drawer.hidden;
   if (modal) {
     drawer.setAttribute("aria-modal", "true");
     for (const node of document.body.children) {
@@ -337,7 +339,7 @@ function showDetails(title, key, parentKey) {
   if (opening) drawerOpener = $("#pop").contains(document.activeElement) ? popNode.shape : document.activeElement;
   closePop(); drawer.hidden = false; $(".dock").hidden = true;
   // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
-  if (opening && !phone.matches && state.result && state.selected) {
+  if (opening && !modalDetails.matches && state.result && state.selected) {
     const r = freeRect(), b = scene.bounds(routeEls(state.selected), true);
     if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
   }
@@ -383,9 +385,9 @@ scene.onEdgeTap = (edge) => {
     s.from.name === edge.source.id && s.to.name === edge.target.id);
   if (step) showRule(step);
 };
-phone.addEventListener("change", syncDrawerModal);
+modalDetails.addEventListener("change", syncDrawerModal);
 $("#details-drawer").addEventListener("keydown", (e) => {
-  if (!phone.matches || e.key !== "Tab") return;
+  if (!modalDetails.matches || e.key !== "Tab") return;
   const items = [...$("#details-drawer").querySelectorAll('a[href], button, summary, [tabindex="0"]')].filter((n) => n.getClientRects().length);
   const first = items[0], last = items.at(-1);
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -500,7 +502,9 @@ function paintGraph() {
 function select(n) {
   state.selected = n;
   paintGraph(); renderResults();
-  frame(routeEls(n), 1.3);
+  const focused = scene.nodeOf(document.activeElement);
+  if (focused) scene.reveal(focused);
+  else frame(routeEls(n), 1.3);
 }
 
 function chain(route) {

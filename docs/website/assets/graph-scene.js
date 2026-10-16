@@ -84,6 +84,7 @@ window.GraphScene = class {
     this.svg.addEventListener('focusin', e => {
       const node = this.nodeOf(e.target);
       if (!node) return;
+      this.stop();
       this.setTabStop(node);
       node.shape.classList.add('focused');
       node.shape.setAttribute('aria-label', this.describe(node));

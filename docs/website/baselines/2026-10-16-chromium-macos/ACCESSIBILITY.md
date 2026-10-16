@@ -65,3 +65,21 @@ touch taps; physical-device results remain unverified. The
 `navigation-controls-screenshots.json.gz` capture records the necessary Graph
 control changes. Original references remain intact. No aesthetic styling or palette
 change accompanies these controls.
+
+The camera/responsive/semantic follow-up passes all 79 workflows in a fresh
+required-board production build. `accessibility-followup-source-verification.json.gz`
+records its unchanged source snapshot and complete artifact hashes;
+`accessibility-followup.json.gz` retains all eight Chromium scans, now with zero
+violations and explicit incomplete results. It also records four focused tests per
+engine against the preceding scratch overlay build of the same application source.
+This focused compatibility scope remains smaller than full browser acceptance.
+
+The tests reproduce and fix startup framing that obscured focused isolated Bin
+Packing, exercise modal isolation below 1168px and nonmodal operation at/above it,
+and check the corrected Atlas heading/group and drawer landmark semantics. The
+shared article check preserves text, exact formula markup and links while accepting
+the required h3/h2 embedding difference. All fourteen reference hashes match the
+preceding navigation-controls capture (`focus-semantics-screenshots.json.gz`).
+Atlas detail heading computed styles and full-page screenshots also match at 1440px
+and 390px in Chromium. These resolve the earlier heading/group/banner findings;
+incomplete contrast/mathematical-label results and real manual acceptance remain open.

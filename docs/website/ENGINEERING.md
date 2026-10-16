@@ -285,6 +285,37 @@ this focused result does not certify the remaining cross-browser suite.
 Rollback the isolated controls and shared node-movement extraction together to
 restore the original drag-only behavior, keeping its known accessibility gap open.
 
+Keyboard graph focus now stops camera animation and keeps the focused node revealed
+when asynchronous comparison updates select a route. A real startup test focuses
+isolated Bin Packing after paths arrive and checks visibility throughout the next
+600 ms, including the original 450 ms camera transition. It failed before this fix;
+no engine timing or renderer change is involved.
+
+Details use their modal layout below 1168 CSS pixels, independently of the 760px
+phone results-sheet breakpoint. The threshold reserves the supported 320px graph
+viewport beside existing 392px/456px side-panel areas. Focus containment, background
+inertness and shortcut handling follow the actual modal layout. Tests cross both
+sides of this threshold, tablet and phone widths. The drawer's local heading uses
+an ordinary container, so it does not add a duplicate page-banner landmark. Desktop
+1440px and mobile 390px appearance are preserved. Rollback these focus/responsive
+changes together with their mode-dependent handlers; retain the observed startup
+and narrow-width defects in the acceptance record.
+
+Atlas documentation now embeds its generated sections as native h2 headings below
+the page h1, retaining attributes, content and the previous computed heading styles.
+Graph articles keep h3 headings below the drawer h2. The problem-tools controls have
+a named group role. These fixes address the heading/group findings in the first
+scan; heading-order and duplicate/nonunique landmarks now also block automated
+acceptance. They do not resolve incomplete contrast or real screen-reader checks.
+The four focused camera/drawer/semantic cases passed in Chromium, Firefox and
+WebKit. Both scanned states now report no violations in those engines, while
+incomplete contrast and mathematical-label checks remain explicit. The Atlas
+heading change preserves every computed heading style and the full-page screenshot
+hash at 1440px and 390px in Chromium.
+The shared-article end-to-end check compares text, exact formula markup and link
+targets/roles across Graph and Atlas, and verifies their respective h3/h2 section
+levels. It no longer requires identical HTML where the embedding hierarchy differs.
+
 Rollback each accessibility fix independently, retaining its regression test as
 evidence of the known defect. Revert the scan integration and its test-only pin
 together if necessary; keep the existing fresh-artifact build/preview command.

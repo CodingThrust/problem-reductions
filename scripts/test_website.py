@@ -65,7 +65,8 @@ class WebsiteTests(unittest.TestCase):
         self.assertEqual(report['engine']['version'], '4.14.0')
         print('Accessibility:', json.dumps({'state': state, **report}), flush=True)
         blocking = [rule for rule in report['violations']
-                    if rule['impact'] in ['serious', 'critical'] or rule['id'] == 'aria-allowed-role']
+                    if rule['impact'] in ['serious', 'critical'] or rule['id'] in
+                    ['aria-allowed-role', 'heading-order', 'landmark-no-duplicate-banner', 'landmark-unique']]
         self.assertEqual(blocking, [], json.dumps(blocking, indent=2))
 
     def test_accessibility_atlas(self):
@@ -76,6 +77,10 @@ class WebsiteTests(unittest.TestCase):
     def test_accessibility_atlas_details(self):
         self.visit('problem/MaximumIndependentSet')
         expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
+        with self.subTest('named problem tools'):
+            expect(self.page.get_by_role('group', name='Problem tools', exact=True)).to_be_visible(timeout=500)
+        with self.subTest('article follows the page heading'):
+            expect(self.page.get_by_role('heading', name='Definition', level=2, exact=True)).to_be_visible(timeout=500)
         self.assert_accessible('atlas-details')
 
     def test_problem_code_block_is_reachable_and_scrolls_with_keyboard(self):
@@ -125,6 +130,7 @@ class WebsiteTests(unittest.TestCase):
         self.page.goto(self.base + 'graph.html')
         self.page.locator('.steps button').first.click()
         expect(self.page.locator('#drawer-body article')).to_contain_text('Definition')
+        expect(self.page.get_by_role('banner')).to_have_count(1, timeout=500)
         self.assert_accessible('graph-desktop-drawer')
 
     def test_accessibility_graph_mobile_drawer(self):
@@ -1047,11 +1053,17 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('#drawer-body article')).to_have_attribute('data-content-key', 'problem:MaximumIndependentSet')
         self.assertEqual(sum('/details/problem/MaximumIndependentSet.html' in url for url in requests), 1)
-        content = self.page.locator('#drawer-body article').inner_html()
+        read_content = '''node => ({text: node.textContent,
+            formulas: [...node.querySelectorAll('svg, math')].map(item => item.outerHTML),
+            links: [...node.querySelectorAll('a')].map(link => ({text: link.textContent,
+                href: link.getAttribute('href'), role: link.getAttribute('role')}))})'''
+        content = self.page.locator('#drawer-body article').evaluate(read_content)
+        expect(self.page.get_by_role('heading', name='Definition', level=3, exact=True)).to_be_visible()
         self.page.get_by_role('link', name='Open in Atlas').click()
         expect(self.page.locator('#variant-select')).to_have_value('graph=SimpleGraph,weight=i64')
         expect(self.page.locator('article.typst-detail')).to_contain_text('wireless network scheduling')
-        self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
+        self.assertEqual(self.page.locator('article.typst-detail').evaluate(read_content), content)
+        expect(self.page.get_by_role('heading', name='Definition', level=2, exact=True)).to_be_visible()
 
     def test_graph_node_names_track_route_and_endpoint_state(self):
         self.page.goto(self.base + 'graph.html')
@@ -1167,6 +1179,30 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
         expect(self.page.locator('.scene-node[data-node="Satisfiability"]')).to_be_focused(timeout=500)
 
+    def test_graph_startup_camera_keeps_a_focused_isolated_node_visible(self):
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.observe_path_worker()
+        self.page.add_init_script('''window.onPathMessage = message => {
+            if (message.phase === 'paths')
+                document.querySelector('.scene-node[data-node="BinPacking"]').focus();
+        };''')
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('.scene-node[data-node="BinPacking"]')).to_be_focused(timeout=500)
+        obscured = self.page.evaluate('''async () => {
+            const node = document.querySelector('.scene-node[data-node="BinPacking"]');
+            const end = performance.now() + 600, outside = [];
+            do {
+                const r = node.getBoundingClientRect(), panel = document.querySelector('.panel').getBoundingClientRect();
+                const top = document.querySelector('.site-header').getBoundingClientRect().bottom;
+                if (r.left < panel.right || r.right > innerWidth || r.top < top || r.bottom > innerHeight)
+                    outside.push({left: r.left, right: r.right, top: r.top, bottom: r.bottom});
+                await new Promise(requestAnimationFrame);
+            } while (performance.now() < end);
+            return outside;
+        }''')
+        self.assertEqual(obscured, [], 'Automatic route framing obscured the focused problem')
+
     def test_graph_mobile_drawer_isolates_background_and_restores_focus(self):
         self.page.set_viewport_size({'width': 390, 'height': 844})
         self.page.goto(self.base + 'graph.html')
@@ -1199,11 +1235,18 @@ class WebsiteTests(unittest.TestCase):
         self.assertIsNone(self.page.locator('#details-drawer').get_attribute('aria-modal'))
         self.page.locator('#source').focus()
         expect(self.page.locator('#source')).to_be_focused(timeout=500)
-        self.page.set_viewport_size({'width': 390, 'height': 844})
-        expect(self.page.locator('#details-drawer')).to_have_attribute('aria-modal', 'true', timeout=500)
-        expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
-        self.page.locator('#source').evaluate('(input) => input.focus()')
-        expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+        for width in [1167, 768, 390]:
+            self.page.set_viewport_size({'width': width, 'height': 844})
+            expect(self.page.locator('#details-drawer')).to_have_attribute('aria-modal', 'true', timeout=500)
+            expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+            self.assertEqual(self.page.locator('#details-drawer').bounding_box(),
+                             {'x': 0, 'y': 0, 'width': width, 'height': 844})
+            self.page.locator('#source').evaluate('(input) => input.focus()')
+            expect(self.page.locator('#close-details')).to_be_focused(timeout=500)
+        self.page.set_viewport_size({'width': 1168, 'height': 844})
+        expect(self.page.locator('#details-drawer')).not_to_have_attribute('aria-modal', 'true', timeout=500)
+        self.page.locator('#source').focus()
+        expect(self.page.locator('#source')).to_be_focused(timeout=500)
         self.page.set_viewport_size({'width': 1440, 'height': 1000})
         expect(self.page.locator('#details-drawer')).not_to_have_attribute('aria-modal', 'true', timeout=500)
         self.page.locator('#source').focus()

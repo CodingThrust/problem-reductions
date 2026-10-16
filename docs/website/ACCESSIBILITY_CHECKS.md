@@ -37,8 +37,10 @@ any screen-reader interaction mode required to operate the graph.
    enters its controls. Change a variant without losing usable focus. Escape closes
    it and returns to the originating node. Pointer activation must still work.
 6. Open Details from a node and from a route rule. Confirm the definition/proof
-   content is readable. On desktop, confirm the drawer is nonmodal: Tab can leave it,
-   and background controls remain operable. Close it with Escape and the close
+   content is readable. At widths of at least 1168 CSS pixels, confirm the drawer is
+   nonmodal: Tab can leave it, and background controls remain operable. Below that
+   width, confirm modal isolation rather than overlapping live side panels.
+   Close it with Escape and the close
    button; confirm focus returns to a visible, meaningful control.
 7. Select another route, expand its steps and copy it. Confirm the copy result or
    selectable-text fallback is announced and usable. The copied route must still
@@ -62,7 +64,7 @@ any screen-reader interaction mode required to operate the graph.
 3. Close Details and confirm focus returns to the originating node/control. With a
    hardware keyboard if available, check Tab containment, Shift+Tab, and Escape.
    Record hardware-keyboard checks as unavailable if no keyboard is available.
-4. Change orientation or cross the responsive breakpoint with the drawer open.
+4. Change orientation or cross the 1168 CSS pixel drawer breakpoint with it open.
    Confirm modal/nonmodal behavior changes correctly and focus remains usable.
 5. Use click/tap alternatives to drag and pinch, then exercise ordinary pan, drag,
    pinch, route selection, cancellation, copy and selectable-text fallback. Confirm
