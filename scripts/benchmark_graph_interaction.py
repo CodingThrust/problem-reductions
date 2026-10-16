@@ -106,6 +106,51 @@ def first_input(probe, name):
             "raf_interval_ms": containing(probe["frames"]), "loaf_ms": containing(probe["loaf"])}
 
 
+def trace_frame_costs(events, input_type):
+    unavailable = {"status": "unsupported", "p95_active_script_render_ms": None,
+                   "first_input_script_render_ms": None}
+    main = {(e["pid"], e["tid"]) for e in events if e["name"] == "thread_name"
+            and e.get("args", {}).get("name") == "CrRendererMain"}
+    if len(main) != 1:
+        return {**unavailable, "reason": "Expected one identified renderer main thread"}
+    events = [e for e in events if (e["pid"], e["tid"]) in main]
+    # Chromium's frame markers partition work; waiting between slices is not work.
+    boundaries = sorted({e["ts"] for e in events if e["name"] == "AnimationFrame" and e.get("ph") == "b"
+                         and "animation_frame_timing_info" in e.get("args", {})})
+    if len(boundaries) < 2:
+        return {**unavailable, "reason": "Missing Chromium animation-frame boundaries"}
+    inputs = sorted(e["ts"] for e in events if e["name"] == "EventDispatch" and e.get("ph") == "X"
+                    and e.get("args", {}).get("data", {}).get("type") == input_type) if input_type else []
+    if input_type and (not inputs or inputs[0] < boundaries[0] or inputs[-1] >= boundaries[-1]):
+        return {**unavailable, "reason": "Trace boundaries do not cover every requested input"}
+    updates = {"UpdateLayoutTree", "Layout", "Paint"}
+    names = updates | {"EventDispatch", "FireAnimationFrame", "FunctionCall", "TimerFire", "RunMicrotasks",
+                       "EvaluateScript", "EvaluateModule", "PrePaint", "Layerize", "Commit"}
+    slices = [e for e in events if e.get("ph") == "X" and e["name"] in names and e.get("dur", 0) > 0]
+    if any(e["name"] in updates and e["ts"] + e["dur"] > boundaries[-1] for e in slices):
+        return {**unavailable, "reason": "Trace ends before the final update has a complete frame window"}
+    frames = []
+    first_cost = None
+    for start, end in zip(boundaries, boundaries[1:]):
+        current = [e for e in slices if e["ts"] < end and e["ts"] + e["dur"] > start]
+        active = any(start <= value < end for value in inputs) or any(e["name"] in updates for e in current)
+        if not active:
+            continue
+        total, previous_end = 0, start
+        for left, right in sorted((max(start, e["ts"]), min(end, e["ts"] + e["dur"])) for e in current):
+            total += max(0, right - max(left, previous_end))
+            previous_end = max(previous_end, right)
+        cost = total / 1000
+        frames.append(cost)
+        if inputs and start <= inputs[0] < end:
+            first_cost = cost
+    return {"status": "supported", "sample_unit": "active_main_thread_frame_window",
+            "quantile_estimator": "nearest_rank", "complete_windows": len(boundaries) - 1,
+            "active_script_render_ms": frames, "first_input_script_render_ms": first_cost,
+            "p95_active_script_render_ms": quantile(frames, .95),
+            "scope": "union of named main-thread script/style/layout/prepaint/paint/compositing slices; includes instrumentation, excludes GPU/raster threads and unclassified work"}
+
+
 @contextmanager
 def trace_interaction(page, path):
     session = page.context.new_cdp_session(page)
@@ -233,6 +278,10 @@ def run(base, cpu, trace_dir=None):
                 with trace_interaction(page, trace) if trace else nullcontext():
                     rows[name] = phase(page, name)
                 rows[name]["trace"] = str(trace) if trace else None
+                if trace:
+                    events = json.loads(gzip.decompress(trace.read_bytes()))["traceEvents"]
+                    rows[name]["trace_frame_costs"] = trace_frame_costs(events,
+                        rows[name]["raw_samples"].get("first_input", {}).get("type"))
                 rows[name]["browser_version"] = browser.version
                 rows[name]["html_sha256"] = hashlib.sha256(response.body()).hexdigest()
                 rows[name]["page_snapshot"] = page.evaluate("""() => ({
@@ -272,15 +321,18 @@ if __name__ == "__main__":
         runs.append(rows)
         for name, row in rows.items():
             print(index + 1, name, json.dumps({k: v for k, v in row.items()
-                if k not in {"raw_samples", "verified_effect", "page_snapshot", "worker_snapshots"}}), flush=True)
+                if k not in {"raw_samples", "verified_effect", "page_snapshot", "worker_snapshots", "trace_frame_costs"}}), flush=True)
     if args.output:
         summary = {name: {key: summarize_runs([row[name][key] for row in runs])
                          for key in ["p95_ms", "max_ms", "loaf_count"]} for name in runs[0]}
+        trace_summary = {name: {key: summarize_runs([row[name].get("trace_frame_costs", {}).get(key) for row in runs])
+                               for key in ["p95_active_script_render_ms", "first_input_script_render_ms"]}
+                         for name in runs[0]}
         with open(args.output, "w") as f:
             json.dump({"cpu_throttle": args.cpu, "platform": platform.platform(),
-                       "measurement_scope": "rAF cadence and >50 ms LoAF diagnostics; sub-50 ms rendering cost is unmeasured",
+                       "measurement_scope": "rAF cadence and >50 ms LoAF diagnostics; optional Chromium traces account for named main-thread script/render slices separately",
                        "cache_state": "fresh_browser_process_and_context_per_scenario",
                        "trace_instrumentation": "enabled; adds overhead" if args.trace_dir else "disabled",
                        "event_timing_scope": "discrete events at durationThreshold=16 ms, quantized durations; continuous wheel/move not covered; absent entries are not zero latency",
                        "gating": "informational; no stable CI variance or tail estimate established",
-                       "run_summary": summary, "runs": runs}, f, indent=1)
+                       "run_summary": summary, "trace_run_summary": trace_summary, "runs": runs}, f, indent=1)

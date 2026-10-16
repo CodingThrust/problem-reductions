@@ -2442,5 +2442,148 @@
       "browser-smoke.json.gz": "d4ff53793b87209322459cbec84d47962fef841f7edb4f9d449d365238ed8a93",
       "browser-smoke-initial.json.gz": "e6f3fa1c488aa56f4c3068c9194a4e2cb307c3164a885dad19e7d9476b7b50c3"
     }
+  },
+  "engineering_stage0_frame_costs": {
+    "status": "informational_pilot",
+    "sample_unit": "independent traced run; each run has separate active-frame samples",
+    "source_manifest_sha256": "58ef24d8178a09e21fc0c0c484b130e1e38adcffcc65bb4b1103b555d9feb643",
+    "benchmark_script_sha256": "18f02a13b213dff16db5d5b65d99c228367d78dfcec949f9e935a56791b7f468",
+    "trace_run_summary": {
+      "idle_1s": {
+        "p95_active_script_render_ms": {
+          "samples": 0,
+          "unavailable": 10,
+          "median": null,
+          "p95": null,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        },
+        "first_input_script_render_ms": {
+          "samples": 0,
+          "unavailable": 10,
+          "median": null,
+          "p95": null,
+          "quantile_estimator": "nearest_rank",
+          "cv": null
+        }
+      },
+      "wheel_zoom": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.758,
+          "p95": 2.934,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.05281343836374041
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.8609999999999998,
+          "p95": 3.005,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.042380396141903316
+        }
+      },
+      "background_pan": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.6055000000000001,
+          "p95": 1.991,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.1045931409070512
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 1.91,
+          "p95": 2.251,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.28526050372383904
+        }
+      },
+      "node_drag": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.9095000000000004,
+          "p95": 3.453,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.10875421733165372
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.488,
+          "p95": 3.544,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.39240163908056047
+        }
+      },
+      "keyboard_activation": {
+        "p95_active_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.29,
+          "p95": 4.723,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.3225002731344141
+        },
+        "first_input_script_render_ms": {
+          "samples": 10,
+          "unavailable": 0,
+          "median": 2.29,
+          "p95": 4.723,
+          "quantile_estimator": "nearest_rank",
+          "cv": 0.3225002731344141
+        }
+      }
+    },
+    "scope": "union of named main-thread script/style/layout/prepaint/paint/compositing slices; includes instrumentation, excludes GPU/raster threads and unclassified work",
+    "first_observed_input_raf_interval_ms": {
+      "wheel_zoom": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 18.650000005960464,
+        "p95": 36.60000002384186,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.3795550582084495
+      },
+      "background_pan": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 30.30000004172325,
+        "p95": 35.80000001192093,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.8141123552759625
+      },
+      "node_drag": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 26.30000001192093,
+        "p95": 36.19999998807907,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.5196139760773901
+      },
+      "keyboard_activation": {
+        "samples": 10,
+        "unavailable": 0,
+        "median": 10.599999994039536,
+        "p95": 29.599999964237213,
+        "quantile_estimator": "nearest_rank",
+        "cv": 0.6368657267108205
+      }
+    },
+    "gating": "informational; no calibrated CI margin or stable tail estimate",
+    "invalid_batch": {
+      "archive": "frame-cost-pilot-invalid-concurrency.json.gz",
+      "reason": "Website verification tests overlapped approximately the final five seconds; excluded from timing conclusions"
+    },
+    "archives": {
+      "frame-cost-pilot.json.gz": "a3caf901a0f832d1ccf26c9b92189a7f7b2a4aa7a8f792a1157b17230ed9ba02",
+      "frame-cost-traces.tar.gz": "9d8771789e58bc65692b85cd484b30be141fca1701cd69e99aa331c45cbcbc29",
+      "frame-cost-pilot-invalid-concurrency.json.gz": "8db80867e6fc26b12d1b02ef35c89042218231da91e521cec799eafbd29153c6"
+    }
   }
 }
