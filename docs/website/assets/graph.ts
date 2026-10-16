@@ -517,12 +517,10 @@ function familyChain(route: Route) {
   const names: string[] = []; endpoints(route).forEach((e) => { if (names.at(-1) !== e.name) names.push(e.name); });
   return names;
 }
+/* The ends are already in the search box, so a row says only what is in between; the timeline lists every stop. */
 function chain(route: Route) {
-  const names = familyChain(route), span = el("span", "chain");
-  names.forEach((name, i) => {
-    if (i) span.append(el("span", "arrow", "→"));
-    span.append(el("span", i === 0 ? "node start" : i === names.length - 1 ? "node end" : "node", shortName(name)));
-  });
+  const names = familyChain(route), via = names.slice(1, -1);
+  const span = el("span", "chain", via.length ? `via ${display(via[0]!)}${via.length > 1 ? ` +${via.length - 1}` : ""}` : "Direct");
   span.title = names.map(display).join(" → ");
   return span;
 }
@@ -534,9 +532,7 @@ function pathRow(n: number, slower: boolean) {
   const size = el("span", "size" + (c ? "" : " pending"), c ? sizeBadge(pathDegree(c.profiles[n - 1]!)) : "");
   size.title = c && pathDegree(c.profiles[n - 1]!) == null ? "Size unavailable for one or more parameters" : "Largest growth of the reduced problem";
   const line = el("div", "path-line"); line.append(chain(route), size);
-  const count = familyChain(route).length - 1, meta = el("div", "path-meta", `${count} reduction${count === 1 ? "" : "s"}`);
-  if (!slower && c) meta.append(el("span", "tag", "best"));
-  b.append(line, meta);
+  b.append(line);
   b.addEventListener("click", () => { state.picked = true; if (state.selected !== n) select(n); });
   wrap.append(b);
   if (open) wrap.append(pathDetail(n));
@@ -554,11 +550,10 @@ function pathDetail(n: number) {
     btn.append(el("span", "name", display(e.name)));
     if (multi(e.name)) e.variants.forEach((v) => btn.append(kvNode(v)));
     btn.addEventListener("click", () => { showProblem({name: e.name, variant: e.variants[0]!}); pulseAndFrame(e.name); });
-    const role = i === 0 ? "Start" : i === groups.length - 1 ? "End" : "";
-    if (role) btn.append(el("span", "role " + role.toLowerCase(), role));
     li.append(el("span", "dot"), btn); ol.append(li);
     if (i < groups.length - 1) {
       const next = groups[i + 1]!, rule = el("button", "rule-link", "rule"); rule.type = "button";
+      rule.title = `Reduction rule: ${display(e.name)} to ${display(next.name)}`;
       rule.onclick = () => showRule({from: {name: e.name, variant: e.variants.at(-1)!}, to: {name: next.name, variant: next.variants[0]!}});
       li.append(rule);
     }
@@ -574,7 +569,7 @@ function pathDetail(n: number) {
     catch { const t = el("textarea", "copy-text"); t.readOnly = true; t.value = json; copy.after(t); t.select(); }
   });
   d.append(ol);
-  if (dl.children.length) d.append(el("p", "growth-title", "Size of the reduced problem"), dl);
+  if (dl.children.length) d.append(el("p", "growth-title", "Result size"), dl);
   d.append(copy);
   return d;
 }

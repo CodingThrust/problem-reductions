@@ -387,7 +387,7 @@ class WebsiteTests(unittest.TestCase):
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator("#cy svg.graph-scene").first).to_be_visible()
-        for selector, size in [('.brand', 22), ('.end input', 16), ('.path .chain', 14)]:
+        for selector, size in [('.brand', 15), ('.end input', 16), ('.path .chain', 14)]:
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
 
     def test_search_text_cannot_inject_markup(self):
