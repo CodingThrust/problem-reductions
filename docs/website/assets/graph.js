@@ -1,3 +1,4 @@
+import { GraphScene } from "./graph-scene.ts";
 
 (async () => {
 "use strict";

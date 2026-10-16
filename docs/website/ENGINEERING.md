@@ -94,6 +94,11 @@ Vite treats a literal directory URL relative to `import.meta.url` as a source as
 Lazy article loading, the 24-entry cache, eviction/retry, references, footnotes,
 generated-HTML safety validation, CSP and existing markup/styles are preserved.
 
+The existing SVG class is now `graph-scene.ts`, imported directly by `graph.js`.
+Its actual node/edge inputs, callbacks, pointer gestures, keyboard traversal,
+camera operations and label measurements are strictly checked. Existing DOM/CSS
+ownership stays intact; there is no renderer abstraction or additional renderer.
+
 Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
 so production does not compile schemas or require dynamic evaluation.
 `json-schema-to-typescript` 16.0.0 generates matching strict declarations. Typescript
@@ -119,21 +124,23 @@ cases and seven nested workflows per engine, with the documented multi-touch ski
 All fourteen screenshots matched; no raw TS/declarations were published.
 
 The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
-After index migration, ten isolated untraced cold runs measured 65,863 decoded
-startup JS bytes (+5,460 over that slice); WASM hashes are unchanged. Graph/route
-readiness proxies were 49.35/74.05 ms median and 64.1/76.0 ms sampled p95. Startup
-fill-to-suggestion round trips were 36.75/50.3 ms; all ten inputs preceded comparison
+After scene typing, ten isolated untraced cold runs measured 66,447 decoded startup
+JS bytes (+5,460 for index migration and +584 for scene typing); WASM hashes are
+unchanged. Graph/route readiness proxies were 50.55/73.0 ms median and 63.5/76.4 ms
+sampled p95. Startup fill-to-suggestion round trips were 37.35/42.1 ms; all ten inputs preceded comparison
 completion. A separate ten-process first lazy-index batch measured validation at
 1.6/1.7 ms median/sampled p95. These are informational observations, not speedup,
 tail-stability or non-regression certificates. Evidence is stored externally under
-the retained batch's `scene-contract/` and `details-contract/`.
+the retained batch's `scene-contract/`, `details-contract/` and `typed-scene/`.
 
-Other data boundaries, exact mathematical wire structs, worker envelopes, the
-existing GraphScene interface and remaining application files still need migration.
+Other data boundaries, exact mathematical wire structs, worker envelopes and
+remaining application files still need migration.
 Rollback this slice's schema, generated code, producer version/validation and loader
 entry together, restoring a complete prior release while retaining Vite. Revert the
 documentation-index schema, producer version/validation and shared consumer together
 independently of the scene migration.
+Roll back scene typing by restoring its prior class, global caller and HTML entry
+together; that change is independent of both data-contract slices.
 
 ## Open Question Board and CI
 
@@ -216,8 +223,10 @@ median over the preceding pilot; this is reported, not waived as a statistical
 non-regression. RSS polling misses short peaks and can double count shared pages;
 main-page heap and WASM capacity do not isolate worker/compiler allocations.
 
-Fifty traced interaction scenarios measured p95-of-run-p95 named main-thread slice
-costs of 2.259 ms wheel, 1.857 ms pan, 2.980 ms drag and 4.249 ms activation. This
+Fifty fresh-process traced scenarios after scene typing measured p95-of-run-p95
+named main-thread slice costs of 2.157 ms wheel, 1.501 ms pan, 2.421 ms drag and
+2.988 ms activation. First-input rAF interval sampled p95s were 31.0/32.2/30.0/21.1 ms
+respectively. This
 union includes measurement overhead and excludes GPU/raster/unclassified work.
 No LoAF appeared in that batch; the earlier sporadic hitch remains unresolved.
 rAF measures scheduling cadence, LoAF only diagnoses frames above 50 ms, and neither

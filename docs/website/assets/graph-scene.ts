@@ -1,9 +1,45 @@
 // The scene is small and already laid out at build time; SVG owns hit testing and painting.
-window.GraphScene = class {
-  constructor(container, nodes, edges) {
-    const make = (tag, attrs = {}) => {
+export interface Point { x: number; y: number }
+export interface SceneNodeInput extends Point {
+  id: string; label: string; size: number; color: string; deg: number;
+}
+export interface SceneNode extends Omit<SceneNodeInput, 'label'> {
+  shape: SVGGElement; label: SVGTextElement; labelText: string; routeLabel: string;
+  labelKey: string | null; width: number; height: number;
+}
+export interface SceneEdge {
+  id: string; source: SceneNode; target: SceneNode; shape: SVGLineElement;
+  label?: never;
+}
+export type SceneItem = SceneNode | SceneEdge;
+interface Rectangle extends Point { w: number; h: number }
+interface Bounds { x1: number; x2: number; y1: number; y2: number }
+interface Gesture { item: SceneItem | undefined; moved: boolean; start: Point }
+
+export class GraphScene {
+  zoom: number;
+  pan: Point;
+  animation: number;
+  svg: SVGSVGElement;
+  world: SVGGElement;
+  nodes: SceneNode[];
+  edges: SceneEdge[];
+  byId: Map<string, SceneItem>;
+  elements: SceneItem[];
+  measure: CanvasRenderingContext2D;
+  tabStop: SceneNode;
+  visibleRect?: () => Rectangle;
+  onNodeTap?: (node: SceneNode, options?: { keyboard: boolean }) => void;
+  onEdgeTap?: (edge: SceneEdge) => void;
+  onBackgroundTap?: () => void;
+  onChange?: () => void;
+  onDrag?: (node: SceneNode) => void;
+  onHover?: (node: SceneNode, over: boolean) => void;
+
+  constructor(container: HTMLElement, nodes: SceneNodeInput[], edges: { s: string; t: string }[]) {
+    const make = <Tag extends keyof SVGElementTagNameMap>(tag: Tag, attrs: Record<string, string | number> = {}) => {
       const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
       return node;
     };
     this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0;
@@ -25,40 +61,48 @@ window.GraphScene = class {
     });
     this.byId = new Map(this.nodes.map(n => [n.id, n]));
     this.edges = edges.map(({s, t}) => {
-      const edge = {id: s + '→' + t, source: this.byId.get(s), target: this.byId.get(t),
+      const source = this.byId.get(s), target = this.byId.get(t);
+      if (!source?.label || !target?.label) throw new Error('A scene edge references a missing node');
+      const edge = {id: s + '→' + t, source, target,
         shape: make('line', {class: 'scene-edge', 'data-edge': s + '→' + t, 'aria-hidden': 'true'})};
       this.byId.set(edge.id, edge); this.world.append(edge.shape); return edge;
     });
     for (const node of this.nodes) this.world.append(node.shape);
     this.elements = [...this.nodes, ...this.edges];
-    this.measure = document.createElement('canvas').getContext('2d');
+    const measure = document.createElement('canvas').getContext('2d');
+    if (!measure) throw new Error('Canvas text measurement is unavailable');
+    this.measure = measure;
     this.updatePositions();
 
-    const point = e => { const r = this.svg.getBoundingClientRect(); return {x: e.clientX - r.x, y: e.clientY - r.y}; };
-    const pointers = new Map();
-    let gesture;
+    const point = (e: MouseEvent): Point => { const r = this.svg.getBoundingClientRect(); return {x: e.clientX - r.x, y: e.clientY - r.y}; };
+    const pointers = new Map<number, Point>();
+    let gesture: Gesture | undefined;
     this.svg.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       this.stop();
       const p = point(e); pointers.set(e.pointerId, p);
-      const target = e.target.closest('[data-node], [data-edge]');
-      gesture = {item: target && this.byId.get(target.dataset.node || target.dataset.edge),
+      const target = e.target instanceof Element ? e.target.closest('[data-node], [data-edge]') : null;
+      const id = target?.getAttribute('data-node') || target?.getAttribute('data-edge');
+      gesture = {item: id ? this.byId.get(id) : undefined,
         moved: pointers.size > 1, start: p};
       this.svg.setPointerCapture(e.pointerId);
     });
     this.svg.addEventListener('pointermove', e => {
-      if (!pointers.has(e.pointerId)) return;
-      const before = [...pointers.values()], old = pointers.get(e.pointerId), p = point(e);
+      const old = pointers.get(e.pointerId);
+      if (!old || !gesture) return;
+      const before = [...pointers.values()], p = point(e);
       pointers.set(e.pointerId, p);
       const dx = p.x - old.x, dy = p.y - old.y;
       if (pointers.size > 1) {
         const after = [...pointers.values()];
-        const center = a => ({x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2});
-        const distance = a => Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
-        const a = center(before), b = center(after), previous = distance(before);
-        if (previous) this.zoomAt(this.zoom * distance(after) / previous, a);
+        const [first, second] = before, [nextFirst, nextSecond] = after;
+        if (!first || !second || !nextFirst || !nextSecond) return;
+        const center = (a: Point, b: Point): Point => ({x: (a.x + b.x) / 2, y: (a.y + b.y) / 2});
+        const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+        const a = center(first, second), b = center(nextFirst, nextSecond), previous = distance(first, second);
+        if (previous) this.zoomAt(this.zoom * distance(nextFirst, nextSecond) / previous, a);
         this.setViewport(this.zoom, {x: this.pan.x + b.x - a.x, y: this.pan.y + b.y - a.y});
-        gesture.item = null; gesture.moved = true;
+        gesture.item = undefined; gesture.moved = true;
       } else if (Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) > 3 || gesture.moved) {
         gesture.moved = true;
         if (gesture.item?.label) {
@@ -66,8 +110,8 @@ window.GraphScene = class {
         } else this.setViewport(this.zoom, {x: this.pan.x + dx, y: this.pan.y + dy});
       }
     });
-    const release = e => {
-      if (!pointers.has(e.pointerId)) return;
+    const release = (e: PointerEvent) => {
+      if (!pointers.has(e.pointerId) || !gesture) return;
       pointers.delete(e.pointerId);
       if (e.type === 'pointerup' && !gesture.moved) {
         if (gesture.item?.label) this.onNodeTap?.(gesture.item);
@@ -79,8 +123,10 @@ window.GraphScene = class {
     this.svg.addEventListener('pointerup', release);
     this.svg.addEventListener('pointercancel', release);
     // Roving tabindex: one Tab stop for the whole graph, arrows move between spatial neighbours.
-    this.tabStop = this.nodes[0];
-    this.tabStop.shape.setAttribute('tabindex', 0);
+    const first = this.nodes[0];
+    if (!first) throw new Error('A scene requires at least one node');
+    this.tabStop = first;
+    this.tabStop.shape.setAttribute('tabindex', '0');
     this.svg.addEventListener('focusin', e => {
       const node = this.nodeOf(e.target);
       if (!node) return;
@@ -105,11 +151,13 @@ window.GraphScene = class {
       if (e.key === ' ') { e.preventDefault(); return; }
       if (e.key === 'Enter') { e.preventDefault(); this.onNodeTap?.(node, {keyboard: true}); return; }
       const index = this.nodes.indexOf(node);
-      const next = {Home: 0, End: this.nodes.length - 1,
+      const stops: Record<string, number> = {Home: 0, End: this.nodes.length - 1,
         PageDown: (index + 1) % this.nodes.length,
-        PageUp: (index + this.nodes.length - 1) % this.nodes.length}[e.key];
-      if (next != null) { e.preventDefault(); this.nodes[next].shape.focus(); return; }
-      const direction = {ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1]}[e.key];
+        PageUp: (index + this.nodes.length - 1) % this.nodes.length};
+      const next = stops[e.key];
+      if (next != null) { e.preventDefault(); this.nodes[next]?.shape.focus(); return; }
+      const directions: Record<string, [number, number]> = {ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1]};
+      const direction = directions[e.key];
       if (!direction) return;
       e.preventDefault();
       this.neighbour(node, direction)?.shape.focus();
@@ -123,31 +171,32 @@ window.GraphScene = class {
     this.svg.addEventListener('wheel', e => {
       e.preventDefault(); this.stop(); this.zoomAt(this.zoom * Math.exp(-e.deltaY * .002), point(e));
     }, {passive: false});
-    for (const [event, over] of [['pointerover', true], ['pointerout', false]]) this.svg.addEventListener(event, e => {
-      const target = e.target.closest('[data-node]');
-      if (target && !target.contains(e.relatedTarget)) this.onHover?.(this.byId.get(target.dataset.node), over);
+    for (const [event, over] of [['pointerover', true], ['pointerout', false]] as const) this.svg.addEventListener(event, e => {
+      const node = this.nodeOf(e.target);
+      if (node && (!(e.relatedTarget instanceof Node) || !node.shape.contains(e.relatedTarget))) this.onHover?.(node, over);
     });
   }
 
-  nodeOf(target) {
-    const shape = target.closest?.('[data-node]');
-    return shape && this.byId.get(shape.dataset.node);
+  nodeOf(target: EventTarget | null): SceneNode | undefined {
+    const id = target instanceof Element ? target.closest('[data-node]')?.getAttribute('data-node') : null;
+    const item = id ? this.byId.get(id) : undefined;
+    return item?.label ? item : undefined;
   }
-  setTabStop(node) {
+  setTabStop(node: SceneNode) {
     if (this.tabStop === node) return;
-    this.tabStop.shape.setAttribute('tabindex', -1);
-    node.shape.setAttribute('tabindex', 0);
+    this.tabStop.shape.setAttribute('tabindex', '-1');
+    node.shape.setAttribute('tabindex', '0');
     this.tabStop = node;
   }
   // The spoken name includes whatever the route painting says about the node.
-  describe(node) {
-    const roles = [['start', 'start of the route'], ['end', 'end of the route'], ['route', 'on the selected route']]
+  describe(node: SceneNode) {
+    const roles = ([['start', 'start of the route'], ['end', 'end of the route'], ['route', 'on the selected route']] as const)
       .filter(([name]) => this.has(node, name)).map(([, text]) => text);
     return [node.routeLabel.replace('\n', ', '), ...roles].join(', ');
   }
   // Nearest node inside a 90° cone around the arrow direction, measured on screen-independent world coordinates.
-  neighbour(node, [dx, dy]) {
-    let best, bestScore = Infinity;
+  neighbour(node: SceneNode, [dx, dy]: [number, number]) {
+    let best: SceneNode | undefined, bestScore = Infinity;
     for (const other of this.nodes) {
       if (other === node) continue;
       const along = (other.x - node.x) * dx + (other.y - node.y) * dy;
@@ -159,7 +208,7 @@ window.GraphScene = class {
     return best;
   }
   // Keyboard focus must never land off-screen: pan the minimum distance to bring the node into view.
-  reveal(node) {
+  reveal(node: SceneNode) {
     const box = this.svg.getBoundingClientRect(), p = this.position(node);
     const r = this.visibleRect?.() || {x: 0, y: 0, w: box.width, h: box.height};
     this.labelBox(node);
@@ -167,12 +216,12 @@ window.GraphScene = class {
     const side = Math.min(Math.max(48, node.width / 2 + 12, radius + 12), r.w / 2);
     const top = Math.min(Math.max(48, radius + 12), r.h / 2);
     const bottom = Math.min(Math.max(48, node.size / 2 * this.zoom + node.height + 17), r.h / 2);
-    const shift = (value, low, high) => value < low ? low - value : value > high ? high - value : 0;
+    const shift = (value: number, low: number, high: number) => value < low ? low - value : value > high ? high - value : 0;
     const x = shift(p.x, r.x + side, r.x + r.w - side), y = shift(p.y, r.y + top, r.y + r.h - bottom);
     if (x || y) this.setViewport(this.zoom, {x: this.pan.x + x, y: this.pan.y + y});
   }
-  has(item, name) { return item.shape.classList.contains(name); }
-  classes(items, remove, add = '') {
+  has(item: SceneItem, name: string) { return item.shape.classList.contains(name); }
+  classes(items: SceneItem[], remove: string, add = '') {
     const removed = remove.split(' ').filter(Boolean), added = add.split(' ').filter(Boolean);
     for (const item of items) {
       for (const name of removed) if (this.has(item, name)) item.shape.classList.remove(name);
@@ -183,43 +232,45 @@ window.GraphScene = class {
     for (const node of this.nodes) node.shape.setAttribute('transform', `translate(${node.x} ${node.y})`);
     for (const edge of this.edges) {
       const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 3;
-      edge.shape.setAttribute('x1', a.x); edge.shape.setAttribute('y1', a.y);
-      edge.shape.setAttribute('x2', b.x - (b.x-a.x)*r/d); edge.shape.setAttribute('y2', b.y - (b.y-a.y)*r/d);
+      edge.shape.setAttribute('x1', String(a.x)); edge.shape.setAttribute('y1', String(a.y));
+      edge.shape.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); edge.shape.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
     }
   }
-  moveNode(node, dx, dy) {
+  moveNode(node: SceneNode, dx: number, dy: number) {
     this.stop();
     node.x += dx / this.zoom; node.y += dy / this.zoom;
     this.updatePositions(); this.onDrag?.(node); this.onChange?.();
   }
-  position(item) {
+  position(item: SceneItem): Point {
     const x = item.label ? item.x : (item.source.x + item.target.x) / 2;
     const y = item.label ? item.y : (item.source.y + item.target.y) / 2;
     return {x: x * this.zoom + this.pan.x, y: y * this.zoom + this.pan.y};
   }
-  bounds(items, rendered = false) {
+  bounds(items: SceneItem[], rendered?: false): Bounds & { w: number; h: number };
+  bounds(items: SceneItem[], rendered: true): Bounds;
+  bounds(items: SceneItem[], rendered = false) {
     const nodes = items.flatMap(n => n.label ? [n] : [n.source, n.target]);
     const x1 = Math.min(...nodes.map(n => n.x - n.size/2)), x2 = Math.max(...nodes.map(n => n.x + n.size/2));
     const y1 = Math.min(...nodes.map(n => n.y - n.size/2)), y2 = Math.max(...nodes.map(n => n.y + n.size/2));
     return rendered ? {x1: x1*this.zoom+this.pan.x, x2: x2*this.zoom+this.pan.x,
       y1: y1*this.zoom+this.pan.y, y2: y2*this.zoom+this.pan.y} : {x1, x2, y1, y2, w: x2-x1, h: y2-y1};
   }
-  setViewport(zoom, pan) {
+  setViewport(zoom: number, pan: Point) {
     this.zoom = zoom; this.pan = pan;
     this.world.setAttribute('transform', `translate(${pan.x} ${pan.y}) scale(${zoom})`);
     this.onChange?.();
   }
-  zoomAt(zoom, p) {
+  zoomAt(zoom: number, p: Point) {
     zoom = Math.max(.1, Math.min(3, zoom));
     const scale = zoom / this.zoom;
     this.setViewport(zoom, {x: p.x-(p.x-this.pan.x)*scale, y: p.y-(p.y-this.pan.y)*scale});
   }
   stop() { cancelAnimationFrame(this.animation); this.animation = 0; }
-  frame(zoom, pan, animate) {
+  frame(zoom: number, pan: Point, animate: boolean) {
     this.stop();
     if (!animate) { this.setViewport(zoom, pan); performance.mark('graph:camera-settled'); return; }
     const start = performance.now(), z = this.zoom, p = this.pan;
-    const step = now => {
+    const step = (now: number) => {
       const t = Math.min(1, (now-start)/450), ease = t < .5 ? 4*t*t*t : 1-(-2*t+2)**3/2;
       this.setViewport(z+(zoom-z)*ease, {x:p.x+(pan.x-p.x)*ease, y:p.y+(pan.y-p.y)*ease});
       this.animation = t < 1 ? requestAnimationFrame(step) : 0;
@@ -227,7 +278,7 @@ window.GraphScene = class {
     };
     this.animation = requestAnimationFrame(step);
   }
-  labelBox(node) {
+  labelBox(node: SceneNode): Bounds {
     const important = ['route', 'start', 'end', 'hover', 'focused'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
     const key = size + ':' + text;
@@ -247,12 +298,12 @@ window.GraphScene = class {
       node.height = lines.length * size * 1.25;
       node.label.replaceChildren(...lines.map((line, i) => {
         const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        span.setAttribute('x', '0'); span.setAttribute('y', 5+size+i*size*1.25); span.textContent = line; return span;
+        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = line; return span;
       }));
-      node.label.setAttribute('font-size', size);
+      node.label.setAttribute('font-size', String(size));
     }
     node.label.setAttribute('transform', `translate(0 ${node.size/2}) scale(${1/this.zoom})`);
     const p = this.position(node), top = p.y + node.size/2*this.zoom + 5;
     return {x1:p.x-node.width/2-3, x2:p.x+node.width/2+3, y1:top-3, y2:top+node.height+3};
   }
-};
+}

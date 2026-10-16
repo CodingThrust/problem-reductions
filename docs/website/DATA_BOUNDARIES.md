@@ -35,6 +35,9 @@ documentation-index contracts passed local production checks; other rows remain 
   strings with a nonzero denominator; approximate layout coordinates are a
   separate finite-number domain. Audit numeric defaults/bounds in schema metadata
   as well as the obvious mathematical response fields.
+- Certificate exponents are arbitrary-precision integers in `src/polynomial.rs`.
+  `graph.js` still converts them through `Number` in growth summaries; remove that
+  precision loss before claiming end-to-end exactness.
 - Keep numeric indices and small counts only with explicit safe-integer and domain
   checks. Do not convert exact mathematical values through floating point to
   satisfy a TypeScript type. Test wide integers and fractions independently.
