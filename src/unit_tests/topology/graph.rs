@@ -128,7 +128,6 @@ fn test_simple_graph_cycle_small() {
 
 #[test]
 fn test_simple_graph_eq_different_sizes() {
-    // Test PartialEq when graphs have different sizes
     let g1 = SimpleGraph::new(3, vec![(0, 1)]);
     let g2 = SimpleGraph::new(4, vec![(0, 1)]); // Different vertex count
     assert_ne!(g1, g2);

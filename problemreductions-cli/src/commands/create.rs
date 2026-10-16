@@ -353,9 +353,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         return create_registered_random(args, canonical, &resolved_variant, out);
     }
 
-    // ILP and CircuitSAT have complex input structures
-    // not suited for CLI flags. Check before the empty-flags help so they get a
-    // clear message.
+    // ILP and CircuitSAT have complex input structures not suited for CLI flags.
     if canonical == "ILP" || canonical == "CircuitSAT" {
         bail!(
             "CLI creation is not yet supported for {canonical}.\n\n\

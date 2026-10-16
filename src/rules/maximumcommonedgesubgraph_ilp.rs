@@ -146,7 +146,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumcommonedgesubgraph_to_ilp",
         build: || {
-            // Small triangle/path instance: optimal MCES preserves 2 arcs.
             let source = MaximumCommonEdgeSubgraph::new(
                 LabelledDigraph::new(
                     3,

@@ -218,18 +218,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 variables, 4 assignments:
-    // A_0: a <- op(b, c) -> (0, [1, 2])
-    // A_1: b <- op(a)    -> (1, [0])
-    // A_2: c <- op(d)    -> (2, [3])
-    // A_3: d <- op(b, c) -> (3, [1, 2])
-    //
-    // Optimal ordering: config [0, 3, 1, 2] means
-    // A_0 at position 0, A_1 at position 3, A_2 at position 1, A_3 at position 2
-    // Order: (A_0, A_2, A_3, A_1)
-    // Backward deps: A_0 writes a, A_1 reads a (later) -> 1
-    //                A_2 writes c, A_3 reads c (later) -> 1
-    //                Total: 2
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_parallel_assignments",

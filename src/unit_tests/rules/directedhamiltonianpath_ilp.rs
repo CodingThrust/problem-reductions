@@ -32,7 +32,6 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
         .expect("brute-force should find a solution");
     assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
-    // Solve via ILP
     let reduction: ReductionDirectedHamiltonianPathToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -49,7 +48,6 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
 
 #[test]
 fn test_directedhamiltonianpath_to_ilp_issue_example() {
-    // 6-vertex example from issue #813
     let graph = DirectedGraph::new(
         6,
         vec![

@@ -333,11 +333,7 @@ where
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // K4 with weights [1,1,2,2,2,3], k=2, B=4.
-    // 16 spanning trees; exactly 2 have weight ≤ 4 (both weight 4):
-    //   {01,02,03} (star at 0) and {01,02,13}.
-    // Satisfying configs = 2 (the two orderings of this pair).
-    // 12 variables → 2^12 = 4096 configs, fast to enumerate.
+    // Keep reference enumeration small enough for the example-db checks.
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = KthBestSpanningTree::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4);
     vec![crate::example_db::specs::ModelExampleSpec {

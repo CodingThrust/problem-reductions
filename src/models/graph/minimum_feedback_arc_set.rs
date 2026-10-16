@@ -243,7 +243,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::DirectedGraph;
-    // 3-node cycle, unit weights; remove one arc to break cycle, cost = 1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_feedback_arc_set",
         instance: Box::new(MinimumFeedbackArcSet::new(

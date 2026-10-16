@@ -2228,7 +2228,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           import draw: *
           let blue = graph-colors.at(0)
           let gray = luma(185)
-          // Layout for issue #813: path 0–1–3–2–4–5 with clear bends so $v_0,v_1,v_3$ are not collinear
+          // Bend the path so $v_0,v_1,v_3$ are not collinear.
           // (otherwise $(0,3)$ lies on the same geometric line as $0 arrow.r 1 arrow.r 3$).
           let verts = (
             (0, 0),
@@ -17146,7 +17146,7 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
 ]
 
-// === Non-ILP reduction rules (issue #974) ===
+// === Non-ILP reduction rules ===
 
 #reduction-rule("ILP", "ILP")[
   ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. The independent bounds dimension defaults to general; the bounded integer variant requires finite lower and upper endpoints for every variable. Binary variables embed into bounded integer ILP, which embeds into general integer ILP while retaining all stored bounds. A bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.

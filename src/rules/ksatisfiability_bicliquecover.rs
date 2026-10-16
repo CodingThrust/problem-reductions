@@ -39,9 +39,6 @@
 //! identifies the biclique `B_1` covering `s_11^u s_11^v` and reads off
 //! `x_i = true` iff `h_i^u ∈ B_1` (after mapping `t_i, f_i` back to the
 //! source variables).
-//!
-//! See issue #1057 for the full construction; this file mirrors the
-//! issue body section-by-section.
 
 #[cfg(feature = "example-db")]
 use crate::models::formula::CNFClause;
@@ -917,7 +914,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {
-                    source_config: serde_json::json!([true]), // x_1 = true
+                    source_config: serde_json::json!([true]),
                     target_config: serde_json::to_value(target_config)
                         .expect("solution serialization must succeed"),
                 },

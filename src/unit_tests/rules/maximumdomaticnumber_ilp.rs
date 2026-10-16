@@ -15,11 +15,9 @@ fn test_maximumdomaticnumber_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_witness = bf.solve(&problem).unwrap().unwrap();
     let bf_value = problem.evaluate(&bf_witness).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted).unwrap();
@@ -28,7 +26,6 @@ fn test_maximumdomaticnumber_to_ilp_closed_loop() {
     assert_eq!(bf_value, Max(Some(2)));
     assert_eq!(ilp_value, Max(Some(2)));
 
-    // Verify the ILP solution is valid for the original problem
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
@@ -114,7 +111,6 @@ fn test_maximumdomaticnumber_to_ilp_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
 
-    // Verify this is a valid partition with 2 dominating sets
     let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Max(Some(2)));
 }

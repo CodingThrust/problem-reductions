@@ -116,13 +116,6 @@ fn test_shortestcommonsupersequence_evaluate_infeasible() {
 #[test]
 fn test_shortestcommonsupersequence_out_of_range() {
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
-    // max_length = 2, config must have 2 entries
-    // value 3 is out of range (alphabet_size=2, padding=2, so valid symbols are 0,1,2)
-    // Actually 3 > alphabet_size so treated as invalid (not padding)
-    // Config [0, 3]: position 1 has value 3, which is > alphabet_size (2)
-    // This means position 1 is neither a valid symbol nor padding
-    // After finding padding at... wait, 3 != 2 (padding), so effective_length = 2
-    // Then prefix [0, 3] has 3 >= alphabet_size, so returns None
     assert_eq!(problem.evaluate(&vec![Some(0), None]).unwrap(), Min(None));
 }
 
@@ -238,7 +231,6 @@ fn test_shortestcommonsupersequence_paper_example() {
         Min(Some(4))
     );
 
-    // Verify a solution exists with brute force
     let solver = BruteForce::new();
     let witness = solver
         .solve(&problem)

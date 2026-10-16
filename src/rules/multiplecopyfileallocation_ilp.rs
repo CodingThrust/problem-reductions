@@ -154,10 +154,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiplecopyfileallocation_to_ilp",
         build: || {
-            // 3-vertex path: 0 - 1 - 2
-            // Place a copy at vertex 1 (center); all vertices reachable within
-            // distance 1.  storage = [5,5,5], usage = [1,1,1].
-            // Cost = 5 (storage at 1) + 1*1 + 1*0 + 1*1 = 7.
             let source = MultipleCopyFileAllocation::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1, 1, 1],

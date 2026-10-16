@@ -92,7 +92,6 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_solution_extraction
 
     // Source config should be [parent_array | identity_mapping] = [0, 0, 0, 1]
     assert_eq!(source_config, vec![0, 0, 0, 1]);
-    // Verify it's valid for the source
     assert!(source.is_valid_solution(&source_config).unwrap());
 }
 

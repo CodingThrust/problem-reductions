@@ -44,7 +44,7 @@ inventory::submit! {
 /// A configuration is an arc-ordering `pi`: position `t` carries the index of
 /// the arc occurrence used as the `t`-th arc of the trail.
 ///
-/// `dims() = vec![m; m]` where `m = num_arcs()`. A configuration is feasible
+/// `dimensions() = vec![m; m]` where `m = num_arcs()`. A configuration is feasible
 /// when:
 /// 1. it is a permutation of `0..m` (all values distinct, each in range), and
 /// 2. for every consecutive pair `(pi[t], pi[t+1])`, the target vertex of arc
@@ -180,9 +180,6 @@ fn is_valid_eulerian_trail(graph: &DirectedGraph, config: &[usize]) -> bool {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Canonical YES instance from the issue: V = {0,1,2},
-    // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1 between 0 and 1).
-    // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
     let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
     let optimal_config = vec![0usize, 2, 3, 1];
     vec![crate::example_db::specs::ModelExampleSpec {

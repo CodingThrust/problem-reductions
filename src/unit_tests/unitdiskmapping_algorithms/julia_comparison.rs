@@ -325,7 +325,6 @@ fn compare_triangular(name: &str) {
     let edges = get_graph_edges(&julia);
     let num_vertices = julia.num_vertices;
 
-    // Extract Julia's vertex order from copy_lines
     let vertex_order = get_vertex_order(&julia);
     let rust_result =
         triangular::map_weighted_with_order(num_vertices, &edges, &vertex_order).unwrap();
@@ -662,7 +661,6 @@ fn compare_connected_cells(name: &str) {
         rust_result.padding,
     );
 
-    // Add copyline nodes
     for line in &rust_result.lines {
         for (row, col, weight) in line.copyline_locations(rust_result.padding, rust_result.spacing)
         {
@@ -690,7 +688,6 @@ fn compare_connected_cells(name: &str) {
         }
     }
 
-    // Collect Rust's Connected cell positions
     let rust_connected: HashSet<(i64, i64)> = {
         let (rows, cols) = grid.size();
         let mut connected = HashSet::new();
@@ -708,7 +705,6 @@ fn compare_connected_cells(name: &str) {
     println!("Julia Connected: {} cells", julia_connected.len());
     println!("Rust Connected: {} cells", rust_connected.len());
 
-    // Find differences
     let julia_only: Vec<_> = julia_connected.difference(&rust_connected).collect();
     let rust_only: Vec<_> = rust_connected.difference(&julia_connected).collect();
 

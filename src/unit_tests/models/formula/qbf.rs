@@ -46,7 +46,7 @@ fn test_qbf_evaluate_true() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![1, -2])],
     );
 
-    // dims() is empty; evaluate([]) runs the game-tree search
+    // The unit witness delegates truth evaluation to the game-tree search.
     assert_eq!(problem.dimensions(), Vec::<usize>::new());
     assert!(problem.evaluate(&()).unwrap());
     assert!(problem.is_true());
@@ -152,7 +152,6 @@ fn test_qbf_solver() {
     );
 
     let solver = BruteForce::new();
-    // With dims()=[], there is exactly one config: []. evaluate([]) = is_true() = true
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     solution.unwrap();
@@ -237,7 +236,6 @@ fn test_qbf_dims() {
         ],
         vec![CNFClause::new(vec![1, 2, 3, 4])],
     );
-    // dims() is always empty — QBF has no external config variables
     assert_eq!(problem.dimensions(), Vec::<usize>::new());
 }
 

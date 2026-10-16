@@ -31,7 +31,6 @@ use crate::traits::Problem;
 use crate::types::Max;
 
 fn issue_instance() -> MaximumContactMapOverlap {
-    // Canonical example from the issue:
     //   G_1: n_1 = 4, E_1 = {{0,2}, {1,3}}
     //   G_2: n_2 = 5, E_2 = {{0,3}, {1,4}, {0,2}}
     MaximumContactMapOverlap::new(4, vec![(0, 2), (1, 3)], 5, vec![(0, 3), (1, 4), (0, 2)])

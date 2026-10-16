@@ -168,7 +168,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(
             SimultaneousIncongruences::new(vec![(2, 2), (1, 3), (2, 5), (3, 7)]).unwrap(),
         ),
-        // x=5: 5%2=1≠0(=2%2), 5%3=2≠1, 5%5=0≠2, 5%7=5≠3 ✓
         optimal_config: serde_json::json!(5),
         optimal_value: serde_json::json!(true),
     }]
