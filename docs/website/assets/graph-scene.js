@@ -62,8 +62,7 @@ window.GraphScene = class {
       } else if (Math.hypot(p.x - gesture.start.x, p.y - gesture.start.y) > 3 || gesture.moved) {
         gesture.moved = true;
         if (gesture.item?.label) {
-          gesture.item.x += dx / this.zoom; gesture.item.y += dy / this.zoom;
-          this.updatePositions(); this.onDrag?.(gesture.item); this.onChange?.();
+          this.moveNode(gesture.item, dx, dy);
         } else this.setViewport(this.zoom, {x: this.pan.x + dx, y: this.pan.y + dy});
       }
     });
@@ -186,6 +185,11 @@ window.GraphScene = class {
       edge.shape.setAttribute('x1', a.x); edge.shape.setAttribute('y1', a.y);
       edge.shape.setAttribute('x2', b.x - (b.x-a.x)*r/d); edge.shape.setAttribute('y2', b.y - (b.y-a.y)*r/d);
     }
+  }
+  moveNode(node, dx, dy) {
+    this.stop();
+    node.x += dx / this.zoom; node.y += dy / this.zoom;
+    this.updatePositions(); this.onDrag?.(node); this.onChange?.();
   }
   position(item) {
     const x = item.label ? item.x : (item.source.x + item.target.x) / 2;

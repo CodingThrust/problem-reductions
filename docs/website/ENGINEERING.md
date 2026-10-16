@@ -253,7 +253,7 @@ the initial capture exactly. The focused cross-browser evidence and outstanding
 scan findings are recorded in
 [ACCESSIBILITY.md](baselines/2026-10-16-chromium-macos/ACCESSIBILITY.md).
 
-Stage 1 remains incomplete: drag alternatives, responsive edge cases, scan follow-ups
+Stage 1 remains incomplete: responsive edge cases, scan follow-ups
 and the required manual/device checks still need implementation or verification.
 The sporadic long-frame defect remains under investigation; the trace pilot is not
 a claim that it was fixed.
@@ -266,6 +266,24 @@ unchanged. The browser regression reads the computed colors and checks the unrou
 ratio against [WCAG's 4.5:1 minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
 This deliberately changes those text pixels for accessibility; the original
 screenshots remain the reference, and other incomplete contrast checks remain open.
+
+Graph navigation now offers native click/tap pan controls alongside zoom/fit. The
+mobile dock sits above the results sheet. Each pan moves graph content 80 screen
+pixels in its named direction; popup movement buttons reposition one problem by
+40 screen pixels and update its connected edges through the same operation as
+pointer dragging. Keyboard spatial navigation is unchanged. The popup scrolls when
+its controls exceed the free canvas height, including the 320x640 check.
+
+The new behavior checks compare the copied route before/after camera/node changes,
+check connected-edge placement and preserved focus, and exercise actual
+Playwright touch-emulated taps on the narrow mobile dock. Existing pointer pan,
+node dragging and pinch checks still apply. Physical mobile/assistive-technology
+acceptance remains separate. Screenshot changes are limited to the required
+navigation/movement controls; their colors and styling reuse existing controls.
+The two new mobile cases passed in the pinned Chromium, Firefox and WebKit engines;
+this focused result does not certify the remaining cross-browser suite.
+Rollback the isolated controls and shared node-movement extraction together to
+restore the original drag-only behavior, keeping its known accessibility gap open.
 
 Rollback each accessibility fix independently, retaining its regression test as
 evidence of the known defect. Revert the scan integration and its test-only pin

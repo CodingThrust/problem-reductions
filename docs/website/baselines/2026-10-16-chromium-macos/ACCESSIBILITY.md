@@ -55,3 +55,13 @@ all 74 browser workflows and the existing checks. `contrast-screenshots.json.gz`
 records its capture: only Graph route/popover/drawer images changed at each viewport;
 the eight Home/Atlas/empty/unknown images remain identical. Layout, palette values
 and fonts did not change. Other incomplete contrast results still require review.
+
+The next isolated increment adds click/tap pan controls, popup node-movement buttons,
+mobile zoom/fit access and bounded popup scrolling. The fresh required-board build
+passed all 78 workflows plus the existing mathematical/build/harness checks. The
+four new behavior cases failed against the old runtime before implementation.
+The two mobile cases also passed in all three pinned engines, including emulated
+touch taps; physical-device results remain unverified. The
+`navigation-controls-screenshots.json.gz` capture records the necessary Graph
+control changes. Original references remain intact. No aesthetic styling or palette
+change accompanies these controls.

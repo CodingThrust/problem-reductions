@@ -10,6 +10,7 @@ const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.na
 const aliasMap = D.aliases;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 760px)");
+const directions = [["left", "←", -1, 0], ["up", "↑", 0, -1], ["right", "→", 1, 0], ["down", "↓", 0, 1]];
 
 /* ---------- Registry model ---------- */
 const display = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
@@ -273,6 +274,16 @@ function renderPop() {
   a.type = b.type = "button";
   a.addEventListener("click", () => setEnd("source", popIndex)); b.addEventListener("click", () => setEnd("target", popIndex));
   acts.append(a, b); pop.append(acts);
+  const move = el("div", "options"), row = el("div", "opt-row");
+  row.setAttribute("role", "group"); row.setAttribute("aria-label", "Move problem");
+  row.append(el("span", "opt-key", "Move"));
+  for (const [name, arrow, dx, dy] of directions) {
+    const button = el("button", "opt", arrow); button.type = "button";
+    button.setAttribute("aria-label", "Move problem " + name);
+    button.onclick = () => scene.moveNode(popNode, dx * 40, dy * 40);
+    row.append(button);
+  }
+  move.append(row); pop.append(move);
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex]); pop.append(details);
   pop.hidden = false; placePop();
@@ -280,7 +291,9 @@ function renderPop() {
 }
 function placePop() {
   if (!popNode || $("#pop").hidden) return;
-  const pop = $("#pop"), p = scene.position(popNode), r = freeRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  const pop = $("#pop"), p = scene.position(popNode), r = freeRect();
+  pop.style.maxHeight = Math.max(1, r.h - 24) + "px";
+  const w = pop.offsetWidth, h = pop.offsetHeight;
   let x = p.x + 20; if (x + w > r.x + r.w - 12) x = p.x - 20 - w;
   pop.style.left = Math.max(r.x + 12, x) + "px";
   pop.style.top = Math.max(r.y + 12, Math.min(p.y - h / 2, r.y + r.h - h - 12)) + "px";
@@ -609,6 +622,9 @@ const zoomBy = (k) => { const r = freeRect(); scene.stop(); scene.zoomAt(scene.z
 $("#zoom-in").onclick = () => zoomBy(1.3);
 $("#zoom-out").onclick = () => zoomBy(1 / 1.3);
 $("#fit").onclick = () => frame(scene.elements, 1);
+for (const [name, , dx, dy] of directions) $("#pan-" + name).onclick = () => {
+  scene.stop(); scene.setViewport(scene.zoom, {x: scene.pan.x + dx * 80, y: scene.pan.y + dy * 80});
+};
 addEventListener("resize", () => { scheduleLabels(); placePop(); });
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--header-height", $(".site-header").getBoundingClientRect().height + "px");
