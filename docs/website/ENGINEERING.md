@@ -268,8 +268,13 @@ upstream repositories. Update the board revision deliberately when publishing ne
 research content; its source tree currently matches the local board checkout used
 for the production tests. The hosted Ubuntu image can still change, so the runner
 image/version remains part of each result rather than an immutable-environment claim.
-The revised workflow has not run on GitHub yet; that verification remains required
-before claiming CI reproducibility. Cross-runner timing gates remain informational.
+The [first branch CI run](https://github.com/CodingThrust/problem-reductions/actions/runs/38917219762)
+completed cold installation and production assembly, then failed the required prompt
+workflow because the initial board pin selected an older source tree without that
+feature. The pin now matches the exact tested local board commit/tree; the production
+expectation stays intact. CI retains verification logs and provenance even on failure.
+The corrected run remains pending; CI reproducibility is not yet certified.
+Cross-runner timing gates remain informational.
 Verification-only provenance labels the current checkout as the verifier source;
 it does not claim to identify the build source of an externally supplied artifact.
 

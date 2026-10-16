@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: GiggleLiu/autoresearch-gadgets
-          ref: 47d882601a169efb24655406ee2e411d86d481f7
+          ref: 9ceb0e4c3a4a72b536f8d3d478f9296c546a7bf8
           path: open-questions-source
           token: ${{ secrets.PROJECT_READ_TOKEN }}
           persist-credentials: false
@@ -70,6 +70,15 @@ jobs:
           uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-source/website/dist --require-open-questions
           npm audit --audit-level=moderate
           git diff --exit-code -- Cargo.lock package-lock.json
+
+      - name: Retain verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: website-verification
+          path: |
+            book/verification.json
+            book/verification.log
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
