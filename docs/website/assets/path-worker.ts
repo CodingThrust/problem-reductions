@@ -1,3 +1,5 @@
+import type { Query } from './wasm-path-request.validator.mjs';
+import type { ComparisonQuery } from './wasm-comparison-request.validator.mjs';
 import init, { find_paths, summarize_paths } from "./path-selection.js";
 import { parseWasmPathResult } from './wasm-paths-data.mts';
 import { parseWasmComparison, validateComparisonParameters } from './wasm-comparison-data.mts';
@@ -44,14 +46,14 @@ self.onmessage = async ({data}: MessageEvent<unknown>) => {
     performance.mark("engine:paths-start");
     const result = request.kind === 'compare' ? request.cached : parseWasmPathResult(find_paths(JSON.stringify({
       graph, source: request.source, target: request.target, limit: request.limit,
-    })));
+    } satisfies Query)));
     if (request.kind === 'search') validatePathRoutes(result, graph, request);
     performance.mark("engine:paths-end");
     if (request.kind === 'search') self.postMessage({schema_version: 1, phase, result});
     phase = "comparison";
     if (result.paths.length) {
       performance.mark("engine:comparison-start");
-      const comparison = parseWasmComparison(summarize_paths(JSON.stringify({graph, paths: result.paths})), result.paths.length, 'summary');
+      const comparison = parseWasmComparison(summarize_paths(JSON.stringify({graph, paths: result.paths} satisfies ComparisonQuery)), result.paths.length, 'summary');
       validateComparisonParameters(comparison, graph.nodes[request.source]!.parameter_names, graph.nodes[request.target]!.parameter_names);
       performance.mark("engine:comparison-end");
       self.postMessage({schema_version: 1, phase, result: comparison});

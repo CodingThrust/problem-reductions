@@ -1,0 +1,1589 @@
+//#region \0rolldown/runtime.js
+var e = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), t = /* @__PURE__ */ e(((e) => {
+	Object.defineProperty(e, "__esModule", { value: !0 });
+	function t(e) {
+		let t = e.length, n = 0, r = 0, i;
+		for (; r < t;) n++, i = e.charCodeAt(r++), i >= 55296 && i <= 56319 && r < t && (i = e.charCodeAt(r), (i & 64512) == 56320 && r++);
+		return n;
+	}
+	e.default = t, t.code = "require(\"ajv/dist/runtime/ucs2length\").default";
+})), n = (/* @__PURE__ */ e(((e) => {
+	e.validateNativeExports = c;
+	var n = {
+		$schema: "https://json-schema.org/draft/2020-12/schema",
+		$id: "https://codingthrust.github.io/problem-reductions/contracts/native-exports",
+		title: "NativeExports",
+		type: "object",
+		additionalProperties: !1,
+		required: ["graph", "schemas"],
+		properties: {
+			graph: {
+				type: "object",
+				additionalProperties: !1,
+				required: [
+					"nodes",
+					"edges",
+					"aliases"
+				],
+				properties: {
+					nodes: {
+						type: "array",
+						minItems: 1,
+						items: {
+							type: "object",
+							additionalProperties: !1,
+							required: [
+								"name",
+								"variant",
+								"default",
+								"parameter_names",
+								"category",
+								"doc_path",
+								"complexity"
+							],
+							properties: {
+								name: { $ref: "#/$defs/Name" },
+								variant: {
+									type: "object",
+									propertyNames: { minLength: 1 },
+									additionalProperties: {
+										type: "string",
+										minLength: 1
+									}
+								},
+								default: { type: "boolean" },
+								parameter_names: {
+									type: "array",
+									uniqueItems: !0,
+									items: {
+										type: "string",
+										minLength: 1
+									}
+								},
+								category: { $ref: "#/$defs/Category" },
+								doc_path: { $ref: "#/$defs/DocPath" },
+								complexity: {
+									type: "string",
+									minLength: 1
+								}
+							}
+						}
+					},
+					edges: {
+						type: "array",
+						items: {
+							type: "object",
+							additionalProperties: !1,
+							required: [
+								"source",
+								"target",
+								"witness",
+								"turing",
+								"parameter_contract_error",
+								"parameters",
+								"aggregate",
+								"doc_path"
+							],
+							properties: {
+								source: {
+									type: "integer",
+									minimum: 0,
+									maximum: 9007199254740991
+								},
+								target: {
+									type: "integer",
+									minimum: 0,
+									maximum: 9007199254740991
+								},
+								witness: { type: "boolean" },
+								turing: { type: "boolean" },
+								parameter_contract_error: {
+									type: ["string", "null"],
+									minLength: 1
+								},
+								parameters: {
+									type: "array",
+									items: { $ref: "#/$defs/Parameter" }
+								},
+								aggregate: { type: "boolean" },
+								doc_path: { $ref: "#/$defs/DocPath" }
+							}
+						}
+					},
+					aliases: {
+						type: "object",
+						additionalProperties: {
+							type: "array",
+							items: {
+								type: "string",
+								minLength: 1
+							},
+							uniqueItems: !0
+						}
+					}
+				}
+			},
+			schemas: {
+				type: "array",
+				minItems: 1,
+				items: {
+					type: "object",
+					additionalProperties: !1,
+					required: [
+						"name",
+						"description",
+						"category",
+						"fields",
+						"module_path"
+					],
+					properties: {
+						name: { $ref: "#/$defs/Name" },
+						description: { type: "string" },
+						display_name: {
+							type: "string",
+							minLength: 1
+						},
+						aliases: {
+							type: "array",
+							items: {
+								type: "string",
+								minLength: 1
+							},
+							uniqueItems: !0
+						},
+						category: { $ref: "#/$defs/Category" },
+						fields: {
+							type: "array",
+							items: { $ref: "#/$defs/Field" }
+						},
+						module_path: {
+							type: "string",
+							minLength: 1
+						}
+					}
+				}
+			}
+		},
+		$defs: {
+			Name: {
+				type: "string",
+				pattern: "^[A-Za-z_][A-Za-z0-9_]*$"
+			},
+			Category: {
+				type: "string",
+				enum: [
+					"graph",
+					"formula",
+					"set",
+					"algebraic",
+					"misc"
+				]
+			},
+			Field: {
+				type: "object",
+				additionalProperties: !1,
+				required: [
+					"name",
+					"type_name",
+					"description"
+				],
+				properties: {
+					name: {
+						type: "string",
+						minLength: 1
+					},
+					type_name: {
+						type: "string",
+						minLength: 1
+					},
+					description: { type: "string" }
+				}
+			},
+			DocPath: {
+				type: "string",
+				pattern: "^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$"
+			},
+			Parameter: { oneOf: [{
+				type: "object",
+				additionalProperties: !1,
+				required: [
+					"field",
+					"contract",
+					"formula",
+					"reason"
+				],
+				properties: {
+					field: {
+						type: "string",
+						minLength: 1
+					},
+					contract: {
+						type: "string",
+						enum: ["exact", "upper_bound"]
+					},
+					formula: {
+						type: "string",
+						minLength: 1
+					},
+					reason: { type: "null" }
+				}
+			}, {
+				type: "object",
+				additionalProperties: !1,
+				required: [
+					"field",
+					"contract",
+					"formula",
+					"reason"
+				],
+				properties: {
+					field: {
+						type: "string",
+						minLength: 1
+					},
+					contract: {
+						type: "string",
+						const: "unavailable"
+					},
+					formula: { type: "null" },
+					reason: {
+						type: "string",
+						minLength: 1
+					}
+				}
+			}] }
+		}
+	}, r = {
+		type: "string",
+		enum: [
+			"graph",
+			"formula",
+			"set",
+			"algebraic",
+			"misc"
+		]
+	}, i = { oneOf: [{
+		type: "object",
+		additionalProperties: !1,
+		required: [
+			"field",
+			"contract",
+			"formula",
+			"reason"
+		],
+		properties: {
+			field: {
+				type: "string",
+				minLength: 1
+			},
+			contract: {
+				type: "string",
+				enum: ["exact", "upper_bound"]
+			},
+			formula: {
+				type: "string",
+				minLength: 1
+			},
+			reason: { type: "null" }
+		}
+	}, {
+		type: "object",
+		additionalProperties: !1,
+		required: [
+			"field",
+			"contract",
+			"formula",
+			"reason"
+		],
+		properties: {
+			field: {
+				type: "string",
+				minLength: 1
+			},
+			contract: {
+				type: "string",
+				const: "unavailable"
+			},
+			formula: { type: "null" },
+			reason: {
+				type: "string",
+				minLength: 1
+			}
+		}
+	}] }, a = /* @__PURE__ */ RegExp("^[A-Za-z_][A-Za-z0-9_]*$", "u"), o = /* @__PURE__ */ RegExp("^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$", "u"), s = t().default;
+	function c(e, { instancePath: t = "", parentData: l, parentDataProperty: u, rootData: d = e, dynamicAnchors: f = {} } = {}) {
+		let p = null, m = 0, h = c.evaluated;
+		if (h.dynamicProps && (h.props = void 0), h.dynamicItems && (h.items = void 0), m === 0) {
+			if (e && typeof e == "object" && !Array.isArray(e)) {
+				let l;
+				if (e.graph === void 0 && (l = "graph") || e.schemas === void 0 && (l = "schemas")) return c.errors = [{
+					instancePath: t,
+					schemaPath: "#/required",
+					keyword: "required",
+					params: { missingProperty: l },
+					message: "must have required property '" + l + "'"
+				}], !1;
+				{
+					let l = m;
+					for (let n in e) if (n !== "graph" && n !== "schemas") return c.errors = [{
+						instancePath: t,
+						schemaPath: "#/additionalProperties",
+						keyword: "additionalProperties",
+						params: { additionalProperty: n },
+						message: "must NOT have additional properties"
+					}], !1;
+					if (l === m) {
+						if (e.graph !== void 0) {
+							let l = e.graph, u = m;
+							if (m === u) {
+								if (l && typeof l == "object" && !Array.isArray(l)) {
+									let e;
+									if (l.nodes === void 0 && (e = "nodes") || l.edges === void 0 && (e = "edges") || l.aliases === void 0 && (e = "aliases")) return c.errors = [{
+										instancePath: t + "/graph",
+										schemaPath: "#/properties/graph/required",
+										keyword: "required",
+										params: { missingProperty: e },
+										message: "must have required property '" + e + "'"
+									}], !1;
+									{
+										let e = m;
+										for (let e in l) if (e !== "nodes" && e !== "edges" && e !== "aliases") return c.errors = [{
+											instancePath: t + "/graph",
+											schemaPath: "#/properties/graph/additionalProperties",
+											keyword: "additionalProperties",
+											params: { additionalProperty: e },
+											message: "must NOT have additional properties"
+										}], !1;
+										if (e === m) {
+											if (l.nodes !== void 0) {
+												let e = l.nodes, n = m;
+												if (m === n) {
+													if (Array.isArray(e)) {
+														if (e.length < 1) return c.errors = [{
+															instancePath: t + "/graph/nodes",
+															schemaPath: "#/properties/graph/properties/nodes/minItems",
+															keyword: "minItems",
+															params: { limit: 1 },
+															message: "must NOT have fewer than 1 items"
+														}], !1;
+														{
+															let n = e.length;
+															for (let i = 0; i < n; i++) {
+																let n = e[i], l = m;
+																if (m === l) {
+																	if (n && typeof n == "object" && !Array.isArray(n)) {
+																		let e;
+																		if (n.name === void 0 && (e = "name") || n.variant === void 0 && (e = "variant") || n.default === void 0 && (e = "default") || n.parameter_names === void 0 && (e = "parameter_names") || n.category === void 0 && (e = "category") || n.doc_path === void 0 && (e = "doc_path") || n.complexity === void 0 && (e = "complexity")) return c.errors = [{
+																			instancePath: t + "/graph/nodes/" + i,
+																			schemaPath: "#/properties/graph/properties/nodes/items/required",
+																			keyword: "required",
+																			params: { missingProperty: e },
+																			message: "must have required property '" + e + "'"
+																		}], !1;
+																		{
+																			let e = m;
+																			for (let e in n) if (e !== "name" && e !== "variant" && e !== "default" && e !== "parameter_names" && e !== "category" && e !== "doc_path" && e !== "complexity") return c.errors = [{
+																				instancePath: t + "/graph/nodes/" + i,
+																				schemaPath: "#/properties/graph/properties/nodes/items/additionalProperties",
+																				keyword: "additionalProperties",
+																				params: { additionalProperty: e },
+																				message: "must NOT have additional properties"
+																			}], !1;
+																			if (e === m) {
+																				if (n.name !== void 0) {
+																					let e = n.name, r = m;
+																					if (m === m) {
+																						if (typeof e == "string") {
+																							if (!a.test(e)) return c.errors = [{
+																								instancePath: t + "/graph/nodes/" + i + "/name",
+																								schemaPath: "#/$defs/Name/pattern",
+																								keyword: "pattern",
+																								params: { pattern: "^[A-Za-z_][A-Za-z0-9_]*$" },
+																								message: "must match pattern \"^[A-Za-z_][A-Za-z0-9_]*$\""
+																							}], !1;
+																						} else return c.errors = [{
+																							instancePath: t + "/graph/nodes/" + i + "/name",
+																							schemaPath: "#/$defs/Name/type",
+																							keyword: "type",
+																							params: { type: "string" },
+																							message: "must be string"
+																						}], !1;
+																					}
+																					var g = r === m;
+																				} else var g = !0;
+																				if (g) {
+																					if (n.variant !== void 0) {
+																						let e = n.variant, r = m;
+																						if (m === r) {
+																							if (e && typeof e == "object" && !Array.isArray(e)) {
+																								for (let n in e) {
+																									let e = m;
+																									if (typeof n == "string" && s(n) < 1) {
+																										let e = {
+																											instancePath: t + "/graph/nodes/" + i + "/variant",
+																											schemaPath: "#/properties/graph/properties/nodes/items/properties/variant/propertyNames/minLength",
+																											keyword: "minLength",
+																											params: { limit: 1 },
+																											message: "must NOT have fewer than 1 characters",
+																											propertyName: n
+																										};
+																										p === null ? p = [e] : p.push(e), m++;
+																									}
+																									var _ = e === m;
+																									if (!_) {
+																										let e = {
+																											instancePath: t + "/graph/nodes/" + i + "/variant",
+																											schemaPath: "#/properties/graph/properties/nodes/items/properties/variant/propertyNames",
+																											keyword: "propertyNames",
+																											params: { propertyName: n },
+																											message: "property name must be valid"
+																										};
+																										return p === null ? p = [e] : p.push(e), m++, c.errors = p, !1;
+																									}
+																								}
+																								if (_) for (let n in e) {
+																									let r = e[n], a = m;
+																									if (m === a) {
+																										if (typeof r == "string") {
+																											if (s(r) < 1) return c.errors = [{
+																												instancePath: t + "/graph/nodes/" + i + "/variant/" + n.replace(/~/g, "~0").replace(/\//g, "~1"),
+																												schemaPath: "#/properties/graph/properties/nodes/items/properties/variant/additionalProperties/minLength",
+																												keyword: "minLength",
+																												params: { limit: 1 },
+																												message: "must NOT have fewer than 1 characters"
+																											}], !1;
+																										} else return c.errors = [{
+																											instancePath: t + "/graph/nodes/" + i + "/variant/" + n.replace(/~/g, "~0").replace(/\//g, "~1"),
+																											schemaPath: "#/properties/graph/properties/nodes/items/properties/variant/additionalProperties/type",
+																											keyword: "type",
+																											params: { type: "string" },
+																											message: "must be string"
+																										}], !1;
+																									}
+																									if (a !== m) break;
+																								}
+																							} else return c.errors = [{
+																								instancePath: t + "/graph/nodes/" + i + "/variant",
+																								schemaPath: "#/properties/graph/properties/nodes/items/properties/variant/type",
+																								keyword: "type",
+																								params: { type: "object" },
+																								message: "must be object"
+																							}], !1;
+																						}
+																						var g = r === m;
+																					} else var g = !0;
+																					if (g) {
+																						if (n.default !== void 0) {
+																							let e = m;
+																							if (typeof n.default != "boolean") return c.errors = [{
+																								instancePath: t + "/graph/nodes/" + i + "/default",
+																								schemaPath: "#/properties/graph/properties/nodes/items/properties/default/type",
+																								keyword: "type",
+																								params: { type: "boolean" },
+																								message: "must be boolean"
+																							}], !1;
+																							var g = e === m;
+																						} else var g = !0;
+																						if (g) {
+																							if (n.parameter_names !== void 0) {
+																								let e = n.parameter_names, r = m;
+																								if (m === r) {
+																									if (Array.isArray(e)) {
+																										var v = !0;
+																										let n = e.length;
+																										for (let r = 0; r < n; r++) {
+																											let n = e[r], a = m;
+																											if (m === a) {
+																												if (typeof n == "string") {
+																													if (s(n) < 1) return c.errors = [{
+																														instancePath: t + "/graph/nodes/" + i + "/parameter_names/" + r,
+																														schemaPath: "#/properties/graph/properties/nodes/items/properties/parameter_names/items/minLength",
+																														keyword: "minLength",
+																														params: { limit: 1 },
+																														message: "must NOT have fewer than 1 characters"
+																													}], !1;
+																												} else return c.errors = [{
+																													instancePath: t + "/graph/nodes/" + i + "/parameter_names/" + r,
+																													schemaPath: "#/properties/graph/properties/nodes/items/properties/parameter_names/items/type",
+																													keyword: "type",
+																													params: { type: "string" },
+																													message: "must be string"
+																												}], !1;
+																											}
+																											var v = a === m;
+																											if (!v) break;
+																										}
+																										if (v) {
+																											let n = e.length, r;
+																											if (n > 1) {
+																												let a = {};
+																												for (; n--;) {
+																													let o = e[n];
+																													if (typeof o == "string") {
+																														if (typeof a[o] == "number") return r = a[o], c.errors = [{
+																															instancePath: t + "/graph/nodes/" + i + "/parameter_names",
+																															schemaPath: "#/properties/graph/properties/nodes/items/properties/parameter_names/uniqueItems",
+																															keyword: "uniqueItems",
+																															params: {
+																																i: n,
+																																j: r
+																															},
+																															message: "must NOT have duplicate items (items ## " + r + " and " + n + " are identical)"
+																														}], !1;
+																														a[o] = n;
+																													}
+																												}
+																											}
+																										}
+																									} else return c.errors = [{
+																										instancePath: t + "/graph/nodes/" + i + "/parameter_names",
+																										schemaPath: "#/properties/graph/properties/nodes/items/properties/parameter_names/type",
+																										keyword: "type",
+																										params: { type: "array" },
+																										message: "must be array"
+																									}], !1;
+																								}
+																								var g = r === m;
+																							} else var g = !0;
+																							if (g) {
+																								if (n.category !== void 0) {
+																									let e = n.category, a = m;
+																									if (typeof e != "string") return c.errors = [{
+																										instancePath: t + "/graph/nodes/" + i + "/category",
+																										schemaPath: "#/$defs/Category/type",
+																										keyword: "type",
+																										params: { type: "string" },
+																										message: "must be string"
+																									}], !1;
+																									if (e !== "graph" && e !== "formula" && e !== "set" && e !== "algebraic" && e !== "misc") return c.errors = [{
+																										instancePath: t + "/graph/nodes/" + i + "/category",
+																										schemaPath: "#/$defs/Category/enum",
+																										keyword: "enum",
+																										params: { allowedValues: r.enum },
+																										message: "must be equal to one of the allowed values"
+																									}], !1;
+																									var g = a === m;
+																								} else var g = !0;
+																								if (g) {
+																									if (n.doc_path !== void 0) {
+																										let e = n.doc_path, r = m;
+																										if (m === m) {
+																											if (typeof e == "string") {
+																												if (!o.test(e)) return c.errors = [{
+																													instancePath: t + "/graph/nodes/" + i + "/doc_path",
+																													schemaPath: "#/$defs/DocPath/pattern",
+																													keyword: "pattern",
+																													params: { pattern: "^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$" },
+																													message: "must match pattern \"^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$\""
+																												}], !1;
+																											} else return c.errors = [{
+																												instancePath: t + "/graph/nodes/" + i + "/doc_path",
+																												schemaPath: "#/$defs/DocPath/type",
+																												keyword: "type",
+																												params: { type: "string" },
+																												message: "must be string"
+																											}], !1;
+																										}
+																										var g = r === m;
+																									} else var g = !0;
+																									if (g) {
+																										if (n.complexity !== void 0) {
+																											let e = n.complexity, r = m;
+																											if (m === r) {
+																												if (typeof e == "string") {
+																													if (s(e) < 1) return c.errors = [{
+																														instancePath: t + "/graph/nodes/" + i + "/complexity",
+																														schemaPath: "#/properties/graph/properties/nodes/items/properties/complexity/minLength",
+																														keyword: "minLength",
+																														params: { limit: 1 },
+																														message: "must NOT have fewer than 1 characters"
+																													}], !1;
+																												} else return c.errors = [{
+																													instancePath: t + "/graph/nodes/" + i + "/complexity",
+																													schemaPath: "#/properties/graph/properties/nodes/items/properties/complexity/type",
+																													keyword: "type",
+																													params: { type: "string" },
+																													message: "must be string"
+																												}], !1;
+																											}
+																											var g = r === m;
+																										} else var g = !0;
+																									}
+																								}
+																							}
+																						}
+																					}
+																				}
+																			}
+																		}
+																	} else return c.errors = [{
+																		instancePath: t + "/graph/nodes/" + i,
+																		schemaPath: "#/properties/graph/properties/nodes/items/type",
+																		keyword: "type",
+																		params: { type: "object" },
+																		message: "must be object"
+																	}], !1;
+																}
+																if (l !== m) break;
+															}
+														}
+													} else return c.errors = [{
+														instancePath: t + "/graph/nodes",
+														schemaPath: "#/properties/graph/properties/nodes/type",
+														keyword: "type",
+														params: { type: "array" },
+														message: "must be array"
+													}], !1;
+												}
+												var y = n === m;
+											} else var y = !0;
+											if (y) {
+												if (l.edges !== void 0) {
+													let e = l.edges, r = m;
+													if (m === r) {
+														if (Array.isArray(e)) {
+															let r = e.length;
+															for (let a = 0; a < r; a++) {
+																let r = e[a], l = m;
+																if (m === l) {
+																	if (r && typeof r == "object" && !Array.isArray(r)) {
+																		let e;
+																		if (r.source === void 0 && (e = "source") || r.target === void 0 && (e = "target") || r.witness === void 0 && (e = "witness") || r.turing === void 0 && (e = "turing") || r.parameter_contract_error === void 0 && (e = "parameter_contract_error") || r.parameters === void 0 && (e = "parameters") || r.aggregate === void 0 && (e = "aggregate") || r.doc_path === void 0 && (e = "doc_path")) return c.errors = [{
+																			instancePath: t + "/graph/edges/" + a,
+																			schemaPath: "#/properties/graph/properties/edges/items/required",
+																			keyword: "required",
+																			params: { missingProperty: e },
+																			message: "must have required property '" + e + "'"
+																		}], !1;
+																		{
+																			let e = m;
+																			for (let e in r) if (e !== "source" && e !== "target" && e !== "witness" && e !== "turing" && e !== "parameter_contract_error" && e !== "parameters" && e !== "aggregate" && e !== "doc_path") return c.errors = [{
+																				instancePath: t + "/graph/edges/" + a,
+																				schemaPath: "#/properties/graph/properties/edges/items/additionalProperties",
+																				keyword: "additionalProperties",
+																				params: { additionalProperty: e },
+																				message: "must NOT have additional properties"
+																			}], !1;
+																			if (e === m) {
+																				if (r.source !== void 0) {
+																					let e = r.source, n = m;
+																					if (typeof e != "number" || e % 1 || isNaN(e) || !isFinite(e)) return c.errors = [{
+																						instancePath: t + "/graph/edges/" + a + "/source",
+																						schemaPath: "#/properties/graph/properties/edges/items/properties/source/type",
+																						keyword: "type",
+																						params: { type: "integer" },
+																						message: "must be integer"
+																					}], !1;
+																					if (m === n && typeof e == "number" && isFinite(e)) {
+																						if (e > 9007199254740991 || isNaN(e)) return c.errors = [{
+																							instancePath: t + "/graph/edges/" + a + "/source",
+																							schemaPath: "#/properties/graph/properties/edges/items/properties/source/maximum",
+																							keyword: "maximum",
+																							params: {
+																								comparison: "<=",
+																								limit: 9007199254740991
+																							},
+																							message: "must be <= 9007199254740991"
+																						}], !1;
+																						if (e < 0 || isNaN(e)) return c.errors = [{
+																							instancePath: t + "/graph/edges/" + a + "/source",
+																							schemaPath: "#/properties/graph/properties/edges/items/properties/source/minimum",
+																							keyword: "minimum",
+																							params: {
+																								comparison: ">=",
+																								limit: 0
+																							},
+																							message: "must be >= 0"
+																						}], !1;
+																					}
+																					var b = n === m;
+																				} else var b = !0;
+																				if (b) {
+																					if (r.target !== void 0) {
+																						let e = r.target, n = m;
+																						if (typeof e != "number" || e % 1 || isNaN(e) || !isFinite(e)) return c.errors = [{
+																							instancePath: t + "/graph/edges/" + a + "/target",
+																							schemaPath: "#/properties/graph/properties/edges/items/properties/target/type",
+																							keyword: "type",
+																							params: { type: "integer" },
+																							message: "must be integer"
+																						}], !1;
+																						if (m === n && typeof e == "number" && isFinite(e)) {
+																							if (e > 9007199254740991 || isNaN(e)) return c.errors = [{
+																								instancePath: t + "/graph/edges/" + a + "/target",
+																								schemaPath: "#/properties/graph/properties/edges/items/properties/target/maximum",
+																								keyword: "maximum",
+																								params: {
+																									comparison: "<=",
+																									limit: 9007199254740991
+																								},
+																								message: "must be <= 9007199254740991"
+																							}], !1;
+																							if (e < 0 || isNaN(e)) return c.errors = [{
+																								instancePath: t + "/graph/edges/" + a + "/target",
+																								schemaPath: "#/properties/graph/properties/edges/items/properties/target/minimum",
+																								keyword: "minimum",
+																								params: {
+																									comparison: ">=",
+																									limit: 0
+																								},
+																								message: "must be >= 0"
+																							}], !1;
+																						}
+																						var b = n === m;
+																					} else var b = !0;
+																					if (b) {
+																						if (r.witness !== void 0) {
+																							let e = m;
+																							if (typeof r.witness != "boolean") return c.errors = [{
+																								instancePath: t + "/graph/edges/" + a + "/witness",
+																								schemaPath: "#/properties/graph/properties/edges/items/properties/witness/type",
+																								keyword: "type",
+																								params: { type: "boolean" },
+																								message: "must be boolean"
+																							}], !1;
+																							var b = e === m;
+																						} else var b = !0;
+																						if (b) {
+																							if (r.turing !== void 0) {
+																								let e = m;
+																								if (typeof r.turing != "boolean") return c.errors = [{
+																									instancePath: t + "/graph/edges/" + a + "/turing",
+																									schemaPath: "#/properties/graph/properties/edges/items/properties/turing/type",
+																									keyword: "type",
+																									params: { type: "boolean" },
+																									message: "must be boolean"
+																								}], !1;
+																								var b = e === m;
+																							} else var b = !0;
+																							if (b) {
+																								if (r.parameter_contract_error !== void 0) {
+																									let e = r.parameter_contract_error, i = m;
+																									if (typeof e != "string" && e !== null) return c.errors = [{
+																										instancePath: t + "/graph/edges/" + a + "/parameter_contract_error",
+																										schemaPath: "#/properties/graph/properties/edges/items/properties/parameter_contract_error/type",
+																										keyword: "type",
+																										params: { type: n.properties.graph.properties.edges.items.properties.parameter_contract_error.type },
+																										message: "must be string,null"
+																									}], !1;
+																									if (m === i && typeof e == "string" && s(e) < 1) return c.errors = [{
+																										instancePath: t + "/graph/edges/" + a + "/parameter_contract_error",
+																										schemaPath: "#/properties/graph/properties/edges/items/properties/parameter_contract_error/minLength",
+																										keyword: "minLength",
+																										params: { limit: 1 },
+																										message: "must NOT have fewer than 1 characters"
+																									}], !1;
+																									var b = i === m;
+																								} else var b = !0;
+																								if (b) {
+																									if (r.parameters !== void 0) {
+																										let e = r.parameters, n = m;
+																										if (m === n) {
+																											if (Array.isArray(e)) {
+																												let n = e.length;
+																												for (let r = 0; r < n; r++) {
+																													let n = e[r], o = m, l = m, u = !1, d = null, f = m;
+																													if (m === f) {
+																														if (n && typeof n == "object" && !Array.isArray(n)) {
+																															let e;
+																															if (n.field === void 0 && (e = "field") || n.contract === void 0 && (e = "contract") || n.formula === void 0 && (e = "formula") || n.reason === void 0 && (e = "reason")) {
+																																let n = {
+																																	instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																	schemaPath: "#/$defs/Parameter/oneOf/0/required",
+																																	keyword: "required",
+																																	params: { missingProperty: e },
+																																	message: "must have required property '" + e + "'"
+																																};
+																																p === null ? p = [n] : p.push(n), m++;
+																															} else {
+																																let e = m;
+																																for (let e in n) if (e !== "field" && e !== "contract" && e !== "formula" && e !== "reason") {
+																																	let n = {
+																																		instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																		schemaPath: "#/$defs/Parameter/oneOf/0/additionalProperties",
+																																		keyword: "additionalProperties",
+																																		params: { additionalProperty: e },
+																																		message: "must NOT have additional properties"
+																																	};
+																																	p === null ? p = [n] : p.push(n), m++;
+																																	break;
+																																}
+																																if (e === m) {
+																																	if (n.field !== void 0) {
+																																		let e = n.field, i = m;
+																																		if (m === i) {
+																																			if (typeof e == "string") {
+																																				if (s(e) < 1) {
+																																					let e = {
+																																						instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/field",
+																																						schemaPath: "#/$defs/Parameter/oneOf/0/properties/field/minLength",
+																																						keyword: "minLength",
+																																						params: { limit: 1 },
+																																						message: "must NOT have fewer than 1 characters"
+																																					};
+																																					p === null ? p = [e] : p.push(e), m++;
+																																				}
+																																			} else {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/field",
+																																					schemaPath: "#/$defs/Parameter/oneOf/0/properties/field/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																		}
+																																		var x = i === m;
+																																	} else var x = !0;
+																																	if (x) {
+																																		if (n.contract !== void 0) {
+																																			let e = n.contract, o = m;
+																																			if (typeof e != "string") {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/contract",
+																																					schemaPath: "#/$defs/Parameter/oneOf/0/properties/contract/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																			if (e !== "exact" && e !== "upper_bound") {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/contract",
+																																					schemaPath: "#/$defs/Parameter/oneOf/0/properties/contract/enum",
+																																					keyword: "enum",
+																																					params: { allowedValues: i.oneOf[0].properties.contract.enum },
+																																					message: "must be equal to one of the allowed values"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																			var x = o === m;
+																																		} else var x = !0;
+																																		if (x) {
+																																			if (n.formula !== void 0) {
+																																				let e = n.formula, i = m;
+																																				if (m === i) {
+																																					if (typeof e == "string") {
+																																						if (s(e) < 1) {
+																																							let e = {
+																																								instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/formula",
+																																								schemaPath: "#/$defs/Parameter/oneOf/0/properties/formula/minLength",
+																																								keyword: "minLength",
+																																								params: { limit: 1 },
+																																								message: "must NOT have fewer than 1 characters"
+																																							};
+																																							p === null ? p = [e] : p.push(e), m++;
+																																						}
+																																					} else {
+																																						let e = {
+																																							instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/formula",
+																																							schemaPath: "#/$defs/Parameter/oneOf/0/properties/formula/type",
+																																							keyword: "type",
+																																							params: { type: "string" },
+																																							message: "must be string"
+																																						};
+																																						p === null ? p = [e] : p.push(e), m++;
+																																					}
+																																				}
+																																				var x = i === m;
+																																			} else var x = !0;
+																																			if (x) {
+																																				if (n.reason !== void 0) {
+																																					let e = m;
+																																					if (n.reason !== null) {
+																																						let e = {
+																																							instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/reason",
+																																							schemaPath: "#/$defs/Parameter/oneOf/0/properties/reason/type",
+																																							keyword: "type",
+																																							params: { type: "null" },
+																																							message: "must be null"
+																																						};
+																																						p === null ? p = [e] : p.push(e), m++;
+																																					}
+																																					var x = e === m;
+																																				} else var x = !0;
+																																			}
+																																		}
+																																	}
+																																}
+																															}
+																														} else {
+																															let e = {
+																																instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																schemaPath: "#/$defs/Parameter/oneOf/0/type",
+																																keyword: "type",
+																																params: { type: "object" },
+																																message: "must be object"
+																															};
+																															p === null ? p = [e] : p.push(e), m++;
+																														}
+																													}
+																													var S = f === m;
+																													if (S) {
+																														u = !0, d = 0;
+																														var C = !0;
+																													}
+																													let h = m;
+																													if (m === h) {
+																														if (n && typeof n == "object" && !Array.isArray(n)) {
+																															let e;
+																															if (n.field === void 0 && (e = "field") || n.contract === void 0 && (e = "contract") || n.formula === void 0 && (e = "formula") || n.reason === void 0 && (e = "reason")) {
+																																let n = {
+																																	instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																	schemaPath: "#/$defs/Parameter/oneOf/1/required",
+																																	keyword: "required",
+																																	params: { missingProperty: e },
+																																	message: "must have required property '" + e + "'"
+																																};
+																																p === null ? p = [n] : p.push(n), m++;
+																															} else {
+																																let e = m;
+																																for (let e in n) if (e !== "field" && e !== "contract" && e !== "formula" && e !== "reason") {
+																																	let n = {
+																																		instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																		schemaPath: "#/$defs/Parameter/oneOf/1/additionalProperties",
+																																		keyword: "additionalProperties",
+																																		params: { additionalProperty: e },
+																																		message: "must NOT have additional properties"
+																																	};
+																																	p === null ? p = [n] : p.push(n), m++;
+																																	break;
+																																}
+																																if (e === m) {
+																																	if (n.field !== void 0) {
+																																		let e = n.field, i = m;
+																																		if (m === i) {
+																																			if (typeof e == "string") {
+																																				if (s(e) < 1) {
+																																					let e = {
+																																						instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/field",
+																																						schemaPath: "#/$defs/Parameter/oneOf/1/properties/field/minLength",
+																																						keyword: "minLength",
+																																						params: { limit: 1 },
+																																						message: "must NOT have fewer than 1 characters"
+																																					};
+																																					p === null ? p = [e] : p.push(e), m++;
+																																				}
+																																			} else {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/field",
+																																					schemaPath: "#/$defs/Parameter/oneOf/1/properties/field/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																		}
+																																		var w = i === m;
+																																	} else var w = !0;
+																																	if (w) {
+																																		if (n.contract !== void 0) {
+																																			let e = n.contract, i = m;
+																																			if (typeof e != "string") {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/contract",
+																																					schemaPath: "#/$defs/Parameter/oneOf/1/properties/contract/type",
+																																					keyword: "type",
+																																					params: { type: "string" },
+																																					message: "must be string"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																			if (e !== "unavailable") {
+																																				let e = {
+																																					instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/contract",
+																																					schemaPath: "#/$defs/Parameter/oneOf/1/properties/contract/const",
+																																					keyword: "const",
+																																					params: { allowedValue: "unavailable" },
+																																					message: "must be equal to constant"
+																																				};
+																																				p === null ? p = [e] : p.push(e), m++;
+																																			}
+																																			var w = i === m;
+																																		} else var w = !0;
+																																		if (w) {
+																																			if (n.formula !== void 0) {
+																																				let e = m;
+																																				if (n.formula !== null) {
+																																					let e = {
+																																						instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/formula",
+																																						schemaPath: "#/$defs/Parameter/oneOf/1/properties/formula/type",
+																																						keyword: "type",
+																																						params: { type: "null" },
+																																						message: "must be null"
+																																					};
+																																					p === null ? p = [e] : p.push(e), m++;
+																																				}
+																																				var w = e === m;
+																																			} else var w = !0;
+																																			if (w) {
+																																				if (n.reason !== void 0) {
+																																					let e = n.reason, i = m;
+																																					if (m === i) {
+																																						if (typeof e == "string") {
+																																							if (s(e) < 1) {
+																																								let e = {
+																																									instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/reason",
+																																									schemaPath: "#/$defs/Parameter/oneOf/1/properties/reason/minLength",
+																																									keyword: "minLength",
+																																									params: { limit: 1 },
+																																									message: "must NOT have fewer than 1 characters"
+																																								};
+																																								p === null ? p = [e] : p.push(e), m++;
+																																							}
+																																						} else {
+																																							let e = {
+																																								instancePath: t + "/graph/edges/" + a + "/parameters/" + r + "/reason",
+																																								schemaPath: "#/$defs/Parameter/oneOf/1/properties/reason/type",
+																																								keyword: "type",
+																																								params: { type: "string" },
+																																								message: "must be string"
+																																							};
+																																							p === null ? p = [e] : p.push(e), m++;
+																																						}
+																																					}
+																																					var w = i === m;
+																																				} else var w = !0;
+																																			}
+																																		}
+																																	}
+																																}
+																															}
+																														} else {
+																															let e = {
+																																instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																																schemaPath: "#/$defs/Parameter/oneOf/1/type",
+																																keyword: "type",
+																																params: { type: "object" },
+																																message: "must be object"
+																															};
+																															p === null ? p = [e] : p.push(e), m++;
+																														}
+																													}
+																													var S = h === m;
+																													if (S && u ? (u = !1, d = [d, 1]) : S && (u = !0, d = 1, C !== !0 && (C = !0)), u) m = l, p !== null && (l ? p.length = l : p = null);
+																													else {
+																														let e = {
+																															instancePath: t + "/graph/edges/" + a + "/parameters/" + r,
+																															schemaPath: "#/$defs/Parameter/oneOf",
+																															keyword: "oneOf",
+																															params: { passingSchemas: d },
+																															message: "must match exactly one schema in oneOf"
+																														};
+																														return p === null ? p = [e] : p.push(e), m++, c.errors = p, !1;
+																													}
+																													if (o !== m) break;
+																												}
+																											} else return c.errors = [{
+																												instancePath: t + "/graph/edges/" + a + "/parameters",
+																												schemaPath: "#/properties/graph/properties/edges/items/properties/parameters/type",
+																												keyword: "type",
+																												params: { type: "array" },
+																												message: "must be array"
+																											}], !1;
+																										}
+																										var b = n === m;
+																									} else var b = !0;
+																									if (b) {
+																										if (r.aggregate !== void 0) {
+																											let e = m;
+																											if (typeof r.aggregate != "boolean") return c.errors = [{
+																												instancePath: t + "/graph/edges/" + a + "/aggregate",
+																												schemaPath: "#/properties/graph/properties/edges/items/properties/aggregate/type",
+																												keyword: "type",
+																												params: { type: "boolean" },
+																												message: "must be boolean"
+																											}], !1;
+																											var b = e === m;
+																										} else var b = !0;
+																										if (b) {
+																											if (r.doc_path !== void 0) {
+																												let e = r.doc_path, n = m;
+																												if (m === m) {
+																													if (typeof e == "string") {
+																														if (!o.test(e)) return c.errors = [{
+																															instancePath: t + "/graph/edges/" + a + "/doc_path",
+																															schemaPath: "#/$defs/DocPath/pattern",
+																															keyword: "pattern",
+																															params: { pattern: "^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$" },
+																															message: "must match pattern \"^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$\""
+																														}], !1;
+																													} else return c.errors = [{
+																														instancePath: t + "/graph/edges/" + a + "/doc_path",
+																														schemaPath: "#/$defs/DocPath/type",
+																														keyword: "type",
+																														params: { type: "string" },
+																														message: "must be string"
+																													}], !1;
+																												}
+																												var b = n === m;
+																											} else var b = !0;
+																										}
+																									}
+																								}
+																							}
+																						}
+																					}
+																				}
+																			}
+																		}
+																	} else return c.errors = [{
+																		instancePath: t + "/graph/edges/" + a,
+																		schemaPath: "#/properties/graph/properties/edges/items/type",
+																		keyword: "type",
+																		params: { type: "object" },
+																		message: "must be object"
+																	}], !1;
+																}
+																if (l !== m) break;
+															}
+														} else return c.errors = [{
+															instancePath: t + "/graph/edges",
+															schemaPath: "#/properties/graph/properties/edges/type",
+															keyword: "type",
+															params: { type: "array" },
+															message: "must be array"
+														}], !1;
+													}
+													var y = r === m;
+												} else var y = !0;
+												if (y) {
+													if (l.aliases !== void 0) {
+														let e = l.aliases, n = m;
+														if (m === n) {
+															if (e && typeof e == "object" && !Array.isArray(e)) for (let n in e) {
+																let r = e[n], i = m;
+																if (m === i) {
+																	if (Array.isArray(r)) {
+																		var T = !0;
+																		let e = r.length;
+																		for (let i = 0; i < e; i++) {
+																			let e = r[i], a = m;
+																			if (m === a) {
+																				if (typeof e == "string") {
+																					if (s(e) < 1) return c.errors = [{
+																						instancePath: t + "/graph/aliases/" + n.replace(/~/g, "~0").replace(/\//g, "~1") + "/" + i,
+																						schemaPath: "#/properties/graph/properties/aliases/additionalProperties/items/minLength",
+																						keyword: "minLength",
+																						params: { limit: 1 },
+																						message: "must NOT have fewer than 1 characters"
+																					}], !1;
+																				} else return c.errors = [{
+																					instancePath: t + "/graph/aliases/" + n.replace(/~/g, "~0").replace(/\//g, "~1") + "/" + i,
+																					schemaPath: "#/properties/graph/properties/aliases/additionalProperties/items/type",
+																					keyword: "type",
+																					params: { type: "string" },
+																					message: "must be string"
+																				}], !1;
+																			}
+																			var T = a === m;
+																			if (!T) break;
+																		}
+																		if (T) {
+																			let e = r.length, i;
+																			if (e > 1) {
+																				let a = {};
+																				for (; e--;) {
+																					let o = r[e];
+																					if (typeof o == "string") {
+																						if (typeof a[o] == "number") return i = a[o], c.errors = [{
+																							instancePath: t + "/graph/aliases/" + n.replace(/~/g, "~0").replace(/\//g, "~1"),
+																							schemaPath: "#/properties/graph/properties/aliases/additionalProperties/uniqueItems",
+																							keyword: "uniqueItems",
+																							params: {
+																								i: e,
+																								j: i
+																							},
+																							message: "must NOT have duplicate items (items ## " + i + " and " + e + " are identical)"
+																						}], !1;
+																						a[o] = e;
+																					}
+																				}
+																			}
+																		}
+																	} else return c.errors = [{
+																		instancePath: t + "/graph/aliases/" + n.replace(/~/g, "~0").replace(/\//g, "~1"),
+																		schemaPath: "#/properties/graph/properties/aliases/additionalProperties/type",
+																		keyword: "type",
+																		params: { type: "array" },
+																		message: "must be array"
+																	}], !1;
+																}
+																if (i !== m) break;
+															}
+															else return c.errors = [{
+																instancePath: t + "/graph/aliases",
+																schemaPath: "#/properties/graph/properties/aliases/type",
+																keyword: "type",
+																params: { type: "object" },
+																message: "must be object"
+															}], !1;
+														}
+														var y = n === m;
+													} else var y = !0;
+												}
+											}
+										}
+									}
+								} else return c.errors = [{
+									instancePath: t + "/graph",
+									schemaPath: "#/properties/graph/type",
+									keyword: "type",
+									params: { type: "object" },
+									message: "must be object"
+								}], !1;
+							}
+							var E = u === m;
+						} else var E = !0;
+						if (E) {
+							if (e.schemas !== void 0) {
+								let n = e.schemas, i = m;
+								if (m === i) {
+									if (Array.isArray(n)) {
+										if (n.length < 1) return c.errors = [{
+											instancePath: t + "/schemas",
+											schemaPath: "#/properties/schemas/minItems",
+											keyword: "minItems",
+											params: { limit: 1 },
+											message: "must NOT have fewer than 1 items"
+										}], !1;
+										{
+											let e = n.length;
+											for (let i = 0; i < e; i++) {
+												let e = n[i], o = m;
+												if (m === o) {
+													if (e && typeof e == "object" && !Array.isArray(e)) {
+														let n;
+														if (e.name === void 0 && (n = "name") || e.description === void 0 && (n = "description") || e.category === void 0 && (n = "category") || e.fields === void 0 && (n = "fields") || e.module_path === void 0 && (n = "module_path")) return c.errors = [{
+															instancePath: t + "/schemas/" + i,
+															schemaPath: "#/properties/schemas/items/required",
+															keyword: "required",
+															params: { missingProperty: n },
+															message: "must have required property '" + n + "'"
+														}], !1;
+														{
+															let n = m;
+															for (let n in e) if (n !== "name" && n !== "description" && n !== "display_name" && n !== "aliases" && n !== "category" && n !== "fields" && n !== "module_path") return c.errors = [{
+																instancePath: t + "/schemas/" + i,
+																schemaPath: "#/properties/schemas/items/additionalProperties",
+																keyword: "additionalProperties",
+																params: { additionalProperty: n },
+																message: "must NOT have additional properties"
+															}], !1;
+															if (n === m) {
+																if (e.name !== void 0) {
+																	let n = e.name, r = m;
+																	if (m === m) {
+																		if (typeof n == "string") {
+																			if (!a.test(n)) return c.errors = [{
+																				instancePath: t + "/schemas/" + i + "/name",
+																				schemaPath: "#/$defs/Name/pattern",
+																				keyword: "pattern",
+																				params: { pattern: "^[A-Za-z_][A-Za-z0-9_]*$" },
+																				message: "must match pattern \"^[A-Za-z_][A-Za-z0-9_]*$\""
+																			}], !1;
+																		} else return c.errors = [{
+																			instancePath: t + "/schemas/" + i + "/name",
+																			schemaPath: "#/$defs/Name/type",
+																			keyword: "type",
+																			params: { type: "string" },
+																			message: "must be string"
+																		}], !1;
+																	}
+																	var D = r === m;
+																} else var D = !0;
+																if (D) {
+																	if (e.description !== void 0) {
+																		let n = m;
+																		if (typeof e.description != "string") return c.errors = [{
+																			instancePath: t + "/schemas/" + i + "/description",
+																			schemaPath: "#/properties/schemas/items/properties/description/type",
+																			keyword: "type",
+																			params: { type: "string" },
+																			message: "must be string"
+																		}], !1;
+																		var D = n === m;
+																	} else var D = !0;
+																	if (D) {
+																		if (e.display_name !== void 0) {
+																			let n = e.display_name, r = m;
+																			if (m === r) {
+																				if (typeof n == "string") {
+																					if (s(n) < 1) return c.errors = [{
+																						instancePath: t + "/schemas/" + i + "/display_name",
+																						schemaPath: "#/properties/schemas/items/properties/display_name/minLength",
+																						keyword: "minLength",
+																						params: { limit: 1 },
+																						message: "must NOT have fewer than 1 characters"
+																					}], !1;
+																				} else return c.errors = [{
+																					instancePath: t + "/schemas/" + i + "/display_name",
+																					schemaPath: "#/properties/schemas/items/properties/display_name/type",
+																					keyword: "type",
+																					params: { type: "string" },
+																					message: "must be string"
+																				}], !1;
+																			}
+																			var D = r === m;
+																		} else var D = !0;
+																		if (D) {
+																			if (e.aliases !== void 0) {
+																				let n = e.aliases, r = m;
+																				if (m === r) {
+																					if (Array.isArray(n)) {
+																						var O = !0;
+																						let e = n.length;
+																						for (let r = 0; r < e; r++) {
+																							let e = n[r], a = m;
+																							if (m === a) {
+																								if (typeof e == "string") {
+																									if (s(e) < 1) return c.errors = [{
+																										instancePath: t + "/schemas/" + i + "/aliases/" + r,
+																										schemaPath: "#/properties/schemas/items/properties/aliases/items/minLength",
+																										keyword: "minLength",
+																										params: { limit: 1 },
+																										message: "must NOT have fewer than 1 characters"
+																									}], !1;
+																								} else return c.errors = [{
+																									instancePath: t + "/schemas/" + i + "/aliases/" + r,
+																									schemaPath: "#/properties/schemas/items/properties/aliases/items/type",
+																									keyword: "type",
+																									params: { type: "string" },
+																									message: "must be string"
+																								}], !1;
+																							}
+																							var O = a === m;
+																							if (!O) break;
+																						}
+																						if (O) {
+																							let e = n.length, r;
+																							if (e > 1) {
+																								let a = {};
+																								for (; e--;) {
+																									let o = n[e];
+																									if (typeof o == "string") {
+																										if (typeof a[o] == "number") return r = a[o], c.errors = [{
+																											instancePath: t + "/schemas/" + i + "/aliases",
+																											schemaPath: "#/properties/schemas/items/properties/aliases/uniqueItems",
+																											keyword: "uniqueItems",
+																											params: {
+																												i: e,
+																												j: r
+																											},
+																											message: "must NOT have duplicate items (items ## " + r + " and " + e + " are identical)"
+																										}], !1;
+																										a[o] = e;
+																									}
+																								}
+																							}
+																						}
+																					} else return c.errors = [{
+																						instancePath: t + "/schemas/" + i + "/aliases",
+																						schemaPath: "#/properties/schemas/items/properties/aliases/type",
+																						keyword: "type",
+																						params: { type: "array" },
+																						message: "must be array"
+																					}], !1;
+																				}
+																				var D = r === m;
+																			} else var D = !0;
+																			if (D) {
+																				if (e.category !== void 0) {
+																					let n = e.category, a = m;
+																					if (typeof n != "string") return c.errors = [{
+																						instancePath: t + "/schemas/" + i + "/category",
+																						schemaPath: "#/$defs/Category/type",
+																						keyword: "type",
+																						params: { type: "string" },
+																						message: "must be string"
+																					}], !1;
+																					if (n !== "graph" && n !== "formula" && n !== "set" && n !== "algebraic" && n !== "misc") return c.errors = [{
+																						instancePath: t + "/schemas/" + i + "/category",
+																						schemaPath: "#/$defs/Category/enum",
+																						keyword: "enum",
+																						params: { allowedValues: r.enum },
+																						message: "must be equal to one of the allowed values"
+																					}], !1;
+																					var D = a === m;
+																				} else var D = !0;
+																				if (D) {
+																					if (e.fields !== void 0) {
+																						let n = e.fields, r = m;
+																						if (m === r) {
+																							if (Array.isArray(n)) {
+																								let e = n.length;
+																								for (let r = 0; r < e; r++) {
+																									let e = n[r], a = m;
+																									if (m === m) {
+																										if (e && typeof e == "object" && !Array.isArray(e)) {
+																											let n;
+																											if (e.name === void 0 && (n = "name") || e.type_name === void 0 && (n = "type_name") || e.description === void 0 && (n = "description")) return c.errors = [{
+																												instancePath: t + "/schemas/" + i + "/fields/" + r,
+																												schemaPath: "#/$defs/Field/required",
+																												keyword: "required",
+																												params: { missingProperty: n },
+																												message: "must have required property '" + n + "'"
+																											}], !1;
+																											{
+																												let n = m;
+																												for (let n in e) if (n !== "name" && n !== "type_name" && n !== "description") return c.errors = [{
+																													instancePath: t + "/schemas/" + i + "/fields/" + r,
+																													schemaPath: "#/$defs/Field/additionalProperties",
+																													keyword: "additionalProperties",
+																													params: { additionalProperty: n },
+																													message: "must NOT have additional properties"
+																												}], !1;
+																												if (n === m) {
+																													if (e.name !== void 0) {
+																														let n = e.name, a = m;
+																														if (m === a) {
+																															if (typeof n == "string") {
+																																if (s(n) < 1) return c.errors = [{
+																																	instancePath: t + "/schemas/" + i + "/fields/" + r + "/name",
+																																	schemaPath: "#/$defs/Field/properties/name/minLength",
+																																	keyword: "minLength",
+																																	params: { limit: 1 },
+																																	message: "must NOT have fewer than 1 characters"
+																																}], !1;
+																															} else return c.errors = [{
+																																instancePath: t + "/schemas/" + i + "/fields/" + r + "/name",
+																																schemaPath: "#/$defs/Field/properties/name/type",
+																																keyword: "type",
+																																params: { type: "string" },
+																																message: "must be string"
+																															}], !1;
+																														}
+																														var k = a === m;
+																													} else var k = !0;
+																													if (k) {
+																														if (e.type_name !== void 0) {
+																															let n = e.type_name, a = m;
+																															if (m === a) {
+																																if (typeof n == "string") {
+																																	if (s(n) < 1) return c.errors = [{
+																																		instancePath: t + "/schemas/" + i + "/fields/" + r + "/type_name",
+																																		schemaPath: "#/$defs/Field/properties/type_name/minLength",
+																																		keyword: "minLength",
+																																		params: { limit: 1 },
+																																		message: "must NOT have fewer than 1 characters"
+																																	}], !1;
+																																} else return c.errors = [{
+																																	instancePath: t + "/schemas/" + i + "/fields/" + r + "/type_name",
+																																	schemaPath: "#/$defs/Field/properties/type_name/type",
+																																	keyword: "type",
+																																	params: { type: "string" },
+																																	message: "must be string"
+																																}], !1;
+																															}
+																															var k = a === m;
+																														} else var k = !0;
+																														if (k) {
+																															if (e.description !== void 0) {
+																																let n = m;
+																																if (typeof e.description != "string") return c.errors = [{
+																																	instancePath: t + "/schemas/" + i + "/fields/" + r + "/description",
+																																	schemaPath: "#/$defs/Field/properties/description/type",
+																																	keyword: "type",
+																																	params: { type: "string" },
+																																	message: "must be string"
+																																}], !1;
+																																var k = n === m;
+																															} else var k = !0;
+																														}
+																													}
+																												}
+																											}
+																										} else return c.errors = [{
+																											instancePath: t + "/schemas/" + i + "/fields/" + r,
+																											schemaPath: "#/$defs/Field/type",
+																											keyword: "type",
+																											params: { type: "object" },
+																											message: "must be object"
+																										}], !1;
+																									}
+																									if (a !== m) break;
+																								}
+																							} else return c.errors = [{
+																								instancePath: t + "/schemas/" + i + "/fields",
+																								schemaPath: "#/properties/schemas/items/properties/fields/type",
+																								keyword: "type",
+																								params: { type: "array" },
+																								message: "must be array"
+																							}], !1;
+																						}
+																						var D = r === m;
+																					} else var D = !0;
+																					if (D) {
+																						if (e.module_path !== void 0) {
+																							let n = e.module_path, r = m;
+																							if (m === r) {
+																								if (typeof n == "string") {
+																									if (s(n) < 1) return c.errors = [{
+																										instancePath: t + "/schemas/" + i + "/module_path",
+																										schemaPath: "#/properties/schemas/items/properties/module_path/minLength",
+																										keyword: "minLength",
+																										params: { limit: 1 },
+																										message: "must NOT have fewer than 1 characters"
+																									}], !1;
+																								} else return c.errors = [{
+																									instancePath: t + "/schemas/" + i + "/module_path",
+																									schemaPath: "#/properties/schemas/items/properties/module_path/type",
+																									keyword: "type",
+																									params: { type: "string" },
+																									message: "must be string"
+																								}], !1;
+																							}
+																							var D = r === m;
+																						} else var D = !0;
+																					}
+																				}
+																			}
+																		}
+																	}
+																}
+															}
+														}
+													} else return c.errors = [{
+														instancePath: t + "/schemas/" + i,
+														schemaPath: "#/properties/schemas/items/type",
+														keyword: "type",
+														params: { type: "object" },
+														message: "must be object"
+													}], !1;
+												}
+												if (o !== m) break;
+											}
+										}
+									} else return c.errors = [{
+										instancePath: t + "/schemas",
+										schemaPath: "#/properties/schemas/type",
+										keyword: "type",
+										params: { type: "array" },
+										message: "must be array"
+									}], !1;
+								}
+								var E = i === m;
+							} else var E = !0;
+						}
+					}
+				}
+			} else return c.errors = [{
+				instancePath: t,
+				schemaPath: "#/type",
+				keyword: "type",
+				params: { type: "object" },
+				message: "must be object"
+			}], !1;
+		}
+		return c.errors = p, m === 0;
+	}
+	c.evaluated = {
+		props: !0,
+		dynamicProps: !1,
+		dynamicItems: !1
+	};
+})))().validateNativeExports;
+export { n as validateNativeExports };

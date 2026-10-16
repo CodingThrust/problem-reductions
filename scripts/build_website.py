@@ -159,13 +159,9 @@ def build(output, graph_path, schemas_path, open_questions=None):
     subprocess.run(['npm', 'run', 'check:frontend-contracts'], cwd=ROOT, check=True)
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'native-exports'],
+                   input=json.dumps({'graph': graph, 'schemas': schemas}), text=True, check=True)
     nodes, edges = graph["nodes"], graph["edges"]
-    if not nodes or any(
-        not 0 <= edge[end] < len(nodes)
-        for edge in edges
-        for end in ("source", "target")
-    ):
-        raise ValueError("The atlas requires nodes and valid edge endpoints")
     source = ROOT / "docs/website"
     output.mkdir(parents=True, exist_ok=True)
     # Replace the board on rebuild before finalizing the main site's assets.

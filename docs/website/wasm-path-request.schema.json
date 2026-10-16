@@ -1,0 +1,155 @@
+{
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/wasm-path-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Query",
+  "type": "object",
+  "properties": {
+    "graph": {
+      "$ref": "#/$defs/Graph"
+    },
+    "limit": {
+      "type": "integer",
+      "maximum": 999,
+      "minimum": 1
+    },
+    "source": {
+      "type": "integer",
+      "maximum": 9007199254740991,
+      "minimum": 0
+    },
+    "target": {
+      "type": "integer",
+      "maximum": 9007199254740991,
+      "minimum": 0
+    }
+  },
+  "required": [
+    "graph",
+    "source",
+    "target",
+    "limit"
+  ],
+  "$defs": {
+    "Contract": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "upper_bound",
+        "unavailable"
+      ]
+    },
+    "Edge": {
+      "type": "object",
+      "properties": {
+        "parameter_contract_error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "source": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "target": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "turing": {
+          "type": "boolean"
+        },
+        "witness": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "witness",
+        "turing",
+        "parameters"
+      ]
+    },
+    "Graph": {
+      "type": "object",
+      "properties": {
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Edge"
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          }
+        }
+      },
+      "required": [
+        "nodes",
+        "edges"
+      ]
+    },
+    "Node": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "parameter_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variant": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "variant",
+        "parameter_names"
+      ]
+    },
+    "Parameter": {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "$ref": "#/$defs/Contract"
+        },
+        "field": {
+          "type": "string"
+        },
+        "formula": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "field",
+        "contract"
+      ]
+    }
+  }
+}

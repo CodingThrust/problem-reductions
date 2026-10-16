@@ -1,3 +1,6 @@
+import {validateNativeExportData} from '../docs/website/assets/native-exports-data.mts';
+import {validateWasmPathRequest} from '../docs/website/assets/wasm-path-request.validator.mjs';
+import {validateWasmComparisonRequest} from '../docs/website/assets/wasm-comparison-request.validator.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -578,4 +581,36 @@ test('Atlas contracts reject mismatched families and invalid graph references', 
   assert.throws(() => validateAtlasRecord(record));
   const duplicate = atlasSummary(); duplicate.nodes.push({...duplicate.nodes[0]});
   assert.throws(() => validateAtlasSummary(duplicate));
+});
+
+function nativeExports() {
+  const record = atlasRecord();
+  return {graph: {
+    nodes: record.nodes.map(({api_path, complexity_mathml, ...node}) => node),
+    edges: record.edges.map(({api_path, source_path, test_path, parameters, ...edge}) =>
+      ({...edge, parameters: parameters.map(({mathml, ...parameter}) => parameter)})),
+    aliases: {Alpha: ['A'], Beta: []}},
+    schemas: record.nodes.map(node => ({name: node.name, category: node.category, description: '',
+      fields: [{name: 'n', type_name: 'u64', description: ''}], module_path: 'problemreductions::models::graph::alpha'}))};
+}
+test('native export boundary preserves exact metadata and rejects malformed registry references', () => {
+  const input = nativeExports();
+  assert.deepEqual(validateNativeExportData(structuredClone(input)), input);
+  for (const mutate of [
+    value => { value.graph.nodes[0].category = 123; }, value => { value.schemas[0].fields = null; },
+    value => { value.graph.edges[0].target = 2; }, value => { value.graph.aliases.Missing = ['X']; },
+    value => { value.schemas[1].name = 'Missing'; },
+  ]) {const value = nativeExports(); mutate(value); assert.throws(() => validateNativeExportData(value));}
+});
+test('Rust-derived request schemas preserve optional fields and reject malformed native input', () => {
+  const query = {graph: protocolGraph(), source: 0, target: 1, limit: 2};
+  assert.equal(validateWasmPathRequest(query), true);
+  const comparison = {graph: query.graph, paths: protocolPaths().paths};
+  assert.equal(validateWasmComparisonRequest(comparison), true);
+  delete query.graph.edges[0].parameter_contract_error;
+  delete query.graph.edges[0].parameters[0].reason;
+  assert.equal(validateWasmPathRequest(query), true);
+  query.graph.nodes[0].parameter_names = [1];
+  assert.equal(validateWasmPathRequest(query), false);
+  assert.equal(validateWasmComparisonRequest({...comparison, paths: [{steps: 1, path: []}]}), false);
 });

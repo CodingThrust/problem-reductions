@@ -40,7 +40,9 @@ class WebsiteBuildTests(unittest.TestCase):
                          'docs/website/assets/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
                          'docs/website/assets/path-worker-reply.validator.mjs', 'docs/website/assets/path-worker-reply.validator.d.mts',
                          'docs/website/atlas-data.schema.json', 'docs/website/assets/atlas-data.validator.mjs',
-                         'docs/website/assets/atlas-data.validator.d.mts']:
+                         'docs/website/assets/atlas-data.validator.d.mts',
+                         *[f'docs/website/{name}.schema.json' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request']],
+                         *[f'docs/website/assets/{name}.validator{suffix}' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request'] for suffix in ['.mjs', '.d.mts']]]:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
@@ -55,7 +57,7 @@ class WebsiteBuildTests(unittest.TestCase):
 
     def test_rust_contract_check_rejects_stale_schema(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ['wasm-paths', 'wasm-comparison']:
+            for name in ['wasm-paths', 'wasm-comparison', 'wasm-path-request', 'wasm-comparison-request']:
                 shutil.copyfile(ROOT / f'docs/website/{name}.schema.json', Path(directory) / f'{name}.schema.json')
             path = Path(directory) / 'wasm-comparison.schema.json'
             command = [str(ROOT / 'target/debug/examples/export_frontend_schema'), '--check', directory]

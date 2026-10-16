@@ -1,4 +1,4 @@
-//! Generate or check the response schema derived from the actual browser wire structs.
+//! Generate or check the request/response schemas derived from the actual browser wire structs.
 use std::{env, fs, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,6 +16,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Usage: export_frontend_schema [--check [DIRECTORY]]".into());
     }
     for (name, value) in [
+        (
+            "wasm-path-request",
+            problemreductions_web::path_request_schema(),
+        ),
+        (
+            "wasm-comparison-request",
+            problemreductions_web::comparison_request_schema(),
+        ),
         ("wasm-paths", problemreductions_web::path_response_schema()),
         (
             "wasm-comparison",

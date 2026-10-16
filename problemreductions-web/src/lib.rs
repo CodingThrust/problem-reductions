@@ -20,12 +20,14 @@ use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
 
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 struct Node {
     name: String,
     variant: BTreeMap<String, String>,
     parameter_names: Vec<String>,
 }
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 struct Parameter {
     field: String,
     contract: Contract,
@@ -33,6 +35,7 @@ struct Parameter {
     reason: Option<String>,
 }
 #[derive(Deserialize, PartialEq)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 enum Contract {
     Exact,
@@ -40,8 +43,11 @@ enum Contract {
     Unavailable,
 }
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 struct Edge {
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
     source: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
     target: usize,
     witness: bool,
     turing: bool,
@@ -49,15 +55,21 @@ struct Edge {
     parameter_contract_error: Option<String>,
 }
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 struct Graph {
     nodes: Vec<Node>,
     edges: Vec<Edge>,
 }
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-path-request")))]
 struct Query {
     graph: Graph,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
     source: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
     target: usize,
+    #[cfg_attr(feature = "schema-export", schemars(range(min = 1, max = 999)))]
     limit: usize,
 }
 
@@ -170,18 +182,37 @@ struct WasmPathResult {
 /// Generate the browser response contract without adding schema tooling to WASM builds.
 #[cfg(feature = "schema-export")]
 pub fn path_response_schema() -> schemars::Schema {
-    response_schema::<WasmPathResult>()
+    wire_schema::<WasmPathResult>(
+        schemars::generate::SchemaSettings::draft2020_12().for_serialize(),
+    )
 }
 
 /// Generate the version-5 comparison response contract.
 #[cfg(feature = "schema-export")]
 pub fn comparison_response_schema() -> schemars::Schema {
-    response_schema::<WasmComparisonResult>()
+    wire_schema::<WasmComparisonResult>(
+        schemars::generate::SchemaSettings::draft2020_12().for_serialize(),
+    )
+}
+
+/// Generate the input contract from the actual native deserialization types.
+#[cfg(feature = "schema-export")]
+pub fn path_request_schema() -> schemars::Schema {
+    wire_schema::<Query>(schemars::generate::SchemaSettings::draft2020_12().for_deserialize())
+}
+
+/// `compare_paths` and `summarize_paths` consume the same input contract.
+#[cfg(feature = "schema-export")]
+pub fn comparison_request_schema() -> schemars::Schema {
+    wire_schema::<ComparisonQuery>(
+        schemars::generate::SchemaSettings::draft2020_12().for_deserialize(),
+    )
 }
 
 #[cfg(feature = "schema-export")]
-fn response_schema<T: schemars::JsonSchema>() -> schemars::Schema {
-    let mut settings = schemars::generate::SchemaSettings::draft2020_12().for_serialize();
+fn wire_schema<T: schemars::JsonSchema>(
+    mut settings: schemars::generate::SchemaSettings,
+) -> schemars::Schema {
     // JSON numeric bounds carry the domain; Rust's integer formats are nonstandard.
     settings
         .transforms
@@ -336,6 +367,8 @@ impl From<&Reason> for ComparisonReason {
     }
 }
 #[derive(Deserialize)]
+#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schema-export", schemars(extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-comparison-request")))]
 struct ComparisonQuery {
     graph: Graph,
     paths: Vec<Route>,
