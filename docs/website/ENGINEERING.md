@@ -11,8 +11,11 @@ Prerequisites match deployment: Node 22 or later, the Rust toolchain and
 `wasm32-unknown-unknown` target, wasm-bindgen-cli 0.2.129, mdBook 0.5.2,
 Typst 0.15.1, `uv`, and the repository's native HiGHS build requirements.
 Keep Cargo on its normal PATH so local build scheduling and caching apply.
-Add the directory containing mdBook/wasm-bindgen to PATH if needed; do not
-replace the Cargo shim or modify Apple's Python installation.
+The verifier appends `$CARGO_HOME/bin` (default `~/.cargo/bin`) to its own
+process PATH so installed mdBook/wasm-bindgen are discoverable without replacing
+the active Cargo shim. It checks required executables before creating output or
+starting the build. Missing tools produce an actionable error, not a traceback.
+No shell configuration or Apple's Python installation is changed.
 
 Install the pinned browser once:
 

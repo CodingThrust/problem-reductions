@@ -1,7 +1,10 @@
 """Fresh artifact verification uses real files, HTTP, and browser requests."""
 
 from pathlib import Path
+import os
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from urllib.request import build_opener, ProxyHandler
@@ -9,10 +12,40 @@ from urllib.request import build_opener, ProxyHandler
 from playwright.sync_api import sync_playwright
 
 from check_website import prepare_output, serve_website, write_provenance
+import check_website
 from test_website import require_open_questions
 
 
 class WebsiteVerificationTests(unittest.TestCase):
+    def test_missing_tools_fail_before_creating_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "new-output"
+            result = subprocess.run([sys.executable, str(Path(check_website.__file__)), "--output", str(output)],
+                                    env={**os.environ, "PATH": "", "CARGO_HOME": directory},
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertFalse(output.exists())
+            self.assertIn("mdbook", result.stderr)
+            self.assertIn("wasm-bindgen", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
+    def test_cargo_bin_fallback_preserves_the_active_cargo(self):
+        environment = dict(os.environ)
+        active_cargo = shutil.which("cargo", path=environment["PATH"])
+        self.assertIsNotNone(active_cargo)
+        environment.pop("CARGO_HOME", None)
+        path = check_website.tool_path(environment)
+        self.assertIn(str(Path.home() / ".cargo/bin"), path.split(os.pathsep))
+        self.assertEqual(shutil.which("cargo", path=path), active_cargo)
+
+    def test_configured_cargo_bin_runs_real_executables(self):
+        interpreter = Path(sys.executable).resolve()
+        environment = {**os.environ, "PATH": "", "CARGO_HOME": str(interpreter.parent.parent)}
+        environment["PATH"] = check_website.tool_path(environment)
+        result = subprocess.run([interpreter.name, "-c", "print(6 * 7)"],
+                                env=environment, check=True, capture_output=True, text=True)
+        self.assertEqual(result.stdout.strip(), "42")
+
     def test_existing_output_is_preserved_and_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "existing"

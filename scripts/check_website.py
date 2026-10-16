@@ -24,6 +24,14 @@ from threading import Thread
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def tool_path(environment):
+    current = environment.get("PATH", "")
+    cargo_bin = str(Path(environment.get("CARGO_HOME") or Path.home() / ".cargo") / "bin")
+    if cargo_bin in current.split(os.pathsep):
+        return current
+    return os.pathsep.join(part for part in [current, cargo_bin] if part)
+
+
 class PreviewServer(ThreadingHTTPServer):
     # The cold asset burst exceeds the default accept queue on some Python versions.
     request_queue_size = 128
@@ -149,6 +157,14 @@ def main():
         parser.error("--open-questions applies to fresh builds; --site verifies the existing artifact")
     if args.open_questions and not all((args.open_questions / name).is_file() for name in ["index.html", "registry.json"]):
         parser.error("--open-questions must contain index.html and registry.json")
+    os.environ["PATH"] = tool_path(os.environ)
+    tools = ["git", "node", "npm"]
+    if args.site is None:
+        tools += ["make", "bash", "python3", "cargo", "rustc", "mdbook", "typst", "wasm-bindgen"]
+    missing = [command for command in tools if shutil.which(command) is None]
+    if missing:
+        parser.error(f"Missing required tools: {', '.join(missing)}. "
+                     "Install them before retrying; see docs/website/ENGINEERING.md.")
     try:
         site = args.site.resolve() if args.site else prepare_output(args.output)
         if not site.is_dir():
