@@ -90,8 +90,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
-summary:focus-visible,
-pre:focus-visible {
+summary:focus-visible {
   outline: 3px solid var(--green);
   outline-offset: 5px;
 }

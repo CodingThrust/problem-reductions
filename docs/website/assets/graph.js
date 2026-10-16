@@ -1,21 +1,20 @@
 
 (async () => {
 "use strict";
-performance.mark("graph:script", {detail: {eager_worker: Boolean(window.graphStartup?.worker)}});
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-const D = window.REDUCTIONS = await window.graphStartup.scene;
-performance.mark("graph:scene-parsed");
+const D = window.REDUCTIONS;
+window.GRAPH_DETAILS = D.details;
 const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.name, i]] : []));
 const aliasMap = D.aliases;
+const css = getComputedStyle(document.documentElement);
+const tok = (n) => css.getPropertyValue("--" + n).trim();
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const phone = matchMedia("(max-width: 760px)");
-// Keep the minimum supported 320px graph viewport beside the 392px and 456px side-panel areas.
-const modalDetails = matchMedia("(max-width: 1167px)");
-const directions = [["left", "←", -1, 0], ["up", "↑", 0, -1], ["right", "→", 1, 0], ["down", "↓", 0, 1]];
 
 /* ---------- Registry model ---------- */
-const display = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+const schemas = new Map(D.schemas.map((s) => [s.name, s]));
+const display = (name) => schemas.get(name)?.display_name || name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
 const shortName = (name) => (aliasMap[name] || []).find((a) => /^[A-Z0-9-]{2,6}$/.test(a)) || display(name);
 const families = new Map();
 D.nodes.forEach((n, i) => {
@@ -71,72 +70,87 @@ const nodeSize = (deg) => Math.max(6, Math.min(22, 6 + 2.4 * Math.sqrt(deg)));
 const pos = new Map();
 for (const f of families.values()) pos.set(f.name, { x: D.layout[f.name].x * 1.6, y: D.layout[f.name].y * 1.6 });
 const cat = { graph: "#a9d68a", formula: "#8cc4c7", set: "#e0a988", algebraic: "#e2cf73", misc: "#c39bd3" };
-const scene = new GraphScene($("#cy"), [...families.values()].map(f => ({id: f.name, label: display(f.name),
-  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, ...pos.get(f.name)})), [...famEdges.values()]);
-performance.mark("graph:renderer-created");
-performance.mark("graph:constructed");
+const cy = cytoscape({
+  container: $("#cy"), layout: { name: "preset" }, minZoom: 0.1, maxZoom: 3,
+  boxSelectionEnabled: false, textureOnViewport: true, pixelRatio: "auto",
+  style: [
+    { selector: "node", style: { width: "data(size)", height: "data(size)", "background-color": "data(color)", "border-width": 2, "border-color": tok("bg"),
+      label: "", "font-family": "DM Sans, sans-serif", "font-size": 11, "font-weight": 500, color: tok("ink-2"), "text-valign": "bottom", "text-margin-y": 5,
+      "text-wrap": "wrap", "text-max-width": 180, "text-outline-color": tok("bg"), "text-outline-width": 2.5, "line-height": 1.25 } },
+    { selector: "node.named", style: { label: "data(label)" } },
+    { selector: "edge", style: { "curve-style": "straight", width: 0.7, "line-color": tok("ink"), opacity: 0.09 } },
+    { selector: ".dim", style: { opacity: 0.16 } },
+    { selector: "edge.dim", style: { opacity: 0.025 } },
+    { selector: "node.hover", style: { "underlay-color": tok("ink"), "underlay-opacity": 0.12, "underlay-padding": 5, "underlay-shape": "ellipse", label: "data(label)", color: tok("ink"), opacity: 1, "z-index": 20 } },
+    { selector: "edge.nbr", style: { opacity: 0.45, "line-color": tok("ink-2") } },
+    { selector: "edge.ghost", style: { width: 1.5, "line-color": tok("accent"), opacity: 0.22 } },
+    { selector: "node.ghost", style: { opacity: 0.75 } },
+    { selector: "edge.route", style: { width: 2.6, "line-color": tok("accent"), opacity: 1, "target-arrow-shape": "triangle", "target-arrow-color": tok("accent"), "arrow-scale": 0.9, "z-index": 10 } },
+    { selector: "node.route", style: { opacity: 1, label: "data(routeLabel)", color: tok("ink"), "border-color": tok("accent"), "border-width": 2, "z-index": 11 } },
+    { selector: "node.start", style: { opacity: 1, "border-color": tok("start"), "border-width": 3, "underlay-color": tok("start"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
+    { selector: "node.end", style: { opacity: 1, "border-color": tok("end"), "border-width": 3, "underlay-color": tok("end"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
+    { selector: "node.pulse", style: { "underlay-color": tok("accent"), "underlay-opacity": 0.4, "underlay-padding": 12 } },
+  ],
+});
+cy.batch(() => {
+  cy.add([...families.values()].map((f) => ({ data: { id: f.name, label: display(f.name), size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, routeLabel: display(f.name) }, position: { ...pos.get(f.name) } })));
+  cy.add([...famEdges.values()].map(({ s, t }) => ({ data: { id: s + "→" + t, source: s, target: t } })));
+});
 
 function freeRect() {
   const W = innerWidth, H = innerHeight, top = $(".site-header").getBoundingClientRect().bottom;
   if (phone.matches) return { x: 0, y: top, w: W, h: Math.max(1, $(".panel").getBoundingClientRect().top - top) };
-  const right = $("#details-drawer").hidden || modalDetails.matches ? W : $("#details-drawer").getBoundingClientRect().left - 16;
+  const right = $("#details-drawer").hidden ? W : $("#details-drawer").getBoundingClientRect().left - 16;
   return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
 }
-scene.visibleRect = freeRect;
-function frame(eles, maxZoom = 1.3, animate = !reduced.matches) {
+function frame(eles, maxZoom = 1.3) {
   if (!eles || !eles.length) return;
-  const r = freeRect(), b = scene.bounds(eles), pad = 90;
+  const r = freeRect(), b = eles.boundingBox({ includeLabels: false }), pad = 90;
   const zoom = Math.max(0.1, Math.min((r.w - 2 * pad) / Math.max(b.w, 1), (r.h - 2 * pad) / Math.max(b.h, 1), maxZoom));
   const pan = { x: r.x + r.w / 2 - (b.x1 + b.x2) / 2 * zoom, y: r.y + r.h / 2 - (b.y1 + b.y2) / 2 * zoom };
-  scene.frame(zoom, pan, animate);
+  cy.stop();
+  if (reduced.matches) cy.viewport({ zoom, pan }); else cy.animate({ zoom, pan }, { duration: 450, easing: "ease-in-out-cubic" });
 }
 
 /* Labels keep a constant screen size; important labels are placed first and any label that would collide is skipped. */
 let labelRaf = 0;
 const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = requestAnimationFrame(placeLabels); };
 function placeLabels() {
-  const r = freeRect(), boxes = [];
-  const box = n => scene.labelBox(n);
-  const important = n => ["route", "start", "end", "hover", "focused"].some(c => scene.has(n, c));
-  const fits = b => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
-  const hit = b => boxes.some(o => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
-  scene.classes(scene.nodes, "named");
-  scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
+  const z = cy.zoom(), r = freeRect();
+  cy.batch(() => { cy.nodes().style("font-size", 11 / z).removeClass("named"); cy.nodes(".route, .start, .end").style("font-size", 12 / z); });
+  const boxes = [];
+  const box = (n) => n.renderedBoundingBox({ includeNodes: false, includeLabels: true, includeOverlays: false, includeUnderlays: false });
+  const fits = (b) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
+  const hit = (b) => boxes.some((o) => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
+  cy.nodes(".route, .start, .end, .hover").forEach((n) => boxes.push(box(n)));
   const named = [];
-  scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
-    const b = box(n);
+  cy.nodes().not(".route, .start, .end, .hover, .dim").filter((n) => n.visible()).sort((a, b) => b.data("deg") - a.data("deg")).forEach((n) => {
+    n.addClass("named"); const b = box(n); n.removeClass("named");
     if (fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
   });
-  scene.classes(named, "", "named");
+  cy.collection(named).addClass("named");
   placePop();
 }
-scene.onChange = scheduleLabels;
-scene.onDrag = () => { scheduleLabels(); placePop(); };
-scene.onHover = (n, over) => {
-  scene.classes([n], over ? "" : "hover", over ? "hover" : "");
-  if (!state.result) {
-    if (over) {
-      scene.classes(scene.elements.filter(e => e !== n && !families.get(n.id).nbrs.has(e.id)), "", "dim");
-      scene.classes(scene.edges.filter(e => e.source === n || e.target === n), "dim", "nbr");
-    } else scene.classes(scene.elements, "dim nbr");
-  }
+cy.on("zoom pan", scheduleLabels);
+cy.on("drag", "node", () => { scheduleLabels(); });
+
+/* Hover lights up a node and its connections; while a path is shown it only reveals the name. */
+cy.on("mouseover", "node", (e) => {
+  const n = e.target; n.addClass("hover"); $("#cy").style.cursor = "pointer";
+  if (!state.result) { cy.elements().not(n.closedNeighborhood()).addClass("dim"); n.connectedEdges().addClass("nbr"); }
   scheduleLabels();
-};
+});
+cy.on("mouseout", "node", (e) => {
+  e.target.removeClass("hover"); $("#cy").style.cursor = "";
+  if (!state.result) cy.elements().removeClass("dim nbr");
+  scheduleLabels();
+});
 
 /* ---------- State ---------- */
 const state = { source: null, target: null, limit: 20, result: null, selected: null, showSlower: false, busy: false };
 
 /* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
-function focusedVariantGroup(root) {
-  const active = document.activeElement;
-  return active && root.contains(active) ? active.closest('[role="group"]')?.getAttribute('aria-label') : null;
-}
-function restoreVariantGroup(root, name) {
-  if (name) [...root.querySelectorAll('[role="group"]')].find(group => group.getAttribute('aria-label') === name)
-    ?.querySelector('button[aria-pressed="true"]')?.focus({preventScroll: true});
-}
 function variantOptions(container, index, onPick) {
-  const focused = focusedVariantGroup(container);
   container.replaceChildren();
   const fam = families.get(D.nodes[index].name);
   const cur = D.nodes[index].variant;
@@ -160,7 +174,6 @@ function variantOptions(container, index, onPick) {
     container.append(row);
   });
   container.hidden = !container.childElementCount;
-  restoreVariantGroup(container, focused);
 }
 
 function syncEnds() {
@@ -179,7 +192,7 @@ function setEnd(side, index) {
   if (state.source != null && state.target != null) run();
   else {
     state.result = null; paintGraph(); renderResults();
-    frame([scene.byId.get(D.nodes[index].name)], 1.2);
+    frame(cy.getElementById(D.nodes[index].name), 1.2);
     if (side === "source") $("#target").focus();
   }
 }
@@ -206,11 +219,7 @@ function showSuggest(side) {
   suggestRows = matches(input.value === (state[side] == null ? "" : display(D.nodes[state[side]].name)) ? "" : input.value);
   active = 0;
   box.replaceChildren();
-  if (!suggestRows.length) {
-    const empty = el("div", "note", "No matching problem");
-    empty.setAttribute("role", "option"); empty.setAttribute("aria-disabled", "true"); box.append(empty);
-  }
-  $("#search-status").textContent = suggestRows.length ? "" : "No matching problem";
+  if (!suggestRows.length) box.append(el("div", "note", "No matching problem"));
   suggestRows.forEach((f, i) => {
     const b = el("button"); b.type = "button"; b.setAttribute("role", "option"); b.id = "opt-" + i;
     b.append(el("span", "", display(f.name)));
@@ -225,25 +234,15 @@ function showSuggest(side) {
 }
 function markActive() {
   [...$("#suggest").querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-selected", String(i === active)));
-  for (const side of ["source", "target"]) $("#" + side).removeAttribute("aria-activedescendant");
-  if (suggestFor && suggestRows.length) $("#" + suggestFor).setAttribute("aria-activedescendant", "opt-" + active);
+  $("#" + (suggestFor || "source")).setAttribute("aria-activedescendant", "opt-" + active);
 }
-function hideSuggest() {
-  $("#suggest").hidden = true; $("#search-status").textContent = "";
-  for (const side of ["source", "target"]) {
-    $("#" + side).setAttribute("aria-expanded", "false"); $("#" + side).removeAttribute("aria-activedescendant");
-  }
-  suggestFor = null;
-}
+function hideSuggest() { $("#suggest").hidden = true; for (const s of ["source", "target"]) $("#" + s).setAttribute("aria-expanded", "false"); suggestFor = null; }
 function pick(i) { const f = suggestRows[i]; if (!f) return; const side = suggestFor; hideSuggest(); $("#" + side).blur(); setEnd(side, defaults[f.name]); }
 for (const side of ["source", "target"]) {
   const input = $("#" + side);
   input.addEventListener("focus", () => { input.select(); showSuggest(side); });
   input.addEventListener("input", () => showSuggest(side));
-  input.addEventListener("blur", () => setTimeout(() => {
-    if (document.activeElement !== input && suggestFor === side) hideSuggest();
-    syncEnds();
-  }, 0));
+  input.addEventListener("blur", () => setTimeout(() => { if (suggestFor === side) hideSuggest(); syncEnds(); }, 0));
   input.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); active = (active + (e.key === "ArrowDown" ? 1 : -1) + suggestRows.length) % Math.max(1, suggestRows.length); markActive(); }
     else if (e.key === "Enter") { e.preventDefault(); pick(active); }
@@ -259,90 +258,57 @@ function routeVariantOf(name) {
   const hit = endpoints(r).find((e) => e.name === name);
   return hit ? indexOf.get(keyOf(hit)) : null;
 }
-function openPop(node, {keyboard = false} = {}) {
+function openPop(node) {
   popNode = node;
-  const name = node.id;
+  const name = node.id();
   popIndex = [state.source, state.target].find((i) => i != null && D.nodes[i].name === name) ?? routeVariantOf(name) ?? defaults[name];
   renderPop();
-  if (keyboard) $("#pop button").focus({preventScroll: true});
 }
 function renderPop() {
-  const pop = $("#pop"), focusGroup = focusedVariantGroup(pop);
-  pop.replaceChildren();
-  const title = el("h2", "", display(popNode.id)); title.id = "pop-title"; pop.append(title);
+  const pop = $("#pop"); pop.replaceChildren();
+  pop.append(el("h2", "", display(popNode.id())));
   const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
   const acts = el("div", "pop-actions");
   const a = el("button", "b-start", "Start"), b = el("button", "b-end", "End");
   a.type = b.type = "button";
   a.addEventListener("click", () => setEnd("source", popIndex)); b.addEventListener("click", () => setEnd("target", popIndex));
   acts.append(a, b); pop.append(acts);
-  const move = el("div", "options"), row = el("div", "opt-row");
-  row.setAttribute("role", "group"); row.setAttribute("aria-label", "Move problem");
-  row.append(el("span", "opt-key", "Move"));
-  for (const [name, arrow, dx, dy] of directions) {
-    const button = el("button", "opt", arrow); button.type = "button";
-    button.setAttribute("aria-label", "Move problem " + name);
-    button.onclick = () => scene.moveNode(popNode, dx * 40, dy * 40);
-    row.append(button);
-  }
-  move.append(row); pop.append(move);
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex]); pop.append(details);
   pop.hidden = false; placePop();
-  restoreVariantGroup(pop, focusGroup);
 }
 function placePop() {
   if (!popNode || $("#pop").hidden) return;
-  const pop = $("#pop"), p = scene.position(popNode), r = freeRect();
-  pop.style.maxHeight = Math.max(1, r.h - 24) + "px";
-  const w = pop.offsetWidth, h = pop.offsetHeight;
+  const pop = $("#pop"), p = popNode.renderedPosition(), r = freeRect(), w = pop.offsetWidth, h = pop.offsetHeight;
   let x = p.x + 20; if (x + w > r.x + r.w - 12) x = p.x - 20 - w;
   pop.style.left = Math.max(r.x + 12, x) + "px";
   pop.style.top = Math.max(r.y + 12, Math.min(p.y - h / 2, r.y + r.h - h - 12)) + "px";
 }
-function closePop(restoreFocus = false) {
-  const opener = popNode?.shape;
-  popNode = null; $("#pop").hidden = true;
-  if (restoreFocus) opener?.focus({preventScroll: true});
-}
-scene.onNodeTap = openPop;
-scene.onBackgroundTap = () => closePop();
+function closePop() { popNode = null; $("#pop").hidden = true; }
+cy.on("tap", "node", (e) => openPop(e.target));
+cy.on("tap", (e) => { if (e.target === cy) closePop(); });
+cy.on("position", "node", (e) => { if (e.target === popNode) placePop(); });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { closePop(true); closeDetails(); }
-  if (e.key === "/" && (!modalDetails.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
+  if (e.key === "Escape") { closePop(); closeDetails(); }
+  if (e.key === "/" && (!phone.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
 });
 
 /* ---------- On-demand articles ---------- */
 const variantKey = (variant) => Object.entries(variant).sort().map(([k, v]) => k + "=" + v).join(",");
 const detailId = (endpoint) => endpoint.name + "/" + variantKey(endpoint.variant);
 let drawerOpener = null;
-const drawerBackground = new Map();
-function syncDrawerModal() {
-  const drawer = $("#details-drawer"), modal = modalDetails.matches && !drawer.hidden;
-  if (modal) {
-    drawer.setAttribute("aria-modal", "true");
-    for (const node of document.body.children) {
-      if (!(node instanceof HTMLElement) || node === drawer || drawerBackground.has(node)) continue;
-      drawerBackground.set(node, node.inert); node.inert = true;
-    }
-    if (!drawer.contains(document.activeElement)) $("#close-details").focus({preventScroll: true});
-  } else {
-    drawer.removeAttribute("aria-modal");
-    for (const [node, inert] of drawerBackground) node.inert = inert;
-    drawerBackground.clear();
-  }
-}
 function showDetails(title, key, parentKey) {
   if (state.result) state.picked = true;
   const drawer = $("#details-drawer"), body = $("#drawer-body"), atlas = $("#drawer-atlas");
   const opening = drawer.hidden;
-  if (opening) drawerOpener = $("#pop").contains(document.activeElement) ? popNode.shape : document.activeElement;
+  if (opening) drawerOpener = document.activeElement;
   closePop(); drawer.hidden = false; $(".dock").hidden = true;
   // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
-  if (opening && !modalDetails.matches && state.result && state.selected) {
-    const r = freeRect(), b = scene.bounds(routeEls(state.selected), true);
+  if (opening && !phone.matches && state.result && state.selected) {
+    const r = freeRect(), b = routeEls(state.selected).renderedBoundingBox({ includeLabels: false });
     if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
   }
+  if (phone.matches) drawer.setAttribute("aria-modal", "true"); else drawer.removeAttribute("aria-modal");
   $("#details-title").textContent = title; body.scrollTop = 0;
   const endpoint = (value) => value.split("/").map(encodeURIComponent);
   if (key.startsWith("problem:")) {
@@ -358,7 +324,7 @@ function showDetails(title, key, parentKey) {
     if (index == null || index < 0) return;
     showProblem(D.nodes[index]); pulseAndFrame(name);
   });
-  $("#close-details").focus({preventScroll: true}); syncDrawerModal(); scheduleLabels(); placePop();
+  $("#close-details").focus({preventScroll: true}); scheduleLabels(); placePop();
 }
 function showProblem(endpoint) {
   showDetails(display(endpoint.name), "problem:" + detailId(endpoint), "problem:" + endpoint.name);
@@ -370,24 +336,25 @@ function showRule(step) {
 function closeDetails() {
   if ($("#details-drawer").hidden) return;
   $("#details-drawer").hidden = true; $(".dock").hidden = false;
-  syncDrawerModal();
   if (drawerOpener?.isConnected) drawerOpener.focus({preventScroll: true});
   scheduleLabels();
 }
 function pulseAndFrame(name) {
-  const node = scene.byId.get(name); scene.classes([node], "", "pulse");
-  setTimeout(() => scene.classes([node], "pulse"), 1000); frame([node], 1.6);
+  const node = cy.getElementById(name); node.addClass("pulse");
+  setTimeout(() => node.removeClass("pulse"), 1000); frame(node, 1.6);
 }
 $("#close-details").onclick = closeDetails;
-scene.onEdgeTap = (edge) => {
-  if (!scene.has(edge, "route")) return;
+cy.on("tap", "edge.route", (e) => {
   const step = state.result?.paths[state.selected - 1].path.find((s) =>
-    s.from.name === edge.source.id && s.to.name === edge.target.id);
+    s.from.name === e.target.source().id() && s.to.name === e.target.target().id());
   if (step) showRule(step);
-};
-modalDetails.addEventListener("change", syncDrawerModal);
+});
+phone.addEventListener("change", () => {
+  if (phone.matches && !$("#details-drawer").hidden) $("#details-drawer").setAttribute("aria-modal", "true");
+  else $("#details-drawer").removeAttribute("aria-modal");
+});
 $("#details-drawer").addEventListener("keydown", (e) => {
-  if (!modalDetails.matches || e.key !== "Tab") return;
+  if (!phone.matches || e.key !== "Tab") return;
   const items = [...$("#details-drawer").querySelectorAll('a[href], button, summary, [tabindex="0"]')].filter((n) => n.getClientRects().length);
   const first = items[0], last = items.at(-1);
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -395,8 +362,7 @@ $("#details-drawer").addEventListener("keydown", (e) => {
 });
 
 /* ---------- Path engine ---------- */
-let worker = window.graphStartup.worker, reqId = 0, clock = 0;
-window.graphStartup.worker = null;
+let worker = null, reqId = 0, clock = 0;
 const cache = new Map();
 function stopWorker() { worker?.terminate(); worker = null; }
 function compute(source, target, limit, onPaths) {
@@ -407,12 +373,11 @@ function compute(source, target, limit, onPaths) {
     if (cached.polynomial_comparison || !cached.paths.length) return Promise.resolve(cached);
   }
   return new Promise((resolve, reject) => {
-    try { worker ||= new Worker(new URL('./path-worker.js', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
+    try { worker ||= new Worker("./assets/path-worker.js", { type: "module" }); } catch (err) { reject(err); return; }
     const engine = worker;
     let result = cached;
     worker.onmessage = ({ data }) => {
       if (worker !== engine) return;
-      performance.mark(`graph:${data.phase}-received`);
       if (data.error) { stopWorker(); reject(new Error(data.error)); return; }
       if (data.phase === "paths") {
         result = data.result; cache.set(key, result); onPaths(result);
@@ -424,8 +389,7 @@ function compute(source, target, limit, onPaths) {
       resolve(result);
     };
     worker.onerror = (ev) => { ev.preventDefault(); if (worker !== engine) return; stopWorker(); reject(new Error("engine")); };
-    performance.mark("graph:request-posted");
-    worker.postMessage({ source, target, limit, ...(cached ? {paths: cached.paths} : {}) });
+    worker.postMessage({ graph: {nodes:D.nodes, edges:D.edges}, source, target, limit, ...(cached ? {paths: cached.paths} : {}) });
   });
 }
 function orderPaths(result) {
@@ -441,7 +405,7 @@ async function run() {
   clearInterval(clock);
   state.result = null; state.selected = null; state.picked = false; state.showSlower = false; state.busy = true;
   paintGraph(); renderResults();
-  frame([scene.byId.get(D.nodes[state.source].name), scene.byId.get(D.nodes[state.target].name)], 1.1);
+  frame(cy.collection([cy.getElementById(D.nodes[state.source].name), cy.getElementById(D.nodes[state.target].name)]), 1.1);
   if (state.source === state.target) { state.busy = false; renderResults("same"); return; }
   const started = Date.now();
   clock = setInterval(() => { const s = $("#elapsed"); if (s) s.textContent = Math.round((Date.now() - started) / 1000) + " s"; }, 1000);
@@ -450,7 +414,6 @@ async function run() {
       if (id !== reqId || !paths.paths.length) return;
       orderPaths(paths); state.result = paths;
       select(paths.order[0]);
-      performance.mark("graph:routes-rendered");
     });
     if (id !== reqId) return;
     clearInterval(clock); state.busy = false;
@@ -458,7 +421,6 @@ async function run() {
     orderPaths(result); state.result = result;
     // Until the user picks a route, show the best one; afterwards the comparison only re-ranks rows.
     if (state.picked) { paintGraph(); renderResults(); } else select(result.order[0]);
-    performance.mark("graph:comparison-rendered");
   } catch (err) {
     if (id !== reqId) return;
     clearInterval(clock); state.busy = false; state.result = null; state.selected = null; renderResults("error"); paintGraph();
@@ -473,38 +435,35 @@ function endpoints(route) { return [route.path[0].from, ...route.path.map((s) =>
 function routeEls(n) {
   const ids = new Set();
   state.result.paths[n - 1].path.forEach((s) => { ids.add(s.from.name); ids.add(s.to.name); if (s.from.name !== s.to.name) ids.add(s.from.name + "→" + s.to.name); });
-  return [...ids].map(id => scene.byId.get(id));
+  return cy.collection([...ids].map((id) => cy.getElementById(id)));
 }
 function paintGraph() {
-  scene.classes(scene.elements, "dim ghost route start end nbr");
-  scene.nodes.forEach(n => { n.routeLabel = display(n.id); });
-  if (state.result && state.selected) {
-    scene.classes(scene.elements, "", "dim");
-    (state.result.polynomial_comparison?.front || []).forEach(n => scene.classes(routeEls(n), "dim", "ghost"));
-    const selected = routeEls(state.selected);
-    scene.classes(selected, "dim ghost", "route");
-    // Selected paths stay above the rest of the scene for reliable edge hit testing.
-    selected.filter(n => !n.label).forEach(n => scene.world.insertBefore(n.shape, scene.nodes[0].shape));
-    const labelled = new Set();
-    endpoints(state.result.paths[state.selected - 1]).forEach(e => {
-      if (!multi(e.name) || labelled.has(e.name)) return;
-      labelled.add(e.name);
-      const def = D.nodes[defaults[e.name]].variant;
-      const diff = Object.entries(e.variant).filter(([k,v]) => def[k] !== v).map(([k,v]) => k + ": " + v);
-      if (diff.length) scene.byId.get(e.name).routeLabel = display(e.name) + "\n" + diff.join("  ");
-    });
-  } else if (state.source != null && state.target != null) scene.classes(scene.elements, "", "dim");
-  for (const side of ["source", "target"]) if (state[side] != null)
-    scene.classes([scene.byId.get(D.nodes[state[side]].name)], "dim", side === "source" ? "start" : "end");
-  scene.nodes.forEach(node => node.shape.setAttribute('aria-label', scene.describe(node)));
+  cy.batch(() => {
+    cy.elements().removeClass("dim ghost route start end nbr");
+    cy.nodes().forEach((n) => n.data("routeLabel", display(n.id())));
+    if (state.result && state.selected) {
+      cy.elements().addClass("dim");
+      (state.result.polynomial_comparison?.front || []).forEach((n) => routeEls(n).removeClass("dim").addClass("ghost"));
+      routeEls(state.selected).removeClass("dim ghost").addClass("route");
+      const labelled = new Set();
+      endpoints(state.result.paths[state.selected - 1]).forEach((e) => {
+        if (!multi(e.name) || labelled.has(e.name)) return;
+        labelled.add(e.name);
+        const def = D.nodes[defaults[e.name]].variant;
+        const diff = Object.entries(e.variant).filter(([k, v]) => def[k] !== v).map(([k, v]) => k + ": " + v);
+        if (diff.length) cy.getElementById(e.name).data("routeLabel", display(e.name) + "\n" + diff.join("  "));
+      });
+    } else if (state.source != null && state.target != null) cy.elements().addClass("dim");
+    for (const side of ["source", "target"]) if (state[side] != null) {
+      cy.getElementById(D.nodes[state[side]].name).removeClass("dim").addClass(side === "source" ? "start" : "end");
+    }
+  });
   scheduleLabels();
 }
 function select(n) {
   state.selected = n;
   paintGraph(); renderResults();
-  const focused = scene.nodeOf(document.activeElement);
-  if (focused) scene.reveal(focused);
-  else frame(routeEls(n), 1.3);
+  frame(routeEls(n), 1.3);
 }
 
 function chain(route) {
@@ -622,14 +581,11 @@ function renderResults(status) {
 }
 
 /* ---------- Dock and resize ---------- */
-const zoomBy = (k) => { const r = freeRect(); scene.stop(); scene.zoomAt(scene.zoom * k, { x: r.x + r.w / 2, y: r.y + r.h / 2 }); };
+const zoomBy = (k) => { const r = freeRect(); cy.zoom({ level: Math.max(0.1, Math.min(3, cy.zoom() * k)), renderedPosition: { x: r.x + r.w / 2, y: r.y + r.h / 2 } }); };
 $("#zoom-in").onclick = () => zoomBy(1.3);
 $("#zoom-out").onclick = () => zoomBy(1 / 1.3);
-$("#fit").onclick = () => frame(scene.elements, 1);
-for (const [name, , dx, dy] of directions) $("#pan-" + name).onclick = () => {
-  scene.stop(); scene.setViewport(scene.zoom, {x: scene.pan.x + dx * 80, y: scene.pan.y + dy * 80});
-};
-addEventListener("resize", () => { scheduleLabels(); placePop(); });
+$("#fit").onclick = () => frame(cy.elements(), 1);
+addEventListener("resize", () => { cy.resize(); scheduleLabels(); placePop(); });
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--header-height", $(".site-header").getBoundingClientRect().height + "px");
   scheduleLabels();
@@ -637,16 +593,6 @@ new ResizeObserver(() => {
 
 /* ---------- Start on a real example ---------- */
 state.source = defaults.Satisfiability; state.target = defaults.QUBO;
-syncEnds(); frame(scene.elements, 1, false); run();
-performance.mark("graph:interactive");
-document.fonts?.ready.then(() => {
-  scene.nodes.forEach(n => { n.labelKey = null; });
-  const focused = scene.nodes.find(node => scene.has(node, 'focused'));
-  if (focused) scene.reveal(focused);
-  scheduleLabels();
-});
-})().catch(() => {
-  window.graphStartup?.worker?.terminate();
-  if (window.graphStartup) window.graphStartup.worker = null;
-  document.querySelector('#results').textContent = 'Cannot load graph. Reload this release and try again.';
-});
+syncEnds(); cy.fit(cy.elements(), 40); run();
+document.fonts?.ready.then(scheduleLabels);
+})();
