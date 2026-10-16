@@ -14,7 +14,11 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      RUST_TEST_THREADS: '2'
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +38,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.99.0'
           targets: wasm32-unknown-unknown
 
       - name: Install browser binding tools
@@ -41,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24.21.0'
           cache: npm
 
       - name: Install mdBook
@@ -59,42 +64,12 @@ jobs:
           tar -xJf typst.tar.xz
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Generate data
+      - name: Build and verify deployment artifact
         run: |
-          cargo run --features "example-db" --example export_examples
-          cargo run --example export_petersen_mapping
-          cargo run --example export_graph
-          node scripts/generate_reduction_graph_layout.js
-          cargo run --example export_schemas
-          cargo build -p problemreductions-cli --bin pred
-          bash scripts/generate_doc_snippets.sh target/debug/pred
-
-      - name: Build mdBook
-        run: mdbook build
-
-      - name: Build PDF
-        run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf
-
-      - name: Build rustdoc
-        run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
-
-      - name: Combine documentation
-        run: |
-          mkdir -p book/api
-          cp -r target/doc/* book/api/
-
-      - name: Build research website
-        run: python3 scripts/build_website.py --open-questions open-questions-source/website/dist
-
-      - name: Verify deployment artifact
-        run: |
-          python3 -m pip install playwright==1.58.0
-          python3 -m playwright install --with-deps chromium
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install --with-deps chromium
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-source/website/dist --require-open-questions
           npm audit --audit-level=moderate
-          python3 scripts/check_website.py --site book --require-open-questions
+          git diff --exit-code -- Cargo.lock package-lock.json
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

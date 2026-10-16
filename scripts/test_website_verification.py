@@ -1,14 +1,19 @@
 """Fresh artifact verification uses real files, HTTP, and browser requests."""
 
 from pathlib import Path
+from contextlib import redirect_stderr
+import io
 import os
 import json
 import shutil
 import subprocess
+import socket
+import struct
 import sys
 import tempfile
 import unittest
 from urllib.request import build_opener, ProxyHandler
+from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -18,6 +23,34 @@ from test_website import require_open_questions
 
 
 class WebsiteVerificationTests(unittest.TestCase):
+    def test_canceled_asset_request_does_not_print_a_server_traceback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            site = Path(directory)
+            (site / "large.bin").write_bytes(b"x" * (8 * 1024 * 1024))
+            errors = io.StringIO()
+            with redirect_stderr(errors), serve_website(site) as base:
+                target = urlsplit(base)
+                with socket.create_connection((target.hostname, target.port), timeout=2) as client:
+                    client.sendall(b"GET /large.bin HTTP/1.0\r\nHost: localhost\r\n\r\n")
+                    headers = b""
+                    while b"\r\n\r\n" not in headers:
+                        chunk = client.recv(1024)
+                        self.assertTrue(chunk)
+                        headers += chunk
+                    self.assertIn(b"200 OK", headers)
+                    client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            self.assertEqual(errors.getvalue(), "")
+
+    def test_verification_only_report_does_not_claim_the_artifact_build_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            site = Path(directory)
+            with self.assertRaises(FileNotFoundError):
+                check_website.check(site, build=False, open_questions=None, required=False)
+            report = json.loads((site / "verification.json").read_text())
+            self.assertEqual(report["verification"]["status"], "failed")
+            self.assertEqual(report["verification"]["mode"], "existing_artifact")
+            self.assertEqual(report["verification"]["source_role"], "verifier_only")
+
     def test_missing_tools_fail_before_creating_output(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "new-output"

@@ -20,13 +20,13 @@ No shell configuration or Apple's Python installation is changed.
 Install the pinned browser once:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python -m playwright install chromium
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install chromium
 ```
 
 Build and verify with one command:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/check_website.py
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py
 ```
 
 The command installs Node dependencies from the lockfile, generates current
@@ -56,7 +56,7 @@ ignored source locations; run only one build workflow per checkout at a time.
 The private board is a separate build. Include its real built output with:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/check_website.py \
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py \
   --open-questions ../autoresearch-gadgets/website/dist
 ```
 
@@ -69,7 +69,7 @@ CI always requires the board. Deployment verifies the already assembled
 artifact, including the PDF and API, with:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/check_website.py \
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py \
   --site book --require-open-questions
 ```
 
@@ -96,14 +96,14 @@ retain raw samples, screenshots, source hashes, limitations and pending acceptan
 Run the interaction pilot against the served verified artifact:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_interaction.py \
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/benchmark_graph_interaction.py \
   http://127.0.0.1:PORT/ --repeat 10 --output /tmp/interactions.json
 ```
 
 Capture the current appearance from a passed, unchanged artifact:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/capture_website_baselines.py \
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/capture_website_baselines.py \
   /path/to/verified-artifact --output /tmp/new-reference-capture
 ```
 
@@ -117,7 +117,7 @@ include pointerdown, keyboard activation, cold navigation, actual search/query
 effects and sampled memory. Reproduce cold runs without concurrent builds/tests:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_startup.py \
+uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/benchmark_graph_startup.py \
   /path/to/verified-artifact --profile desktop --repeat 10 --output /tmp/new-cold-pilot
 ```
 
@@ -128,15 +128,26 @@ Missing trace categories are unavailable. For the prepared SVG runtime, exercise
 the real trace/activation and cold-query self-checks against its served artifact:
 
 ```sh
-WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --no-project --with playwright==1.58.0 \
+WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt \
   python -m unittest discover -s scripts -p 'test_graph_*benchmark.py' -v
-WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --no-project --with playwright==1.58.0 \
+WEBSITE_BASE_URL=http://127.0.0.1:PORT/ uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt \
   python -m unittest discover -s scripts -p test_graph_interaction_trace.py -v
 ```
 
 These SVG-specific harness checks are not yet part of the legacy-runtime deployment
 suite. Their adoption with the prepared runtime and broader browser/failure checks
 remains an engineering gate; unsupported instrumentation must remain explicit.
+The [frame-cost pilot](baselines/2026-10-16-chromium-macos/FRAME_COSTS.md) accounts
+for overlapping main-thread slices and retains complete first-input windows. Its
+cost scope, excluded work, invalid concurrent batch and informational gate status
+are recorded with the raw traces.
+
+The fresh required-board build and a verification-only repeat passed locally with
+all fifty browser workflows and both reference-capture workflows, plus build,
+MathML, graph, benchmark-accounting and provenance checks. The revised CI workflow
+uses the same fresh-build command; it has not run on GitHub. Required manual
+accessibility acceptance is specified in [ACCESSIBILITY_CHECKS.md](ACCESSIBILITY_CHECKS.md)
+and remains unrun. These limits remain open through final engineering acceptance.
 
 ## Browser and tool acceptance matrix
 
@@ -164,10 +175,17 @@ its absence must be reported as unsupported. It cannot be compared as zero LoAFs
 Current build tools are recorded per artifact rather than inferred from this
 table: the captured local build used Cargo/rustc 1.99.0, Node 24.21.0, Python
 3.12.14, mdBook 0.5.2, Typst 0.15.1 and wasm-bindgen 0.2.129. npm uses its lockfile;
-Python browser tooling uses the explicit Playwright version above. CI currently
-uses a moving runner/Rust channel and Node 22; pinning its environment and running
-the full browser/failure matrix remain required before claiming reproducibility
-or adopting cross-runner performance gates.
+Python browser tooling, including its transitive dependencies, is pinned in
+`scripts/website-requirements.txt`; CI and the command above use Python 3.12.14.
+CI now selects
+Ubuntu 24.04, Rust 1.99.0 and Node 24.21.0, rejects build-time lockfile drift, and
+records the GitHub runner image version in artifact provenance. GitHub's maintained
+runner image and action tags can still change; this is not an immutable environment.
+The revised workflow has not run on GitHub yet. Action-revision pinning and
+the full browser/failure matrix remain required
+before claiming CI reproducibility or adopting cross-runner performance gates.
+Verification-only provenance labels the current checkout as the verifier source;
+it does not claim to identify the build source of an externally supplied artifact.
 
 Rollback: revert the isolated verification changes and use the existing
 build/preview commands. No application assets or mathematical code change

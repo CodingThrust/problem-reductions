@@ -38,6 +38,12 @@ class PreviewServer(ThreadingHTTPServer):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # Browser navigation and worker cancellation can abandon an asset response.
+
     def log_message(self, *args):
         pass
 
@@ -70,7 +76,8 @@ def write_provenance(site, verification):
     def digest(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    tools = {"python": sys.version, "playwright": version("playwright")}
+    tools = {"python": sys.version, **{name: version(name) for name in
+             ["playwright", "pyee", "greenlet", "typing_extensions"]}}
     for command in ["cargo", "rustc", "node", "npm", "mdbook", "typst", "wasm-bindgen"]:
         tools[command] = subprocess.check_output([command, "--version"], text=True).strip() if shutil.which(command) else None
     untracked = [name for name in git("ls-files", "--others", "--exclude-standard", "-z").decode().split("\0") if name]
@@ -87,8 +94,10 @@ def write_provenance(site, verification):
         "untracked_source": {name: digest(ROOT / name) for name in untracked if (ROOT / name).is_file()},
         "nested_checkouts": nested,
         "lockfiles": {name: digest(ROOT / name) for name in
-                      ["Cargo.lock", "package-lock.json", "scripts/uv.lock"] if (ROOT / name).is_file()},
+                      ["Cargo.lock", "package-lock.json", "scripts/uv.lock", "scripts/website-requirements.txt"]
+                      if (ROOT / name).is_file()},
         "platform": platform.platform(), "tools": tools, "verification": verification,
+        "github_runner": {"image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion")},
         "artifacts": {path.relative_to(site).as_posix(): digest(path)
                       for path in sorted(site.rglob("*")) if path.is_file() and path != site / "verification.json"},
     }
@@ -110,7 +119,9 @@ def verified_artifact(site):
 
 
 def check(site, *, build, open_questions, required):
-    verification = {"status": "failed", "commands": [], "open_questions_required": required}
+    verification = {"status": "failed", "commands": [], "open_questions_required": required,
+                    "mode": "fresh_build" if build else "existing_artifact",
+                    "source_role": "build_and_verifier" if build else "verifier_only"}
     log = tempfile.TemporaryFile(mode="w+")
 
     def run(command, **kwargs):
@@ -145,7 +156,8 @@ def check(site, *, build, open_questions, required):
                 if not (site / "open-questions" / name).is_file():
                     raise FileNotFoundError(f"Required Open Question Board output absent: {name}")
         run(["npm", "run", "test:reduction-graph-js"])
-        for pattern in ["test_website_build.py", "test_website_math.py", "test_graph_interaction_benchmark.py", "test_website_verification.py"]:
+        for pattern in ["test_website_build.py", "test_website_math.py", "test_graph_interaction_benchmark.py",
+                        "test_graph_trace_costs.py", "test_website_verification.py"]:
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "-v"])
         with serve_website(site) as base:
             environment = {**os.environ, "WEBSITE_BASE_URL": base,
