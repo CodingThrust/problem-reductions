@@ -1,0 +1,3 @@
+docs/website/assets/*.validator.mjs linguist-generated=true
+docs/website/assets/*.validator.d.mts linguist-generated=true
+docs/website/assets/validator-runtime*.mjs linguist-generated=true
