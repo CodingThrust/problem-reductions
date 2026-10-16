@@ -2,7 +2,7 @@
 
 Follow [FRONTEND_PLAN.md](FRONTEND_PLAN.md). Preserve the current appearance;
 Claude's design phase starts after the verified engineering handoff. The
-[data boundary inventory](DATA_BOUNDARIES.md) tracks the remaining contracts.
+[data boundary inventory](DATA_BOUNDARIES.md) records implemented contracts and acceptance limits.
 
 Develop on the user-selected branch and keep changes independently reviewable.
 Generated screenshots, traces, raw samples and run reports belong outside Git or

@@ -1,16 +1,17 @@
 # Frontend data boundary inventory
 
 Source audit: 2026-10-16, against the current working tree. This is a coverage
-inventory and migration checklist, not a claim that contracts are implemented.
-Generated production artifacts are fingerprinted by `check_website.py`. Scene and
-documentation-index, path-metadata and WASM path/comparison-result contracts passed local production checks;
-other rows remain open.
+inventory of implemented application contracts and their acceptance limits.
+Generated production artifacts are fingerprinted by `check_website.py`. All application
+JSON boundaries listed below passed local production checks. Fresh CI and manual/device
+acceptance remain open; the separately owned Open Question Board is outside this
+application's contract migration.
 
-| Payload / producer | Consumer | Current protection | Minimum migration requirement |
+| Payload / producer | Consumer | Current protection | Required invariant / acceptance scope |
 | --- | --- | --- | --- |
 | Native graph and schema exports (`examples/export_graph.rs`, `examples/export_schemas.rs`) | `scripts/build_website.py`: `json.loads` | Native-export schema and generated guard/types validate both raw exports before builder access; shared graph-reference checks | Preserve exact expressions, family/category agreement, aliases, variants/defaults, endpoints and target-parameter coverage; validate derived artifacts separately at their own boundaries |
 | `home-data.js`, emitted by Python as `window.REDUCTIONS` | `assets/site.ts` | Version-1 summary schema, generated guard/types and producer validation; unknown input validated before catalog use | Reject malformed summaries and inconsistent family/variant/endpoint references with an alert; preserve optional labels/aliases |
-| `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.ts` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates and remaining rows stay open |
+| `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.ts` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates remain open |
 | `path-graph.json.gz`, emitted by Python | `assets/path-worker.ts`: decompress, parse unknown, call strict `path-graph-data.mts` | Version-1 schema and generated guard/types; same producer/consumer validation; safe indices, unique variants/defaults/edges, coordinate and target-field checks | Local malformed-input, real-browser rejection/retry and all-engine production/nested checks passed; preserve exact formula strings, tagged nullable fields and explicit native contract errors; incoming requests/replies and query/registered witness-route checks are now implemented |
 | Per-family `problem-data/*.json`, emitted by `build_problem_records` | `assets/site.ts`: `response.json()` | Version-1 record schema, generated guard/types and batch producer validation; unknown response validated before caching | Query family and endpoint checks; exact formula strings and nullable contracts; safe MathML/link fields; failed loads evicted for retry |
 | `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.ts`: parsed unknown, validated before caching; shared by graph and Atlas | Versioned schema, generated guard/types, producer validation; URLs confined to the current release's article subtree; anchor targets checked | Local malformed-input and all-engine rejection/retry, production and nested-path checks passed; preserve bounded cache, HTML safety guard and CSP; CI/manual gates remain open |
@@ -39,7 +40,7 @@ other rows remain open.
 - Certificate exponents are arbitrary-precision integers in `src/polynomial.rs`.
   `graph-growth.mts` now uses `bigint` for displayed degrees, degree sums and route
   ordering, preserving the original certificate strings. A real single-route WASM
-  fixture covers exponents beyond 2^53; remaining wire validation is still open.
+  fixture covers exponents beyond 2^53; schema and wire validation preserve them exactly.
 - Keep numeric indices and small counts only with explicit safe-integer and domain
   checks. Do not convert exact mathematical values through floating point to
   satisfy a TypeScript type. Test wide integers and fractions independently.
@@ -51,8 +52,8 @@ other rows remain open.
   types/runtime validators, alongside Python-owned artifact schemas. Confirm the
   actual Serde union/optional-field representations in one complete migration
   before extending the migration. Ajv standalone guards and generated TS types now
-  cover the three Python-owned contracts, both Rust response contracts and both
-  worker envelopes. The Atlas summary/record union is also covered. Native request schemas and raw export validation are implemented. The legacy path
+  cover eleven contracts: scene, documentation index, path metadata, Atlas summary/record,
+  native exports, both Rust requests/responses and both worker envelopes. The legacy path
   benchmark's default entry discovery also needs repair for the current Vite output;
   only its direct sample mode is currently verified.
 
