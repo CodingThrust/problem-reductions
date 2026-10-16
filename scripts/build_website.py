@@ -3,6 +3,7 @@
 
 import argparse
 import ast
+import gzip
 from html import escape
 import json
 from pathlib import Path
@@ -124,6 +125,20 @@ def publish_open_questions(source, output):
     (output / "registry.json").write_bytes(registry)
 
 
+def build_problem_records(output, nodes, edges, schemas):
+    output.mkdir(parents=True, exist_ok=True)
+    for schema in schemas:
+        own = {i for i, node in enumerate(nodes) if node['name'] == schema['name']}
+        incident = [edge for edge in edges if edge['source'] in own or edge['target'] in own]
+        selected = sorted(own | {edge[end] for edge in incident for end in ('source', 'target')})
+        indices = {old: new for new, old in enumerate(selected)}
+        record = {'nodes': [nodes[i] for i in selected],
+                  'edges': [{**edge, 'source': indices[edge['source']], 'target': indices[edge['target']]}
+                            for edge in incident],
+                  'schemas': [schema]}
+        (output / (schema['name'] + '.json')).write_text(json.dumps(record, separators=(',', ':')))
+
+
 def build(output, graph_path, schemas_path, open_questions=None):
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
@@ -146,12 +161,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
         subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
                         str(output / "assets" / f"{name}.svg")], check=True)
     build_details(output / "assets")
-    for library in ("layout-base", "cose-base", "cytoscape-fcose"):
-        shutil.copyfile(ROOT / "node_modules" / library / "LICENSE",
-                        output / "assets" / f"{library}.LICENSE")
-    (output / "assets/layout-bundle.js").write_text(";\n".join(
-        (ROOT / "node_modules" / library / f"{library}.js").read_text()
-        for library in ("layout-base", "cose-base", "cytoscape-fcose")))
     build_markdown(output)
     # Preserve the original artwork, adapting only its colors for the dark website.
     logo = ET.parse(ROOT / "docs/logo.svg")
@@ -233,10 +242,8 @@ def build(output, graph_path, schemas_path, open_questions=None):
     layout = json.loads(subprocess.run(
         ["node", str(ROOT / "scripts/generate_website_graph_layout.js"), str(graph_path)],
         check=True, capture_output=True, text=True).stdout)
-    payload = json.dumps({**graph, "layout": layout, "nodes": site_nodes,
-                         "edges": site_edges, "schemas": schemas},
-                         ensure_ascii=True)
-    (output / "assets/atlas-data.json").write_text(payload)
+    details = json.loads((output / "assets/graph-details.json").read_text())
+    build_problem_records(output / "assets/problem-data", site_nodes, site_edges, schemas)
     summary = {
         "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
         "edges": [{key: edge[key] for key in ("source", "target")} for edge in edges],
@@ -244,14 +251,20 @@ def build(output, graph_path, schemas_path, open_questions=None):
     }
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
     (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
-        {**summary, "layout": layout, "edges": edges,
-         "nodes": [{**node, "parameter_names": original["parameter_names"]}
-                   for node, original in zip(summary["nodes"], nodes)]}, separators=(",", ":")) + ";\n")
+        {"layout": layout,
+         "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
+                   for edge in edges], "aliases": graph["aliases"],
+         "details": details,
+         "schemas": summary["schemas"],
+         "nodes": [{key: node[key] for key in ("name", "category", "variant", "default", "parameter_names")}
+                   for node in nodes]}, separators=(",", ":")) + ";\n")
     subprocess.run(["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "problemreductions-web"],
                    cwd=ROOT, check=True)
     subprocess.run(["wasm-bindgen", "--target", "web", "--no-typescript", "--out-name", "path-selection",
                     "--out-dir", str(output / "assets"),
                     str(ROOT / "target/wasm32-unknown-unknown/release/problemreductions_web.wasm")], check=True)
+    wasm = output / "assets/path-selection_bg.wasm"
+    wasm.with_suffix('.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
     finalize(output)
     if open_questions is not None:
         publish_open_questions(open_questions, output / "open-questions")

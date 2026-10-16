@@ -838,6 +838,8 @@ pre {
 }
 .atlas-row {
   display: grid;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
   grid-template-columns: 1fr auto;
   gap: 24px;
   padding: 18px 0;

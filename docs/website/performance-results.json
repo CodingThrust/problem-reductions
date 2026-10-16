@@ -1,0 +1,1830 @@
+{
+  "date": {
+    "started": "2026-10-15",
+    "completed": "2026-10-16"
+  },
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M6",
+    "memory_gib": 32
+  },
+  "methodology": {
+    "runtime": "fresh process per sample; elapsed compare_paths or summarize_paths call; excludes init, search, input encoding, JS result parsing, and file writes",
+    "wasm_mib": "linear-memory capacity after completion; 1 MiB=1048576 bytes",
+    "peak_rss_mib": "child process peak RSS, including V8 and JS; excludes parent verifier process",
+    "before": "full browser API before this investigation",
+    "after": "full compatible API and browser summary API after this investigation",
+    "scaling_fixture": "synthetic two-hop graph with 999 distinct n^a*m^b certificates; independently checked partial-order counts"
+  },
+  "baseline_wasm_sha256": "ed19f8e4d9fc070cf6b3be8dbf5a7b2fb92229987e916f42152941b88229c471",
+  "after_wasm_sha256": "a3464993f0aae365535cfbfc6aba031378887435bc3b8381247d25bdefff18a3",
+  "before_samples": [
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.3848749999999974,
+      "search_ms": 11.189458000000002,
+      "encode_ms": 1.4955420000000004,
+      "compare_ms": 544.249333,
+      "parse_ms": 0.13258299999995415,
+      "bytes": 125696,
+      "wasm_mib": 4.875,
+      "peak_rss_mib": 91.515625,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.8094169999999998,
+      "search_ms": 7.079291999999999,
+      "encode_ms": 0.65625,
+      "compare_ms": 559.5523750000001,
+      "parse_ms": 0.11591599999997015,
+      "bytes": 125696,
+      "wasm_mib": 4.875,
+      "peak_rss_mib": 97.6875,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.5085000000000015,
+      "search_ms": 8.275875,
+      "encode_ms": 0.7397500000000043,
+      "compare_ms": 577.649792,
+      "parse_ms": 0.22720800000001873,
+      "bytes": 125696,
+      "wasm_mib": 4.875,
+      "peak_rss_mib": 99.34375,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 1.308291999999998,
+      "search_ms": 11.064708,
+      "encode_ms": 0.704417000000003,
+      "compare_ms": 5919.60975,
+      "parse_ms": 0.9749579999997877,
+      "bytes": 770064,
+      "wasm_mib": 16.75,
+      "peak_rss_mib": 107.765625,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 14.094833000000001,
+      "search_ms": 12.048209,
+      "encode_ms": 2.874333,
+      "compare_ms": 5914.00425,
+      "parse_ms": 0.9782080000004498,
+      "bytes": 770064,
+      "wasm_mib": 16.75,
+      "peak_rss_mib": 105.078125,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 2.267417000000002,
+      "search_ms": 13.147958000000003,
+      "encode_ms": 0.832499999999996,
+      "compare_ms": 5481.256209,
+      "parse_ms": 0.5344160000004194,
+      "bytes": 770064,
+      "wasm_mib": 16.75,
+      "peak_rss_mib": 108.390625,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 1.9463749999999997,
+      "search_ms": 19.302625,
+      "encode_ms": 1.9639580000000052,
+      "compare_ms": 22156.518292,
+      "parse_ms": 3.5722920000007434,
+      "bytes": 1830777,
+      "wasm_mib": 33.4375,
+      "peak_rss_mib": 122.921875,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 1.3995000000000033,
+      "search_ms": 11.821332999999996,
+      "encode_ms": 2.0052920000000043,
+      "compare_ms": 22192.685332999998,
+      "parse_ms": 5.383166999999958,
+      "bytes": 1830777,
+      "wasm_mib": 33.4375,
+      "peak_rss_mib": 121.6875,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 1.5909169999999975,
+      "search_ms": 16.901667000000003,
+      "encode_ms": 0.8863330000000005,
+      "compare_ms": 23307.983792,
+      "parse_ms": 3.197875000001659,
+      "bytes": 1830777,
+      "wasm_mib": 33.4375,
+      "peak_rss_mib": 124.40625,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 1.7763339999999985,
+      "search_ms": 15.291875000000001,
+      "encode_ms": 0.7925830000000005,
+      "compare_ms": 20419.226542,
+      "parse_ms": 4.368582999999489,
+      "bytes": 2033286,
+      "wasm_mib": 38.375,
+      "peak_rss_mib": 125,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 1.4223750000000024,
+      "search_ms": 19.178583,
+      "encode_ms": 0.7914589999999961,
+      "compare_ms": 20223.815791,
+      "parse_ms": 2.6224589999983436,
+      "bytes": 2033286,
+      "wasm_mib": 38.375,
+      "peak_rss_mib": 129.140625,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 1.4854999999999983,
+      "search_ms": 18.692209,
+      "encode_ms": 0.9839580000000012,
+      "compare_ms": 21549.6265,
+      "parse_ms": 4.815291999999317,
+      "bytes": 2033286,
+      "wasm_mib": 38.375,
+      "peak_rss_mib": 128.71875,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 1.5750419999999998,
+      "search_ms": 11.722542000000004,
+      "encode_ms": 0.08020799999999895,
+      "compare_ms": 127.10620799999998,
+      "parse_ms": 1.7631250000000023,
+      "bytes": 333275,
+      "wasm_mib": 11.125,
+      "peak_rss_mib": 107.328125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 1.044875000000001,
+      "search_ms": 10.495583999999997,
+      "encode_ms": 0.3414160000000024,
+      "compare_ms": 112.89925,
+      "parse_ms": 1.1738750000000095,
+      "bytes": 333275,
+      "wasm_mib": 11.125,
+      "peak_rss_mib": 104.953125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 1.3419160000000012,
+      "search_ms": 8.800249999999998,
+      "encode_ms": 0.14987500000000153,
+      "compare_ms": 118.168709,
+      "parse_ms": 2.080332999999996,
+      "bytes": 333275,
+      "wasm_mib": 11.125,
+      "peak_rss_mib": 105.546875,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 2.5566250000000004,
+      "search_ms": 146.122125,
+      "encode_ms": 0.6912920000000042,
+      "compare_ms": 30011.579917,
+      "parse_ms": 156.3026659999996,
+      "bytes": 31778483,
+      "wasm_mib": 833.1875,
+      "peak_rss_mib": 1093.578125,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "baseline",
+      "repeat": 1,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 1.5734169999999992,
+      "search_ms": 128.164625,
+      "encode_ms": 1.8861249999999927,
+      "compare_ms": 29573.989291,
+      "parse_ms": 162.56979199999842,
+      "bytes": 31778483,
+      "wasm_mib": 833.1875,
+      "peak_rss_mib": 1076.234375,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "baseline",
+      "repeat": 2,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 2.2608749999999986,
+      "search_ms": 156.879541,
+      "encode_ms": 0.7850840000000119,
+      "compare_ms": 29814.32375,
+      "parse_ms": 122.91454100000192,
+      "bytes": 31778483,
+      "wasm_mib": 833.1875,
+      "peak_rss_mib": 1074.78125,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "baseline",
+      "repeat": 0,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 2.2987499999999983,
+      "search_ms": 37.49320900000001,
+      "encode_ms": 3.7341659999999877,
+      "compare_ms": 26937.655124999997,
+      "parse_ms": 19.412250000001222,
+      "bytes": 5832374,
+      "wasm_mib": 108.3125,
+      "peak_rss_mib": 217.609375,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76,
+      "profiles_sha256": "1dd8fb395e41bb1db381b89380f08f1eee887c59edb4771ca7d89edd313f2c1c",
+      "front_sha256": "82fd852ae8ef3a074c95350cc21d69e7fed38307464d14c5e824c210202d70f4",
+      "pairs_sha256": "e49119e3c943ad65301962787c5e2fd6a35d63d91049ed6c0f28b20d14b69a60"
+    }
+  ],
+  "after_samples": [
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.5478339999999982,
+      "search_ms": 9.919916,
+      "encode_ms": 1.1014169999999979,
+      "compare_ms": 162.16745799999998,
+      "parse_ms": 0.11458400000000779,
+      "bytes": 125696,
+      "wasm_mib": 3.75,
+      "peak_rss_mib": 93,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.7140000000000022,
+      "search_ms": 10.842667000000002,
+      "encode_ms": 1.120790999999997,
+      "compare_ms": 140.913709,
+      "parse_ms": 0.10900000000000887,
+      "bytes": 125696,
+      "wasm_mib": 3.75,
+      "peak_rss_mib": 93.515625,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.8916250000000012,
+      "search_ms": 10.434708999999998,
+      "encode_ms": 1.0949579999999983,
+      "compare_ms": 177.45112500000002,
+      "parse_ms": 0.1199579999999969,
+      "bytes": 125696,
+      "wasm_mib": 3.75,
+      "peak_rss_mib": 97.1875,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.9743330000000014,
+      "search_ms": 12.513874999999999,
+      "encode_ms": 0.6106669999999994,
+      "compare_ms": 100.02425000000001,
+      "parse_ms": 0.07758300000000418,
+      "bytes": 113141,
+      "wasm_mib": 3.5,
+      "peak_rss_mib": 96.84375,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 2.5897090000000027,
+      "search_ms": 10.197833,
+      "encode_ms": 1.1332079999999962,
+      "compare_ms": 112.66208400000001,
+      "parse_ms": 0.07612499999999045,
+      "bytes": 113141,
+      "wasm_mib": 3.5,
+      "peak_rss_mib": 94.25,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 20,
+      "truncated": true,
+      "init_ms": 1.460333000000002,
+      "search_ms": 6.667417,
+      "encode_ms": 0.6329999999999956,
+      "compare_ms": 101.72704200000001,
+      "parse_ms": 0.06933300000000031,
+      "bytes": 113141,
+      "wasm_mib": 3.5,
+      "peak_rss_mib": 93.78125,
+      "counts": {
+        "Dominated": 138,
+        "Equivalent": 6,
+        "Incomparable": 46,
+        "Unknown": 0
+      },
+      "front": 5
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 2.394124999999999,
+      "search_ms": 7.509500000000003,
+      "encode_ms": 0.7749159999999975,
+      "compare_ms": 1700.179292,
+      "parse_ms": 0.9956249999997908,
+      "bytes": 770064,
+      "wasm_mib": 13.0625,
+      "peak_rss_mib": 113.671875,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 1.7816670000000023,
+      "search_ms": 7.2564999999999955,
+      "encode_ms": 1.3368330000000057,
+      "compare_ms": 1753.919167,
+      "parse_ms": 0.9637079999999969,
+      "bytes": 770064,
+      "wasm_mib": 13.0625,
+      "peak_rss_mib": 113.546875,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 3.266207999999999,
+      "search_ms": 9.115458,
+      "encode_ms": 0.6705419999999975,
+      "compare_ms": 2056.681958,
+      "parse_ms": 0.9605420000002596,
+      "bytes": 770064,
+      "wasm_mib": 13.0625,
+      "peak_rss_mib": 113.8125,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 3.0450000000000017,
+      "search_ms": 17.407458999999996,
+      "encode_ms": 1.2343329999999995,
+      "compare_ms": 824.430833,
+      "parse_ms": 0.51887499999998,
+      "bytes": 686081,
+      "wasm_mib": 10.875,
+      "peak_rss_mib": 103.9375,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 1.6694999999999993,
+      "search_ms": 12.661749999999998,
+      "encode_ms": 0.8744580000000042,
+      "compare_ms": 789.9674170000001,
+      "parse_ms": 0.315166999999974,
+      "bytes": 686081,
+      "wasm_mib": 10.875,
+      "peak_rss_mib": 105.921875,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 50,
+      "truncated": true,
+      "init_ms": 13.274666000000003,
+      "search_ms": 15.020916999999997,
+      "encode_ms": 1.394874999999999,
+      "compare_ms": 790.251667,
+      "parse_ms": 0.32974999999999,
+      "bytes": 686081,
+      "wasm_mib": 10.875,
+      "peak_rss_mib": 104.0625,
+      "counts": {
+        "Dominated": 947,
+        "Equivalent": 57,
+        "Incomparable": 221,
+        "Unknown": 0
+      },
+      "front": 6
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 2.7183750000000018,
+      "search_ms": 22.619125,
+      "encode_ms": 1.8306249999999977,
+      "compare_ms": 4383.31975,
+      "parse_ms": 3.1112920000005033,
+      "bytes": 1830777,
+      "wasm_mib": 22.75,
+      "peak_rss_mib": 113.8125,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 9.021333000000002,
+      "search_ms": 26.278292,
+      "encode_ms": 1.4186249999999987,
+      "compare_ms": 4782.396417,
+      "parse_ms": 3.819666000000325,
+      "bytes": 1830777,
+      "wasm_mib": 22.75,
+      "peak_rss_mib": 118.65625,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 2.978459000000001,
+      "search_ms": 22.442833000000004,
+      "encode_ms": 1.5117079999999987,
+      "compare_ms": 4856.5644999999995,
+      "parse_ms": 5.618417000000591,
+      "bytes": 1830777,
+      "wasm_mib": 22.75,
+      "peak_rss_mib": 118.46875,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 13.268041,
+      "search_ms": 21.777959000000003,
+      "encode_ms": 1.446708000000001,
+      "compare_ms": 1257.777917,
+      "parse_ms": 2.3722080000000005,
+      "bytes": 1522640,
+      "wasm_mib": 20.125,
+      "peak_rss_mib": 111.859375,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 3.4200000000000017,
+      "search_ms": 19.18,
+      "encode_ms": 4.262333000000005,
+      "compare_ms": 1296.668917,
+      "parse_ms": 2.3709579999999733,
+      "bytes": 1522640,
+      "wasm_mib": 20.125,
+      "peak_rss_mib": 114.484375,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": true,
+      "init_ms": 1.9789589999999997,
+      "search_ms": 11.950166000000003,
+      "encode_ms": 0.7349169999999958,
+      "compare_ms": 1336.328708,
+      "parse_ms": 2.0381250000000364,
+      "bytes": 1522640,
+      "wasm_mib": 20.125,
+      "peak_rss_mib": 119.578125,
+      "counts": {
+        "Dominated": 2912,
+        "Equivalent": 267,
+        "Incomparable": 1381,
+        "Unknown": 390
+      },
+      "front": 13
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 3.080874999999999,
+      "search_ms": 30.767708,
+      "encode_ms": 0.8330839999999995,
+      "compare_ms": 5246.82025,
+      "parse_ms": 4.761000000000422,
+      "bytes": 2033286,
+      "wasm_mib": 23,
+      "peak_rss_mib": 120.015625,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 1.7660419999999988,
+      "search_ms": 17.614875,
+      "encode_ms": 0.9788330000000016,
+      "compare_ms": 4843.650167,
+      "parse_ms": 7.647208000000319,
+      "bytes": 2033286,
+      "wasm_mib": 23,
+      "peak_rss_mib": 124.28125,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 1.8257089999999998,
+      "search_ms": 13.609625000000001,
+      "encode_ms": 0.7645830000000018,
+      "compare_ms": 5143.773499999999,
+      "parse_ms": 3.862375000000611,
+      "bytes": 2033286,
+      "wasm_mib": 23,
+      "peak_rss_mib": 123.5,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 4.956958,
+      "search_ms": 22.183958000000004,
+      "encode_ms": 0.919083999999998,
+      "compare_ms": 1258.6722909999999,
+      "parse_ms": 2.04883400000017,
+      "bytes": 1604276,
+      "wasm_mib": 20.3125,
+      "peak_rss_mib": 114.171875,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 2.221,
+      "search_ms": 23.577333000000003,
+      "encode_ms": 0.7824999999999989,
+      "compare_ms": 1364.086834,
+      "parse_ms": 3.5009999999999764,
+      "bytes": 1604276,
+      "wasm_mib": 20.3125,
+      "peak_rss_mib": 113.546875,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 127,
+      "truncated": false,
+      "init_ms": 2.4539580000000036,
+      "search_ms": 16.475249999999996,
+      "encode_ms": 0.9841249999999988,
+      "compare_ms": 1232.525917,
+      "parse_ms": 1.3144160000001648,
+      "bytes": 1604276,
+      "wasm_mib": 20.3125,
+      "peak_rss_mib": 115.046875,
+      "counts": {
+        "Dominated": 2949,
+        "Equivalent": 280,
+        "Incomparable": 1427,
+        "Unknown": 3345
+      },
+      "front": 39
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 2.723791999999996,
+      "search_ms": 54.074875000000006,
+      "encode_ms": 4.71591699999999,
+      "compare_ms": 9184.761208,
+      "parse_ms": 21.950000000000728,
+      "bytes": 5832374,
+      "wasm_mib": 62.3125,
+      "peak_rss_mib": 179.015625,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 2.781374999999997,
+      "search_ms": 66.6725,
+      "encode_ms": 4.519874999999999,
+      "compare_ms": 8968.509917,
+      "parse_ms": 24.539833000000726,
+      "bytes": 5832374,
+      "wasm_mib": 62.3125,
+      "peak_rss_mib": 168.96875,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 3.4075830000000025,
+      "search_ms": 71.62379200000001,
+      "encode_ms": 2.621332999999993,
+      "compare_ms": 9027.064334,
+      "parse_ms": 21.58404100000007,
+      "bytes": 5832374,
+      "wasm_mib": 62.3125,
+      "peak_rss_mib": 169.640625,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 2.7017500000000005,
+      "search_ms": 54.919124999999994,
+      "encode_ms": 6.002167,
+      "compare_ms": 2487.4034159999997,
+      "parse_ms": 2.5491250000000036,
+      "bytes": 3867336,
+      "wasm_mib": 29.1875,
+      "peak_rss_mib": 131.765625,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 4.419582999999996,
+      "search_ms": 59.220667000000006,
+      "encode_ms": 4.924958000000004,
+      "compare_ms": 2845.7748749999996,
+      "parse_ms": 4.80475000000024,
+      "bytes": 3867336,
+      "wasm_mib": 29.1875,
+      "peak_rss_mib": 134.328125,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "Factoring-ILP-f64-999",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 269,
+      "truncated": false,
+      "init_ms": 13.125917000000005,
+      "search_ms": 58.29774999999999,
+      "encode_ms": 2.4606250000000074,
+      "compare_ms": 2605.0788749999997,
+      "parse_ms": 9.05108300000029,
+      "bytes": 3867336,
+      "wasm_mib": 29.1875,
+      "peak_rss_mib": 143.234375,
+      "counts": {
+        "Dominated": 12907,
+        "Equivalent": 1161,
+        "Incomparable": 6638,
+        "Unknown": 15340
+      },
+      "front": 76
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 3.6090410000000013,
+      "search_ms": 13.819749999999999,
+      "encode_ms": 0.1438750000000013,
+      "compare_ms": 69.68070900000001,
+      "parse_ms": 3.671915999999996,
+      "bytes": 333275,
+      "wasm_mib": 6.625,
+      "peak_rss_mib": 122.6875,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 2.998084000000002,
+      "search_ms": 10.434916000000001,
+      "encode_ms": 0.14662500000000023,
+      "compare_ms": 63.782167,
+      "parse_ms": 1.989333000000002,
+      "bytes": 333275,
+      "wasm_mib": 6.625,
+      "peak_rss_mib": 105.890625,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 2.156917,
+      "search_ms": 11.229792000000003,
+      "encode_ms": 0.1531659999999988,
+      "compare_ms": 69.059709,
+      "parse_ms": 1.1556250000000006,
+      "bytes": 333275,
+      "wasm_mib": 6.625,
+      "peak_rss_mib": 108.53125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 11.601041000000002,
+      "search_ms": 12.582833999999998,
+      "encode_ms": 0.06954100000000096,
+      "compare_ms": 48.867084,
+      "parse_ms": 0.06391599999999187,
+      "bytes": 10835,
+      "wasm_mib": 2,
+      "peak_rss_mib": 106.828125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 2.119416000000001,
+      "search_ms": 7.277999999999999,
+      "encode_ms": 0.07991699999999824,
+      "compare_ms": 47.514,
+      "parse_ms": 0.06612499999999955,
+      "bytes": 10835,
+      "wasm_mib": 2,
+      "peak_rss_mib": 100.078125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 100,
+      "truncated": false,
+      "init_ms": 1.6207080000000005,
+      "search_ms": 11.744584,
+      "encode_ms": 0.144207999999999,
+      "compare_ms": 56.862042,
+      "parse_ms": 0.10958300000000065,
+      "bytes": 10835,
+      "wasm_mib": 2,
+      "peak_rss_mib": 99.453125,
+      "counts": {
+        "Dominated": 3270,
+        "Equivalent": 0,
+        "Incomparable": 1680,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "full",
+      "repeat": 0,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 9.974041,
+      "search_ms": 181.267375,
+      "encode_ms": 1.3142500000000155,
+      "compare_ms": 5119.473375,
+      "parse_ms": 183.5064170000005,
+      "bytes": 31778483,
+      "wasm_mib": 438.1875,
+      "peak_rss_mib": 679.015625,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "full",
+      "repeat": 1,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 1.5880420000000015,
+      "search_ms": 181.69424999999998,
+      "encode_ms": 1.302000000000021,
+      "compare_ms": 4736.292291999999,
+      "parse_ms": 241.86395800000082,
+      "bytes": 31778483,
+      "wasm_mib": 438.1875,
+      "peak_rss_mib": 706.390625,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "full",
+      "repeat": 2,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 3.0860410000000016,
+      "search_ms": 170.76458399999999,
+      "encode_ms": 1.306666000000007,
+      "compare_ms": 4730.566250000001,
+      "parse_ms": 183.9555419999997,
+      "bytes": 31778483,
+      "wasm_mib": 438.1875,
+      "peak_rss_mib": 692.765625,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "summary",
+      "repeat": 0,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 2.471291000000001,
+      "search_ms": 180.45916699999998,
+      "encode_ms": 0.6963750000000175,
+      "compare_ms": 1997.83125,
+      "parse_ms": 0.700249999999869,
+      "bytes": 108328,
+      "wasm_mib": 10.25,
+      "peak_rss_mib": 111.453125,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "summary",
+      "repeat": 1,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 3.5276669999999974,
+      "search_ms": 173.477833,
+      "encode_ms": 1.2690839999999923,
+      "compare_ms": 1916.692833,
+      "parse_ms": 0.4008750000002692,
+      "bytes": 108328,
+      "wasm_mib": 10.25,
+      "peak_rss_mib": 117.84375,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "engine": "summary",
+      "repeat": 2,
+      "routes": 999,
+      "truncated": false,
+      "init_ms": 1.5775000000000006,
+      "search_ms": 144.265958,
+      "encode_ms": 1.3432090000000017,
+      "compare_ms": 1929.0414999999998,
+      "parse_ms": 0.4329160000002048,
+      "bytes": 108328,
+      "wasm_mib": 10.25,
+      "peak_rss_mib": 104.515625,
+      "counts": {
+        "Dominated": 261261,
+        "Equivalent": 0,
+        "Incomparable": 237240,
+        "Unknown": 0
+      },
+      "front": 1
+    }
+  ],
+  "regression_checks": [
+    {
+      "case": "Factoring-ILP-f64-999",
+      "pairs": 36046,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "1dd8fb395e41bb1db381b89380f08f1eee887c59edb4771ca7d89edd313f2c1c",
+      "pairs_sha256": "e49119e3c943ad65301962787c5e2fd6a35d63d91049ed6c0f28b20d14b69a60"
+    },
+    {
+      "case": "SAT-QUBO-100",
+      "pairs": 4950,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "ab9957d50252ff9a74715d9128520c10161c9e5ae1aea33db3febffef7df0895",
+      "pairs_sha256": "b81e5cf758d039534288dfe08b12ca88087498e2743fda1005f27e6019cad9a1"
+    },
+    {
+      "case": "SAT-QUBO-20",
+      "pairs": 190,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "e2e4ac761cc5c04b4a47b3d2c8a80f16dfecc369d7343471bd1851c4c03384a0",
+      "pairs_sha256": "b63794c8580ccd7555b059a0dc3f7e6af83ae35c2230f65de32bb541f3a59829"
+    },
+    {
+      "case": "SAT-QUBO-50",
+      "pairs": 1225,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "25f1cfd5d33870af2868db65b9082a5b6a7fc4e8fda425c2ebe9eb51e80c1778",
+      "pairs_sha256": "2709e41b84ec093f0b5839e64a7433a85a47d303d4852421ee68db7d7e777b94"
+    },
+    {
+      "case": "SAT-QUBO-999",
+      "pairs": 8001,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "110301cddaa013eafd0d0556a00ad49cee285f8264e52f236fae6ba462796c42",
+      "pairs_sha256": "392f7cc48af4e5e5f70f0693c330513bd1678c233be8921c262c46dfa7ebdad8"
+    },
+    {
+      "case": "synthetic-monomial-grid-100",
+      "pairs": 4950,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "e3b46bdf377627927a562357d975b94653898cbc07a25d4821092c65e815a134",
+      "pairs_sha256": "75b2a2e1f67affe205b79e421f780827b31851c99da3c016b1758ba710ac3438"
+    },
+    {
+      "case": "synthetic-monomial-grid-999",
+      "pairs": 498501,
+      "profiles_identical": true,
+      "verdicts_identical": true,
+      "front_identical": true,
+      "profiles_sha256": "f51bd706c96917c87e698da46a1e03420af83269b3f930b74e55b6eefb188b74",
+      "pairs_sha256": "84e611092de9430277c9b45bdb68ec772e65a1482b0c79c5fdac6ab00e5ba08f"
+    }
+  ],
+  "pairs_checked": 553863,
+  "native_stage_samples": {
+    "before_profiles_ms": 4150,
+    "before_comparison_ms": 11322,
+    "separate_profile_stage_us": {
+      "parse": 6801,
+      "compose": 18529,
+      "expand": 3807491
+    },
+    "notes": "temporary native phase timers, removed afterward; separate runs, so values must not be added together"
+  },
+  "renderer_probe": {
+    "methodology": "Renderer-only actual registry geometry, all labels, 120 pan frames; excludes production interactions and native DOM memory. Slow: 1.6Mbps, 150ms latency, 4x main-thread CPU; headless Chromium.",
+    "samples": [
+      {
+        "ready_ms": 159,
+        "nodes": 218,
+        "edges": 305,
+        "bytes": 804677,
+        "renderer": "canvas",
+        "slow": false,
+        "frame_p95_ms": 26.100000023841858,
+        "script_ms": 40.483999999999995,
+        "task_ms": 249.836,
+        "js_heap_mib": 5.524932861328125,
+        "dom_nodes": 26
+      },
+      {
+        "ready_ms": 36,
+        "nodes": 218,
+        "edges": 305,
+        "bytes": 370340,
+        "renderer": "svg",
+        "slow": false,
+        "frame_p95_ms": 26.099999994039536,
+        "script_ms": 0.31999999999999995,
+        "task_ms": 48.077,
+        "js_heap_mib": 1.4075164794921875,
+        "dom_nodes": 976
+      },
+      {
+        "ready_ms": 4672.5,
+        "nodes": 218,
+        "edges": 305,
+        "bytes": 804677,
+        "renderer": "canvas",
+        "slow": true,
+        "frame_p95_ms": 25.80000001192093,
+        "script_ms": 78.41699999999999,
+        "task_ms": 867.458,
+        "js_heap_mib": 5.544742584228516,
+        "dom_nodes": 26
+      },
+      {
+        "ready_ms": 2419.7000000178814,
+        "nodes": 218,
+        "edges": 305,
+        "bytes": 370340,
+        "renderer": "svg",
+        "slow": true,
+        "frame_p95_ms": 26.399999976158142,
+        "script_ms": 0.3949999999999995,
+        "task_ms": 128.86700000000002,
+        "js_heap_mib": 1.4075279235839844,
+        "dom_nodes": 976
+      }
+    ]
+  },
+  "browser_audit": {
+    "methodology": "Actual UI with real workers. Worker event timestamps are distinct from final rendered waits. Slow: 1.6Mbps,150ms latency,4x main-thread CPU; worker CPU is not throttled.",
+    "samples": [
+      {
+        "version": "before",
+        "slow": false,
+        "initial": {
+          "samples": [
+            {
+              "phase": "paths",
+              "error": null,
+              "at": 172.09999999403954,
+              "routes": 20,
+              "counts": null,
+              "front": null
+            },
+            {
+              "phase": "comparison",
+              "error": null,
+              "at": 552.1999999880791,
+              "routes": 20,
+              "counts": {
+                "Dominated": 138,
+                "Equivalent": 6,
+                "Incomparable": 46,
+                "Unknown": 0
+              },
+              "front": 5
+            }
+          ],
+          "longTasks": [
+            {
+              "at": 28.19999998807907,
+              "ms": 68
+            }
+          ],
+          "starts": 1,
+          "resources": [
+            {
+              "url": "path-selection_bg.wasm.gz",
+              "bytes": 252970,
+              "ms": 3.7000000178813934
+            },
+            {
+              "url": "cytoscape.min.js",
+              "bytes": 434337,
+              "ms": 5.600000023841858
+            }
+          ]
+        },
+        "pan_frames": {
+          "median_ms": 11.400000000000091,
+          "p95_ms": 26.100000000000136,
+          "max_ms": 26.200000000000045
+        }
+      },
+      {
+        "version": "after",
+        "slow": false,
+        "initial": {
+          "samples": [
+            {
+              "phase": "paths",
+              "error": null,
+              "at": 125.30000001192093,
+              "routes": 20,
+              "counts": null,
+              "front": null
+            },
+            {
+              "phase": "comparison",
+              "error": null,
+              "at": 198.80000001192093,
+              "routes": 20,
+              "counts": {
+                "Dominated": 138,
+                "Equivalent": 6,
+                "Incomparable": 46,
+                "Unknown": 0
+              },
+              "front": 5
+            }
+          ],
+          "longTasks": [],
+          "starts": 1,
+          "resources": [
+            {
+              "url": "path-selection_bg.wasm.gz",
+              "bytes": 280156,
+              "ms": 4.799999982118607
+            },
+            {
+              "url": "cytoscape.min.js",
+              "bytes": 434337,
+              "ms": 5.699999988079071
+            }
+          ]
+        },
+        "search_more": [
+          {
+            "limit": 50,
+            "routes": 50,
+            "elapsed_ms": 526,
+            "worker_starts": 1,
+            "result": {
+              "phase": "comparison",
+              "error": null,
+              "at": 729.2000000178814,
+              "routes": 50,
+              "counts": {
+                "Dominated": 947,
+                "Equivalent": 57,
+                "Incomparable": 221,
+                "Unknown": 0
+              },
+              "front": 6
+            }
+          },
+          {
+            "limit": 100,
+            "routes": 100,
+            "elapsed_ms": 822,
+            "worker_starts": 1,
+            "result": {
+              "phase": "comparison",
+              "error": null,
+              "at": 1545.1000000238419,
+              "routes": 100,
+              "counts": {
+                "Dominated": 2912,
+                "Equivalent": 267,
+                "Incomparable": 1381,
+                "Unknown": 390
+              },
+              "front": 13
+            }
+          },
+          {
+            "limit": 999,
+            "routes": 127,
+            "elapsed_ms": 839,
+            "worker_starts": 1,
+            "result": {
+              "phase": "comparison",
+              "error": null,
+              "at": 2384.600000023842,
+              "routes": 127,
+              "counts": {
+                "Dominated": 2949,
+                "Equivalent": 280,
+                "Incomparable": 1427,
+                "Unknown": 3345
+              },
+              "front": 39
+            }
+          }
+        ],
+        "pan_frames": {
+          "median_ms": 12.300000000000182,
+          "p95_ms": 26.199999999999818,
+          "max_ms": 26.200000000000273
+        }
+      },
+      {
+        "version": "before",
+        "slow": true,
+        "initial": {
+          "samples": [
+            {
+              "phase": "paths",
+              "error": null,
+              "at": 6956.4000000059605,
+              "routes": 20,
+              "counts": null,
+              "front": null
+            },
+            {
+              "phase": "comparison",
+              "error": null,
+              "at": 7359.200000017881,
+              "routes": 20,
+              "counts": {
+                "Dominated": 138,
+                "Equivalent": 6,
+                "Incomparable": 46,
+                "Unknown": 0
+              },
+              "front": 5
+            }
+          ],
+          "longTasks": [
+            {
+              "at": 6306,
+              "ms": 240
+            },
+            {
+              "at": 6546.100000023842,
+              "ms": 128
+            },
+            {
+              "at": 6675.600000023842,
+              "ms": 54
+            },
+            {
+              "at": 6969.9000000059605,
+              "ms": 51
+            },
+            {
+              "at": 7382.200000017881,
+              "ms": 50
+            }
+          ],
+          "starts": 1,
+          "resources": [
+            {
+              "url": "path-selection_bg.wasm.gz",
+              "bytes": 252970,
+              "ms": 4821.299999982119
+            },
+            {
+              "url": "cytoscape.min.js",
+              "bytes": 434337,
+              "ms": 6110.4000000059605
+            }
+          ]
+        },
+        "pan_frames": {
+          "median_ms": 16.399999999999636,
+          "p95_ms": 34.899999999999636,
+          "max_ms": 53
+        }
+      },
+      {
+        "version": "after",
+        "slow": true,
+        "initial": {
+          "samples": [
+            {
+              "phase": "paths",
+              "error": null,
+              "at": 6950.799999982119,
+              "routes": 20,
+              "counts": null,
+              "front": null
+            },
+            {
+              "phase": "comparison",
+              "error": null,
+              "at": 7065.5999999940395,
+              "routes": 20,
+              "counts": {
+                "Dominated": 138,
+                "Equivalent": 6,
+                "Incomparable": 46,
+                "Unknown": 0
+              },
+              "front": 5
+            }
+          ],
+          "longTasks": [
+            {
+              "at": 6384.5999999940395,
+              "ms": 151
+            },
+            {
+              "at": 6536.4000000059605,
+              "ms": 136
+            },
+            {
+              "at": 6673.5999999940395,
+              "ms": 57
+            },
+            {
+              "at": 6964.5999999940395,
+              "ms": 55
+            },
+            {
+              "at": 7087.199999988079,
+              "ms": 65
+            }
+          ],
+          "starts": 1,
+          "resources": [
+            {
+              "url": "path-selection_bg.wasm.gz",
+              "bytes": 280156,
+              "ms": 5224.9000000059605
+            },
+            {
+              "url": "cytoscape.min.js",
+              "bytes": 434337,
+              "ms": 6199.4000000059605
+            }
+          ]
+        },
+        "pan_frames": {
+          "median_ms": 16.399999999999636,
+          "p95_ms": 33.79999999999927,
+          "max_ms": 60.5
+        }
+      }
+    ]
+  },
+  "verification": {
+    "rust_tests_passed": 7105,
+    "rust_doctests_ignored": 3,
+    "browser_tests_passed": 45,
+    "build_tests_passed": 5,
+    "clippy": "workspace/all-targets/-D warnings passed",
+    "coverage": {
+      "polynomial_file_lines_percent": 100.0,
+      "comparator_file_lines_percent": 97.36842105263156,
+      "new_comparator_executable_lines": 238,
+      "new_comparator_covered": 238,
+      "new_web_binding_executable_lines": 21,
+      "new_web_binding_covered": 21,
+      "methodology": "LLVM coverage; new lines from whitespace-insensitive diff against pre-investigation snapshots. Polynomial module has complete line coverage."
+    }
+  },
+  "asset_sizes": {
+    "wasm_bytes": 812609,
+    "wasm_gzip_bytes": 279856,
+    "cytoscape_bytes": 434037,
+    "cytoscape_gzip_bytes": 135891
+  }
+}

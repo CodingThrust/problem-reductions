@@ -57,7 +57,7 @@ change a pair's verdict. Comparisons from different batches cannot be chained.
 ## API and pipeline
 
 The library entry points are `poly_compare::{compare, compare_profiles,
-compare_all}` and `ReductionGraph::path_polynomial_profile`:
+compare_all, compare_summary}` and `ReductionGraph::path_polynomial_profile`:
 
 - `compare(f, g, domain) -> FieldComparison { forward, reverse }` uses a batch
   consisting of its two field certificates. `verdict()` combines the directions.
@@ -66,6 +66,10 @@ compare_all}` and `ReductionGraph::path_polynomial_profile`:
 - `compare_all(&[Profile]) -> PathComparison { pairs, front }` collects `S` once
   for the whole batch. `counts()` follows `Verdict::ALL` order: Dominated,
   Equivalent, Incomparable, Unknown. Identical profiles share comparisons.
+- `compare_summary(&[Profile]) -> ComparisonSummary { counts, front }` retains
+  every original certificate in `S`, groups equal upper growth supports, and
+  counts group-pair multiplicities without allocating every pair record. It
+  returns the original route indices, including every equivalent route.
 
 Library pair/front indices are zero-based; CLI indices are one-based. Callers
 must compare the same source domain and target parameter schema. Graph endpoints
@@ -96,8 +100,11 @@ ones. `Profile::new(fields)` infers coordinates from its certificates.
    dominance on the entire nonnegative direction cone. Every valid top face
    contains a positive term, so signed and positive-hull support heights agree.
    There is **no denominator lower-tightness obligation**.
-5. Exact Fourier–Motzkin feasibility supplies rational coverage weights.
-   Coordinatewise dominance has a direct one-weight fast path. LPs have at most
+5. Coordinatewise dominance supplies one-weight proofs; axis-simplex coverage
+   supplies exact weights `a_i / b_i`, allocating any remaining weight to an
+   axis vertex. Other coverage uses exact Fourier–Motzkin feasibility. Redundant
+   support points covered by axis vertices or coordinatewise dominance are
+   removed before constructing the LP. LPs have at most
    24 variables and 512 elimination rows; exceeding a limit returns Unknown
    unless a separately verified witness decides the direction.
 6. Refutation uses integer scales and exponents. It tries exact LP separating
@@ -112,6 +119,24 @@ ones. `Profile::new(fields)` infers coordinates from its certificates.
    `Equivalent`, `Dominated { worse }`, proven `Incomparable` (both refuted), or
    `Unknown`. Final-front filtering removes only certified strict dominance.
    Equivalent paths retain their provenance. **No prefix pruning** is performed.
+
+The summary compares positive support projections with unit coefficients. On
+every regular valid original family, the original top face contains a positive
+term, so its height equals the positive-support height. Removing coordinatewise
+dominated or convexly covered points preserves that height for every nonnegative
+exponent vector. Consequently, these projections have the same growth order on
+the original valid families. They impose no additional validity restriction,
+because their coefficients are positive. All original signed certificates stay
+in the batch, including certificates belonging to grouped routes. Source domains
+and unavailable-field positions remain part of each group key. Native full
+comparisons continue to produce proofs for the original certificates.
+
+Polynomial IDs, positive hulls, the curve catalogue, exact curve evaluations and
+batch regularity checks are cached within one comparison call. These caches are
+never reused across batches with different path limits. Scale changes cannot
+alter a support-height gap, so alternative scales are considered only after a
+strict gap is established. Public proof and witness verifiers remain available
+for independent checking.
 
 `growth.rs` and `big_o.rs` remain terminal complexity-display projections; they
 do not rank paths. The comparator compares chosen certificates, including upper
@@ -198,6 +223,11 @@ integers or reduced `p/q` fractions. Profile fields retain display-formatted
 its typed `reason`. Proofs are always present in JSON; `--proofs` affects only
 human output. Consumers should use typed fields, not parse descriptions.
 
+This is the CLI/full-proof schema. The browser's `summarize_paths` binding returns
+profiles, counts and the front; its compatible `compare_paths` binding also
+returns every pair verdict. Neither browser payload transports field proof
+records. The native `compare_all` proof API is unchanged.
+
 ## Limitations
 
 The result is **batch-relative** and ignores exact top-face cancellations.
@@ -217,7 +247,9 @@ Unknown is never labeled proven incomparability.
 
 Exact expansion can grow exponentially. There is no silent truncation of a
 polynomial certificate; large expansions may exhaust time or memory. Pair
-comparison is quadratic in the listed paths. A capped CLI listing fixes only
+output is quadratic in the listed paths. Summary comparison uses growth-support
+groups and retains no pair matrix; all-distinct groups still require quadratic
+comparison work. A capped CLI listing fixes only
 that batch; its truncation indicator reports omitted paths, and the front makes
 no claim of exhaustive optimality. Advanced cancellation solving, declared
 constraints, exhaustive fans, SOS, SONC, CAD and Gröbner bases remain deferred.

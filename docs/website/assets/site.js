@@ -1,8 +1,11 @@
 /* The site is a static client of the same registry exports as the book and paper. */
 (() => {
   "use strict";
-  let data = window.REDUCTIONS;
-  let fullData;
+  const summary = window.REDUCTIONS;
+  let data = summary;
+  const records = new Map();
+  const names = new Map(summary.schemas.map(schema => [schema.name, schema]));
+  let atlasRows;
   const main = document.querySelector("main");
   const homeHTML = main.innerHTML;
   history.scrollRestoration = "manual";
@@ -39,7 +42,7 @@
         })[c],
     );
   const nameOf = (name) =>
-    data.schemas.find((s) => s.name === name)?.display_name ||
+    names.get(name)?.display_name ||
     name
       .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
@@ -78,6 +81,12 @@
       data.nodes[e.source].name === "MinimumVertexCover" &&
       data.nodes[e.target].name === "MaximumIndependentSet",
   );
+  const catalog = families.map(name => {
+    const variants = summary.nodes.filter(node => node.name === name), category = variants[0].category;
+    return {name, category,
+      search: `${name} ${nameOf(name)} ${description(name)} ${(names.get(name)?.aliases || []).join(' ')}`.toLowerCase(),
+      html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connections</span></div></div><span aria-hidden="true">↗</span></a>`};
+  }).sort((a, b) => nameOf(a.name).localeCompare(nameOf(b.name)));
 
   function notify(message) {
     const toast = document.querySelector(".toast");
@@ -207,7 +216,7 @@
       <div class="wrap atlas-layout">
         <aside class="filters" aria-label="Filter problems by category">
           <p class="context-label">Input structure</p>
-          ${[["all", "All problems"], ...Object.entries(categories)].map(([key, label]) => `<button class="filter-button" data-filter="${key}" aria-pressed="${filter === key}"><span>${label}</span><span>${key === "all" ? families.length : families.filter((name) => variantsOf(name)[0].category === key).length}</span></button>`).join("")}
+          ${[["all", "All problems"], ...Object.entries(categories)].map(([key, label]) => `<button class="filter-button" data-filter="${key}" aria-pressed="${filter === key}"><span>${label}</span><span>${key === "all" ? catalog.length : catalog.filter(entry => entry.category === key).length}</span></button>`).join("")}
         </aside>
         <div class="atlas-catalog">
           <div class="atlas-controls">
@@ -252,29 +261,21 @@
   }
 
   function renderResults() {
+    if (!atlasRows) {
+      const rows = document.createElement('div');
+      rows.innerHTML = catalog.map(entry => entry.html).join('');
+      atlasRows = new Map(catalog.map((entry, i) => [entry.name, rows.children[i]]));
+    }
     const search = query.trim().toLowerCase();
     const alias = aliases[query.trim().toUpperCase()] || "";
-    const results = families.filter((name) => {
-      const schema = schemaOf(name);
-      return (
-        (filter === "all" || variantsOf(name)[0].category === filter) &&
-        (!search ||
-          name === alias ||
-          `${name} ${nameOf(name)} ${description(name)} ${(schema?.aliases || []).join(" ")}`
-            .toLowerCase()
-            .includes(search))
-      );
-    }).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    const results = catalog.filter(entry =>
+      (filter === 'all' || entry.category === filter) &&
+      (!search || entry.name === alias || entry.search.includes(search)));
     document.querySelector(".result-count").textContent =
       `${results.length} problem${results.length === 1 ? "" : "s"}`;
-    document.querySelector("#atlas-results").innerHTML = results.length
-      ? results
-          .map((name) => {
-            const variants = variantsOf(name);
-            return `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[variants[0].category] || variants[0].category)}</span><span>${variants.length} variant${variants.length === 1 ? "" : "s"}</span><span>${edgesOf(name).length} connections</span></div></div><span aria-hidden="true">↗</span></a>`;
-          })
-          .join("")
-      : `<div class="empty-state"><h2>No matching problems.</h2><p>Try a broader term or explore another input structure.</p><button class="button secondary" id="reset-search">Reset search and filters</button></div>`;
+    const box = document.querySelector('#atlas-results');
+    if (results.length) box.replaceChildren(...results.map(entry => atlasRows.get(entry.name)));
+    else box.innerHTML = `<div class="empty-state"><h2>No matching problems.</h2><p>Try a broader term or explore another input structure.</p><button class="button secondary" id="reset-search">Reset search and filters</button></div>`;
     document.querySelector("#reset-search")?.addEventListener("click", () => {
       query = "";
       filter = "all";
@@ -462,21 +463,27 @@
       return;
     }
     const params = new URLSearchParams(search);
-    if (["atlas", "problem", "reduction"].includes(parts[0])) {
+    if (["atlas", "problem", "reduction"].includes(parts[0])) window.loadDetailsIndex().catch(() => {});
+    if (["problem", "reduction"].includes(parts[0])) {
+      const name = parts[1];
+      if (!families.includes(name)) { notFound(); return; }
       try {
-        fullData ||= fetch("./assets/atlas-data.json").then(response => {
-          if (!response.ok) throw new Error("Cannot load atlas. Reload the page to get the current release.");
-          return response.json();
-        });
-        data = await fullData;
+        if (!records.has(name)) {
+          records.set(name, fetch(`./assets/problem-data/${encodeURIComponent(name)}.json`).then(response => {
+            if (!response.ok) throw new Error("Cannot load atlas. Reload the page to get the current release.");
+            return response.json();
+          }));
+        }
+        const record = await records.get(name);
         if ((location.hash.slice(1) || "home") !== hash) return;
+        data = record;
       } catch (error) {
-        fullData = null;
+        records.delete(name);
         main.replaceChildren(Object.assign(document.createElement("p"), {textContent: error.message}));
         main.firstChild.setAttribute("role", "alert");
         return;
       }
-    }
+    } else data = summary;
     const isHome = [
       "home",
       "research",

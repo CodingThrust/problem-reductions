@@ -212,6 +212,101 @@ fn newton_lp_decides_convex_supports_and_proven_incomparability() {
 }
 
 #[test]
+fn newton_coverage_ignores_dominated_support_terms() {
+    // AM-GM gives n^8*m^8 <= (n^16+m^16)/2; lower terms cannot invalidate it.
+    let lower_terms = (0..=6)
+        .flat_map(|a| (0..=6 - a).map(move |b| format!("n^{a}*m^{b}")))
+        .collect::<Vec<_>>()
+        .join("+");
+    let denominator = format!("n^16+m^16+{lower_terms}");
+    let comparison = pair("n^8*m^8", &denominator);
+    let Direction::Yes(proof) = comparison.forward else {
+        panic!("redundant support must not exhaust the coverage LP");
+    };
+    assert!(proof.verify(&poly("n^8*m^8"), &poly(&denominator)));
+    // All these points are coordinatewise maximal, but lie on the segment
+    // between n^32 and m^32. None is the numerator's (16,16) point.
+    let redundant = (0..=32)
+        .filter(|&a| a != 16)
+        .map(|a| format!("n^{a}*m^{}", 32 - a))
+        .collect::<Vec<_>>()
+        .join("+");
+    let comparison = pair("n^16*m^16", &redundant);
+    let Direction::Yes(proof) = comparison.forward else {
+        panic!("convex support redundancy must not exhaust the coverage LP");
+    };
+    assert!(proof.verify(&poly("n^16*m^16"), &poly(&redundant)));
+}
+
+#[test]
+fn axis_simplex_coverage_has_exact_multivariate_weights() {
+    let f = "(n+m+1)^6";
+    let g = "(n+m)^6+r*(n+m)^5+r^2*(n+m)^4+r^3*(n+m)^3+r^4*(n+m)^2+r^4";
+    let comparison = pair(f, g);
+    let Direction::Yes(proof) = comparison.forward else {
+        panic!("extra denominator support must not obscure axis-simplex coverage");
+    };
+    assert!(proof.verify(&poly(f), &poly(g)));
+    let variables = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+    let numerator = variables.join("*");
+    let denominator = variables
+        .iter()
+        .map(|v| format!("{v}^9"))
+        .collect::<Vec<_>>()
+        .join("+");
+    let comparison = pair(&numerator, &denominator);
+    let Direction::Yes(proof) = comparison.forward else {
+        panic!("AM-GM proves coverage by the axis simplex");
+    };
+    assert!(proof.verify(&poly(&numerator), &poly(&denominator)));
+}
+
+#[test]
+fn summary_preserves_pair_counts_front_and_batch_validity() {
+    let mut missing = profile("n");
+    missing.fields.get_mut("size").unwrap().certificate = Err(Reason::MissingField);
+    let mut unused_coordinate = profile("1");
+    unused_coordinate.domain.insert(Symbol::new("m").unwrap());
+    let profiles = vec![
+        profile("n"),
+        profile("m"),
+        profile("2*n+1"),
+        profile("n-m"),
+        missing.clone(),
+        profile("n"),
+        missing,
+        profile("0"),
+        unused_coordinate,
+        profile("1"),
+    ];
+    let full = compare_all(&profiles);
+    let summary = compare_summary(&profiles);
+    assert_eq!(summary.counts, full.counts());
+    assert_eq!(summary.front, full.front);
+    assert_eq!(summary.counts.iter().sum::<usize>(), 45);
+    let batch = batch_certificates(&profiles);
+    for (i, j, pair) in &full.pairs {
+        for (name, comparison) in &pair.fields {
+            if let (Ok(f), Ok(g)) = (
+                profiles[*i].fields[name].poly(),
+                profiles[*j].fields[name].poly(),
+            ) {
+                for (direction, f, g) in [(&comparison.forward, f, g), (&comparison.reverse, g, f)]
+                {
+                    match direction {
+                        Direction::Yes(proof) => assert!(proof.verify(f, g)),
+                        Direction::No(witness) => assert!(witness.verify(f, g, &batch)),
+                        Direction::Unknown(_) => {}
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(compare_summary(&[]).counts, [0; 4]);
+    assert!(compare_summary(&[]).front.is_empty());
+}
+
+#[test]
 fn signed_support_coverage_ignores_exceptional_cancellations() {
     assert_eq!(pair("n*m-n*m/4", "n*m").verdict(), Verdict::Equivalent);
     assert_eq!(pair("n*m-n", "n*m").verdict(), Verdict::Equivalent);
@@ -388,6 +483,23 @@ proptest::proptest! {
                 Direction::Unknown(_) => {}
             }
 
+        }
+        // Re-check shared batch results independently, including a signed validity guard.
+        let batch = [pf, pg, poly("n-m")];
+        let profiles = [profile(&f), profile(&g), profile("n-m")];
+        let full = compare_all(&profiles);
+        let summary = compare_summary(&profiles);
+        proptest::prop_assert_eq!(summary.counts, full.counts());
+        proptest::prop_assert_eq!(summary.front, full.front.clone());
+        for (i,j,comparison) in full.pairs {
+            for (direction,p,q) in [(&comparison.fields["size"].forward,&batch[i],&batch[j]),
+                                    (&comparison.fields["size"].reverse,&batch[j],&batch[i])] {
+                match direction {
+                    Direction::Yes(proof) => proptest::prop_assert!(proof.verify(p,q)),
+                    Direction::No(witness) => proptest::prop_assert!(witness.verify(p,q,&batch)),
+                    Direction::Unknown(_) => {}
+                }
+            }
         }
     }
 }

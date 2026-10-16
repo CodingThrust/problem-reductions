@@ -90,6 +90,7 @@ claude-output.log
 *.json
 !package.json
 !package-lock.json
+!docs/website/performance-results.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/

@@ -59,6 +59,8 @@ pub(crate) struct ReductionGraphJson {
     pub(crate) nodes: Vec<NodeJson>,
     /// List of reduction edges.
     pub(crate) edges: Vec<EdgeJson>,
+    /// Catalog aliases grouped by problem family.
+    pub(crate) aliases: BTreeMap<String, Vec<String>>,
 }
 
 impl ReductionGraphJson {
@@ -82,6 +84,8 @@ pub(crate) struct NodeJson {
     pub(crate) name: String,
     /// Variant attributes as key-value pairs.
     pub(crate) variant: BTreeMap<String, String>,
+    /// Whether this is the family's declared default variant.
+    pub(crate) default: bool,
     /// Structural category declared by the problem schema.
     pub(crate) category: crate::registry::ProblemCategory,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
@@ -1287,6 +1291,7 @@ impl ReductionGraph {
                     NodeJson {
                         name: node.name.to_string(),
                         variant: node.variant.clone(),
+                        default: self.default_variants.get(node.name) == Some(&node.variant),
                         category,
                         doc_path: Self::doc_path_from_module_path(module_path, node.name),
                         complexity: node.complexity.to_string(),
@@ -1375,7 +1380,32 @@ impl ReductionGraph {
                 ))
         });
 
-        ReductionGraphJson { nodes, edges }
+        let mut aliases: BTreeMap<String, Vec<String>> = inventory::iter::<ProblemSchemaEntry>
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.name.to_string(),
+                    entry
+                        .aliases
+                        .iter()
+                        .map(|alias| alias.to_string())
+                        .collect(),
+                )
+            })
+            .collect();
+        for entry in inventory::iter::<crate::registry::VariantEntry> {
+            let family = aliases.entry(entry.name.to_string()).or_default();
+            for alias in entry.aliases {
+                if !family.iter().any(|known| known.eq_ignore_ascii_case(alias)) {
+                    family.push(alias.to_string());
+                }
+            }
+        }
+        ReductionGraphJson {
+            nodes,
+            edges,
+            aliases,
+        }
     }
 
     /// Find the doc_path for a reduction entry matching the given source/target.

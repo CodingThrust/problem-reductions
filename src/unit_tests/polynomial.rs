@@ -37,6 +37,10 @@ fn native_substitution_expands_signed_formulas_and_reports_missing_inputs() {
 #[test]
 fn sparse_arithmetic_preserves_exact_coefficients_and_hull_signs() {
     assert_eq!(
+        poly("n/2+m/3+1").mul(&poly("n/5-m/7")),
+        poly("n^2/10-n*m/210+n/5-m^2/21-m/7")
+    );
+    assert_eq!(
         poly("n-1").pow(&5u8.into()),
         poly("n^5-5*n^4+10*n^3-10*n^2+5*n-1")
     );
@@ -51,6 +55,38 @@ fn sparse_arithmetic_preserves_exact_coefficients_and_hull_signs() {
     assert_eq!(
         pow_rational(BigRational::new(3.into(), 2.into()), &0.into()),
         BigRational::one()
+    );
+}
+
+#[test]
+fn multivariate_powers_match_signed_multinomial_coefficients() {
+    let factorial = |n: u64| (1..=n).product::<u64>();
+    let n = Symbol::new("n").unwrap();
+    let m = Symbol::new("m").unwrap();
+    let expected = Poly::from_terms((0..=8u64).flat_map(|a| {
+        let n = n.clone();
+        let m = m.clone();
+        (0..=8 - a).map(move |b| {
+            let coefficient =
+                BigInt::from(factorial(8) / (factorial(a) * factorial(b) * factorial(8 - a - b)));
+            (
+                Monomial::from([(n.clone(), a.into()), (m.clone(), b.into())]),
+                BigRational::from_integer(if b % 2 == 0 {
+                    coefficient
+                } else {
+                    -coefficient
+                }),
+            )
+        })
+    }));
+    assert_eq!(poly("(n-m+1)^8"), expected);
+    assert_eq!(
+        poly("n^18446744073709551616+m").mul(&poly("n+m")),
+        poly("n^18446744073709551617+m*n^18446744073709551616+n*m+m^2")
+    );
+    assert_eq!(
+        poly("n^1000+m^1000").mul(&poly("n^1000-m^1000")),
+        poly("n^2000-m^2000")
     );
 }
 

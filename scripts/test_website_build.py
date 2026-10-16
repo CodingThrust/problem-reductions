@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import json
+import itertools
+import math
 import re
 import subprocess
 import tempfile
@@ -15,6 +17,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebsiteBuildTests(unittest.TestCase):
+    def test_problem_records_preserve_variants_and_incident_endpoints(self):
+        nodes = [{'name': name, 'variant': {'weight': weight}} for name, weight in
+                 [('Neighbor', 'One'), ('Source', 'One'), ('Target', 'One'), ('Source', 'i64'), ('Remote', 'One'), ('Source', 'f64')]]
+        edges = [{'source': source, 'target': target} for source, target in [(1, 2), (3, 0), (0, 4)]]
+        schemas = [{'name': name} for name in ['Neighbor', 'Source', 'Target', 'Remote']]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            build_website.build_problem_records(output, nodes, edges, schemas)
+            record = json.loads((output / 'Source.json').read_text())
+        self.assertEqual(record['schemas'], [{'name': 'Source'}])
+        self.assertEqual({node['variant']['weight'] for node in record['nodes'] if node['name'] == 'Source'}, {'One', 'i64', 'f64'})
+        self.assertNotIn('Remote', [node['name'] for node in record['nodes']])
+        self.assertEqual([(record['nodes'][edge['source']]['name'], record['nodes'][edge['source']]['variant']['weight'],
+                           record['nodes'][edge['target']]['name']) for edge in record['edges']],
+                         [('Source', 'One', 'Target'), ('Source', 'i64', 'Neighbor')])
+
     def test_question_board_keeps_assets_and_registry_provenance(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -68,12 +86,24 @@ class WebsiteBuildTests(unittest.TestCase):
             self.assertIn('releases/', app)
             self.assertFalse((root / 'assets').exists())
 
-    def test_graph_layout_is_reproducible(self):
+    def test_graph_layout_is_reproducible_and_separates_node_circles(self):
         command = ['node', str(ROOT / 'scripts/generate_website_graph_layout.js'),
                    str(ROOT / 'docs/src/reductions/reduction_graph.json')]
         first, second = (subprocess.run(command, check=True, capture_output=True).stdout
                          for _ in range(2))
         self.assertEqual(first, second)
+        positions = json.loads(first)
+        graph = json.loads((ROOT / 'docs/src/reductions/reduction_graph.json').read_text())
+        neighbors = {node['name']: set() for node in graph['nodes']}
+        for edge in graph['edges']:
+            a, b = (graph['nodes'][edge[end]]['name'] for end in ('source', 'target'))
+            if a != b:
+                neighbors[a].add(b)
+                neighbors[b].add(a)
+        radius = lambda name: max(6, min(22, 6 + 2.4 * math.sqrt(len(neighbors[name])))) / 2 + 9
+        for a, b in itertools.combinations(positions, 2):
+            distance = math.hypot(positions[a]['x'] - positions[b]['x'], positions[a]['y'] - positions[b]['y']) * 1.6
+            self.assertGreaterEqual(distance, radius(a) + radius(b) - 0.1, (a, b))
 
 
 if __name__ == '__main__':

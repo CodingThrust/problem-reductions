@@ -3,6 +3,17 @@
   const detailCache = new Map();
   let manifest;
   let renderRequest = 0;
+  window.loadDetailsIndex = function() {
+    if (window.GRAPH_DETAILS) return Promise.resolve(window.GRAPH_DETAILS);
+    manifest ||= fetch('./assets/graph-details.json').then(response => {
+      if (!response.ok) throw new Error('Cannot load documentation index. Reload the page to get the current release.');
+      return response.json();
+    }).then(index => window.GRAPH_DETAILS = index).catch(error => {
+      manifest = null;
+      throw error;
+    });
+    return manifest;
+  };
   function loadDetail(key) {
     const url = window.GRAPH_DETAILS.entries[key];
     if (!url) return Promise.reject(new Error(`Missing detail file: ${key}`));
@@ -74,11 +85,7 @@
     detail.append(article);
     if (!window.GRAPH_DETAILS) {
       try {
-        manifest ||= fetch("./assets/graph-details.json").then(response => {
-          if (!response.ok) throw new Error("Cannot load documentation index. Reload the page to get the current release.");
-          return response.json();
-        });
-        window.GRAPH_DETAILS = await manifest;
+        await window.loadDetailsIndex();
       } catch (error) {
         manifest = null;
         if (request === renderRequest) {

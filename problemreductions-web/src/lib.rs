@@ -12,9 +12,9 @@ pub mod polynomial;
 #[path = "../../src/problem_parameters.rs"]
 pub mod types;
 
-use expr::Expr;
+use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
-use poly_compare::{compare_all, Profile, Side, Verdict};
+use poly_compare::{compare_all_verdicts, compare_summary, Profile, Side, Verdict};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -63,7 +63,7 @@ struct Query {
 }
 
 #[wasm_bindgen]
-pub fn select_paths(input: &str) -> Result<String, JsError> {
+pub fn find_paths(input: &str) -> Result<String, JsError> {
     let query: Query = serde_json::from_str(input)?;
     let Graph { nodes, edges } = query.graph;
     if !(1..=999).contains(&query.limit)
@@ -104,9 +104,83 @@ pub fn select_paths(input: &str) -> Result<String, JsError> {
     );
     let truncated = paths.len() > query.limit;
     paths.truncate(query.limit);
+    let endpoint = |i: usize| json!({"name":nodes[i].name,"variant":nodes[i].variant});
+    let routes: Vec<_> = paths.iter().map(|path| json!({"steps":path.len()-1,
+        "path":path.windows(2).map(|p| json!({"from":endpoint(p[0]),"to":endpoint(p[1])})).collect::<Vec<_>>()
+    })).collect();
+    Ok(serde_json::to_string(
+        &json!({"paths":routes,"truncated":truncated}),
+    )?)
+}
+
+#[derive(Deserialize, PartialEq)]
+struct Endpoint {
+    name: String,
+    variant: BTreeMap<String, String>,
+}
+#[derive(Deserialize)]
+struct Step {
+    from: Endpoint,
+    to: Endpoint,
+}
+#[derive(Deserialize)]
+struct Route {
+    steps: usize,
+    path: Vec<Step>,
+}
+#[derive(Deserialize)]
+struct ComparisonQuery {
+    graph: Graph,
+    paths: Vec<Route>,
+}
+
+impl Graph {
+    fn route_indices(&self, route: &Route) -> Result<Vec<usize>, JsError> {
+        if route.path.is_empty() || route.steps != route.path.len() {
+            return Err(JsError::new("Choose a nonempty registered reduction path."));
+        }
+        let index = |endpoint: &Endpoint| {
+            self.nodes
+                .iter()
+                .position(|node| node.name == endpoint.name && node.variant == endpoint.variant)
+                .ok_or_else(|| JsError::new("Path references an unregistered variant."))
+        };
+        let mut indices = vec![index(&route.path[0].from)?];
+        for step in &route.path {
+            let source = index(&step.from)?;
+            let target = index(&step.to)?;
+            if indices.last() != Some(&source)
+                || !self.edges.iter().any(|edge| {
+                    edge.source == source && edge.target == target && edge.witness && !edge.turing
+                })
+            {
+                return Err(JsError::new("Path references an unregistered reduction."));
+            }
+            indices.push(target);
+        }
+        Ok(indices)
+    }
+}
+
+/// Compare exactly the routes returned by `find_paths`, retaining their one-based indices.
+#[wasm_bindgen]
+pub fn compare_paths(input: &str) -> Result<String, JsError> {
+    compare_paths_impl(input, false)
+}
+
+/// Browser result: certificates, all pair counts and the front, without pair records.
+#[wasm_bindgen]
+pub fn summarize_paths(input: &str) -> Result<String, JsError> {
+    compare_paths_impl(input, true)
+}
+
+fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError> {
+    let query: ComparisonQuery = serde_json::from_str(input)?;
+    let Graph { nodes, edges } = &query.graph;
     let mut profiles = Vec::new();
-    for path in &paths {
-        let mut transforms = Vec::new();
+    for route in query.paths {
+        let path = query.graph.route_indices(&route)?;
+        let mut composed: Option<ParameterTransform> = None;
         for pair in path.windows(2) {
             let edge = edges
                 .iter()
@@ -145,52 +219,67 @@ pub fn select_paths(input: &str) -> Result<String, JsError> {
                     );
                 }
             }
-            transforms.push(transform);
+            composed = Some(if let Some(prefix) = composed {
+                prefix.compose(
+                    &transform,
+                    format!("{} -> {}", nodes[path[0]].name, nodes[pair[1]].name),
+                )?
+            } else {
+                transform
+            });
         }
-        let mut composed = transforms[0].clone();
-        for (offset, transform) in transforms.iter().enumerate().skip(1) {
-            composed = composed.compose(
-                transform,
-                format!(
-                    "{} -> {}",
-                    nodes[query.source].name,
-                    nodes[path[offset + 1]].name
-                ),
-            )?;
+        let mut profile =
+            Profile::from_transform(&composed.expect("validated nonempty reduction path"));
+        for field in profile.fields.values_mut() {
+            field.original_signed = None;
         }
-        profiles.push(Profile::from_path(
-            &nodes[query.source].parameter_names,
-            &transforms,
-            &composed,
-        ));
+        profile.domain.extend(
+            nodes[path[0]]
+                .parameter_names
+                .iter()
+                .filter_map(|name| Symbol::new(name.as_str()).ok()),
+        );
+        profiles.push(profile);
     }
-    let result = compare_all(&profiles);
-    let pairs: Vec<_> = result
-        .pairs
-        .iter()
-        .map(|(i, j, comparison)| {
-            let mut pair =
-                json!({"paths":[i+1,j+1], "verdict":comparison.verdict,"fields":comparison.fields});
-            if let Verdict::Dominated { worse } = comparison.verdict {
-                let (winner, loser) = if worse == Side::Left {
-                    (j + 1, i + 1)
-                } else {
-                    (i + 1, j + 1)
-                };
-                pair["dominates"] = json!({"winner":winner,"loser":loser});
-            }
-            pair
-        })
-        .collect();
-    let endpoint = |i: usize| json!({"name":nodes[i].name,"variant":nodes[i].variant});
-    let routes: Vec<_> = paths.iter().map(|path| json!({"steps":path.len()-1,
-        "path":path.windows(2).map(|p| json!({"from":endpoint(p[0]),"to":endpoint(p[1])})).collect::<Vec<_>>()
-    })).collect();
-    Ok(serde_json::to_string(
-        &json!({"paths":routes,"truncated":truncated,"polynomial_comparison":{
-            "schema_version":5,"mode":"generic","profiles":profiles,"pairs":pairs,
-            "front":result.front.iter().map(|i|i+1).collect::<Vec<_>>(),
-            "counts":Verdict::ALL.iter().zip(result.counts()).collect::<BTreeMap<_,_>>()
-        }}),
-    )?)
+    let mut response = if summary_only {
+        let result = compare_summary(&profiles);
+        json!({"front":result.front.iter().map(|i|i+1).collect::<Vec<_>>(),
+            "counts":Verdict::ALL.iter().zip(result.counts).collect::<BTreeMap<_,_>>()})
+    } else {
+        let result = compare_all_verdicts(&profiles);
+        let pairs: Vec<_> = result
+            .pairs
+            .iter()
+            .map(|(i, j, comparison)| {
+                let mut pair = json!({"paths":[i+1,j+1], "verdict":comparison.verdict});
+                if let Verdict::Dominated { worse } = comparison.verdict {
+                    let (winner, loser) = if worse == Side::Left {
+                        (j + 1, i + 1)
+                    } else {
+                        (i + 1, j + 1)
+                    };
+                    pair["dominates"] = json!({"winner":winner,"loser":loser});
+                }
+                pair
+            })
+            .collect();
+        let mut response = json!({"front":result.front.iter().map(|i|i+1).collect::<Vec<_>>(),
+            "counts":Verdict::ALL.iter().zip(result.counts()).collect::<BTreeMap<_,_>>()});
+        response["pairs"] = serde_json::Value::Array(pairs);
+        response
+    };
+    let profiles: Vec<_> = profiles.iter().map(|profile| {
+        let fields: BTreeMap<_, _> = profile.fields.iter().map(|(name, field)| {
+            let (certificate, accuracy) = match &field.certificate {
+                Ok((poly, relation)) => (Some(poly.to_expr().to_string()), json!({"kind":relation})),
+                Err(reason) => (None, json!({"kind":"unavailable", "reason":reason})),
+            };
+            (name, json!({"certificate":certificate, "accuracy":accuracy}))
+        }).collect();
+        json!({"source_coordinates":profile.domain.iter().map(ToString::to_string).collect::<Vec<_>>(), "fields":fields})
+    }).collect();
+    response["schema_version"] = json!(5);
+    response["mode"] = json!("generic");
+    response["profiles"] = serde_json::Value::Array(profiles);
+    Ok(serde_json::to_string(&response)?)
 }

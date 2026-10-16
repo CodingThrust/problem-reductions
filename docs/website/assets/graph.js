@@ -1,1237 +1,598 @@
+
 (async () => {
-  "use strict";
+"use strict";
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const D = window.REDUCTIONS;
+window.GRAPH_DETAILS = D.details;
+const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.name, i]] : []));
+const aliasMap = D.aliases;
+const css = getComputedStyle(document.documentElement);
+const tok = (n) => css.getPropertyValue("--" + n).trim();
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+const phone = matchMedia("(max-width: 760px)");
 
+/* ---------- Registry model ---------- */
+const schemas = new Map(D.schemas.map((s) => [s.name, s]));
+const display = (name) => schemas.get(name)?.display_name || name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
+const shortName = (name) => (aliasMap[name] || []).find((a) => /^[A-Z0-9-]{2,6}$/.test(a)) || display(name);
+const families = new Map();
+D.nodes.forEach((n, i) => {
+  if (!families.has(n.name)) families.set(n.name, { name: n.name, category: n.category, variants: [], nbrs: new Set() });
+  families.get(n.name).variants.push(i);
+});
+const famEdges = new Map();
+D.edges.forEach((e) => {
+  const s = D.nodes[e.source].name, t = D.nodes[e.target].name;
+  if (s === t) return;
+  famEdges.set(s + "→" + t, { s, t });
+  families.get(s).nbrs.add(t); families.get(t).nbrs.add(s);
+});
+const multi = (name) => families.get(name).variants.length > 1;
+const keyOf = (node) => node.name + "|" + Object.entries(node.variant).sort().map(([k, v]) => k + "=" + v).join(",");
+const indexOf = new Map(D.nodes.map((n, i) => [keyOf(n), i]));
+
+/* Keyed variant text, e.g. graph: KingsSubgraph  weight: i64 */
+function kvNode(variant) {
+  const span = el("span", "kv");
+  Object.entries(variant).forEach(([k, v], i) => { if (i) span.append("   "); span.append(el("i", "", k + ": "), v); });
+  return span;
+}
+
+/* ---------- Growth summaries ---------- */
+const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const sup = (d) => Number.isInteger(d) ? String(d).replace(/\d/g, (c) => SUP[c]) : "^" + d;
+const memo = new WeakMap();
+function growth(field) {
+  if (memo.has(field)) return memo.get(field);
+  let out = { degree: null, lead: "unavailable" };
+  if (field.certificate != null) {
+    const terms = field.certificate.split(" + ").map((t) => {
+      const vars = [...t.matchAll(/([A-Za-z_]\w*)(?:\^([\d.]+))?/g)].map((m) => ({ v: m[1].replace(/^num_/, ""), e: m[2] ? Number(m[2]) : 1 }));
+      return { d: vars.reduce((a, x) => a + x.e, 0), txt: vars.map((x) => x.v + (x.e === 1 ? "" : sup(x.e))).join("·") || "1" };
+    });
+    const degree = Math.max(0, ...terms.map((t) => t.d));
+    const lead = [...new Set(terms.filter((t) => t.d === degree).map((t) => t.txt))];
+    out = { degree, lead: (field.accuracy.kind === "exact" ? "Θ(" : "O(") + lead.slice(0, 3).join(" + ") + (lead.length > 3 ? " + …" : "") + ")" };
+  }
+  memo.set(field, out);
+  return out;
+}
+const pathDegree = (profile) => {
+  const degrees = Object.values(profile.fields).map((f) => growth(f).degree);
+  return degrees.some((d) => d == null) ? null : Math.max(0, ...degrees);
+};
+const sizeBadge = (d) => d == null ? "?" : d === 0 ? "1" : d === 1 ? "n" : "n" + sup(d);
+const prettyField = (f) => f.replace(/^num_/, "").replaceAll("_", " ");
+
+/* ---------- Graph ---------- */
+const nodeSize = (deg) => Math.max(6, Math.min(22, 6 + 2.4 * Math.sqrt(deg)));
+const pos = new Map();
+for (const f of families.values()) pos.set(f.name, { x: D.layout[f.name].x * 1.6, y: D.layout[f.name].y * 1.6 });
+const cat = { graph: "#a9d68a", formula: "#8cc4c7", set: "#e0a988", algebraic: "#e2cf73", misc: "#c39bd3" };
+const cy = cytoscape({
+  container: $("#cy"), layout: { name: "preset" }, minZoom: 0.1, maxZoom: 3,
+  boxSelectionEnabled: false, textureOnViewport: true, pixelRatio: "auto",
+  style: [
+    { selector: "node", style: { width: "data(size)", height: "data(size)", "background-color": "data(color)", "border-width": 2, "border-color": tok("bg"),
+      label: "", "font-family": "DM Sans, sans-serif", "font-size": 11, "font-weight": 500, color: tok("ink-2"), "text-valign": "bottom", "text-margin-y": 5,
+      "text-wrap": "wrap", "text-max-width": 180, "text-outline-color": tok("bg"), "text-outline-width": 2.5, "line-height": 1.25 } },
+    { selector: "node.named", style: { label: "data(label)" } },
+    { selector: "edge", style: { "curve-style": "straight", width: 0.7, "line-color": tok("ink"), opacity: 0.09 } },
+    { selector: ".dim", style: { opacity: 0.16 } },
+    { selector: "edge.dim", style: { opacity: 0.025 } },
+    { selector: "node.hover", style: { "underlay-color": tok("ink"), "underlay-opacity": 0.12, "underlay-padding": 5, "underlay-shape": "ellipse", label: "data(label)", color: tok("ink"), opacity: 1, "z-index": 20 } },
+    { selector: "edge.nbr", style: { opacity: 0.45, "line-color": tok("ink-2") } },
+    { selector: "edge.ghost", style: { width: 1.5, "line-color": tok("accent"), opacity: 0.22 } },
+    { selector: "node.ghost", style: { opacity: 0.75 } },
+    { selector: "edge.route", style: { width: 2.6, "line-color": tok("accent"), opacity: 1, "target-arrow-shape": "triangle", "target-arrow-color": tok("accent"), "arrow-scale": 0.9, "z-index": 10 } },
+    { selector: "node.route", style: { opacity: 1, label: "data(routeLabel)", color: tok("ink"), "border-color": tok("accent"), "border-width": 2, "z-index": 11 } },
+    { selector: "node.start", style: { opacity: 1, "border-color": tok("start"), "border-width": 3, "underlay-color": tok("start"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
+    { selector: "node.end", style: { opacity: 1, "border-color": tok("end"), "border-width": 3, "underlay-color": tok("end"), "underlay-opacity": 0.22, "underlay-padding": 6, "underlay-shape": "ellipse", label: "data(routeLabel)", color: tok("ink"), "z-index": 12 } },
+    { selector: "node.pulse", style: { "underlay-color": tok("accent"), "underlay-opacity": 0.4, "underlay-padding": 12 } },
+  ],
+});
+cy.batch(() => {
+  cy.add([...families.values()].map((f) => ({ data: { id: f.name, label: display(f.name), size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, routeLabel: display(f.name) }, position: { ...pos.get(f.name) } })));
+  cy.add([...famEdges.values()].map(({ s, t }) => ({ data: { id: s + "→" + t, source: s, target: t } })));
+});
+
+function freeRect() {
+  const W = innerWidth, H = innerHeight, top = $(".site-header").getBoundingClientRect().bottom;
+  if (phone.matches) return { x: 0, y: top, w: W, h: Math.max(1, $(".panel").getBoundingClientRect().top - top) };
+  const right = $("#details-drawer").hidden ? W : $("#details-drawer").getBoundingClientRect().left - 16;
+  return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
+}
+function frame(eles, maxZoom = 1.3) {
+  if (!eles || !eles.length) return;
+  const r = freeRect(), b = eles.boundingBox({ includeLabels: false }), pad = 90;
+  const zoom = Math.max(0.1, Math.min((r.w - 2 * pad) / Math.max(b.w, 1), (r.h - 2 * pad) / Math.max(b.h, 1), maxZoom));
+  const pan = { x: r.x + r.w / 2 - (b.x1 + b.x2) / 2 * zoom, y: r.y + r.h / 2 - (b.y1 + b.y2) / 2 * zoom };
+  cy.stop();
+  if (reduced.matches) cy.viewport({ zoom, pan }); else cy.animate({ zoom, pan }, { duration: 450, easing: "ease-in-out-cubic" });
+}
+
+/* Labels keep a constant screen size; important labels are placed first and any label that would collide is skipped. */
+let labelRaf = 0;
+const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = requestAnimationFrame(placeLabels); };
+function placeLabels() {
+  const z = cy.zoom(), r = freeRect();
+  cy.batch(() => { cy.nodes().style("font-size", 11 / z).removeClass("named"); cy.nodes(".route, .start, .end").style("font-size", 12 / z); });
+  const boxes = [];
+  const box = (n) => n.renderedBoundingBox({ includeNodes: false, includeLabels: true, includeOverlays: false, includeUnderlays: false });
+  const fits = (b) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
+  const hit = (b) => boxes.some((o) => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
+  cy.nodes(".route, .start, .end, .hover").forEach((n) => boxes.push(box(n)));
+  const named = [];
+  cy.nodes().not(".route, .start, .end, .hover, .dim").filter((n) => n.visible()).sort((a, b) => b.data("deg") - a.data("deg")).forEach((n) => {
+    n.addClass("named"); const b = box(n); n.removeClass("named");
+    if (fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
+  });
+  cy.collection(named).addClass("named");
+  placePop();
+}
+cy.on("zoom pan", scheduleLabels);
+cy.on("drag", "node", () => { scheduleLabels(); });
+
+/* Hover lights up a node and its connections; while a path is shown it only reveals the name. */
+cy.on("mouseover", "node", (e) => {
+  const n = e.target; n.addClass("hover"); $("#cy").style.cursor = "pointer";
+  if (!state.result) { cy.elements().not(n.closedNeighborhood()).addClass("dim"); n.connectedEdges().addClass("nbr"); }
+  scheduleLabels();
+});
+cy.on("mouseout", "node", (e) => {
+  e.target.removeClass("hover"); $("#cy").style.cursor = "";
+  if (!state.result) cy.elements().removeClass("dim nbr");
+  scheduleLabels();
+});
+
+/* ---------- State ---------- */
+const state = { source: null, target: null, limit: 20, result: null, selected: null, showSlower: false, busy: false };
+
+/* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
+function variantOptions(container, index, onPick) {
+  container.replaceChildren();
+  const fam = families.get(D.nodes[index].name);
+  const cur = D.nodes[index].variant;
+  const keys = [...new Set(fam.variants.flatMap((i) => Object.keys(D.nodes[i].variant)))];
+  keys.forEach((k) => {
+    const values = [...new Set(fam.variants.map((i) => D.nodes[i].variant[k]).filter(Boolean))];
+    if (values.length < 2) return;
+    const row = el("div", "opt-row"); row.setAttribute("role", "group"); row.setAttribute("aria-label", k);
+    row.append(el("span", "opt-key", k));
+    values.forEach((v) => {
+      const b = el("button", "opt", v); b.type = "button";
+      b.setAttribute("aria-pressed", String(cur[k] === v));
+      b.addEventListener("pointerdown", (ev) => ev.preventDefault());
+      b.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const score = (i) => Object.entries(cur).filter(([kk, vv]) => kk !== k && D.nodes[i].variant[kk] === vv).length + (i === defaults[fam.name] ? 0.5 : 0);
+        onPick(fam.variants.filter((i) => D.nodes[i].variant[k] === v).sort((a, b) => score(b) - score(a))[0]);
+      });
+      row.append(b);
+    });
+    container.append(row);
+  });
+  container.hidden = !container.childElementCount;
+}
+
+function syncEnds() {
+  for (const side of ["source", "target"]) {
+    const input = $("#" + side), opts = $("#" + side + "-options"), i = state[side];
+    if (document.activeElement !== input) input.value = i == null ? "" : display(D.nodes[i].name);
+    if (i == null) { opts.hidden = true; opts.replaceChildren(); } else variantOptions(opts, i, (j) => setEnd(side, j));
+  }
+  $("#swap").style.top = ($(".end.to").offsetTop - 15) + "px";
+}
+
+function setEnd(side, index) {
+  state[side] = index;
+  closePop();
+  syncEnds();
+  if (state.source != null && state.target != null) run();
+  else {
+    state.result = null; paintGraph(); renderResults();
+    frame(cy.getElementById(D.nodes[index].name), 1.2);
+    if (side === "source") $("#target").focus();
+  }
+}
+
+/* ---------- Search fields ---------- */
+let suggestFor = null, suggestRows = [], active = 0;
+function matches(q) {
+  q = q.trim().toLowerCase();
+  const all = [...families.values()];
+  if (!q) return all.sort((a, b) => b.nbrs.size - a.nbrs.size).slice(0, 7);
+  const rank = (f) => {
+    const al = (aliasMap[f.name] || []).map((a) => a.toLowerCase()), name = display(f.name).toLowerCase();
+    if (al.includes(q)) return 0;
+    if (name.startsWith(q)) return 1;
+    if (name.includes(q) || f.name.toLowerCase().includes(q)) return 2;
+    if (al.some((a) => a.startsWith(q))) return 3;
+    return 9;
+  };
+  return all.map((f) => [rank(f), f]).filter(([r]) => r < 9).sort((a, b) => a[0] - b[0] || b[1].nbrs.size - a[1].nbrs.size).slice(0, 7).map(([, f]) => f);
+}
+function showSuggest(side) {
+  suggestFor = side;
+  const input = $("#" + side), box = $("#suggest");
+  suggestRows = matches(input.value === (state[side] == null ? "" : display(D.nodes[state[side]].name)) ? "" : input.value);
+  active = 0;
+  box.replaceChildren();
+  if (!suggestRows.length) box.append(el("div", "note", "No matching problem"));
+  suggestRows.forEach((f, i) => {
+    const b = el("button"); b.type = "button"; b.setAttribute("role", "option"); b.id = "opt-" + i;
+    b.append(el("span", "", display(f.name)));
+    const al = (aliasMap[f.name] || [])[0]; if (al) b.append(el("small", "", al));
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); pick(i); });
+    box.append(b);
+  });
+  const end = input.closest(".end");
+  box.style.top = (end.offsetTop + 44) + "px";
+  box.hidden = false; input.setAttribute("aria-expanded", "true");
+  markActive();
+}
+function markActive() {
+  [...$("#suggest").querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-selected", String(i === active)));
+  $("#" + (suggestFor || "source")).setAttribute("aria-activedescendant", "opt-" + active);
+}
+function hideSuggest() { $("#suggest").hidden = true; for (const s of ["source", "target"]) $("#" + s).setAttribute("aria-expanded", "false"); suggestFor = null; }
+function pick(i) { const f = suggestRows[i]; if (!f) return; const side = suggestFor; hideSuggest(); $("#" + side).blur(); setEnd(side, defaults[f.name]); }
+for (const side of ["source", "target"]) {
+  const input = $("#" + side);
+  input.addEventListener("focus", () => { input.select(); showSuggest(side); });
+  input.addEventListener("input", () => showSuggest(side));
+  input.addEventListener("blur", () => setTimeout(() => { if (suggestFor === side) hideSuggest(); syncEnds(); }, 0));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); active = (active + (e.key === "ArrowDown" ? 1 : -1) + suggestRows.length) % Math.max(1, suggestRows.length); markActive(); }
+    else if (e.key === "Enter") { e.preventDefault(); pick(active); }
+    else if (e.key === "Escape") { hideSuggest(); input.blur(); }
+  });
+}
+$("#swap").addEventListener("click", () => { [state.source, state.target] = [state.target, state.source]; syncEnds(); if (state.source != null && state.target != null) run(); });
+
+/* ---------- Node popover ---------- */
+let popNode = null, popIndex = null;
+function routeVariantOf(name) {
+  const r = state.result?.paths[state.selected - 1]; if (!r) return null;
+  const hit = endpoints(r).find((e) => e.name === name);
+  return hit ? indexOf.get(keyOf(hit)) : null;
+}
+function openPop(node) {
+  popNode = node;
+  const name = node.id();
+  popIndex = [state.source, state.target].find((i) => i != null && D.nodes[i].name === name) ?? routeVariantOf(name) ?? defaults[name];
+  renderPop();
+}
+function renderPop() {
+  const pop = $("#pop"); pop.replaceChildren();
+  pop.append(el("h2", "", display(popNode.id())));
+  const opts = el("div", "options"); variantOptions(opts, popIndex, (j) => { popIndex = j; renderPop(); }); pop.append(opts);
+  const acts = el("div", "pop-actions");
+  const a = el("button", "b-start", "Start"), b = el("button", "b-end", "End");
+  a.type = b.type = "button";
+  a.addEventListener("click", () => setEnd("source", popIndex)); b.addEventListener("click", () => setEnd("target", popIndex));
+  acts.append(a, b); pop.append(acts);
+  const details = el("button", "pop-details", "Details"); details.type = "button";
+  details.onclick = () => showProblem(D.nodes[popIndex]); pop.append(details);
+  pop.hidden = false; placePop();
+}
+function placePop() {
+  if (!popNode || $("#pop").hidden) return;
+  const pop = $("#pop"), p = popNode.renderedPosition(), r = freeRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  let x = p.x + 20; if (x + w > r.x + r.w - 12) x = p.x - 20 - w;
+  pop.style.left = Math.max(r.x + 12, x) + "px";
+  pop.style.top = Math.max(r.y + 12, Math.min(p.y - h / 2, r.y + r.h - h - 12)) + "px";
+}
+function closePop() { popNode = null; $("#pop").hidden = true; }
+cy.on("tap", "node", (e) => openPop(e.target));
+cy.on("tap", (e) => { if (e.target === cy) closePop(); });
+cy.on("position", "node", (e) => { if (e.target === popNode) placePop(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closePop(); closeDetails(); }
+  if (e.key === "/" && (!phone.matches || $("#details-drawer").hidden) && !document.activeElement.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
+});
+
+/* ---------- On-demand articles ---------- */
+const variantKey = (variant) => Object.entries(variant).sort().map(([k, v]) => k + "=" + v).join(",");
+const detailId = (endpoint) => endpoint.name + "/" + variantKey(endpoint.variant);
+let drawerOpener = null;
+function showDetails(title, key, parentKey) {
+  if (state.result) state.picked = true;
+  const drawer = $("#details-drawer"), body = $("#drawer-body"), atlas = $("#drawer-atlas");
+  const opening = drawer.hidden;
+  if (opening) drawerOpener = document.activeElement;
+  closePop(); drawer.hidden = false; $(".dock").hidden = true;
+  // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
+  if (opening && !phone.matches && state.result && state.selected) {
+    const r = freeRect(), b = routeEls(state.selected).renderedBoundingBox({ includeLabels: false });
+    if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
+  }
+  if (phone.matches) drawer.setAttribute("aria-modal", "true"); else drawer.removeAttribute("aria-modal");
+  $("#details-title").textContent = title; body.scrollTop = 0;
+  const endpoint = (value) => value.split("/").map(encodeURIComponent);
+  if (key.startsWith("problem:")) {
+    const [name, variant] = endpoint(key.slice(8));
+    atlas.href = `./index.html#problem/${name}${variant ? `?variant=${variant}` : ""}`;
+  } else {
+    const [source, target] = key.slice(5).split("->").map(endpoint);
+    atlas.href = `./index.html#reduction/${source[0]}/${target[0]}?from=${source[1]}&to=${target[1]}`;
+  }
+  window.renderDetails(body, "", "", key, parentKey, (problem) => {
+    const [name, variant] = problem.split("/");
+    const index = variant == null ? defaults[name] : D.nodes.findIndex((n) => n.name === name && variantKey(n.variant) === variant);
+    if (index == null || index < 0) return;
+    showProblem(D.nodes[index]); pulseAndFrame(name);
+  });
+  $("#close-details").focus({preventScroll: true}); scheduleLabels(); placePop();
+}
+function showProblem(endpoint) {
+  showDetails(display(endpoint.name), "problem:" + detailId(endpoint), "problem:" + endpoint.name);
+}
+function showRule(step) {
+  showDetails(display(step.from.name) + " → " + display(step.to.name),
+    `rule:${detailId(step.from)}->${detailId(step.to)}`, `rule:${step.from.name}->${step.to.name}`);
+}
+function closeDetails() {
+  if ($("#details-drawer").hidden) return;
+  $("#details-drawer").hidden = true; $(".dock").hidden = false;
+  if (drawerOpener?.isConnected) drawerOpener.focus({preventScroll: true});
+  scheduleLabels();
+}
+function pulseAndFrame(name) {
+  const node = cy.getElementById(name); node.addClass("pulse");
+  setTimeout(() => node.removeClass("pulse"), 1000); frame(node, 1.6);
+}
+$("#close-details").onclick = closeDetails;
+cy.on("tap", "edge.route", (e) => {
+  const step = state.result?.paths[state.selected - 1].path.find((s) =>
+    s.from.name === e.target.source().id() && s.to.name === e.target.target().id());
+  if (step) showRule(step);
+});
+phone.addEventListener("change", () => {
+  if (phone.matches && !$("#details-drawer").hidden) $("#details-drawer").setAttribute("aria-modal", "true");
+  else $("#details-drawer").removeAttribute("aria-modal");
+});
+$("#details-drawer").addEventListener("keydown", (e) => {
+  if (!phone.matches || e.key !== "Tab") return;
+  const items = [...$("#details-drawer").querySelectorAll('a[href], button, summary, [tabindex="0"]')].filter((n) => n.getClientRects().length);
+  const first = items[0], last = items.at(-1);
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+/* ---------- Path engine ---------- */
+let worker = null, reqId = 0, clock = 0;
+const cache = new Map();
+function stopWorker() { worker?.terminate(); worker = null; }
+function compute(source, target, limit, onPaths) {
+  const key = `${source}-${target}-${limit}`, cached = cache.get(key);
+  if (cached) {
+    cache.delete(key); cache.set(key, cached);
+    onPaths(cached);
+    if (cached.polynomial_comparison || !cached.paths.length) return Promise.resolve(cached);
+  }
+  return new Promise((resolve, reject) => {
+    try { worker ||= new Worker("./assets/path-worker.js", { type: "module" }); } catch (err) { reject(err); return; }
+    const engine = worker;
+    let result = cached;
+    worker.onmessage = ({ data }) => {
+      if (worker !== engine) return;
+      if (data.error) { stopWorker(); reject(new Error(data.error)); return; }
+      if (data.phase === "paths") {
+        result = data.result; cache.set(key, result); onPaths(result);
+        if (cache.size > 8) cache.delete(cache.keys().next().value);
+        if (result.paths.length) return;
+      } else {
+        result.polynomial_comparison = data.result;
+      }
+      resolve(result);
+    };
+    worker.onerror = (ev) => { ev.preventDefault(); if (worker !== engine) return; stopWorker(); reject(new Error("engine")); };
+    worker.postMessage({ graph: {nodes:D.nodes, edges:D.edges}, source, target, limit, ...(cached ? {paths: cached.paths} : {}) });
+  });
+}
+function orderPaths(result) {
+  const c = result.polynomial_comparison;
+  const degrees = c?.profiles.map(pathDegree);
+  result.order = result.paths.map((_, i) => i + 1).sort((a, b) =>
+    (c ? (c.front.includes(b) - c.front.includes(a)) || (degrees[a - 1] ?? Infinity) - (degrees[b - 1] ?? Infinity) : 0) ||
+    result.paths[a - 1].steps - result.paths[b - 1].steps || a - b);
+}
+async function run() {
+  const id = ++reqId;
+  if (state.busy) stopWorker();
+  clearInterval(clock);
+  state.result = null; state.selected = null; state.picked = false; state.showSlower = false; state.busy = true;
+  paintGraph(); renderResults();
+  frame(cy.collection([cy.getElementById(D.nodes[state.source].name), cy.getElementById(D.nodes[state.target].name)]), 1.1);
+  if (state.source === state.target) { state.busy = false; renderResults("same"); return; }
+  const started = Date.now();
+  clock = setInterval(() => { const s = $("#elapsed"); if (s) s.textContent = Math.round((Date.now() - started) / 1000) + " s"; }, 1000);
   try {
-      const data = window.REDUCTIONS;
-      if (!data) throw new Error("Cannot load graph data. Reload the page to get the current release.");
-      const schemas = new Map(data.schemas.map((schema) => [schema.name, schema]));
-      const aliases = new Map([
-        ["MIS", "MaximumIndependentSet"],
-        ["MVC", "MinimumVertexCover"],
-        ["SAT", "Satisfiability"],
-        ["3SAT", "KSatisfiability"],
-        ["3-SAT", "KSatisfiability"],
-      ]);
-      const colors = {
-        graph: "#b9d99b",
-        formula: "#9bbfc0",
-        set: "#d1a78d",
-        algebraic: "#d8c87e",
-        misc: "#bd9dbc",
-      };
-      const families = new Map();
+    const result = await compute(state.source, state.target, state.limit, (paths) => {
+      if (id !== reqId || !paths.paths.length) return;
+      orderPaths(paths); state.result = paths;
+      select(paths.order[0]);
+    });
+    if (id !== reqId) return;
+    clearInterval(clock); state.busy = false;
+    if (!result.paths.length) { renderResults("none"); paintGraph(); return; }
+    orderPaths(result); state.result = result;
+    // Until the user picks a route, show the best one; afterwards the comparison only re-ranks rows.
+    if (state.picked) { paintGraph(); renderResults(); } else select(result.order[0]);
+  } catch (err) {
+    if (id !== reqId) return;
+    clearInterval(clock); state.busy = false; state.result = null; state.selected = null; renderResults("error"); paintGraph();
+  }
+}
+function cancel() {
+  reqId++; clearInterval(clock); stopWorker(); state.busy = false; state.result = null; state.selected = null; renderResults("cancelled"); paintGraph();
+}
 
-      data.nodes.forEach((node) => {
-        const family = families.get(node.name) || {
-          name: node.name,
-          category: node.category,
-          variants: [],
-          incoming: new Set(),
-          outgoing: new Set(),
-          rules: 0,
-        };
-        family.variants.push(node);
-        families.set(node.name, family);
+/* ---------- Path display ---------- */
+function endpoints(route) { return [route.path[0].from, ...route.path.map((s) => s.to)]; }
+function routeEls(n) {
+  const ids = new Set();
+  state.result.paths[n - 1].path.forEach((s) => { ids.add(s.from.name); ids.add(s.to.name); if (s.from.name !== s.to.name) ids.add(s.from.name + "→" + s.to.name); });
+  return cy.collection([...ids].map((id) => cy.getElementById(id)));
+}
+function paintGraph() {
+  cy.batch(() => {
+    cy.elements().removeClass("dim ghost route start end nbr");
+    cy.nodes().forEach((n) => n.data("routeLabel", display(n.id())));
+    if (state.result && state.selected) {
+      cy.elements().addClass("dim");
+      (state.result.polynomial_comparison?.front || []).forEach((n) => routeEls(n).removeClass("dim").addClass("ghost"));
+      routeEls(state.selected).removeClass("dim ghost").addClass("route");
+      const labelled = new Set();
+      endpoints(state.result.paths[state.selected - 1]).forEach((e) => {
+        if (!multi(e.name) || labelled.has(e.name)) return;
+        labelled.add(e.name);
+        const def = D.nodes[defaults[e.name]].variant;
+        const diff = Object.entries(e.variant).filter(([k, v]) => def[k] !== v).map(([k, v]) => k + ": " + v);
+        if (diff.length) cy.getElementById(e.name).data("routeLabel", display(e.name) + "\n" + diff.join("  "));
       });
-
-      const connections = new Map();
-      data.edges.forEach((edge) => {
-        const source = data.nodes[edge.source].name;
-        const target = data.nodes[edge.target].name;
-        if (source === target) return;
-        const key = `${source}\u0000${target}`;
-        const connection = connections.get(key) || { source, target, count: 0 };
-        connection.count += 1;
-        connections.set(key, connection);
-        families.get(source).outgoing.add(target);
-        families.get(target).incoming.add(source);
-        families.get(source).rules += 1;
-        families.get(target).rules += 1;
-      });
-
-      const displayName = (name) =>
-        schemas.get(name)?.display_name ||
-        name
-          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-          .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-
-      const variantKey = (variant) =>
-        Object.entries(variant)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, value]) => `${key}=${value}`)
-          .join(",");
-
-      const search = document.querySelector("#graph-search");
-      const inspector = document.querySelector(".graph-inspector");
-      const selectionType = document.querySelector("#selection-type");
-      const detail = document.querySelector("#graph-detail");
-      const tooltip = document.querySelector("#graph-tooltip");
-      let scope = "core";
-
-      const elements = [];
-      families.forEach((family) => {
-        const neighbors = new Set([...family.incoming, ...family.outgoing]);
-        const position = data.layout[family.name];
-        if (!position) throw new Error(`Missing graph layout position: ${family.name}`);
-        elements.push({
-          data: {
-            id: family.name,
-            label: displayName(family.name),
-            category: family.category,
-            rules: family.rules,
-            peripheral: neighbors.size < 2,
-          },
-          position: { x: position.x * 1.15, y: position.y * 1.15 },
-        });
-      });
-      connections.forEach((connection) =>
-        elements.push({
-          data: {
-            id: `edge:${connection.source}:${connection.target}`,
-            source: connection.source,
-            target: connection.target,
-            count: connection.count,
-          },
-        }),
-      );
-
-      const cy = cytoscape({
-        container: document.querySelector("#cy"),
-        elements: [],
-        layout: { name: "preset" },
-        minZoom: 0.08,
-        maxZoom: 3,
-        wheelSensitivity: 0.22,
-        boxSelectionEnabled: false,
-        style: [
-          {
-            selector: "node",
-            style: {
-              width: (node) => Math.min(22, 10 + Math.log2(1 + node.data("rules")) * 1.5),
-              height: (node) => Math.min(22, 10 + Math.log2(1 + node.data("rules")) * 1.5),
-              shape: "ellipse",
-              "background-color": (node) =>
-                colors[node.data("category")] || colors.misc,
-              "border-color": "#0d1410",
-              "border-width": 2,
-              label: "",
-              color: "#b9c4bb",
-              "font-family": "DM Sans, sans-serif",
-              "font-size": 12,
-              "font-weight": 400,
-              "min-zoomed-font-size": 7,
-              "text-valign": "bottom",
-              "text-margin-y": 8,
-              "text-background-color": "#0d1410",
-              "text-background-opacity": 0.72,
-              "text-background-padding": 2,
-              cursor: "pointer",
-            },
-          },
-          {
-            selector: "node.named",
-            style: { label: "data(label)" },
-          },
-          {
-            selector: "edge",
-            style: {
-              width: 0.9,
-              "line-color": "#8fa992",
-              "target-arrow-shape": "none",
-              "mid-target-arrow-shape": "none",
-              "mid-target-arrow-color": "#d2e4bd",
-              "arrow-scale": 0.7,
-              "curve-style": "bezier",
-              opacity: 0.45,
-              cursor: "pointer",
-            },
-          },
-          { selector: ".core-hidden", style: { display: "none" } },
-          {
-            selector: ".faded",
-            style: { opacity: 0.045, "text-opacity": 0 },
-          },
-          {
-            selector: "node.selected",
-            style: {
-              label: "data(label)",
-              "background-color": "#e1f1c9",
-              "border-color": "#5c7957",
-              "border-width": 2,
-              color: "#eef4ea",
-              "font-size": 12,
-              "text-opacity": 1,
-              "z-index": 20,
-            },
-          },
-          {
-            selector: "edge.selected",
-            style: {
-              "line-color": "#c4dda6",
-              "mid-target-arrow-shape": "triangle",
-              width: 1.2,
-              opacity: 0.95,
-              "z-index": 18,
-            },
-          },
-          {
-            selector: "node.neighbor",
-            style: { label: "", opacity: 0.8, width: 13, height: 13 },
-          },
-          {
-            selector: "node.expanded",
-            style: {
-              shape: "round-rectangle",
-              label: "data(label)",
-              "background-opacity": 0.8,
-              "background-color": "#0d1410",
-              "border-color": "#344739",
-              "border-width": 1,
-              "text-valign": "top",
-              "text-margin-y": -10,
-              padding: 24,
-            },
-          },
-          {
-            selector: "node[?isVariant]",
-            style: {
-              label: "data(label)",
-              shape: "ellipse",
-              width: 20,
-              height: 20,
-              "text-valign": "bottom",
-              "text-margin-y": 10,
-              "text-wrap": "wrap",
-              "text-max-width": 145,
-              "font-size": 14,
-              color: "#d6e2d1",
-              "border-width": 2,
-              "text-background-opacity": 1,
-            },
-          },
-          { selector: ".focus-hidden", style: { display: "none" } },
-          { selector: "node.route-node", style: {
-            "border-width": 3, "border-color": "#c4dda6", opacity: 1,
-            label: "data(routeLabel)", "text-opacity": 1, "text-wrap": "wrap", "text-max-width": 220,
-          } },
-          { selector: "node.route-family", style: { label: "" } },
-          { selector: "node.path-source", style: { "border-color": "#9bd9db", "border-width": 4, opacity: 1 } },
-          { selector: "node.path-target", style: { "border-color": "#e4b17e", "border-width": 4, opacity: 1 } },
-          { selector: "edge.route-edge", style: {
-            "target-arrow-shape": "triangle", "target-arrow-color": "#c4dda6",
-            "mid-target-arrow-shape": "none", "line-color": "#c4dda6", width: 2, opacity: 1,
-          } },
-          {
-            selector: "node.hovered, node.named",
-            style: { label: "data(label)", "text-opacity": 1, "z-index": 30 },
-          },
-          {
-            selector: "edge.hovered, edge.direction",
-            style: {
-              "mid-target-arrow-shape": "triangle",
-              "line-color": "#b6c9a7",
-              opacity: 0.9,
-              width: 1.3,
-            },
-          },
-          {
-            selector: "node.search-match",
-            style: {
-              label: "data(label)",
-              "background-color": "#e1f1c9",
-              "border-color": "#8eaa7f",
-              "border-width": 4,
-              opacity: 1,
-              "text-opacity": 1,
-              "z-index": 20,
-            },
-          },
-        ],
-      });
-
-      search.disabled = true;
-      for (let index = 0; index < elements.length; index += 40) {
-        cy.batch(() => cy.add(elements.slice(index, index + 40)));
-        await new Promise(resolve => setTimeout(resolve, 0));
-      }
-
-      function relax(elements) {
-        const variants = elements.nodes("[?isVariant]");
-        // Reserve the full two-line label footprint while solving, then draw compact dots.
-        variants.style({ width: 180, height: 120, label: "" });
-        elements.layout({
-          ...reductionLayoutOptions,
-          idealEdgeLength: 95,
-          edgeElasticity: 0.45,
-        }).run();
-        variants.removeStyle("width height label");
-      }
-      const expanded = new Set();
-      const browserSearch = document.querySelector("#browser-search");
-      const browserList = document.querySelector("#browser-list");
-      let browseMode = "problems";
-      let selectedProblem = "";
-      let selectedRules = new Set();
-      const pathControls = document.querySelector("#path-controls");
-      const pathSource = document.querySelector("#path-source");
-      const pathTarget = document.querySelector("#path-target");
-      const pathFront = document.querySelector("#path-front");
-      const canvasNote = document.querySelector(".graph-canvas-note");
-      const overviewNote = canvasNote.textContent;
-      let pathOptionsReady = false;
-      let pathPicking = "source";
-      let pathWorker;
-      const pathLimit = document.querySelector("#path-limit");
-      const pathCancel = document.querySelector("#path-cancel");
-      let pathBatch;
-      let selectedPath = 1;
-      let routeDownload;
-      const overviewPositions = new Map(cy.nodes().map((node) => [node.id(), { ...node.position() }]));
-      const variantId = (node) => `${node.name}/${variantKey(node.variant)}`;
-      const describeVariant = (node) => Object.entries(node.variant)
-        .map(([key, value]) => `${key}: ${value}`).join(", ") || "Default variant";
-
-      function showDetails(title, variant, key, parentKey) {
-        inspector.scrollTop = 0;
-        window.renderDetails(detail, title, variant, key, parentKey, (problem) => {
-          transition(() => selectNode(cy.getElementById(problem.split("/")[0])));
-        });
-        const atlas = document.createElement("a");
-        atlas.className = "detail-atlas";
-        atlas.textContent = "Open in Atlas ↗";
-        const endpoint = (value) => {
-          const [name, variant = ""] = value.split("/");
-          return [encodeURIComponent(name), encodeURIComponent(variant)];
-        };
-        if (key.startsWith("problem:")) {
-          const [name, variant] = endpoint(key.slice(8));
-          atlas.href = `./index.html#problem/${name}${variant ? `?variant=${variant}` : ""}`;
-        } else {
-          const [source, target] = key.slice(5).split("->").map(endpoint);
-          atlas.href = `./index.html#reduction/${source[0]}/${target[0]}${key.includes("/") ? `?from=${source[1]}&to=${target[1]}` : ""}`;
-        }
-        detail.querySelector("h2").after(atlas);
-        const pdf = document.createElement("a");
-        pdf.href = "./reductions.pdf";
-        pdf.target = "_blank";
-        pdf.rel = "noopener";
-        pdf.className = "detail-pdf";
-        pdf.textContent = "Open PDF reference ↗";
-        detail.append(pdf);
-      }
-
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-      let finishMotion;
-      let layoutLoaded;
-      let transitionRequest = 0;
-
-      async function transition(change) {
-        const request = ++transitionRequest;
-        try {
-          layoutLoaded ||= new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "./assets/layout-bundle.js";
-            script.onload = resolve;
-            script.onerror = () => reject(new Error("Cannot load graph layout. Reload the page to get the current release."));
-            document.head.append(script);
-          });
-          await layoutLoaded;
-        } catch (error) {
-          layoutLoaded = null;
-          detail.textContent = error.message;
-          detail.setAttribute("role", "alert");
-          return;
-        }
-        if (request !== transitionRequest) return;
-        if (finishMotion) finishMotion();
-        if (reducedMotion.matches) {
-          change();
-          return;
-        }
-        const before = new Map(cy.nodes().map((node) => [node.id(), {
-          position: { ...node.position() }, data: { ...node.data() },
-        }]));
-        const fromView = { zoom: cy.zoom(), pan: { ...cy.pan() } };
-        change();
-        const toView = { zoom: cy.zoom(), pan: { ...cy.pan() } };
-        const moving = cy.nodes().not(":parent").map((node) => ({
-          node,
-          from: before.get(node.id())?.position || before.get(node.data("parent")).position,
-          to: { ...node.position() },
-        }));
-        const exiting = [];
-        before.forEach(({ data, position }, id) => {
-          if (!data.isVariant || cy.getElementById(id).nonempty()) return;
-          const target = cy.getElementById(data.parent).position();
-          const ghostData = { ...data };
-          delete ghostData.parent;
-          const ghost = cy.add({ data: ghostData, position, classes: "exiting" });
-          ghost.style("events", "no");
-          exiting.push(ghost);
-          moving.push({ node: ghost, from: position, to: { ...target } });
-        });
-        const mix = (a, b, t) => a + (b - a) * t;
-        let frame;
-        function draw(t) {
-          cy.batch(() => {
-            moving.forEach(({ node, from, to }) => node.position({
-              x: mix(from.x, to.x, t), y: mix(from.y, to.y, t),
-            }));
-            exiting.forEach((node) => node.style("opacity", 1 - t));
-          });
-          cy.viewport({ zoom: mix(fromView.zoom, toView.zoom, t), pan: {
-            x: mix(fromView.pan.x, toView.pan.x, t),
-            y: mix(fromView.pan.y, toView.pan.y, t),
-          } });
-        }
-        finishMotion = () => {
-          cancelAnimationFrame(frame);
-          draw(1);
-          exiting.forEach((node) => node.remove());
-          finishMotion = null;
-        };
-        const start = performance.now();
-        draw(0);
-        function tick(now) {
-          const progress = Math.min(1, (now - start) / 350);
-          draw(progress * progress * (3 - 2 * progress));
-          if (progress < 1) frame = requestAnimationFrame(tick);
-          else finishMotion();
-        }
-        frame = requestAnimationFrame(tick);
-      }
-
-      function restoreOverview() {
-        cy.elements().removeClass("focus-hidden named");
-        cy.nodes().not(":parent").not("[?isVariant]").forEach((node) => {
-          node.position(overviewPositions.get(node.id()));
-        });
-      }
-
-      function arrangeNeighborhood(nodes, edges) {
-        const neighbors = edges.connectedNodes().difference(nodes).not(":parent");
-        const focus = nodes.union(neighbors).union(edges).union(nodes.ancestors());
-        if (nodes.first().isParent()) {
-          relax(focus);
-        }
-        cy.elements().difference(focus).addClass("focus-hidden");
-        return focus;
-      }
-
-      function rebuildEdges() {
-        const edges = new Map();
-        data.edges.forEach((rule) => {
-          const from = data.nodes[rule.source];
-          const to = data.nodes[rule.target];
-          const source = expanded.has(from.name) ? variantId(from) : from.name;
-          const target = expanded.has(to.name) ? variantId(to) : to.name;
-          if (source === target) return;
-          const id = `edge:${source}:${target}`;
-          const edge = edges.get(id) || { id, source, target, count: 0 };
-          edge.count += 1;
-          edges.set(id, edge);
-        });
-        cy.edges().remove();
-        cy.add([...edges.values()].map((edge) => ({ data: edge })));
-      }
-
-      function toggleVariants(node) {
-        const family = families.get(node.id());
-        if (family.variants.length < 2) return;
-        const center = { ...node.position() };
-        if (expanded.has(node.id())) {
-          node.children().remove();
-          node.removeClass("expanded").removeStyle("font-size").position(center);
-          expanded.delete(node.id());
-        } else {
-          expanded.add(node.id());
-          node.addClass("expanded");
-          const columns = Math.ceil(Math.sqrt(family.variants.length));
-          const rows = Math.ceil(family.variants.length / columns);
-          cy.add(family.variants.map((variant, index) => ({
-            data: {
-              id: variantId(variant),
-              parent: node.id(),
-              isVariant: true,
-              label: Object.entries(variant.variant)
-                .map(([key, value]) => `${key}: ${value}`).join("\n"),
-              category: family.category,
-              rules: 0,
-            },
-            position: {
-              x: center.x + (index % columns - (columns - 1) / 2) * 175,
-              y: center.y + (Math.floor(index / columns) - (rows - 1) / 2) * 105,
-            },
-          })));
-        }
-        rebuildEdges();
-      }
-
-      const visibleElements = () =>
-        cy.elements().filter((element) => element.style("display") !== "none");
-
-      function sizeFocusLabels() {
-        const zoom = cy.zoom();
-        cy.startBatch();
-        cy.nodes().not(":parent").not("[?isVariant]")
-          .style("font-size", (node) => (node.hasClass("selected") ? 14 : 13) / zoom);
-        cy.nodes(".expanded").style("font-size", 18);
-        cy.nodes(".route-node").style({ "font-size": 13 / zoom, "text-max-width": 220 / zoom });
-        cy.endBatch();
-      }
-      let labelFrame;
-      function updateLabels() {
-        sizeFocusLabels();
-          cy.nodes().removeClass("named");
-          const reserved = cy.nodes("[?isVariant], :parent, .hovered, .selected")
-            .filter((node) => node.visible())
-            .map((node) => node.renderedBoundingBox({ includeNodes: false, includeLabels: true }));
-          const candidates = cy.nodes().not(":parent").not("[?isVariant]").not(".selected, .hovered")
-            .filter((node) => node.visible() && !node.hasClass("faded"))
-            .sort((a, b) => b.data("rules") - a.data("rules") || a.id().localeCompare(b.id()));
-          candidates.addClass("named");
-          const hidden = [];
-          candidates.forEach((node) => {
-              const box = node.renderedBoundingBox({ includeNodes: false, includeLabels: true });
-              const overlaps = reserved.some((other) => box.x1 < other.x2 + 8 &&
-                box.x2 > other.x1 - 8 && box.y1 < other.y2 + 5 && box.y2 > other.y1 - 5);
-              if (overlaps || box.x1 < 12 || box.x2 > cy.width() - 12 ||
-                box.y1 < 12 || box.y2 > cy.height() - 55) hidden.push(node);
-              else reserved.push(box);
-            });
-          cy.collection(hidden).removeClass("named");
-      }
-      cy.on("zoom pan", () => {
-        cancelAnimationFrame(labelFrame);
-        labelFrame = requestAnimationFrame(updateLabels);
-      });
-
-      function fit(focus = visibleElements(), maxZoom = 1) {
-        cy.resize();
-        cy.fit(focus, Math.max(32, Math.min(cy.width(), cy.height()) * 0.1));
-        cy.zoom(Math.min(cy.zoom(), maxZoom));
-        cy.center(focus);
-        cancelAnimationFrame(labelFrame);
-        updateLabels();
-      }
-
-      function applyScope() {
-        cy.nodes().removeClass("core-hidden");
-        if (scope === "core") cy.nodes("[?peripheral]").addClass("core-hidden");
-      }
-
-      function clearSelection() {
-        clearPathView();
-        if (browseMode === "paths") setBrowseMode("problems");
-        [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
-        restoreOverview();
-        cy.elements().removeClass("selected neighbor faded search-match");
-        selectionType.textContent = "Details";
-        detail.replaceChildren();
-        applyScope();
-        fit();
-        selectedProblem = "";
-        selectedRules.clear();
-        renderBrowser();
-      }
-
-      function openInspector(type, focus) {
-        selectionType.textContent = type;
-        fit(focus, focus.nodes(":parent").empty() && focus.nodes().length <= 12 ? 1.8 : 1);
-      }
-
-      function selectNode(node) {
-        if (browseMode === "paths") setBrowseMode("problems");
-        clearPathView();
-        cy.elements().removeClass("focus-hidden");
-        if (!node.data("isVariant")) {
-          const wasExpanded = expanded.has(node.id());
-          [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
-          restoreOverview();
-          if (wasExpanded) {
-            clearSelection();
-            return;
-          }
-          toggleVariants(node);
-        }
-        cy.elements().removeClass("selected neighbor faded search-match");
-        cy.elements().addClass("faded");
-        const nodes = node.union(node.children());
-        nodes.removeClass("faded core-hidden").addClass("selected");
-        node.ancestors().removeClass("faded core-hidden");
-        const edges = nodes.connectedEdges();
-        edges.removeClass("faded");
-        if (node.data("isVariant")) edges.addClass("selected");
-        edges.connectedNodes().difference(nodes).removeClass("faded core-hidden").addClass("neighbor");
-        edges.connectedNodes().ancestors().removeClass("faded core-hidden");
-        const focus = arrangeNeighborhood(nodes, edges);
-        openInspector("Problem", focus);
-        selectedProblem = node.id();
-        const familyName = node.data("isVariant") ? node.data("parent") : node.id();
-        const variant = node.data("isVariant")
-          ? families.get(familyName).variants.find((item) => variantId(item) === node.id()) : null;
-        showDetails(displayName(familyName), variant ? describeVariant(variant) : "",
-          `problem:${node.id()}`, `problem:${familyName}`);
-        setBrowseMode("problems");
-        browserList.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-      }
-
-      function selectEdge(edge) {
-        if (browseMode === "paths") setBrowseMode("rules");
-        clearPathView();
-        cy.elements().removeClass("selected neighbor faded search-match");
-        cy.elements().addClass("faded");
-        edge.removeClass("faded").addClass("selected");
-        edge.connectedNodes().removeClass("faded core-hidden").addClass("selected");
-        edge.connectedNodes().ancestors().removeClass("faded core-hidden");
-        openInspector("Reduction", edge.connectedNodes());
-        selectedRules = new Set(data.edges.flatMap((rule, index) => {
-          const matches = (endpoint, graphNode) => graphNode.data("isVariant")
-            ? variantId(data.nodes[endpoint]) === graphNode.id()
-            : data.nodes[endpoint].name === graphNode.id();
-          return matches(rule.source, edge.source()) && matches(rule.target, edge.target()) ? [index] : [];
-        }));
-        const rules = [...selectedRules].map((index) => data.edges[index]);
-        const source = data.nodes[rules[0].source], target = data.nodes[rules[0].target];
-        const parentKey = `rule:${source.name}->${target.name}`;
-        showDetails(`${displayName(source.name)} → ${displayName(target.name)}`,
-          rules.length === 1 ? `${describeVariant(source)} → ${describeVariant(target)}`
-            : `${rules.length} concrete rules. Choose a variant in the list.`,
-          rules.length === 1 ? `rule:${variantId(source)}->${variantId(target)}` : parentKey, parentKey);
-        setBrowseMode("rules");
-        browserList.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
-      }
-
-      function setBrowseMode(mode) {
-        if (browseMode === "paths" && mode !== "paths") {
-          stopPathSearch();
-          clearPathView();
-          detail.replaceChildren();
-          selectionType.textContent = "Details";
-          cy.nodes().removeClass("path-source path-target");
-          [...expanded].forEach(name => toggleVariants(cy.getElementById(name)));
-          restoreOverview();
-          canvasNote.textContent = overviewNote;
-          applyScope();
-          fit();
-        }
-        if (browseMode !== mode) browserSearch.value = "";
-        browseMode = mode;
-        pathControls.hidden = mode !== "paths";
-        browserSearch.hidden = mode === "paths";
-        document.querySelectorAll("[data-browse]").forEach((button) =>
-          button.setAttribute("aria-pressed", button.dataset.browse === mode));
-        browserSearch.placeholder = `Search ${mode}…`;
-        if (mode === "paths") {
-          restoreOverview();
-          cy.elements().removeClass("selected neighbor faded search-match core-hidden");
-          showPathControls();
-          return;
-        }
-        renderBrowser();
-      }
-
-      function clearPathView() {
-        cy.nodes(".route-node").removeStyle("font-size text-max-width").removeData("routeLabel");
-        cy.elements().removeClass("route-node route-edge route-family selected neighbor faded search-match");
-        if (routeDownload) URL.revokeObjectURL(routeDownload);
-        routeDownload = null;
-      }
-
-      const graphEndpointId = endpoint => expanded.has(endpoint.name) ? variantId(endpoint) : endpoint.name;
-
-      function markPathEndpoints() {
-        cy.nodes().removeClass("path-source path-target");
-        for (const [select, name] of [[pathSource, "source"], [pathTarget, "target"]]) {
-          if (select.value !== "") cy.getElementById(graphEndpointId(data.nodes[Number(select.value)]))
-            .removeClass("core-hidden faded").addClass(`path-${name}`);
-        }
-      }
-
-      function setPathPicking(endpoint) {
-        pathPicking = endpoint;
-        document.querySelectorAll("[data-pick]").forEach(button =>
-          button.setAttribute("aria-pressed", String(button.dataset.pick === endpoint)));
-        const prompt = `Click a ${endpoint === "source" ? "start" : "end"} node. For a family with several variants, click its exact variant.`;
-        document.querySelector("#path-prompt").textContent = prompt;
-        canvasNote.textContent = prompt;
-      }
-
-      document.querySelectorAll("[data-pick]").forEach(button => button.addEventListener("click", () => {
-        setPathPicking(button.dataset.pick);
-        cy.elements().removeClass("faded search-match");
-        search.value = "";
-        fit();
-      }));
-
-      function pickPathNode(node) {
-        if (!node.data("isVariant") && families.get(node.id()).variants.length > 1) {
-          cy.elements().removeClass("search-match hovered direction");
-          if (!expanded.has(node.id())) toggleVariants(node);
-          relax(visibleElements());
-          markPathEndpoints();
-          fit(node.union(node.children()), 1.8);
-          return;
-        }
-        const endpoint = node.data("isVariant")
-          ? data.nodes.find(item => variantId(item) === node.id()) : families.get(node.id()).variants[0];
-        const select = pathPicking === "source" ? pathSource : pathTarget;
-        select.value = data.nodes.indexOf(endpoint);
-        select.dispatchEvent(new Event("change"));
-      }
-
-      function pathMessage(message, error = false) {
-        browserList.replaceChildren();
-        const paragraph = document.createElement("p");
-        paragraph.className = "browser-empty";
-        paragraph.textContent = message;
-        if (error) paragraph.setAttribute("role", "alert");
-        browserList.append(paragraph);
-        document.querySelector("#browser-count").textContent = "Path selection";
-      }
-
-      function showPathControls() {
-        if (!pathOptionsReady) {
-          const options = data.nodes.map((node, index) => ({ node, index }))
-            .sort((a, b) => displayName(a.node.name).localeCompare(displayName(b.node.name)) ||
-              variantKey(a.node.variant).localeCompare(variantKey(b.node.variant)));
-          for (const select of [pathSource, pathTarget]) {
-            options.forEach(({node, index}) => select.add(new Option(
-              `${displayName(node.name)} / ${describeVariant(node)}`, index)));
-          }
-          pathControls.querySelector("fieldset").disabled = false;
-          pathOptionsReady = true;
-        }
-        if (pathBatch) {
-          renderPathList();
-          showPath(selectedPath);
-        } else {
-          selectionType.textContent = "Path selection";
-          detail.replaceChildren();
-          pathMessage("Click a start and end on the graph, or choose exact variants in the right panel.");
-          markPathEndpoints();
-          setPathPicking(pathSource.value === "" ? "source" : "target");
-          fit();
-        }
-      }
-
-      for (const select of [pathSource, pathTarget]) select.addEventListener("change", () => {
-        stopPathSearch();
-        clearPathView();
-        pathBatch = null;
-        detail.replaceChildren();
-        markPathEndpoints();
-        setPathPicking(select === pathSource ? "target" : "source");
-        if (pathSource.value !== "" && pathTarget.value !== "") pathControls.requestSubmit();
-        else pathMessage("Choose the other endpoint on the graph or in the right panel.");
-      });
-
-      function stopPathSearch() {
-        transitionRequest++;
-        pathWorker?.terminate();
-        pathWorker = null;
-        pathControls.querySelector("fieldset").disabled = false;
-        pathCancel.hidden = true;
-      }
-      pathCancel.addEventListener("click", () => {
-        stopPathSearch();
-        pathMessage("Search cancelled. Choose endpoints and find paths again.");
-      });
-
-      pathControls.addEventListener("submit", event => {
-        event.preventDefault();
-        stopPathSearch();
-        clearPathView();
-        markPathEndpoints();
-        detail.replaceChildren();
-        selectionType.textContent = "Paths";
-        pathBatch = null;
-        const source = Number(pathSource.value), target = Number(pathTarget.value);
-        if (source === target) {
-          pathMessage("Choose two different exact variants.");
-          applyScope();
-          fit();
-          return;
-        }
-        pathMessage("Computing paths and comparing certificates…");
-        pathControls.querySelector("fieldset").disabled = true;
-        pathCancel.hidden = false;
-        const worker = new Worker("./assets/path-worker.js", {type: "module"});
-        pathWorker = worker;
-        worker.onmessage = ({data: message}) => {
-          if (pathWorker !== worker) return;
-          stopPathSearch();
-          if (message.error) { pathMessage(message.error, true); return; }
-          pathBatch = message.result;
-          pathFront.checked = true;
-          selectedPath = pathBatch.polynomial_comparison.front[0];
-          if (!pathBatch.paths.length) {
-            pathBatch = null;
-            pathMessage("No witness-capable reduction path connects these exact variants.");
-            applyScope();
-            fit();
-          } else {
-            transition(() => {
-              renderPathList();
-              showPath(selectedPath);
-            });
-          }
-        };
-        worker.onerror = () => {
-          if (pathWorker !== worker) return;
-          stopPathSearch();
-          pathMessage("Cannot load the path engine. Reload this release and try again.", true);
-        };
-        worker.postMessage({graph: data, source, target, limit: Number(pathLimit.value)});
-      });
-
-      function pathStatus(index) {
-        const winner = pathBatch.polynomial_comparison.pairs.find(pair => pair.dominates?.loser === index);
-        return winner ? `Dominated by Path ${winner.dominates.winner}` : "Candidate front";
-      }
-
-      function renderPathList() {
-        if (!pathBatch) return;
-        const comparison = pathBatch.polynomial_comparison;
-        document.querySelector("#browser-count").textContent =
-          `${comparison.front.length} candidates · ${pathBatch.paths.length} paths compared${pathBatch.truncated ? " · more paths exist" : ""}`;
-        browserList.replaceChildren();
-        pathBatch.paths.forEach((route, i) => {
-          if (pathFront.checked && !comparison.front.includes(i + 1)) return;
-          const button = document.createElement("button");
-          button.className = "browser-item";
-          button.dataset.path = i + 1;
-          button.setAttribute("aria-current", String(selectedPath === i + 1));
-          button.textContent = `Path ${i + 1} · ${route.steps} reductions`;
-          const status = document.createElement("small");
-          status.textContent = pathStatus(i + 1);
-          button.append(status);
-          browserList.append(button);
-        });
-      }
-
-      pathFront.addEventListener("change", () => {
-        if (!pathBatch) return;
-        if (pathFront.checked && !pathBatch.polynomial_comparison.front.includes(selectedPath)) {
-          selectedPath = pathBatch.polynomial_comparison.front[0];
-        }
-        showPath(selectedPath);
-        renderPathList();
-      });
-
-      function explainDirection(direction) {
-        if (direction.status === "Unknown") {
-          const reason = direction.missing_obligation;
-          return `Unresolved: ${reason.detail || (reason.kind === "validity" ?
-            "no regular, positive counterexample found across this batch" : reason.kind.replaceAll("_", " "))}`;
-        }
-        const proof = direction.certificate;
-        if (proof.kind === "identity") return "Yes: equal after exact expansion.";
-        if (proof.kind === "zero") return "Yes: the numerator is identically zero.";
-        const monomial = powers => Object.entries(powers)
-          .map(([name, exponent]) => exponent === "1" ? name : `${name}^${exponent}`).join(" × ") || "1";
-        if (proof.kind === "newton") return "Yes: positive-support coverage\n" + proof.coverage.map(item =>
-          `${monomial(item.exponent)} ≤ ${item.weights.map(term => `${term.weight} · (${monomial(term.exponent)})`).join(" + ")}`).join("\n");
-        return "No: a regular, positive counterexample for every certificate in this batch\n" +
-          Object.entries(proof.curve).map(([name, value]) =>
-            `${name} = ${value.scale}${value.exponent === "0" ? "" : ` · t^${value.exponent}`}`).join(", ");
-      }
-
-      function showPath(index) {
-        clearPathView();
-        const route = pathBatch.paths[index - 1];
-        const steps = [route.path[0].from, ...route.path.map(edge => edge.to)];
-        new Set(steps.map(endpoint => endpoint.name)).forEach(name => {
-          if (!expanded.has(name)) toggleVariants(cy.getElementById(name));
-        });
-        restoreOverview();
-        cy.nodes().removeClass("core-hidden");
-        const nodes = cy.collection(steps.map(endpoint => cy.getElementById(graphEndpointId(endpoint))));
-        const edges = cy.collection(route.path.map(edge => cy.getElementById(
-          `edge:${graphEndpointId(edge.from)}:${graphEndpointId(edge.to)}`)));
-        relax(visibleElements());
-        cy.elements().addClass("faded");
-        steps.forEach(endpoint => cy.getElementById(graphEndpointId(endpoint)).data("routeLabel",
-          `${displayName(endpoint.name)}\n${Object.values(endpoint.variant).join(" · ")}`));
-        nodes.removeClass("faded").addClass("route-node selected");
-        nodes.ancestors().removeClass("faded").addClass("route-family");
-        edges.removeClass("faded").addClass("route-edge");
-        markPathEndpoints();
-        canvasNote.textContent = `Path ${index} · ${pathStatus(index)} · start: blue, end: orange`;
-        fit(nodes.union(edges), 1.2);
-        selectionType.textContent = "Path comparison";
-        detail.replaceChildren();
-        const heading = document.createElement("h2");
-        heading.textContent = `Path ${index}`;
-        detail.append(heading);
-        const status = document.createElement("p");
-        status.textContent = pathStatus(index);
-        detail.append(status);
-        const list = document.createElement("ol");
-        list.className = "path-route";
-        steps.forEach(endpoint => {
-          const item = document.createElement("li");
-          item.textContent = displayName(endpoint.name);
-          const variant = document.createElement("small");
-          variant.textContent = describeVariant(endpoint);
-          item.append(variant);
-          list.append(item);
-        });
-        detail.append(list);
-        const profile = pathBatch.polynomial_comparison.profiles[index - 1];
-        Object.entries(profile.fields).forEach(([name, field]) => {
-          const block = document.createElement("div");
-          block.className = "path-field";
-          const title = document.createElement("strong");
-          title.textContent = name;
-          const formula = document.createElement("code");
-          formula.textContent = field.certificate === null ? `Unavailable: ${field.accuracy.reason.detail || field.accuracy.reason.kind.replaceAll("_", " ")}` :
-            `${field.accuracy.kind === "exact" ? "=" : "≤"} ${field.certificate}`;
-          block.append(title, formula);
-          detail.append(block);
-        });
-        routeDownload = URL.createObjectURL(new Blob([JSON.stringify(route, null, 2)], {type:"application/json"}));
-        const download = document.createElement("a");
-        download.href = routeDownload;
-        download.download = `reduction-path-${index}.json`;
-        download.className = "path-download";
-        download.textContent = "Download route for pred reduce";
-        detail.append(download);
-        const label = document.createElement("label");
-        label.textContent = "Compare with";
-        const select = document.createElement("select");
-        select.className = "path-compare-select";
-        select.setAttribute("aria-label", "Compare with path");
-        select.add(new Option("Choose another path", ""));
-        pathBatch.paths.forEach((_, i) => {
-          if (i + 1 !== index && (!pathFront.checked || pathBatch.polynomial_comparison.front.includes(i + 1)))
-            select.add(new Option(`Path ${i + 1}`, i + 1));
-        });
-        const proof = document.createElement("div");
-        select.addEventListener("change", () => {
-          proof.replaceChildren();
-          if (!select.value) return;
-          const other = Number(select.value);
-          const pair = pathBatch.polynomial_comparison.pairs.find(pair => pair.paths.includes(index) && pair.paths.includes(other));
-          const verdict = document.createElement("p");
-          verdict.textContent = pair.dominates ? `Path ${pair.dominates.winner} dominates Path ${pair.dominates.loser}` :
-            pair.verdict === "Unknown" ? "Unresolved — this pair does not eliminate either path" : pair.verdict;
-          proof.append(verdict);
-          Object.entries(pair.fields).forEach(([name, directions]) => {
-            const block = document.createElement("details");
-            block.className = "path-proof";
-            const summary = document.createElement("summary");
-            summary.textContent = `${name}: ${directions.forward.status} / ${directions.reverse.status}`;
-            const text = document.createElement("pre");
-            text.textContent = `Path ${pair.paths[0]} ≤O Path ${pair.paths[1]}\n${explainDirection(directions.forward)}\n\n` +
-              `Path ${pair.paths[1]} ≤O Path ${pair.paths[0]}\n${explainDirection(directions.reverse)}`;
-            block.append(summary, text);
-            proof.append(block);
-          });
-        });
-        label.append(select);
-        detail.append(label, proof);
-        const note = document.createElement("p");
-        note.className = "path-note";
-        note.textContent = "Smaller certificates are better. Unknown comparisons retain candidates. Exact-cancellation families are excluded; this is not a per-instance runtime guarantee.";
-        detail.append(note);
-        inspector.scrollTop = 0;
-      }
-
-      function renderBrowser() {
-        if (browseMode === "paths") { renderPathList(); return; }
-        const query = browserSearch.value.trim().toLowerCase();
-        const fragment = document.createDocumentFragment();
-        let count = 0;
-        function item(title, subtitle, selected) {
-          const button = document.createElement("button");
-          button.className = "browser-item";
-          button.setAttribute("aria-current", String(selected));
-          button.textContent = title;
-          if (subtitle) {
-            const detail = document.createElement("small");
-            detail.textContent = subtitle;
-            button.append(detail);
-          }
-          fragment.append(button);
-          return button;
-        }
-        const variantText = (node) => Object.entries(node.variant)
-          .map(([key, value]) => `${key}: ${value}`).join(", ");
-        if (browseMode === "problems") {
-          [...families.values()].sort((a, b) => displayName(a.name).localeCompare(displayName(b.name)))
-            .forEach((family) => {
-              const schema = schemas.get(family.name);
-              const haystack = [family.name, displayName(family.name), schema?.description,
-                ...(schema?.aliases || []), ...family.variants.map(variantText)].join(" ").toLowerCase();
-              if (!haystack.includes(query) && aliases.get(query.toUpperCase()) !== family.name) return;
-              count++;
-              const button = item(displayName(family.name), family.variants.length > 1 ? `${family.variants.length} variants` : "", selectedProblem === family.name);
-              button.dataset.family = family.name;
-              if (family.variants.length > 1) button.setAttribute("aria-expanded", String(expanded.has(family.name)));
-              if (expanded.has(family.name)) family.variants.forEach((variant) => {
-                const child = item(variantText(variant), "", selectedProblem === variantId(variant));
-                child.classList.add("variant-item");
-                child.dataset.variant = variantId(variant);
-              });
-            });
-        } else {
-          data.edges.forEach((rule, index) => {
-            const source = data.nodes[rule.source], target = data.nodes[rule.target];
-            const title = `${displayName(source.name)} → ${displayName(target.name)}`;
-            const sourceVariant = variantText(source), targetVariant = variantText(target);
-            const subtitle = sourceVariant && targetVariant ? `${sourceVariant} → ${targetVariant}`
-              : sourceVariant ? `Source: ${sourceVariant}` : targetVariant ? `Target: ${targetVariant}` : "";
-            const haystack = `${title} ${subtitle} ${source.name} ${target.name}`.toLowerCase();
-            const alias = aliases.get(query.toUpperCase());
-            if (!haystack.includes(query) && !(alias && [source.name, target.name].includes(alias))) return;
-            count++;
-            item(title, subtitle, selectedRules.has(index)).dataset.rule = index;
-          });
-        }
-        document.querySelector("#browser-count").textContent = `${count} ${browseMode}`;
-        if (!count) {
-          const empty = document.createElement("p");
-          empty.className = "browser-empty";
-          empty.textContent = "No matches. Try another search.";
-          fragment.append(empty);
-        }
-        // Re-rendering replaces the focused button; keyboard focus follows its counterpart.
-        const focused = browserList.contains(document.activeElement) && document.activeElement.dataset;
-        browserList.replaceChildren(fragment);
-        if (focused) [...browserList.querySelectorAll("button")].find((button) =>
-          ["family", "variant", "rule"].every((key) => button.dataset[key] === focused[key]))?.focus();
-      }
-
-      browserSearch.addEventListener("input", renderBrowser);
-      document.querySelectorAll("[data-browse]").forEach((button) =>
-        button.addEventListener("click", () => setBrowseMode(button.dataset.browse)));
-      browserList.addEventListener("click", (event) => {
-        const button = event.target.closest("button");
-        if (!button) return;
-        if (button.dataset.path) {
-          selectedPath = Number(button.dataset.path);
-          renderPathList();
-          showPath(selectedPath);
-          return;
-        }
-        transition(() => {
-          if (button.dataset.family) selectNode(cy.getElementById(button.dataset.family));
-          else if (button.dataset.variant) selectNode(cy.getElementById(button.dataset.variant));
-          else {
-            const rule = data.edges[Number(button.dataset.rule)];
-            [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
-            restoreOverview();
-            const source = data.nodes[rule.source], target = data.nodes[rule.target];
-            new Set([source.name, target.name]).forEach((name) => toggleVariants(cy.getElementById(name)));
-            const from = expanded.has(source.name) ? variantId(source) : source.name;
-            const to = expanded.has(target.name) ? variantId(target) : target.name;
-            const edge = cy.getElementById(`edge:${from}:${to}`);
-            const endpoints = edge.connectedNodes();
-            const groups = endpoints.ancestors().union(endpoints).union(endpoints.ancestors().children());
-            groups.removeClass("core-hidden");
-            arrangeNeighborhood(groups, edge);
-            selectEdge(edge);
-          }
-        });
-      });
-
-      function applySearch() {
-        if (browseMode === "paths") {
-          cy.elements().removeClass("faded search-match");
-          const query = search.value.trim().toLowerCase();
-          const matches = cy.nodes().not("[?isVariant]").filter(node =>
-            aliases.get(query.toUpperCase()) === node.id() ||
-            `${node.id()} ${displayName(node.id())}`.toLowerCase().includes(query));
-          if (query) matches.addClass("search-match");
-          fit(query && matches.nonempty() ? matches.union(matches.children()) : visibleElements());
-          return;
-        }
-        [...expanded].forEach((name) => toggleVariants(cy.getElementById(name)));
-        restoreOverview();
-        selectedProblem = "";
-        selectedRules.clear();
-        renderBrowser();
-        const query = search.value.trim().toLowerCase();
-        cy.elements().removeClass("selected neighbor faded search-match");
-        selectionType.textContent = "Details";
-        detail.replaceChildren();
-        applyScope();
-        if (!query) {
-          fit();
-          return;
-        }
-        const matches = cy.nodes().filter((node) => {
-          const schema = schemas.get(node.id());
-          return (
-            aliases.get(query.toUpperCase()) === node.id() ||
-            [
-              node.id(),
-              displayName(node.id()),
-              schema?.description,
-              ...(schema?.aliases || []),
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase()
-              .includes(query)
-          );
-        });
-        cy.nodes().removeClass("core-hidden").addClass("faded");
-        cy.edges().addClass("faded");
-        matches.removeClass("faded").addClass("search-match");
-        matches.connectedEdges().removeClass("faded");
-        matches.connectedEdges().connectedNodes().removeClass("faded");
-        if (matches.length) fit(matches.union(matches.connectedEdges()));
-      }
-
-      cy.on("tap", "node", event => transition(() => {
-        if (browseMode === "paths") pickPathNode(event.target);
-        else selectNode(event.target);
-      }));
-      cy.on("tap", "edge", event => {
-        if (browseMode !== "paths") transition(() => selectEdge(event.target));
-      });
-      cy.on("tap", event => {
-        if (event.target === cy && browseMode !== "paths") transition(clearSelection);
-      });
-      cy.on("mouseover", "node", (event) => {
-        event.target.addClass("hovered");
-        event.target.connectedEdges().addClass("direction");
-        if (event.target.data("isVariant")) {
-          tooltip.textContent = `${displayName(event.target.parent().id())} · ${event.target.data("label")}`;
-          tooltip.style.display = "block";
-          return;
-        }
-        const family = families.get(event.target.id());
-        tooltip.textContent = `${displayName(family.name)} · ${family.variants.length} variant${family.variants.length === 1 ? "" : "s"} · ${family.rules} reductions`;
-        tooltip.style.display = "block";
-      });
-      cy.on("mouseover", "edge", (event) => {
-        event.target.addClass("hovered");
-        const edge = event.target;
-        tooltip.textContent = `${edge.source().data("label")} → ${edge.target().data("label")}${edge.hasClass("route-edge") ? "" : ` · ${edge.data("count")} concrete rule${edge.data("count") === 1 ? "" : "s"}`}`;
-        tooltip.style.display = "block";
-      });
-      cy.on("mousemove", "node, edge", (event) => {
-        tooltip.style.left = `${event.originalEvent.clientX + 14}px`;
-        tooltip.style.top = `${event.originalEvent.clientY + 14}px`;
-      });
-      cy.on("mouseout", "node, edge", (event) => {
-        event.target.removeClass("hovered");
-        if (event.target.isNode()) event.target.connectedEdges().removeClass("direction");
-        tooltip.style.display = "none";
-      });
-
-      document.querySelectorAll("[data-scope]").forEach((button) =>
-        button.addEventListener("click", () => {
-          scope = button.dataset.scope;
-          document.querySelectorAll("[data-scope]").forEach((item) =>
-            item.setAttribute("aria-pressed", item === button),
-          );
-          search.value = "";
-          transition(clearSelection);
-        }),
-      );
-      document.querySelector("#reset-graph").addEventListener("click", () => {
-        search.value = "";
-        transition(clearSelection);
-      });
-      const workspace = document.querySelector(".graph-workspace");
-      const divider = document.querySelector(".graph-divider");
-      const maxPanelWidth = () => (workspace.clientWidth - document.querySelector(".graph-browser").offsetWidth) * 0.6;
-      function resizePanel(width) {
-        const size = Math.max(240, Math.min(maxPanelWidth(), width));
-        workspace.style.setProperty("--inspector-width", `${size}px`);
-      }
-      function describeDivider() {
-        divider.setAttribute("aria-valuenow", Math.round(inspector.getBoundingClientRect().width));
-        divider.setAttribute("aria-valuemax", Math.round(maxPanelWidth()));
-      }
-      describeDivider();
-      divider.addEventListener("pointerdown", (event) => {
-        if (event.button !== 0) return;
-        if (finishMotion) finishMotion();
-        event.preventDefault();
-        divider.focus();
-        divider.setPointerCapture(event.pointerId);
-        divider.classList.add("dragging");
-      });
-      divider.addEventListener("pointermove", (event) => {
-        if (divider.hasPointerCapture(event.pointerId)) {
-          resizePanel(workspace.getBoundingClientRect().right - event.clientX - 4);
-        }
-      });
-      divider.addEventListener("pointerup", (event) => {
-        if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId);
-      });
-      divider.addEventListener("lostpointercapture", () => divider.classList.remove("dragging"));
-      divider.addEventListener("keydown", (event) => {
-        const widths = { ArrowLeft: inspector.clientWidth + 20,
-          ArrowRight: inspector.clientWidth - 20, Home: 240, End: maxPanelWidth() };
-        if (!(event.key in widths)) return;
-        event.preventDefault();
-        if (finishMotion) finishMotion();
-        resizePanel(widths[event.key]);
-      });
-      const canvas = document.querySelector(".graph-canvas");
-      let canvasWidth = canvas.clientWidth;
-      let canvasHeight = canvas.clientHeight;
-      new ResizeObserver(([entry]) => {
-        const { width, height } = entry.contentRect;
-        if (width === canvasWidth && height === canvasHeight) return;
-        cy.resize();
-        cy.panBy({ x: (width - canvasWidth) / 2, y: (height - canvasHeight) / 2 });
-        canvasWidth = width;
-        canvasHeight = height;
-        describeDivider();
-        updateLabels();
-      }).observe(canvas);
-      search.addEventListener("input", () => transition(applySearch));
-      search.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter") return;
-        transition(() => {
-          applySearch();
-          const match = cy.nodes(".search-match").first();
-          if (match.nonempty()) {
-            if (browseMode === "paths") pickPathNode(match);
-            else selectNode(match);
-          }
-        });
-      });
-      document.addEventListener("keydown", (event) => {
-        const typing =
-          /INPUT|TEXTAREA|SELECT/.test(event.target.tagName) ||
-          event.target.isContentEditable;
-        if (event.key === "/" && !typing) {
-          event.preventDefault();
-          search.focus();
-        }
-        if (event.key !== "Escape") return;
-        if (!typing) {
-          search.value = "";
-          transition(clearSelection);
-          return;
-        }
-        // Escape in a field resets only that field, through its own input handler.
-        event.preventDefault();
-        if (event.target.value) {
-          event.target.value = "";
-          event.target.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-        event.target.blur();
-      });
-
-      applyScope();
-      renderBrowser();
-      requestAnimationFrame(() => {
-        fit();
-        document.querySelector("#cy").removeAttribute("aria-busy");
-        workspace.inert = false;
-        search.disabled = false;
-      });
-    } catch (error) {
-      document.querySelector(".graph-canvas-note").textContent = `Unable to load graph: ${error.message}`;
-      throw error;
+    } else if (state.source != null && state.target != null) cy.elements().addClass("dim");
+    for (const side of ["source", "target"]) if (state[side] != null) {
+      cy.getElementById(D.nodes[state[side]].name).removeClass("dim").addClass(side === "source" ? "start" : "end");
     }
+  });
+  scheduleLabels();
+}
+function select(n) {
+  state.selected = n;
+  paintGraph(); renderResults();
+  frame(routeEls(n), 1.3);
+}
+
+function chain(route) {
+  const names = []; endpoints(route).forEach((e) => { if (names.at(-1) !== e.name) names.push(e.name); });
+  const span = el("span", "chain");
+  names.forEach((name, i) => { if (i) span.append(el("span", "arrow", "→")); span.append(shortName(name)); });
+  span.title = names.map(display).join(" → ");
+  return span;
+}
+function pathRow(n, slower) {
+  const c = state.result.polynomial_comparison, route = state.result.paths[n - 1], open = state.selected === n;
+  const wrap = el("div");
+  const b = el("button", "path" + (slower ? " slower" : "")); b.type = "button";
+  b.setAttribute("aria-expanded", String(open)); b.dataset.path = n;
+  const size = el("span", "size" + (c ? "" : " pending"), c ? sizeBadge(pathDegree(c.profiles[n - 1])) : "");
+  size.title = c && pathDegree(c.profiles[n - 1]) == null ? "Size unavailable for one or more parameters" : "Largest growth of the reduced problem";
+  const line = el("div", "path-line"); line.append(chain(route), size);
+  b.append(line);
+  b.addEventListener("click", () => { state.picked = true; if (state.selected !== n) select(n); });
+  wrap.append(b);
+  if (open) wrap.append(pathDetail(n));
+  return wrap;
+}
+function pathDetail(n) {
+  const route = state.result.paths[n - 1], profile = state.result.polynomial_comparison?.profiles[n - 1];
+  const d = el("div", "detail");
+  const ol = el("ol", "steps");
+  // Consecutive steps inside one family are variant conversions: show the family once with each variant it passes through.
+  const groups = [];
+  endpoints(route).forEach((e) => { if (groups.at(-1)?.name === e.name) groups.at(-1).variants.push(e.variant); else groups.push({ name: e.name, variants: [e.variant] }); });
+  groups.forEach((e, i) => {
+    const li = el("li"), btn = el("button"); btn.type = "button";
+    btn.append(el("span", "name", display(e.name)));
+    if (multi(e.name)) e.variants.forEach((v) => btn.append(kvNode(v)));
+    btn.addEventListener("click", () => { showProblem({name: e.name, variant: e.variants[0]}); pulseAndFrame(e.name); });
+    li.append(el("span", "dot"), btn); ol.append(li);
+    if (i < groups.length - 1) {
+      const next = groups[i + 1], rule = el("button", "rule-link", "rule"); rule.type = "button";
+      rule.onclick = () => showRule({from: {name: e.name, variant: e.variants.at(-1)}, to: {name: next.name, variant: next.variants[0]}});
+      li.append(rule);
+    }
+  });
+  const dl = el("dl", "growth");
+  Object.entries(profile?.fields || {}).forEach(([name, f]) => dl.append(el("dt", "", prettyField(name)), el("dd", "", growth(f).lead)));
+  const label = "Copy route for pred reduce --via";
+  const copy = el("button", "copy link", label); copy.type = "button";
+  copy.addEventListener("click", async () => {
+    state.picked = true;
+    const json = JSON.stringify({ steps: route.steps, path: route.path }, null, 2);
+    try { await navigator.clipboard.writeText(json); copy.textContent = "Copied"; setTimeout(() => (copy.textContent = label), 1500); }
+    catch { const t = el("textarea", "copy-text"); t.readOnly = true; t.value = json; copy.after(t); t.select(); }
+  });
+  d.append(ol, dl, copy);
+  return d;
+}
+function examples() {
+  const c = el("div", "chips");
+  [["SAT → QUBO", "Satisfiability", "QUBO"], ["MIS → QUBO", "MaximumIndependentSet", "QUBO"], ["Factoring → ILP", "Factoring", "ILP"], ["HC → QUBO", "HamiltonianCircuit", "QUBO"]].forEach(([label, s, t]) => {
+    const b = el("button", "chip", label); b.type = "button";
+    b.addEventListener("click", () => { state.source = defaults[s]; state.target = defaults[t]; state.limit = 20; syncEnds(); run(); });
+    c.append(b);
+  });
+  return c;
+}
+function renderResults(status) {
+  const box = $("#results"); box.replaceChildren();
+  if (state.source == null || state.target == null) {
+    const n = el("div", "note"); n.append(el("p", "", "Pick a start and an end problem, by searching or by clicking the graph. Try:"), examples()); box.append(n); return;
+  }
+  if (state.busy && !state.result) {
+    const s = el("div", "summary"), left = el("span", "", "Comparing paths "), t = el("span", "", ""); t.id = "elapsed"; left.append(t);
+    const c = el("button", "link", "Cancel"); c.type = "button"; c.addEventListener("click", cancel); s.append(left, c);
+    box.append(s); for (let i = 0; i < 4; i++) box.append(el("div", "skeleton")); return;
+  }
+  const msg = { same: "Start and end are the same problem variant.", none: "No reduction path connects these two. Try another variant of either problem.",
+    error: "Cannot load the path engine. Reload this release and try again.", cancelled: "Search cancelled." }[status];
+  if (msg) {
+    const n = el("div", "note"); n.append(el("p", "", msg));
+    if (status === "error") n.append(examples());
+    if (status === "cancelled") { const r = el("button", "link", "Search again"); r.type = "button"; r.onclick = run; n.append(r); }
+    box.append(n); return;
+  }
+  if (!state.result) return;
+  const c = state.result.polynomial_comparison;
+  // Merge same-chain variants by rank, retaining the exact route currently selected.
+  const seen = new Set(), chainKey = (n) => endpoints(state.result.paths[n - 1]).map((e) => e.name).filter((x, i, a) => x !== a[i - 1]).join(">");
+  const selectedChain = chainKey(state.selected);
+  const shown = state.result.order.filter((n) => {
+    const k = chainKey(n);
+    if (seen.has(k) || (k === selectedChain && n !== state.selected)) return false;
+    seen.add(k); return true;
+  });
+  const front = shown.filter((n) => !c || c.front.includes(n)), slower = shown.filter((n) => c && !c.front.includes(n));
+  const s = el("div", "summary"), left = el("span");
+  if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
+  else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
+  s.append(left);
+  if (state.busy) {
+    const cancelButton = el("button", "link", "Cancel"); cancelButton.type = "button"; cancelButton.onclick = cancel; s.append(cancelButton);
+  } else if (state.result.truncated && state.limit < 999) {
+    const more = el("button", "link", "Search more"); more.type = "button";
+    more.addEventListener("click", () => { state.limit = state.limit < 50 ? 50 : state.limit < 100 ? 100 : 999; run(); });
+    s.append(more);
+  }
+  box.append(s);
+  front.forEach((n) => box.append(pathRow(n, false)));
+  if (slower.length && !front.length) slower.forEach((n) => box.append(pathRow(n, true)));
+  else if (slower.length) {
+    const open = state.showSlower || slower.includes(state.selected);
+    const t = el("button", "link more", open ? "Hide slower routes" : `Show ${slower.length} slower routes`); t.type = "button";
+    t.addEventListener("click", () => { state.showSlower = !open; if (!state.showSlower && slower.includes(state.selected)) { select(front[0]); return; } renderResults(); });
+    box.append(t);
+    if (open) slower.forEach((n) => box.append(pathRow(n, true)));
+  }
+}
+
+/* ---------- Dock and resize ---------- */
+const zoomBy = (k) => { const r = freeRect(); cy.zoom({ level: Math.max(0.1, Math.min(3, cy.zoom() * k)), renderedPosition: { x: r.x + r.w / 2, y: r.y + r.h / 2 } }); };
+$("#zoom-in").onclick = () => zoomBy(1.3);
+$("#zoom-out").onclick = () => zoomBy(1 / 1.3);
+$("#fit").onclick = () => frame(cy.elements(), 1);
+addEventListener("resize", () => { cy.resize(); scheduleLabels(); placePop(); });
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty("--header-height", $(".site-header").getBoundingClientRect().height + "px");
+  scheduleLabels();
+}).observe($(".site-header"));
+
+/* ---------- Start on a real example ---------- */
+state.source = defaults.Satisfiability; state.target = defaults.QUBO;
+syncEnds(); cy.fit(cy.elements(), 40); run();
+document.fonts?.ready.then(scheduleLabels);
 })();

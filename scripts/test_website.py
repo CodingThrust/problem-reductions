@@ -77,14 +77,11 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.get_by_label('Registry entry', exact=True)).to_have_value('Q001')
         registry = self.page.request.get(self.base + 'open-questions/registry.json').json()
         question = next(entry for entry in registry['questions'] if entry['id'] == 'Q001')
-        expect(self.page.get_by_role('link', name='Edit registry entry on GitHub')).to_have_attribute(
-            'href', f"https://github.com/GiggleLiu/autoresearch-gadgets/edit/main/registry/{question['slug']}.json")
-
-    def test_graph_navigation_opens_question_board(self):
-        self.page.goto(self.base + 'graph.html')
-        self.page.get_by_role('link', name='Open questions', exact=True).click()
-        expect(self.page).to_have_url(self.base + 'open-questions/')
-        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
+        prompt = self.page.get_by_role('textbox', name='Agent prompt').input_value()
+        self.assertIn(f"registry/{question['slug']}.json", prompt)
+        self.assertIn('https://github.com/GiggleLiu/autoresearch-gadgets', prompt)
+        self.page.get_by_role('button', name='Copy prompt', exact=True).click()
+        self.assertEqual(self.page.evaluate('navigator.clipboard.readText()'), prompt)
 
     def test_home_formulas_load_as_typeset_vectors(self):
         self.visit()
@@ -106,16 +103,27 @@ class WebsiteTests(unittest.TestCase):
         self.assertFalse(any('atlas-data.' in url or 'graph-details.' in url for url in requests))
         self.page.locator('[data-nav="atlas"]').click()
         expect(self.page.locator('.atlas-row').first).to_be_visible()
-        self.assertEqual(sum('atlas-data.json' in url for url in requests), 1)
+        self.assertFalse(any('atlas-data.' in url or '/problem-data/' in url for url in requests))
+        self.page.locator('#atlas-search').fill('MIS')
+        self.page.locator('.atlas-row').click()
+        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
+        self.assertEqual(sum('/problem-data/MaximumIndependentSet.json' in url for url in requests), 1)
+        self.assertEqual(sum('graph-details.json' in url for url in requests), 1)
+        self.assertTrue(self.page.evaluate('''() => {
+            const resources = performance.getEntriesByType('resource');
+            const index = resources.find(r => r.name.includes('graph-details.json'));
+            const record = resources.find(r => r.name.includes('/problem-data/'));
+            return index.startTime < record.responseEnd;
+        }'''))
         requests.clear()
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator('#cy canvas').first).to_be_visible()
         self.assertFalse(any('layout-bundle' in url or 'graph-details.' in url for url in requests))
-        self.page.locator('#browser-search').fill('Bin Packing')
-        self.page.locator('.browser-item').first.click()
+        self.open_problem_popover('BinPacking')
+        self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
-        self.assertEqual(sum('layout-bundle' in url for url in requests), 1)
-        self.assertEqual(sum('graph-details.json' in url for url in requests), 1)
+        self.assertFalse(any('layout-bundle' in url for url in requests))
+        self.assertEqual(sum('graph-details.json' in url for url in requests), 0)
 
     def test_csp_blocks_inline_event_handlers(self):
         self.visit()
@@ -173,10 +181,7 @@ class WebsiteTests(unittest.TestCase):
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator("#cy canvas").first).to_be_visible()
-        expect(self.page.locator('.browser-item').first).to_be_visible()
-        for selector, size in [('.browser-item small', 13), ('.graph-legend', 13),
-                               ('.inspector-heading span', 14), ('.browser-item', 15),
-                               ('.graph-detail', 16)]:
+        for selector, size in [('.brand', 22), ('.end input', 16), ('.path .chain', 14)]:
             expect(self.page.locator(selector).first).to_have_css('font-size', f'{size}px')
 
     def test_search_text_cannot_inject_markup(self):
@@ -348,393 +353,6 @@ class WebsiteTests(unittest.TestCase):
             self.assertAlmostEqual(bounds['width'] / bounds['height'], ratio, delta=0.02)
             expect(self.page.locator('.docs-brand')).to_have_css('height', '78px')
 
-    def test_graph_motion_expands_and_cleans_up_after_interruption(self):
-        self.page.emulate_media(reduced_motion="no-preference")
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('#graph-search').fill('MIS')
-        self.page.locator('#graph-search').press('Enter')
-        self.page.wait_for_function("() => document.querySelector('#cy')._cyreg.cy.getElementById('MaximumIndependentSet').children().length > 0")
-        samples = self.page.evaluate("""async () => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const node = cy.getElementById('MaximumIndependentSet').children().first();
-            const first = {...node.position()};
-            await new Promise(resolve => setTimeout(resolve, 400));
-            return [first, {...node.position()}];
-        }""")
-        self.assertNotEqual(samples[0], samples[1], 'Variants should move out from the family')
-        self.page.get_by_role('button', name='Reset view').click()
-        self.page.locator('#graph-search').fill('ILP')
-        self.page.locator('#graph-search').press('Enter')
-        self.page.get_by_role('button', name='Reset view').click()
-        self.page.wait_for_function("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes('[?isVariant]').length === 0
-        """)
-        expect(self.page.locator('.graph-inspector')).to_be_visible()
-
-    def test_graph_is_in_primary_navigation_and_opens_details(self):
-        self.visit()
-        graph_link = self.page.get_by_role("link", name="Graph", exact=True)
-        expect(graph_link).to_be_visible()
-        graph_link.click()
-        self.assertTrue(self.page.url.endswith("/graph.html"))
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator("#graph-search").fill("MIS")
-        self.page.locator("#graph-search").press("Enter")
-        expect(self.page.locator(".graph-inspector")).to_be_visible()
-        expect(self.page.locator("#selection-type")).to_have_text("Problem")
-        variants = self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            return cy.getElementById('MaximumIndependentSet').children()
-                .map(node => node.id());
-        }""")
-        self.assertGreater(len(variants), 1)
-        self.assertIn('MaximumIndependentSet/graph=SimpleGraph,weight=i64', variants)
-        self.assertTrue(self.page.evaluate("""() => {
-            const boxes = document.querySelector('#cy')._cyreg.cy.nodes('[?isVariant]')
-                .map(node => node.boundingBox());
-            return boxes.every((a, i) => boxes.slice(i + 1).every(b =>
-                a.x2 <= b.x1 || b.x2 <= a.x1 || a.y2 <= b.y1 || b.y2 <= a.y1));
-        }"""), 'Variant nodes and their labels must not overlap')
-        self.assertTrue(self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const children = cy.getElementById('MaximumIndependentSet').children();
-            return children.connectedEdges().some(edge =>
-                edge.source().isChild() && edge.target().isChild());
-        }"""))
-        expect(self.page.locator('#graph-detail > h2')).to_have_text('Maximum Independent Set')
-        self.page.get_by_role("button", name="Reset view").click()
-        expect(self.page.locator(".graph-inspector")).to_be_visible()
-        self.assertEqual(self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy
-                .getElementById('MaximumIndependentSet').children().length
-        """), 0)
-        positions = self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes()
-                .map(node => ({id: node.id(), ...node.position()}))
-        """)
-        self.page.locator('#graph-search').fill('ILP')
-        self.page.locator('#graph-search').press('Enter')
-        graph = self.page.request.get(self.base + 'reductions/reduction_graph.json').json()
-        expected_variants = sum(node['name'] == 'ILP' for node in graph['nodes'])
-        self.assertEqual(self.page.evaluate("""expectedVariants => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const parent = cy.getElementById('ILP');
-            const box = parent.boundingBox();
-            const neighbors = parent.children().connectedEdges().connectedNodes()
-                .difference(parent.children());
-            if (parent.children().length !== expectedVariants || neighbors.length <= 50) return ['Missing variants or neighbors'];
-            return neighbors.filter(node => {
-                    const {x, y} = node.position();
-                    return x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2;
-                }).map(node => node.id());
-        }""", expected_variants), [])
-        displaced = self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes()
-                .filter(node => !node.isParent() && !node.data('isVariant'))
-                .map(node => ({id: node.id(), ...node.position()}))
-        """)
-        original = {node['id']: node for node in positions}
-        moved = [node for node in displaced if node != original[node['id']]]
-        self.assertGreater(len(moved), 0)
-        self.assertLess(len(moved), len(displaced), 'Distant nodes keep their positions')
-        self.page.get_by_role('button', name='Reset view').click()
-        self.assertEqual(self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes()
-                .map(node => ({id: node.id(), ...node.position()}))
-        """), positions)
-
-    def click_graph_node(self, node_id):
-        self.page.wait_for_function("""id => {
-            const node = document.querySelector('#cy')._cyreg.cy.getElementById(id);
-            return node.nonempty() && node.visible();
-        }""", arg=node_id)
-        point = self.page.evaluate("""id => document.querySelector('#cy')._cyreg.cy
-            .getElementById(id).renderedPosition()""", node_id)
-        self.page.locator('#cy').click(position=point)
-
-    def test_graph_path_selection_matches_cli_and_keeps_exact_variants(self):
-        self.page.goto(self.base + 'graph.html')
-        self.page.locator('[data-browse="paths"]').click()
-        expect(self.page.locator('#graph-inspector #path-controls')).to_be_visible()
-        self.page.locator('#graph-search').fill('MIS')
-        self.click_graph_node('MaximumIndependentSet')
-        self.assertEqual(self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const family = cy.getElementById('MaximumIndependentSet');
-            const box = family.boundingBox();
-            return cy.nodes().difference(family.union(family.children()))
-                .filter(node => node.visible() && !node.isParent())
-                .filter(node => {
-                    const {x,y} = node.position();
-                    return x >= box.x1 && x <= box.x2 && y >= box.y1 && y <= box.y2;
-                }).map(node => node.id());
-        }"""), [], 'Expanded endpoint families must not cover other graph nodes')
-        self.click_graph_node('MaximumIndependentSet/graph=SimpleGraph,weight=One')
-        source = self.page.locator('#path-source').input_value()
-        self.assertEqual(self.page.evaluate('i => REDUCTIONS.nodes[i].variant.weight', int(source)), 'One')
-        self.page.locator('#graph-search').fill('QUBO')
-        self.click_graph_node('QUBO')
-        self.click_graph_node('QUBO/weight=i64')
-        command = [str(Path(__file__).resolve().parents[1] / 'target/debug/pred'),
-                   'path', 'MIS', 'QUBO', '--compare', '--limit', '20', '--json']
-        reference = json.loads(subprocess.run(command, check=True, capture_output=True).stdout)
-        expect(self.page.locator('#path-front')).to_be_checked()
-        expect(self.page.locator('[data-path]')).to_have_count(len(reference['polynomial_comparison']['front']))
-        expect(self.page.get_by_label('Compare with path').locator('option')).to_have_count(
-            len(reference['polynomial_comparison']['front']))
-        self.page.locator('#path-front').uncheck()
-        expect(self.page.locator('[data-path]')).to_have_count(len(reference['paths']))
-        first = reference['paths'][0]['path']
-        expected = [first[0]['from']] + [edge['to'] for edge in first]
-        expected_ids = {node['name'] + '/' + ','.join(f'{key}={value}' for key, value in sorted(node['variant'].items()))
-                        if sum(item['name'] == node['name'] for item in self.page.evaluate('REDUCTIONS.nodes')) > 1
-                        else node['name'] for node in expected}
-        actual = self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
-            .nodes('.route-node').map(node => node.id())""")
-        self.assertEqual(set(actual), expected_ids)
-        expect(self.page.locator('.path-route li')).to_have_count(len(expected))
-        self.assertGreater(self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy.nodes()
-            .filter(node => !node.data('isVariant') && node.visible()).length"""), 100)
-        self.assertEqual(self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.edges('.route-edge').length
-        """), len(first))
-        self.page.get_by_label('Compare with path').select_option('2')
-        expect(self.page.locator('#graph-detail')).to_contain_text(
-            reference['polynomial_comparison']['pairs'][0]['verdict'])
-        expect(self.page.locator('.path-proof')).to_have_count(
-            len(reference['polynomial_comparison']['pairs'][0]['fields']))
-        self.page.locator('#path-front').check()
-        expect(self.page.locator('[data-path]')).to_have_count(
-            len(reference['polynomial_comparison']['front']))
-        self.assertEqual(self.page.locator('[data-path]').evaluate_all(
-            '(buttons) => buttons.map(button => Number(button.dataset.path))'),
-            reference['polynomial_comparison']['front'])
-        self.page.locator('#path-limit').fill('1')
-        self.page.get_by_role('button', name='Find paths', exact=True).click()
-        expect(self.page.locator('[data-path]')).to_have_count(1)
-        expect(self.page.locator('#browser-count')).to_contain_text('more paths exist')
-        self.page.get_by_role('button', name='Reset view', exact=True).click()
-        expect(self.page.locator('[data-browse="problems"]')).to_have_attribute('aria-pressed', 'true')
-        self.assertEqual(self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes('.route-node').length
-        """), 0)
-
-    def test_graph_path_route_download_solves_and_unreachable_query_is_explicit(self):
-        self.page.goto(self.base + 'graph.html')
-        self.page.locator('[data-browse="paths"]').click()
-        indices = self.page.evaluate("""() => {
-            const find = weight => REDUCTIONS.nodes.findIndex(node =>
-                node.name === 'MaximumIndependentSet' && node.variant.graph === 'SimpleGraph' && node.variant.weight === weight);
-            return [find('One'), find('i64'), REDUCTIONS.nodes.findIndex(node => node.name === 'Factoring')];
-        }""")
-        self.page.locator('#path-source').select_option(str(indices[0]))
-        self.page.locator('#path-target').select_option(str(indices[1]))
-        expect(self.page.locator('[data-path="1"]')).to_have_attribute('aria-current', 'true')
-        variants = self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
-            .nodes('.route-node').map(node => REDUCTIONS.nodes.find(item =>
-                item.name + '/' + Object.entries(item.variant).sort().map(([k,v]) => `${k}=${v}`).join(',') === node.id()).variant.weight)""")
-        self.assertEqual(variants, ['One', 'i64'])
-        with self.page.expect_download() as download:
-            self.page.get_by_role('link', name='Download route for pred reduce').click()
-        route = Path(download.value.path())
-        pred = str(Path(__file__).resolve().parents[1] / 'target/debug/pred')
-        instance = subprocess.run([pred, 'create', 'MIS', '--graph', '0-1,1-2,2-3,3-4,4-0', '--json'],
-                                  check=True, capture_output=True).stdout
-        bundle = subprocess.run([pred, 'reduce', '-', '--via', str(route), '--json'],
-                                input=instance, check=True, capture_output=True).stdout
-        result = json.loads(subprocess.run([pred, 'solve', '-', '--solver', 'brute-force', '--json'],
-                                          input=bundle, check=True, capture_output=True).stdout)
-        self.assertEqual(result['evaluation'], 'Max(2)')
-        chosen = result['solution']
-        self.assertEqual(sum(chosen), 2)
-        self.assertTrue(all(not (chosen[u] and chosen[v]) for u, v in [(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]))
-        self.page.locator('#path-target').select_option(str(indices[2]))
-        self.page.get_by_role('button', name='Find paths', exact=True).click()
-        expect(self.page.locator('#browser-list')).to_contain_text('No witness-capable reduction path')
-        expect(self.page.locator('[data-path]')).to_have_count(0)
-
-    def test_graph_path_search_can_be_cancelled_without_blocking_the_page(self):
-        self.page.goto(self.base + 'graph.html')
-        self.page.locator('[data-browse="paths"]').click()
-        self.page.locator('#path-limit').fill('999')
-        indices = self.page.evaluate("""() => [
-            REDUCTIONS.nodes.findIndex(node => node.name === 'MaximumIndependentSet' &&
-                node.variant.graph === 'SimpleGraph' && node.variant.weight === 'One'),
-            REDUCTIONS.nodes.findIndex(node => node.name === 'QUBO' && node.variant.weight === 'i64')]
-        """ )
-        self.page.locator('#path-source').select_option(str(indices[0]))
-        self.page.locator('#path-target').select_option(str(indices[1]))
-        self.page.get_by_role('button', name='Cancel search', exact=True).click()
-        expect(self.page.locator('#browser-list')).to_contain_text('Search cancelled')
-        expect(self.page.get_by_role('button', name='Find paths', exact=True)).to_be_enabled()
-
-    def test_graph_details_panel_is_persistent_and_resizable(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        panel = self.page.locator('.graph-inspector')
-        expect(panel).to_be_visible()
-        expect(self.page.locator('#graph-detail')).to_be_empty()
-        divider = self.page.get_by_role('separator', name='Resize details panel')
-        expect(divider).to_have_attribute('aria-valuenow', '320')
-        expect(divider).to_have_attribute('aria-valuemin', '240')
-        expect(divider).to_have_attribute('aria-valuemax', re.compile(r'^\d+$'))
-        before = self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            return {pan: {...cy.pan()}, zoom: cy.zoom(),
-                positions: cy.nodes().map(node => ({id: node.id(), ...node.position()}))};
-        }""")
-        box = divider.bounding_box()
-        self.page.mouse.move(box['x'] + box['width'] / 2, box['y'] + 100)
-        self.page.mouse.down()
-        self.page.mouse.move(box['x'] + box['width'] / 2 - 160, box['y'] + 100)
-        expect(divider).to_have_attribute('aria-valuenow', '480')
-        after = self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            return {pan: {...cy.pan()}, zoom: cy.zoom(),
-                positions: cy.nodes().map(node => ({id: node.id(), ...node.position()}))};
-        }""")
-        self.assertAlmostEqual(after['pan']['x'], before['pan']['x'] - 80)
-        self.assertAlmostEqual(after['pan']['y'], before['pan']['y'])
-        self.assertEqual(after['zoom'], before['zoom'])
-        self.assertEqual(after['positions'], before['positions'])
-        self.page.mouse.up()
-        divider.press('ArrowRight')
-        expect(divider).to_have_attribute('aria-valuenow', '460')
-        self.page.locator('#graph-search').fill('MIS')
-        self.page.locator('#graph-search').press('Enter')
-        self.page.get_by_role('button', name='Reset view').click()
-        expect(panel).to_be_visible()
-        expect(divider).to_have_attribute('aria-valuenow', '460')
-        divider.press('Home')
-        expect(divider).to_have_attribute('aria-valuenow', '240')
-        divider.press('ArrowRight')
-        expect(divider).to_have_attribute('aria-valuenow', '240')
-        divider.press('End')
-        expect(divider).to_have_attribute('aria-valuenow', divider.get_attribute('aria-valuemax'))
-
-    def test_graph_hint_stays_top_right_when_panel_resizes(self):
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#cy canvas').first).to_be_visible()
-        divider = self.page.get_by_role('separator', name='Resize details panel')
-        for key in ['Home', 'End']:
-            divider.press(key)
-            legend = self.page.locator('.graph-legend').bounding_box()
-            note = self.page.locator('.graph-canvas-note').bounding_box()
-            canvas = self.page.locator('.graph-canvas').bounding_box()
-            self.assertLessEqual(note['y'] + note['height'], legend['y'])
-            self.assertAlmostEqual(note['y'] - canvas['y'], 18)
-            self.assertAlmostEqual(canvas['x'] + canvas['width'] - note['x'] - note['width'], 18)
-            for box in [legend, note]:
-                self.assertGreaterEqual(box['x'], canvas['x'])
-                self.assertLessEqual(box['x'] + box['width'], canvas['x'] + canvas['width'])
-
-    def test_graph_local_view_keeps_selection_and_neighbor_labels_readable(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="AcyclicPartition"]').click()
-        expect(self.page.locator('#graph-detail > h2')).to_have_text('Acyclic Partition')
-        self.assertTrue(self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const selected = cy.getElementById('AcyclicPartition');
-            const nodes = selected.union(selected.neighborhood('node'));
-            return selected.hasClass('selected') && !selected.hasClass('neighbor') &&
-                nodes.every(node => node.visible() && node.style('label') === node.data('label') &&
-                    Number(node.style('text-opacity')) === 1 &&
-                    parseFloat(node.style('font-size')) * cy.zoom() >= 11.9) && cy.zoom() > 1;
-        }"""))
-
-    def test_graph_expanded_problem_keeps_a_compact_neighborhood(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="BinPacking"]').click()
-        expect(self.page.locator('#graph-detail > h2')).to_have_text('Bin Packing')
-        self.assertTrue(self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const family = cy.getElementById('BinPacking');
-            const variants = family.children();
-            const box = family.renderedBoundingBox();
-            return variants.length === 2 && box.w < 500 && box.h < 350 &&
-                variants.connectedEdges().every(edge => {
-                    const a = edge.source().position(), b = edge.target().position();
-                    return Math.hypot(a.x - b.x, a.y - b.y) < 450;
-                });
-        }"""))
-
-    def test_graph_problem_selection_highlights_and_reveals_list_item(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.evaluate("""() => {
-            document.querySelector('#cy')._cyreg.cy.getElementById('QUBO').emit('tap');
-        }""")
-        selected = self.page.locator('#browser-list [data-family="QUBO"]')
-        expect(selected).to_have_attribute('aria-current', 'true')
-        expect(selected).to_be_in_viewport()
-        expect(selected).to_have_text('QUBO2 variants')
-        self.page.evaluate("""() => {
-            document.querySelector('#cy')._cyreg.cy.getElementById('QUBO').children().first().emit('tap');
-        }""")
-        variant = self.page.locator('#browser-list [data-variant][aria-current="true"]')
-        expect(variant).to_be_in_viewport()
-        expect(selected).to_have_attribute('aria-current', 'false')
-
-    def test_graph_shortcuts_leave_text_fields_alone(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        selected = self.page.locator('#browser-list [data-family="QUBO"]')
-        selected.click()
-        expect(selected).to_have_attribute('aria-current', 'true')
-        view = "() => { const cy = document.querySelector('#cy')._cyreg.cy; return {zoom: cy.zoom(), pan: {...cy.pan()}}; }"
-        before = self.page.evaluate(view)
-        browser_search = self.page.locator('#browser-search')
-        graph_search = self.page.locator('#graph-search')
-        browser_search.click()
-        self.page.keyboard.type('a/b')
-        expect(browser_search).to_have_value('a/b')
-        expect(browser_search).to_be_focused()
-        expect(graph_search).to_have_value('')
-        expect(self.page.locator('.browser-empty')).to_be_visible()
-        self.page.keyboard.press('Escape')
-        expect(browser_search).to_have_value('')
-        expect(browser_search).not_to_be_focused()
-        expect(selected).to_have_attribute('aria-current', 'true')
-        graph_search.focus()
-        self.page.keyboard.press('Escape')
-        expect(graph_search).not_to_be_focused()
-        expect(selected).to_have_attribute('aria-current', 'true')
-        expect(self.page.locator('#selection-type')).to_have_text('Problem')
-        self.assertEqual(self.page.evaluate(view), before)
-        self.page.keyboard.press('/')
-        expect(graph_search).to_be_focused()
-        expect(graph_search).to_have_value('')
-        self.page.evaluate('document.activeElement.blur()')
-        self.page.keyboard.press('Escape')
-        expect(self.page.locator('#selection-type')).to_have_text('Details')
-        expect(selected).to_have_attribute('aria-current', 'false')
-
-    def test_graph_list_selection_keeps_keyboard_focus(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        family = self.page.locator('#browser-list [data-family="QUBO"]')
-        family.focus()
-        self.page.keyboard.press('Enter')
-        expect(family).to_have_attribute('aria-current', 'true')
-        expect(family).to_be_focused()
-        self.page.keyboard.press('Tab')
-        self.page.keyboard.press('Enter')
-        variant = self.page.locator('#browser-list [data-variant][aria-current="true"]')
-        expect(variant).to_be_focused()
-        family.focus()
-        self.page.keyboard.press('Enter')
-        expect(family).to_have_attribute('aria-expanded', 'false')
-        expect(family).to_be_focused()
-        self.page.evaluate("""() => {
-            document.activeElement.blur();
-            document.querySelector('#cy')._cyreg.cy.getElementById('QUBO').emit('tap');
-        }""")
-        expect(family).to_have_attribute('aria-current', 'true')
-        self.assertEqual(self.page.evaluate('document.activeElement.tagName'), 'BODY')
-
     def test_atlas_ilp_prioritizes_documentation_over_metadata(self):
         self.visit('problem/ILP?variant=bounds=general,coefficient=f64,variable=bool')
         expect(self.page.locator('article.typst-detail')).to_contain_text('Lenstra')
@@ -764,227 +382,339 @@ class WebsiteTests(unittest.TestCase):
             document.querySelector('#reference-detail').getBoundingClientRect().bottom'''))
         self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
 
-    def test_graph_atlas_link_preserves_variant_and_documentation(self):
+    def choose_endpoint(self, side, query):
+        self.page.locator('#' + side).fill(query)
+        self.page.locator('#' + side).press('Enter')
+
+    def open_problem_popover(self, name):
+        # Initial path selection moves the camera; wait before positioning the node for a click.
+        self.page.wait_for_function("() => !!document.querySelector('.path') && !document.querySelector('.size.pending')")
+        point = self.page.evaluate("""name => {
+            const cy = document.querySelector('#cy')._cyreg.cy;
+            const node = cy.getElementById(name), z = cy.zoom();
+            cy.stop(); cy.pan({x: 690 - node.position('x') * z, y: 320 - node.position('y') * z});
+            return node.renderedPosition();
+        }""", name)
+        self.page.locator('#cy').click(position=point)
+        expect(self.page.locator('#pop')).to_be_visible()
+
+    def copy_route(self):
+        self.page.locator('.copy').click()
+        return json.loads(self.page.evaluate('navigator.clipboard.readText()'))
+
+    def observe_path_worker(self):
+        # Observe real worker messages without replacing or delaying the engine.
+        self.page.add_init_script("""(() => {
+            const NativeWorker = window.Worker;
+            window.pathMessages = [];
+            window.pathWorkerStarts = 0;
+            window.Worker = class extends NativeWorker {
+                constructor(...args) {
+                    super(...args);
+                    window.pathWorkerStarts++;
+                    // Register after the app's handler so the observer sees the rendered result.
+                    queueMicrotask(() => this.addEventListener('message', e => {
+                        window.pathMessages.push(e.data);
+                        window.onPathMessage?.(e.data);
+                    }));
+                }
+            };
+        })()""")
+
+    def test_graph_brand_returns_home(self):
+        self.visit()
+        self.page.get_by_role('link', name='Graph', exact=True).click()
+        expect(self.page.locator('#cy canvas').first).to_be_visible()
+        self.page.get_by_role('link', name='Reduction paths', exact=True).click()
+        expect(self.page.locator('main .hero')).to_be_visible()
+
+    def test_graph_has_site_navigation_above_the_canvas(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="MaximumIndependentSet"]').click()
-        self.page.locator('[data-variant="MaximumIndependentSet/graph=SimpleGraph,weight=i64"]').click()
-        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
-        content = self.page.locator('article.typst-detail').inner_html()
+        navigation = self.page.get_by_role('navigation', name='Main navigation')
+        expect(navigation.get_by_role('link', name='Graph', exact=True)).to_have_attribute('aria-current', 'page')
+        expect(self.page.get_by_role('link', name='Problem Reductions home')).to_be_visible()
+        self.assertGreaterEqual(self.page.locator('.panel').bounding_box()['y'],
+                                navigation.bounding_box()['y'] + navigation.bounding_box()['height'])
+        navigation.get_by_role('link', name='Atlas', exact=True).click()
+        expect(self.page.locator('#atlas-search')).to_be_visible()
+
+    def test_graph_sat_size_badges_finish_promptly_after_routes_arrive(self):
+        self.observe_path_worker()
+        self.page.goto(self.base + 'graph.html')
+        self.page.wait_for_function("() => pathMessages.some(m => m.phase === 'paths')")
+        self.page.wait_for_function("() => pathMessages.some(m => m.phase === 'comparison')", timeout=3000)
+        expect(self.page.locator('.size.pending')).to_have_count(0)
+        expect(self.page.locator('.path').first.locator('.size')).to_contain_text('n')
+
+    def test_graph_unavailable_parameters_keep_size_badges_unknown(self):
+        self.observe_path_worker()
+        self.page.goto(self.base + 'graph.html')
+        self.choose_endpoint('source', 'MVC')
+        self.page.locator('#source-options [aria-label="weight"]').get_by_role('button', name='One', exact=True).click()
+        self.choose_endpoint('target', 'LongestCommonSubsequence')
+        self.page.wait_for_function('''() => pathMessages.some(m => m.phase === 'comparison'
+            && m.result.profiles.some(p => p.fields.cross_frequency_product?.certificate === null))''')
+        expect(self.page.locator('.path').first.locator('.size')).to_have_text('?')
+
+    def test_graph_engine_download_starts_before_graph_script_finishes(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.path').first).to_be_visible()
+        timings = self.page.evaluate('''() => {
+            const resources = performance.getEntriesByType('resource');
+            return {wasm:resources.find(r => r.name.includes('path-selection_bg.wasm'))?.startTime,
+                    graph:resources.find(r => r.name.includes('/graph.js'))?.responseEnd};
+        }''')
+        self.assertIsNotNone(timings['wasm'])
+        self.assertLess(timings['wasm'], timings['graph'])
+
+    def test_graph_reuses_idle_engine_and_releases_old_cached_queries(self):
+        self.observe_path_worker()
+        self.page.goto(self.base + 'graph.html')
+        self.page.wait_for_function("() => pathMessages.some(m => m.phase === 'comparison')")
+        self.choose_endpoint('source', 'MIS')
+        self.page.wait_for_function("() => pathMessages.filter(m => m.phase === 'comparison').length === 2")
+        self.assertEqual(self.page.evaluate('pathWorkerStarts'), 1)
+        self.choose_endpoint('target', 'SAT')
+        expect(self.page.locator('#results')).to_contain_text('No reduction path')
+        for name in ['MaximumClique', 'MinimumVertexCover', 'MaximumSetPacking', 'Coloring',
+                     'MinimumDominatingSet', 'HamiltonianCircuit', 'Partition', 'SubsetSum', 'MaximumMatching']:
+            self.choose_endpoint('source', name)
+            expect(self.page.locator('#results')).to_contain_text('No reduction path')
+        # Revisiting the oldest query recomputes after the bounded cache has evicted it.
+        self.choose_endpoint('source', 'SAT')
+        before = len(self.page.evaluate('pathMessages'))
+        self.choose_endpoint('target', 'QUBO')
+        self.page.wait_for_function('(before) => pathMessages.length > before', arg=before)
+        expect(self.page.locator('.path').first).to_be_visible()
+        expect(self.page.locator('.size.pending')).to_have_count(0)
+        self.assertEqual(self.page.evaluate('pathWorkerStarts'), 1)
+
+    def test_graph_path_selection_matches_cli_and_keeps_exact_variants(self):
+        self.observe_path_worker()
+        self.page.goto(self.base + 'graph.html')
+        self.choose_endpoint('source', 'MIS')
+        pred = str(Path(__file__).resolve().parents[1] / 'target/debug/pred')
+        reference = json.loads(subprocess.run(
+            [pred, 'path', 'MIS', 'QUBO', '--compare', '--limit', '20', '--json'],
+            check=True, capture_output=True).stdout)
+        self.page.wait_for_function("() => pathMessages.some(m => m.phase === 'comparison')")
+        messages = self.page.evaluate('pathMessages')
+        actual = next(m['result'] for m in messages if m['phase'] == 'paths'
+                      and m['result']['paths'][0]['path'][0]['from']['name'] == 'MaximumIndependentSet')
+        comparison = next(m['result'] for m in messages if m['phase'] == 'comparison')
+        # The page carries only the route itself; the CLI adds per-step and overall parameter metadata.
+        route_only = lambda r: {'steps': r['steps'], 'path': [{'from': s['from'], 'to': s['to']} for s in r['path']]}
+        self.assertEqual(actual['paths'], [route_only(r) for r in reference['paths']])
+        self.assertEqual(actual['truncated'], reference['truncated'])
+        expected = reference['polynomial_comparison']
+        self.assertEqual(comparison['front'], expected['front'])
+        self.assertEqual(comparison['counts'], expected['counts'])
+        self.assertNotIn('pairs', comparison)
+        for actual_profile, expected_profile in zip(comparison['profiles'], expected['profiles'], strict=True):
+            for name, field in actual_profile['fields'].items():
+                self.assertEqual(field['certificate'], expected_profile['fields'][name]['certificate'])
+                self.assertEqual(field['accuracy'], expected_profile['fields'][name]['accuracy'])
+        slower = self.page.get_by_role('button', name=re.compile('^Show .* slower routes$'))
+        if slower.count():
+            slower.click()
+        chains = set()
+        expect(self.page.locator('.copy')).to_have_text('Copy route for pred reduce --via')
+        for row in self.page.locator('.path').all():
+            n = int(row.get_attribute('data-path'))
+            route = route_only(reference['paths'][n - 1])
+            points = [route['path'][0]['from']] + [step['to'] for step in route['path']]
+            names = [v['name'] for i, v in enumerate(points) if not i or v['name'] != points[i - 1]['name']]
+            self.assertNotIn(tuple(names), chains)
+            chains.add(tuple(names))
+            row.click()
+            self.assertEqual(self.copy_route(), route)
+            self.assertEqual(set(self.page.evaluate("""() => document.querySelector('#cy')._cyreg.cy
+                .nodes('.route').map(n => n.id())""")), set(names))
+            groups = []
+            for point in points:
+                if groups and groups[-1][0] == point['name']:
+                    groups[-1][1].append(point['variant'])
+                else:
+                    groups.append((point['name'], [point['variant']]))
+            expect(self.page.locator('.steps li')).to_have_count(len(groups))
+            for i, (name, variants) in enumerate(groups):
+                group = self.page.locator('.steps li').nth(i)
+                if len([n for n in self.page.evaluate('REDUCTIONS.nodes') if n['name'] == name]) > 1:
+                    expected = ['   '.join(f'{k}: {v}' for k, v in variant.items()) for variant in variants]
+                    self.assertEqual(group.locator('.kv').all_text_contents(), expected)
+            expect(self.page.get_by_role('button', name='rule', exact=True)).to_have_count(len(groups) - 1)
+            self.assertEqual(self.page.locator('.path[aria-expanded="true"]').get_attribute('data-path'), str(n))
+        count = len(self.page.evaluate('pathMessages'))
+        self.choose_endpoint('source', 'MIS')
+        expect(self.page.locator('.size.pending')).to_have_count(0)
+        self.assertEqual(len(self.page.evaluate('pathMessages')), count)
+        self.page.get_by_role('button', name='Search more', exact=True).click()
+        expect(self.page.locator('.path').first).to_be_visible()
+
+    def test_graph_path_route_copy_solves_and_unreachable_query_is_explicit(self):
+        import tempfile
+        self.page.goto(self.base + 'graph.html')
+        self.choose_endpoint('source', 'MIS')
+        self.choose_endpoint('target', 'MIS')
+        self.page.locator('#target-options [aria-label="weight"]').get_by_role('button', name='i64', exact=True).click()
+        route = self.copy_route()
+        expect(self.page.locator('.steps li')).to_have_count(1)
+        expect(self.page.locator('.steps .kv')).to_have_count(2)
+        expect(self.page.get_by_role('button', name='rule', exact=True)).to_have_count(0)
+        self.assertEqual(route, {'steps': 1, 'path': [{
+            'from': {'name': 'MaximumIndependentSet', 'variant': {'graph': 'SimpleGraph', 'weight': 'One'}},
+            'to': {'name': 'MaximumIndependentSet', 'variant': {'graph': 'SimpleGraph', 'weight': 'i64'}}}]})
+        pred = str(Path(__file__).resolve().parents[1] / 'target/debug/pred')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'route.json'
+            path.write_text(json.dumps(route))
+            instance = subprocess.run([pred, 'create', 'MIS', '--graph', '0-1,1-2,2-3,3-4,4-0', '--json'],
+                                      check=True, capture_output=True).stdout
+            bundle = subprocess.run([pred, 'reduce', '-', '--via', str(path), '--json'],
+                                    input=instance, check=True, capture_output=True).stdout
+            result = json.loads(subprocess.run([pred, 'solve', '-', '--solver', 'brute-force', '--json'],
+                                input=bundle, check=True, capture_output=True).stdout)
+        self.assertEqual(result['evaluation'], 'Max(2)')
+        self.assertEqual(sum(result['solution']), 2)
+        self.assertTrue(all(not (result['solution'][u] and result['solution'][v])
+                            for u, v in [(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]))
+        self.choose_endpoint('target', 'Factoring')
+        expect(self.page.locator('#results')).to_contain_text('No reduction path connects these two.')
+        expect(self.page.locator('.path')).to_have_count(0)
+
+    def test_graph_rows_arrive_before_comparison_and_keep_user_selection(self):
+        self.observe_path_worker()
+        self.page.add_init_script('''window.onPathMessage = message => {
+            if (message.phase !== 'paths') return;
+            window.pendingAtPaths = document.querySelectorAll('.size.pending').length;
+            const row = document.querySelectorAll('.path')[1];
+            row.click();
+            window.chosenDuringComparison = row.dataset.path;
+        };''')
+        self.page.goto(self.base + 'graph.html')
+        self.page.wait_for_function("() => pathMessages.some(m => m.phase === 'comparison')")
+        self.assertGreater(self.page.evaluate('pendingAtPaths'), 0)
+        self.assertEqual(self.page.evaluate('pathMessages.map(m => m.phase)'), ['paths', 'comparison'])
+        expect(self.page.locator('.size.pending')).to_have_count(0)
+        self.assertEqual(self.page.locator('.path[aria-expanded="true"]').get_attribute('data-path'),
+                         self.page.evaluate('chosenDuringComparison'))
+
+    def test_graph_path_search_can_be_cancelled_without_blocking_the_page(self):
+        self.observe_path_worker()
+        self.page.add_init_script('''window.onPathMessage = message => {
+            if (message.phase !== 'paths') return;
+            window.onPathMessage = null;
+            window.pendingAtCancellation = document.querySelectorAll('.size.pending').length;
+            document.querySelector('#results .summary button').click();
+        };''')
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results')).to_contain_text('Search cancelled.')
+        self.assertGreater(self.page.evaluate('pendingAtCancellation'), 0)
+        self.page.locator('#target').fill('MIS')
+        expect(self.page.locator('#suggest [role="option"]').first).to_contain_text('Maximum Independent Set')
+        self.page.locator('#target').press('Enter')
+        expect(self.page.locator('#target')).to_have_value('Maximum Independent Set')
+
+    def test_graph_drawer_opens_from_popover_for_chosen_variant_and_closes_with_escape(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#details-drawer')).to_be_hidden()
+        self.open_problem_popover('MaximumIndependentSet')
+        self.page.locator('#pop [aria-label="weight"]').get_by_role('button', name='i64', exact=True).click()
+        before = self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
+            return {pan:cy.pan(), zoom:cy.zoom(), route:cy.elements('.route').map(n => n.id())}; }""")
+        self.page.get_by_role('button', name='Details', exact=True).click()
+        expect(self.page.locator('#details-title')).to_have_text('Maximum Independent Set')
+        expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
+        expect(self.page.locator('#drawer-atlas')).to_have_attribute('href', re.compile('variant=graph%3DSimpleGraph%2Cweight%3Di64'))
+        expect(self.page.locator('.dock')).to_be_hidden()
+        # Opening details keeps the route; the camera may only move so the route stays clear of the drawer.
+        after = self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
+            return {route:cy.elements('.route').map(n => n.id())}; }""")
+        self.assertEqual(after['route'], before['route'])
+        self.page.wait_for_timeout(600)
+        self.assertTrue(self.page.evaluate("""() => { const cy = document.querySelector('#cy')._cyreg.cy;
+            const b = cy.elements('.route').renderedBoundingBox({includeLabels: false});
+            return b.x2 <= document.querySelector('#details-drawer').getBoundingClientRect().left; }"""))
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#details-drawer')).to_be_hidden()
+        expect(self.page.locator('.dock')).to_be_visible()
+
+    def test_graph_drawer_opens_from_step_and_article_problem_links_frame_node(self):
+        self.page.goto(self.base + 'graph.html')
+        route = self.copy_route()
+        self.page.locator('.steps .name').first.click()
+        expect(self.page.locator('#details-title')).to_have_text('Satisfiability')
+        expect(self.page.locator('#drawer-body article')).to_contain_text('Definition')
+        expect(self.page.locator('#drawer-atlas')).to_have_attribute('href', './index.html#problem/Satisfiability')
+        # Most articles have no cross-problem links; this one links to Shortest Common Supersequence.
+        self.page.keyboard.press('Escape')
+        self.open_problem_popover('ShortestCommonSuperstring')
+        self.page.get_by_role('button', name='Details', exact=True).click()
+        expect(self.page.locator('#details-title')).to_have_text('Shortest Common Superstring')
+        expect(self.page.locator('#drawer-body article')).to_contain_text('substring containment')
+        selector = self.page.evaluate("""() => [...document.querySelectorAll('#drawer-body article a[href^="#"]')]
+            .find(a => GRAPH_DETAILS.anchors[a.hash.slice(1)] === 'problem:ShortestCommonSupersequence')?.getAttribute('href')""")
+        self.assertIsNotNone(selector)
+        self.page.locator('#drawer-body article a[href="' + selector + '"]').first.click()
+        expect(self.page.locator('#details-title')).to_have_text('Shortest Common Supersequence')
+        self.assertEqual(self.copy_route(), route)
+
+    def test_graph_drawer_opens_exact_cross_family_rule_from_connector_and_canvas(self):
+        self.page.goto(self.base + 'graph.html')
+        route = self.copy_route()
+        rule = next(step for step in route['path'] if step['from']['name'] != step['to']['name'])
+        self.page.get_by_role('button', name='rule', exact=True).first.click()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('Proof')
+        href = self.page.locator('#drawer-atlas').get_attribute('href')
+        from urllib.parse import parse_qs, urlparse
+        query = parse_qs(urlparse(href).fragment.partition('?')[2], keep_blank_values=True)
+        for side, key in [('from', 'from'), ('to', 'to')]:
+            self.assertEqual(query[key], [','.join(f'{k}={v}' for k, v in sorted(rule[side]['variant'].items()))])
+        title = self.page.locator('#details-title').inner_text()
+        self.page.get_by_role('button', name='Close details', exact=True).click()
+        point = self.page.evaluate("""id => {
+            const cy = document.querySelector('#cy')._cyreg.cy, edge = cy.getElementById(id);
+            const p = edge.midpoint(), z = cy.zoom();
+            cy.stop(); cy.pan({x:690 - p.x*z, y:320 - p.y*z});
+            return edge.renderedMidpoint();
+        }""", rule['from']['name'] + '→' + rule['to']['name'])
+        self.page.locator('#cy').click(position=point)
+        expect(self.page.locator('#details-title')).to_have_text(title)
+        expect(self.page.locator('#drawer-atlas')).to_have_attribute('href', href)
+        self.assertEqual(self.copy_route(), route)
+
+    def test_graph_details_load_lazily_reuse_family_article_and_preserve_atlas_variant(self):
+        requests = []
+        self.page.on('request', lambda request: requests.append(request.url))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.path').first).to_be_visible()
+        self.assertFalse(any('graph-details' in url or '/assets/details/' in url for url in requests))
+        self.open_problem_popover('MaximumIndependentSet')
+        self.page.get_by_role('button', name='Details', exact=True).click()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
+        self.assertFalse(any('graph-details.json' in url for url in requests))
+        self.page.keyboard.press('Escape')
+        self.open_problem_popover('MaximumIndependentSet')
+        self.page.locator('#pop [aria-label="weight"]').get_by_role('button', name='i64', exact=True).click()
+        self.page.get_by_role('button', name='Details', exact=True).click()
+        expect(self.page.locator('#drawer-body article')).to_have_attribute('data-content-key', 'problem:MaximumIndependentSet')
+        self.assertEqual(sum('/details/problem/MaximumIndependentSet.html' in url for url in requests), 1)
+        content = self.page.locator('#drawer-body article').inner_html()
         self.page.get_by_role('link', name='Open in Atlas').click()
         expect(self.page.locator('#variant-select')).to_have_value('graph=SimpleGraph,weight=i64')
-        expect(self.page.locator('.page-header > p')).to_have_count(0)
-        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
+        expect(self.page.locator('article.typst-detail')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
-        self.page.locator('.detail-references summary').click()
-        expect(self.page.locator('.detail-references li').first).to_be_visible()
 
-    def test_graph_rule_atlas_link_preserves_exact_endpoints(self):
+    def test_graph_mobile_drawer_has_no_horizontal_scroll(self):
+        self.page.set_viewport_size({'width':390, 'height':844})
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-browse="rules"]').click()
-        rule = self.page.evaluate('''() => REDUCTIONS.edges.findIndex(e =>
-            REDUCTIONS.nodes[e.source].name === 'MaximumIndependentSet' &&
-            REDUCTIONS.nodes[e.target].name === 'MaximumClique')''')
-        self.page.locator(f'[data-rule="{rule}"]').click()
-        expect(self.page.locator('article.typst-detail')).to_contain_text('Proof')
-        content = self.page.locator('article.typst-detail').inner_html()
-        endpoints = self.page.locator('.detail-variant').inner_text()
-        self.page.get_by_role('link', name='Open in Atlas').click()
-        expect(self.page.locator('article.typst-detail')).to_contain_text('Proof')
-        self.assertEqual(self.page.locator('article.typst-detail').inner_html(), content)
-        for endpoint in endpoints.split(' → '):
-            expect(self.page.locator('.rule-endpoints')).to_contain_text(endpoint.replace(', ', ' · '))
-
-    def test_graph_details_load_on_demand_and_reuse_family_content(self):
-        requests = []
-        self.page.on('request', lambda request: requests.append(request.url)
-                     if '/assets/details/' in request.url else None)
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        expect(self.page.locator('[data-family="AcyclicPartition"] small')).to_have_count(0)
-        expect(self.page.locator('[data-family="BinPacking"] small')).to_have_text('2 variants')
-        self.assertEqual(requests, [])
-        self.page.locator('[data-family="MaximumIndependentSet"]').click()
-        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
-        self.assertEqual(len(requests), 1)
-        self.page.locator('[data-variant="MaximumIndependentSet/graph=SimpleGraph,weight=i64"]').click()
-        expect(self.page.locator('.typst-detail')).to_contain_text('wireless network scheduling')
-        self.assertEqual(len(requests), 1)
-        self.page.locator('.detail-references summary').click()
-        expect(self.page.locator('.detail-references li').first).to_be_visible()
-        self.assertEqual(len(requests), 2)
-        self.assertTrue(self.page.locator('.typst-detail').evaluate('''article =>
-            [...article.querySelectorAll('use')].every(use =>
-                document.getElementById((use.getAttribute('href') || use.getAttribute('xlink:href')).slice(1)))'''))
-        self.page.locator('[data-browse="rules"]').click()
-        expect(self.page.locator('#browser-list')).not_to_contain_text('Default variant')
-
-    def test_graph_detail_errors_are_visible_and_retryable(self):
-        self.page.route('**/assets/details/problem/BinPacking.html', lambda route: route.fulfill(status=503))
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="BinPacking"]').click()
-        expect(self.page.locator('.typst-detail[role="alert"]')).to_contain_text('503')
-        self.page.unroute('**/assets/details/problem/BinPacking.html')
-        self.page.locator('[data-variant="BinPacking/weight=i64"]').click()
-        expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
-        expect(self.page.locator('.typst-detail[role="alert"]')).to_have_count(0)
-
-    def test_graph_footnote_errors_keep_the_article(self):
-        self.page.route('**/assets/details/footnotes.html', lambda route: route.fulfill(status=503))
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="QUBO"]').click()
-        expect(self.page.locator('.detail-footnotes[role="alert"]')).to_contain_text('503')
-        expect(self.page.locator('article.typst-detail')).to_contain_text('Definition')
-        expect(self.page.locator('article.typst-detail[role="alert"]')).to_have_count(0)
-        self.page.unroute('**/assets/details/footnotes.html')
-        self.page.locator('[data-variant="QUBO/weight=i64"]').click()
-        expect(self.page.locator('.detail-footnotes li')).to_have_count(1)
-        expect(self.page.locator('.detail-footnotes[role="alert"]')).to_have_count(0)
-        self.page.locator('article.typst-detail [role="doc-noteref"] a').click()
-        expect(self.page.locator('.detail-footnotes li')).to_be_in_viewport()
-
-    def test_graph_data_errors_are_visible(self):
-        self.page.route('**/assets/graph-data.js*', lambda route: route.fulfill(status=503))
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('.graph-canvas-note')).to_contain_text('Unable to load graph: Cannot load graph data')
-        self.assertEqual(len(self.errors), 1)
-        self.errors.clear()
-
-    def test_graph_details_inherit_typst_content_without_changing_variant(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.page.locator('[data-family="MaximumIndependentSet"]').click()
-        variant = 'MaximumIndependentSet/graph=SimpleGraph,weight=i64'
-        self.page.locator(f'[data-variant="{variant}"]').click()
-        article = self.page.locator('.typst-detail')
-        expect(article).to_have_attribute('data-content-key', 'problem:MaximumIndependentSet')
-        expect(article).to_contain_text('wireless network scheduling')
-        expect(article.locator('figure > svg')).to_have_count(1)
-        expect(self.page.locator('.detail-variant')).to_have_text('graph: SimpleGraph, weight: i64')
-        expect(self.page.locator(f'[data-variant="{variant}"]')).to_have_attribute('aria-current', 'true')
-        self.assertTrue(article.locator('p').first.locator('.typst-math svg').count() > 0)
-        article.locator('a[role="doc-biblioref"]').first.click()
-        expect(self.page.locator('.detail-references')).to_have_attribute('open', '')
-        self.assertTrue(self.page.locator('.graph-inspector').evaluate(
-            '(panel) => panel.scrollWidth <= panel.clientWidth'))
-
-        # A specialized entry takes precedence over the shared family text.
-        self.page.route('**/weighted-detail.html', lambda route: route.fulfill(
-            content_type='text/html', body='<p>Weighted simple-graph documentation.</p>'))
-        self.page.evaluate("""key => {
-            window.GRAPH_DETAILS.entries['problem:' + key] = './weighted-detail.html';
-            document.querySelector('#cy')._cyreg.cy.getElementById(key).emit('tap');
-        }""", variant)
-        expect(article).to_have_attribute('data-content-key', 'problem:' + variant)
-        expect(article).to_have_text('Weighted simple-graph documentation.')
-
-        self.page.locator('[data-browse="rules"]').click()
-        rule = self.page.evaluate("""() => REDUCTIONS.edges.findIndex(rule =>
-            REDUCTIONS.nodes[rule.source].name === 'MaximumIndependentSet' &&
-            REDUCTIONS.nodes[rule.target].name === 'MaximumClique')""")
-        self.page.locator(f'[data-rule="{rule}"]').click()
-        expect(article).to_have_attribute('data-content-key', 'rule:MaximumIndependentSet->MaximumClique')
-        expect(article).to_contain_text('Solution extraction.')
-        expect(article).to_contain_text('pred reduce mis.json')
-        expect(self.page.locator('.detail-source')).to_have_count(0)
-        self.page.get_by_role('button', name='Reset view').click()
-        expect(self.page.locator('#graph-detail')).to_be_empty()
-
-    def test_graph_rule_selection_highlights_matching_list_items(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        expected = self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            const edge = cy.edges().filter(edge => edge.visible()).last();
-            const matches = REDUCTIONS.edges.flatMap((rule, index) =>
-                REDUCTIONS.nodes[rule.source].name === edge.source().id() &&
-                REDUCTIONS.nodes[rule.target].name === edge.target().id() ? [String(index)] : []);
-            edge.emit('tap');
-            return matches;
-        }""")
-        selected = self.page.locator('#browser-list [data-rule][aria-current="true"]')
-        self.assertEqual(selected.evaluate_all('(items) => items.map(item => item.dataset.rule)'), expected)
-        expect(selected.first).to_be_in_viewport()
-        self.assertNotEqual(selected.first.evaluate('(item) => getComputedStyle(item).backgroundColor'),
-                            self.page.locator('#browser-list [aria-current="false"]').first.evaluate(
-                                '(item) => getComputedStyle(item).backgroundColor'))
-
-    def test_graph_browser_lists_real_problems_variants_and_rules(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        expected = self.page.evaluate("""() => ({
-            families: new Set(REDUCTIONS.nodes.map(node => node.name)).size,
-            rules: REDUCTIONS.edges.length,
-            rule: REDUCTIONS.edges.findIndex(rule =>
-                REDUCTIONS.nodes[rule.source].name === 'MaximumIndependentSet' &&
-                REDUCTIONS.nodes[rule.target].name === 'MaximumClique')
-        })""")
-        expect(self.page.locator('#browser-list [data-family]')).to_have_count(expected['families'])
-        self.page.locator('#browser-search').fill('MIS')
-        expect(self.page.locator('#browser-list [data-family="MaximumIndependentSet"]')).to_be_visible()
-        self.page.locator('#browser-list [data-family="MaximumIndependentSet"]').click()
-        expect(self.page.locator('#browser-list [data-variant]')).to_have_count(8)
-        variant = 'MaximumIndependentSet/graph=SimpleGraph,weight=i64'
-        self.page.locator(f'#browser-list [data-variant="{variant}"]').click()
-        expect(self.page.locator(f'#browser-list [data-variant="{variant}"]')).to_have_attribute('aria-current', 'true')
-        viewport = self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            return {zoom: cy.zoom(), pan: cy.pan()};
-        }""")
-        self.page.locator('[data-browse="rules"]').click()
-        expect(self.page.locator('#browser-list [data-rule]')).to_have_count(expected['rules'])
-        self.assertEqual(self.page.evaluate("""() => {
-            const cy = document.querySelector('#cy')._cyreg.cy;
-            return {zoom: cy.zoom(), pan: cy.pan()};
-        }"""), viewport)
-        self.page.locator(f'[data-rule="{expected["rule"]}"]').click()
-        self.assertTrue(self.page.evaluate("""index => {
-            const rule = REDUCTIONS.edges[index];
-            const key = node => node.name + '/' + Object.entries(node.variant)
-                .sort(([a], [b]) => a.localeCompare(b)).map(([k,v]) => `${k}=${v}`).join(',');
-            const edge = document.querySelector('#cy')._cyreg.cy.edges('.selected');
-            return edge.length === 1 && edge.source().id() === key(REDUCTIONS.nodes[rule.source]) &&
-                edge.target().id() === key(REDUCTIONS.nodes[rule.target]);
-        }""", expected['rule']))
-        same_family_rule = self.page.evaluate("""() => REDUCTIONS.edges.findIndex(rule =>
-            REDUCTIONS.nodes[rule.source].name === 'MaximumIndependentSet' &&
-            REDUCTIONS.nodes[rule.target].name === 'MaximumIndependentSet')""")
-        self.page.locator(f'[data-rule="{same_family_rule}"]').click()
-        self.assertTrue(self.page.evaluate("""() => {
-            const edge = document.querySelector('#cy')._cyreg.cy.edges('.selected');
-            return edge.length === 1 && edge.source().id() !== edge.target().id() &&
-                edge.source().parent().id() === 'MaximumIndependentSet' &&
-                edge.target().parent().id() === 'MaximumIndependentSet';
-        }"""))
-        expect(self.page.locator('.typst-detail')).to_contain_text('Proof')
-        self.page.locator('#browser-search').fill('no-such-reduction')
-        expect(self.page.locator('.browser-empty')).to_be_visible()
-
-    def test_graph_overview_is_stable_and_labels_do_not_overlap(self):
-        self.page.goto(self.base + "graph.html")
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        positions = self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes()
-                .map(node => ({id: node.id(), ...node.position()}))
-        """)
-        self.page.reload()
-        expect(self.page.locator("#cy canvas").first).to_be_visible()
-        self.assertEqual(self.page.evaluate("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes()
-                .map(node => ({id: node.id(), ...node.position()}))
-        """), positions)
-        self.page.wait_for_function("""() =>
-            document.querySelector('#cy')._cyreg.cy.nodes('.named').length > 0
-        """)
-        self.assertTrue(self.page.evaluate("""() => {
-            const labels = document.querySelector('#cy')._cyreg.cy.nodes('.named')
-                .map(node => node.renderedBoundingBox({includeNodes: false, includeLabels: true}));
-            return labels.every((a, i) => labels.slice(i + 1).every(b =>
-                a.x2 <= b.x1 || b.x2 <= a.x1 || a.y2 <= b.y1 || b.y2 <= a.y1));
-        }"""))
+        self.page.locator('.steps .name').first.click()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('Definition')
+        expect(self.page.get_by_role('button', name='Close details', exact=True)).to_be_visible()
+        self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth > innerWidth'))
+        self.assertEqual(self.page.locator('#details-drawer').bounding_box(), {'x':0, 'y':0, 'width':390, 'height':844})
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#details-drawer')).to_be_hidden()
 
 
 def responsive_check(width):
@@ -1001,8 +731,8 @@ def responsive_check(width):
         self.assertFalse(self.page.evaluate(
             "document.documentElement.scrollWidth > innerWidth"
         ), f"Horizontal overflow at {width}px on graph.html")
-        self.page.locator("#graph-search").fill("MIS")
-        self.page.locator("#graph-search").press("Enter")
+        self.page.locator('.steps .name').first.click()
+        expect(self.page.locator('#details-drawer')).to_be_visible()
         self.assertFalse(self.page.evaluate(
             "document.documentElement.scrollWidth > innerWidth"
         ), f"Horizontal overflow at {width}px with graph details open")
