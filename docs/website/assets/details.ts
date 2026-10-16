@@ -1,216 +1,204 @@
 import { validateDetailsIndexData } from './graph-details-data.mts';
 import type { GraphDetailsIndex } from './graph-details.validator.mjs';
 
-declare global {
-  interface Window {
-    GRAPH_DETAILS?: GraphDetailsIndex;
-    loadDetailsIndex(): Promise<GraphDetailsIndex>;
-    renderDetails(detail: HTMLElement, title: string, variant: string, key: string, parentKey: string,
-      onProblem: (name: string) => void): Promise<void>;
+let detailsIndex: GraphDetailsIndex | undefined;
+const detailCache = new Map<string, Promise<string>>();
+let manifest: Promise<GraphDetailsIndex> | null = null;
+let renderRequest = 0;
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+function normalizeReferenceRoles(container: Element) {
+  for (const wrapper of container.querySelectorAll('sup[role="doc-noteref"], sup[role="doc-backlink"]')) {
+    const role = wrapper.getAttribute('role');
+    if (role) for (const link of wrapper.querySelectorAll('a[href]')) link.setAttribute('role', role);
+    wrapper.removeAttribute('role');
   }
 }
-
-(() => {
-  "use strict";
-  const detailCache = new Map<string, Promise<string>>();
-  let manifest: Promise<GraphDetailsIndex> | null = null;
-  let renderRequest = 0;
-  function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-  }
-  function normalizeReferenceRoles(container: Element) {
-    for (const wrapper of container.querySelectorAll('sup[role="doc-noteref"], sup[role="doc-backlink"]')) {
-      const role = wrapper.getAttribute('role');
-      if (role) for (const link of wrapper.querySelectorAll('a[href]')) link.setAttribute('role', role);
-      wrapper.removeAttribute('role');
-    }
-  }
-  window.loadDetailsIndex = function() {
-    if (window.GRAPH_DETAILS) return Promise.resolve(window.GRAPH_DETAILS);
-    const indexURL = new URL('./assets/graph-details.json', window.location.href);
-    manifest ||= fetch(indexURL).then(response => {
-      if (!response.ok) throw new Error('Cannot load documentation index. Reload the page to get the current release.');
-      return response.json();
-    }).then((value: unknown) => {
-      performance.mark('details:index-json-parsed');
-      const index = validateDetailsIndexData(value, new URL(window.location.href), new URL('./details/', indexURL));
-      performance.mark('details:index-validated');
-      return window.GRAPH_DETAILS = index;
-    }).catch(error => {
-      manifest = null;
+export function loadDetailsIndex() {
+  if (detailsIndex) return Promise.resolve(detailsIndex);
+  const indexURL = new URL('./assets/graph-details.json', window.location.href);
+  manifest ||= fetch(indexURL).then(response => {
+    if (!response.ok) throw new Error('Cannot load documentation index. Reload the page to get the current release.');
+    return response.json();
+  }).then((value: unknown) => {
+    performance.mark('details:index-json-parsed');
+    const index = validateDetailsIndexData(value, new URL(window.location.href), new URL('./details/', indexURL));
+    performance.mark('details:index-validated');
+    return detailsIndex = index;
+  }).catch(error => {
+    manifest = null;
+    throw error;
+  });
+  return manifest;
+}
+function loadDetail(key: string): Promise<string> {
+  const url = detailsIndex?.entries[key];
+  if (!url) return Promise.reject(new Error(`Missing detail file: ${key}`));
+  let content = detailCache.get(url);
+  if (!content) {
+    content = fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`Cannot load documentation (${response.status})`);
+      return response.text();
+    }).catch((error) => {
+      detailCache.delete(url);
       throw error;
     });
-    return manifest;
-  };
-  function loadDetail(key: string): Promise<string> {
-    const url = window.GRAPH_DETAILS?.entries[key];
-    if (!url) return Promise.reject(new Error(`Missing detail file: ${key}`));
-    let content = detailCache.get(url);
-    if (!content) {
-      content = fetch(url).then((response) => {
-        if (!response.ok) throw new Error(`Cannot load documentation (${response.status})`);
-        return response.text();
-      }).catch((error) => {
-        detailCache.delete(url);
-        throw error;
-      });
-      detailCache.set(url, content);
-      const oldest = detailCache.keys().next();
-      if (detailCache.size > 24 && !oldest.done) detailCache.delete(oldest.value);
-    } else {
-      detailCache.delete(url);
-      detailCache.set(url, content);
-    }
-    return content;
+    detailCache.set(url, content);
+    const oldest = detailCache.keys().next();
+    if (detailCache.size > 24 && !oldest.done) detailCache.delete(oldest.value);
+  } else {
+    detailCache.delete(url);
+    detailCache.set(url, content);
   }
+  return content;
+}
 
-  window.renderDetails = async function(detail, title, variant, key, parentKey, onProblem) {
-    const request = ++renderRequest;
-    detail.replaceChildren();
-    detail.onclick = (event) => {
-      if (!(event.target instanceof Element)) return;
-      const link = event.target.closest('a[href^="#"]');
-      if (!link) return;
-      const anchor = link.getAttribute('href')?.slice(1);
-      if (!anchor) return;
-      const anchors = window.GRAPH_DETAILS?.anchors;
-      const key = anchors && Object.hasOwn(anchors, anchor) ? anchors[anchor] : undefined;
-      if (key?.startsWith("problem:") && key !== detail.querySelector("article")?.dataset.contentKey) {
-        event.preventDefault();
-        onProblem(key.slice("problem:".length));
-        return;
-      }
-      if (link.getAttribute("role") === "doc-biblioref") {
-        event.preventDefault();
-        const references = detail.querySelector<HTMLDetailsElement>(".detail-references");
-        if (!references) return;
-        references.open = true;
-        references.scrollIntoView({ block: "nearest" });
-        return;
-      }
-      const target = detail.querySelector(`[id="${CSS.escape(anchor)}"]`);
-      if (!target) {
-        if (key === detail.querySelector("article")?.dataset.contentKey) {
-          event.preventDefault();
-          detail.scrollIntoView({ block: "start" });
-        }
-        return;
-      }
+export async function renderDetails(detail: HTMLElement, title: string, variant: string, key: string, parentKey: string, onProblem: (name: string) => void) {
+  const request = ++renderRequest;
+  detail.replaceChildren();
+  detail.onclick = (event) => {
+    if (!(event.target instanceof Element)) return;
+    const link = event.target.closest('a[href^="#"]');
+    if (!link) return;
+    const anchor = link.getAttribute('href')?.slice(1);
+    if (!anchor) return;
+    const anchors = detailsIndex?.anchors;
+    const key = anchors && Object.hasOwn(anchors, anchor) ? anchors[anchor] : undefined;
+    if (key?.startsWith("problem:") && key !== detail.querySelector("article")?.dataset.contentKey) {
       event.preventDefault();
-      const references = target.closest("details");
-      if (references) references.open = true;
-      const focus = target.matches('sup') ? target.querySelector('a[href]') : target;
-      if (focus instanceof HTMLElement || focus instanceof SVGElement) {
-        if (!focus.matches('a[href], button, input, select, textarea, summary, [tabindex]')) focus.tabIndex = -1;
-        focus.focus({preventScroll: true});
-      }
-      target.scrollIntoView({ block: "nearest" });
-    };
-
-    if (title) {
-      const heading = document.createElement("h2");
-      heading.textContent = title;
-      detail.append(heading);
+      onProblem(key.slice("problem:".length));
+      return;
     }
-    if (variant) {
-      const parameters = document.createElement("p");
-      parameters.className = "detail-variant";
-      parameters.textContent = variant;
-      detail.append(parameters);
+    if (link.getAttribute("role") === "doc-biblioref") {
+      event.preventDefault();
+      const references = detail.querySelector<HTMLDetailsElement>(".detail-references");
+      if (!references) return;
+      references.open = true;
+      references.scrollIntoView({ block: "nearest" });
+      return;
     }
-    const article = document.createElement("article");
-    article.className = "typst-detail";
-    article.textContent = "Loading documentation…";
-    detail.append(article);
-    let index: GraphDetailsIndex;
-    try {
-      index = await window.loadDetailsIndex();
-    } catch (error) {
-      if (request === renderRequest) {
-        article.textContent = errorMessage(error);
-        article.setAttribute("role", "alert");
+    const target = detail.querySelector(`[id="${CSS.escape(anchor)}"]`);
+    if (!target) {
+      if (key === detail.querySelector("article")?.dataset.contentKey) {
+        event.preventDefault();
+        detail.scrollIntoView({ block: "start" });
       }
       return;
     }
-    if (request !== renderRequest || !article.isConnected) return;
-    const contentKey = index.entries[key] ? key : parentKey;
-    const available = Boolean(index.entries[contentKey]);
-    if (!available) {
-      const note = document.createElement("p");
-      note.className = "detail-source";
-      note.textContent = "No documentation is available for this entry or its parent family.";
-      detail.append(note);
+    event.preventDefault();
+    const references = target.closest("details");
+    if (references) references.open = true;
+    const focus = target.matches('sup') ? target.querySelector('a[href]') : target;
+    if (focus instanceof HTMLElement || focus instanceof SVGElement) {
+      if (!focus.matches('a[href], button, input, select, textarea, summary, [tabindex]')) focus.tabIndex = -1;
+      focus.focus({preventScroll: true});
     }
-    article.dataset.contentKey = contentKey;
-    if (available) {
-      article.textContent = "Loading documentation…";
-      article.setAttribute("aria-busy", "true");
-    }
-    if (!available) { article.remove(); return; }
-    try {
-      const content = await loadDetail(contentKey);
-      if (!article.isConnected) return;
-      // HTML is generated at build time from the repository's Typst source.
-      article.innerHTML = content;
-      // Atlas embeds these sections directly below its page h1; Graph has a drawer h2.
-      if (detail.classList.contains('reference-detail')) for (const heading of article.querySelectorAll('h3')) {
-        const replacement = document.createElement('h2');
-        for (const attribute of heading.attributes) replacement.setAttribute(attribute.name, attribute.value);
-        replacement.append(...heading.childNodes); heading.replaceWith(replacement);
-      }
-      article.querySelectorAll('pre').forEach(code => { code.tabIndex = 0; });
-      normalizeReferenceRoles(article);
-      const citations = new Set([...article.querySelectorAll('a[role="doc-biblioref"]')]
-        .map((link) => link.getAttribute('href')?.slice(1)));
-      if (citations.size) {
-        const references = document.createElement("details");
-        references.className = "detail-references";
-        const summary = document.createElement('summary');
-        summary.textContent = 'References';
-        const body = document.createElement('div');
-        references.append(summary, body);
-        article.after(references);
-        let loaded = false;
-        references.addEventListener("toggle", async () => {
-          if (!references.open || loaded) return;
-          body.textContent = "Loading references…";
-          try {
-            body.innerHTML = await loadDetail("references");
-            body.querySelectorAll("li").forEach((item) => {
-              if (!citations.has(item.id)) item.remove();
-            });
-            loaded = true;
-          } catch (error) {
-            body.textContent = errorMessage(error);
-            body.setAttribute("role", "alert");
-          }
-        });
-      }
-      if (article.querySelector('a[role="doc-noteref"]')) {
-        const notes = document.createElement("aside");
-        notes.className = "typst-detail detail-footnotes";
-        try {
-          notes.innerHTML = await loadDetail("footnotes");
-          normalizeReferenceRoles(notes);
-          const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.getAttribute('href')?.slice(1)));
-          notes.querySelectorAll('li').forEach((item) => {
-            if (!used.has(item.id)) item.remove();
-          });
-        } catch (error) {
-          // The article is already rendered; only its footnotes degrade.
-          notes.textContent = errorMessage(error);
-          notes.setAttribute("role", "alert");
-        }
-        if (!article.isConnected) return;
-        article.after(notes);
-      }
-    } catch (error) {
-      if (!article.isConnected) return;
+    target.scrollIntoView({ block: "nearest" });
+  };
+
+  if (title) {
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    detail.append(heading);
+  }
+  if (variant) {
+    const parameters = document.createElement("p");
+    parameters.className = "detail-variant";
+    parameters.textContent = variant;
+    detail.append(parameters);
+  }
+  const article = document.createElement("article");
+  article.className = "typst-detail";
+  article.textContent = "Loading documentation…";
+  detail.append(article);
+  let index: GraphDetailsIndex;
+  try {
+    index = await loadDetailsIndex();
+  } catch (error) {
+    if (request === renderRequest) {
       article.textContent = errorMessage(error);
       article.setAttribute("role", "alert");
-    } finally {
-      article.removeAttribute("aria-busy");
     }
+    return;
   }
-
-})();
+  if (request !== renderRequest || !article.isConnected) return;
+  const contentKey = index.entries[key] ? key : parentKey;
+  const available = Boolean(index.entries[contentKey]);
+  if (!available) {
+    const note = document.createElement("p");
+    note.className = "detail-source";
+    note.textContent = "No documentation is available for this entry or its parent family.";
+    detail.append(note);
+  }
+  article.dataset.contentKey = contentKey;
+  if (available) {
+    article.textContent = "Loading documentation…";
+    article.setAttribute("aria-busy", "true");
+  }
+  if (!available) { article.remove(); return; }
+  try {
+    const content = await loadDetail(contentKey);
+    if (!article.isConnected) return;
+    // HTML is generated at build time from the repository's Typst source.
+    article.innerHTML = content;
+    // Atlas embeds these sections directly below its page h1; Graph has a drawer h2.
+    if (detail.classList.contains('reference-detail')) for (const heading of article.querySelectorAll('h3')) {
+      const replacement = document.createElement('h2');
+      for (const attribute of heading.attributes) replacement.setAttribute(attribute.name, attribute.value);
+      replacement.append(...heading.childNodes); heading.replaceWith(replacement);
+    }
+    article.querySelectorAll('pre').forEach(code => { code.tabIndex = 0; });
+    normalizeReferenceRoles(article);
+    const citations = new Set([...article.querySelectorAll('a[role="doc-biblioref"]')]
+      .map((link) => link.getAttribute('href')?.slice(1)));
+    if (citations.size) {
+      const references = document.createElement("details");
+      references.className = "detail-references";
+      const summary = document.createElement('summary');
+      summary.textContent = 'References';
+      const body = document.createElement('div');
+      references.append(summary, body);
+      article.after(references);
+      let loaded = false;
+      references.addEventListener("toggle", async () => {
+        if (!references.open || loaded) return;
+        body.textContent = "Loading references…";
+        try {
+          body.innerHTML = await loadDetail("references");
+          body.querySelectorAll("li").forEach((item) => {
+            if (!citations.has(item.id)) item.remove();
+          });
+          loaded = true;
+        } catch (error) {
+          body.textContent = errorMessage(error);
+          body.setAttribute("role", "alert");
+        }
+      });
+    }
+    if (article.querySelector('a[role="doc-noteref"]')) {
+      const notes = document.createElement("aside");
+      notes.className = "typst-detail detail-footnotes";
+      try {
+        notes.innerHTML = await loadDetail("footnotes");
+        normalizeReferenceRoles(notes);
+        const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.getAttribute('href')?.slice(1)));
+        notes.querySelectorAll('li').forEach((item) => {
+          if (!used.has(item.id)) item.remove();
+        });
+      } catch (error) {
+        // The article is already rendered; only its footnotes degrade.
+        notes.textContent = errorMessage(error);
+        notes.setAttribute("role", "alert");
+      }
+      if (!article.isConnected) return;
+      article.after(notes);
+    }
+  } catch (error) {
+    if (!article.isConnected) return;
+    article.textContent = errorMessage(error);
+    article.setAttribute("role", "alert");
+  } finally {
+    article.removeAttribute("aria-busy");
+  }
+}

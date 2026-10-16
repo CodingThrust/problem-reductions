@@ -274,7 +274,33 @@ Revert the Atlas schema/generated files, producer markers/validation, typed site
 entry and checker configuration together to roll back this migration. Deploy a
 complete prior release; do not mix old data with the new consumer.
 
-Native export validation and WASM request wire schemas still need migration.
+Native registry exports are validated against `native-exports.schema.json`
+before the builder indexes or transforms them. Reference validation reuses the
+path metadata checks rather than copying them; schema/family/category and alias
+checks preserve the registry-owned model categories and exact expression text.
+
+WASM request schemas now derive from the real Rust deserialization structs.
+Generated request types check the worker's construction from already-validated
+graph, message and route data. Rust still deserializes incoming JSON and checks
+its native semantics. Optional fields remain optional/nullable, and the native
+API still accepts its existing ignored metadata. Generated TypeScript describes
+the known fields without adding index signatures that force internal copies.
+There is no second runtime validation of typed internal requests.
+
+`details.ts` exports the loader/render functions and keeps its index/cache private.
+Graph startup is a shared module export, retaining the existing early-start
+sequence and compressed-WASM preload. Both pages import their actual dependencies;
+there are no window-level application methods or startup objects. The existing
+`REDUCTIONS` data exposure remains for benchmark consumers and the embedded home
+data boundary. Graph HTML also names its public scene URL in `data-scene`.
+The browser cache test navigates actual pages, and scene/reference tests read
+public metadata rather than accessing private module state. No renderer abstraction,
+state framework, styling changes or new test infrastructure were introduced.
+
+Rollback the native-export contract/entry validation together, and request
+schema/type generation with its native structs and typed worker calls together.
+Roll back module exports/imports and their HTML entries/callers as one change;
+preserve early downloads, bounded caches, cancellation and failure handling.
 Rollback the worker protocol, scene capability version, validators, producer and
 both typed entry points together to the prior complete release; preserve the
 independent path/comparison schemas and Vite integration.
@@ -321,7 +347,10 @@ CI acceptance is incomplete. The first branch run selected a board tree without
 the required prompt feature. The corrected source pin matches the tested local
 board tree, but its fresh CI build failed fetching a commit-pinned `Challenge.lean`
 with HTTP 404. That external source/access failure must be resolved and the full
-workflow verified. Neither failed run certifies Linux browser behavior. Further
+workflow verified. A clean archive of that pinned board source was also rebuilt locally in this
+stage: fetching Q045 `comparator.json` failed with a proxy tunnel HTTP 503. This
+fresh dependency build remains unverified; the existing built board passes the
+integrated production checks. Neither failed CI run certifies Linux browser behavior. Further
 feature pushes and workflow runs require explicit authorization.
 
 ## Performance and appearance evidence
@@ -412,3 +441,38 @@ manual screen-reader behavior. [ACCESSIBILITY_CHECKS.md](ACCESSIBILITY_CHECKS.md
 specifies Safari 27.0.1/VoiceOver desktop and named physical-mobile acceptance;
 those required manual checks remain unrun. Stages 0–2 and the final handoff retain
 their unresolved timing, CI and manual gates. Claude's visual phase is unstarted.
+
+## Latest contract/module acceptance
+
+The complete local production command passed after native contract integration
+and module cleanup: strict checking, lint, schema drift, independent mathematical
+and CLI/browser workflows, root/nested hosting and recovery in all three engines.
+The existing two CDP-only skips remain explicit. No single listed test exceeded
+4.06 seconds. Request-schema additions affect native schema export only; five
+real route queries, the wide-rational fixture and all four verdicts agree with
+the previous WASM artifact. WASM remains 776,965 bytes raw / 267,406 gzip; its binary
+hash changed, while its tested mathematical responses did not. Published JavaScript
+is 334,676 decoded bytes, down 366 bytes; CSS and both compressed graph payloads
+are byte-identical.
+
+Thirteen screenshot files matched byte for byte in the batch. Mobile Atlas had
+50 rounded-corner pixels differing; a focused repeat matched
+the previous reference exactly. Keep both captures outside Git rather than replacing
+the first sample. Appearance and existing markup/styles are preserved.
+
+A desktop pilot with ten fresh browser processes measured median/p95 milliseconds:
+usable routes 78.75/87.50, full readiness 645.30/667.90,
+and startup input/suggestion round trip 35.90/44.60. All ten inputs
+occurred before comparison finished. Worker metadata validation was
+1.75/2.20; first worker request validation
+0.20/0.20; main-thread path and comparison validation
+0.90/1.00 and 1.20/1.40.
+
+A separate ten-process Node pilot of first-call Atlas validation measured
+1.78/2.50 ms for the summary and
+2.20/3.38 ms for the largest record (ILP.json).
+These exclude module loading, I/O and rendering; JSON parsing is recorded separately.
+Browser timing, Node guard cost and renderer cost are distinct measurements. Each
+nearest-rank p95 here is the maximum of ten observations, so these remain informative
+pilots, not calibrated regression gates or proof of the absolute frame targets.
+Manual screen-reader/device acceptance and fresh CI verification remain open.

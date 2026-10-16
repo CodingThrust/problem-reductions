@@ -1,5 +1,8 @@
+import { loadDetailsIndex, renderDetails } from './details.ts';
 import { validateAtlasSummary, validateAtlasRecord } from './atlas-data.mts';
 import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from './atlas-data.validator.mjs';
+
+declare global { interface Window { REDUCTIONS: unknown } }
 
 /* The site is a static client of the same registry exports as the book and paper. */
 (() => {
@@ -407,7 +410,7 @@ import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from
         );
         location.hash = problemHref(name, selected);
       });
-    window.renderDetails($("#reference-detail"), "", "",
+    renderDetails($("#reference-detail"), "", "",
       `problem:${name}/${variantKey(node)}`, `problem:${name}`, openReferenceProblem);
   }
 
@@ -450,7 +453,7 @@ import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from
           <a href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}">Test source <span>↗</span></a>
         </aside>
       </div>`;
-    window.renderDetails($("#reference-detail"), "", "",
+    renderDetails($("#reference-detail"), "", "",
       `rule:${sourceName}/${variantKey(source)}->${targetName}/${variantKey(target)}`,
       `rule:${sourceName}->${targetName}`, openReferenceProblem);
   }
@@ -473,7 +476,7 @@ import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from
     }
     const params = new URLSearchParams(search);
     let record: AtlasRecord | undefined;
-    if (["atlas", "problem", "reduction"].includes(parts[0])) window.loadDetailsIndex().catch(() => {});
+    if (["atlas", "problem", "reduction"].includes(parts[0])) loadDetailsIndex().catch(() => {});
     if (["problem", "reduction"].includes(parts[0])) {
       const name = parts[1];
       if (!name || !families.includes(name)) { notFound(); return; }

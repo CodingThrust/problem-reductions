@@ -8,7 +8,7 @@ other rows remain open.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
 | --- | --- | --- | --- |
-| Native graph and schema exports (`examples/export_graph.rs`, `examples/export_schemas.rs`) | `scripts/build_website.py`: `json.loads` | Node presence and endpoint bounds checked; Python dictionaries have no shared schema | Validate export shape before indexing it; retain endpoint checks and validate the derived artifacts below |
+| Native graph and schema exports (`examples/export_graph.rs`, `examples/export_schemas.rs`) | `scripts/build_website.py`: `json.loads` | Native-export schema and generated guard/types validate both raw exports before builder access; shared graph-reference checks | Preserve exact expressions, family/category agreement, aliases, variants/defaults, endpoints and target-parameter coverage; validate derived artifacts separately at their own boundaries |
 | `home-data.js`, emitted by Python as `window.REDUCTIONS` | `assets/site.ts` | Version-1 summary schema, generated guard/types and producer validation; unknown input validated before catalog use | Reject malformed summaries and inconsistent family/variant/endpoint references with an alert; preserve optional labels/aliases |
 | `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.ts` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates and remaining rows stay open |
 | `path-graph.json.gz`, emitted by Python | `assets/path-worker.ts`: decompress, parse unknown, call strict `path-graph-data.mts` | Version-1 schema and generated guard/types; same producer/consumer validation; safe indices, unique variants/defaults/edges, coordinate and target-field checks | Local malformed-input, real-browser rejection/retry and all-engine production/nested checks passed; preserve exact formula strings, tagged nullable fields and explicit native contract errors; incoming requests/replies and query/registered witness-route checks are now implemented |
@@ -16,7 +16,7 @@ other rows remain open.
 | `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.ts`: parsed unknown, validated before caching; shared by graph and Atlas | Versioned schema, generated guard/types, producer validation; URLs confined to the current release's article subtree; anchor targets checked | Local malformed-input and all-engine rejection/retry, production and nested-path checks passed; preserve bounded cache, HTML safety guard and CSP; CI/manual gates remain open |
 | Main thread → worker version-1 search/compare request | `path-worker.ts`: `onmessage` | Unknown structured clone validated against generated request schema and cached-route contract | Safe bounds, query/limit agreement, registered simple witness paths; retain native request validation |
 | Worker → main thread `{phase,result}` or `{phase,error}` | `graph.ts`: `onmessage` | Unknown envelope validated against generated reply schema and the corresponding WASM payload contract; stale worker identity checked | Require paths before comparison and query/route agreement; preserve termination, retry and bounded cache |
-| JSON strings for `find_paths`, `compare_paths`, `summarize_paths` | `problemreductions-web/src/lib.rs` | Typed Rust `Deserialize` requests and semantic validation | Derive request schemas from real wire structs; validate browser-side requests before serialization and preserve Rust validation |
+| JSON strings for `find_paths`, `compare_paths`, `summarize_paths` | `problemreductions-web/src/lib.rs` | Rust-derived input schemas/types; worker construction uses already-validated graph, message and route data | Rust deserializes the incoming string and validates native semantics; preserve optional/null fields and ignored metadata without repeating full graph validation inside typed callers |
 | WASM path response string | `path-worker.ts` calls strict `wasm-paths-data.mts`: parse unknown, validate, then post routes | Rust `WasmPathResult`, version 1; Schemars-derived serialization schema; generated guard/types; safe step counts and chain continuity checked | Local malformed-input, real-worker rejection and all-engine production checks passed; metadata/envelope and registered witness-endpoint cross-checks are now implemented |
 | WASM comparison response strings | Worker consumes summary through strict `wasm-comparison-data.mts`; benchmark sample mode validates full and summary APIs | Typed Rust responses; Schemars-derived schema preserves version 5; generated guard/types, safe counts/indices and cross-field checks before use | Local negative-input, semantic before/after, exact rational and all-engine production checks passed; preserve pair/front/coordinate relationships, exact strings, absent/null semantics and independent native proof verification; envelopes and selected source/target parameter cross-checks are now implemented |
 | Built Open Question Board `registry.json` and its related payloads | Separately built board scripts under `open-questions/` | Owned by the private board project; this repo tests real navigation, registry use and prompt generation | Record that build's own schema/validation coverage when auditing all delivered pages; do not claim this repo's TS migration validates external scripts |
@@ -52,7 +52,7 @@ other rows remain open.
   actual Serde union/optional-field representations in one complete migration
   before extending the migration. Ajv standalone guards and generated TS types now
   cover the three Python-owned contracts, both Rust response contracts and both
-  worker envelopes. The Atlas summary/record union is also covered. Native request schemas and raw export validation remain open. The legacy path
+  worker envelopes. The Atlas summary/record union is also covered. Native request schemas and raw export validation are implemented. The legacy path
   benchmark's default entry discovery also needs repair for the current Vite output;
   only its direct sample mode is currently verified.
 
@@ -67,8 +67,9 @@ initialization and failure/retry checks, rather than a JSON schema.
 Route-copy JSON is an outgoing artifact, validated by the real CLI workflow.
 There is currently no frontend JSON-upload, clipboard-import, localStorage or
 sessionStorage parser in these assets; do not invent persistence or import APIs.
-The unused legacy `graph-layout.js` is not loaded by the current page entry points;
-confirm its remaining callers before any later removal.
+`graph-layout.js` is a Node-only input to `generate_website_graph_layout.js`; it
+is not loaded by the application. The builder validates native exports before
+invoking its internal layout/article generation steps.
 
 Engineering reports such as `verification.json` and benchmark samples are not
 consumed by the product runtime. Keep their provenance and sample units explicit;

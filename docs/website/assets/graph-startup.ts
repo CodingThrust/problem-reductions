@@ -1,15 +1,9 @@
 import { validateGraphSceneData } from './graph-scene-data.mts';
 import type { GraphSceneData } from './graph-scene.validator.mjs';
 
-declare global {
-  interface Window {
-    graphStartup: { scene: Promise<GraphSceneData>; worker: Worker | null };
-  }
-}
-
 // Start independent downloads before the renderer finishes loading.
-window.graphStartup = {
-  scene: fetch('./assets/graph-scene.json.gz').then(async (response) => {
+export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | null} = {
+  scene: fetch(document.body.dataset.scene!).then(async (response) => {
     if (!response.ok || !response.body) throw new Error(`Cannot load graph (${response.status})`);
     const text = await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
     performance.mark('graph:scene-decoded');
@@ -21,13 +15,13 @@ window.graphStartup = {
   }),
   worker: null,
 };
-window.graphStartup.scene.catch(() => {});
+graphStartup.scene.catch(() => {});
 try {
-  const worker = window.graphStartup.worker = new Worker(new URL('./path-worker.ts', import.meta.url), {type: 'module'});
+  const worker = graphStartup.worker = new Worker(new URL('./path-worker.ts', import.meta.url), {type: 'module'});
   performance.mark('graph:worker-started');
   worker.addEventListener('error', (event) => {
     event.preventDefault();
-    if (window.graphStartup.worker === worker) { worker.terminate(); window.graphStartup.worker = null; }
+    if (graphStartup.worker === worker) { worker.terminate(); graphStartup.worker = null; }
   });
 }
 catch { /* Path search reports worker creation errors when requested. */ }

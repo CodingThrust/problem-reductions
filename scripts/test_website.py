@@ -4,6 +4,7 @@
 import os
 import re
 import json
+import gzip
 from pathlib import Path
 import subprocess
 import sys
@@ -58,6 +59,10 @@ class WebsiteTests(unittest.TestCase):
 
     def visit(self, route="home"):
         self.page.goto(self.base + "#" + route)
+
+    def scene_data(self):
+        url = urljoin(self.page.url, self.page.locator('body').get_attribute('data-scene'))
+        return json.loads(gzip.decompress(self.page.request.get(url).body()))
 
     def read_clipboard(self):
         if self.browser.browser_type.name != 'webkit':
@@ -307,7 +312,6 @@ class WebsiteTests(unittest.TestCase):
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator('#cy svg.graph-scene').first).to_be_visible()
         self.assertFalse(any('layout-bundle' in url or 'graph-details.' in url for url in requests))
-        self.assertFalse(self.page.evaluate('Boolean(window.GRAPH_DETAILS)'))
         self.open_problem_popover('BinPacking')
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
@@ -351,12 +355,25 @@ class WebsiteTests(unittest.TestCase):
         self.visit('problem/ILP')
         expect(self.page.locator('.typst-detail')).to_contain_text('Definition')
         urls = self.page.evaluate('''async () => {
-            const keys = Object.keys(GRAPH_DETAILS.entries).filter(key => key.startsWith('problem:') && key !== 'problem:ILP').slice(0, 25);
-            const detail = document.querySelector('#reference-detail');
-            for (const key of [...keys, keys.at(-1), keys[0]]) {
-                await renderDetails(detail, '', '', key, key, () => {});
+            const resource = performance.getEntriesByType('resource').find(entry => entry.name.includes('graph-details.json'));
+            const index = await (await fetch(resource.name)).json();
+            const keys = Object.keys(index.entries).filter(key => /^problem:[^/]+$/.test(key) && key !== 'problem:ILP').slice(0, 25);
+            for (const key of [...keys, 'atlas', keys.at(-1), keys[0]]) {
+                const hash = key === 'atlas' ? '#atlas' : '#problem/' + encodeURIComponent(key.slice(8));
+                const ready = new Promise(resolve => {
+                    const observer = new MutationObserver(() => {
+                        const article = document.querySelector('.typst-detail');
+                        if (key === 'atlas' ? document.querySelector('#atlas-search') :
+                            article?.dataset.contentKey?.split('/')[0] === key && article.textContent.includes('Definition')) {
+                            observer.disconnect(); resolve();
+                        }
+                    });
+                    observer.observe(document.querySelector('main'), {childList:true, subtree:true, attributes:true});
+                });
+                location.hash = hash;
+                await ready;
             }
-            return [keys[0], keys.at(-1)].map(key => new URL(GRAPH_DETAILS.entries[key], location.href).href);
+            return [keys[0], keys.at(-1)].map(key => new URL(index.entries[key], location.href).href);
         }''')
         self.assertEqual(requests.count(urls[0]), 2)
         self.assertEqual(requests.count(urls[1]), 1)
@@ -905,6 +922,7 @@ class WebsiteTests(unittest.TestCase):
         slower = self.page.get_by_role('button', name=re.compile('^Show .* slower routes$'))
         if slower.count():
             slower.click()
+        nodes = self.scene_data()['nodes']
         chains = set()
         expect(self.page.locator('.copy')).to_have_text('Copy route for pred reduce --via')
         for row in self.page.locator('.path').all():
@@ -926,7 +944,7 @@ class WebsiteTests(unittest.TestCase):
             expect(self.page.locator('.steps li')).to_have_count(len(groups))
             for i, (name, variants) in enumerate(groups):
                 group = self.page.locator('.steps li').nth(i)
-                if len([n for n in self.page.evaluate('REDUCTIONS.nodes') if n['name'] == name]) > 1:
+                if len([n for n in nodes if n['name'] == name]) > 1:
                     expected = ['   '.join(f'{k}: {v}' for k, v in variant.items()) for variant in variants]
                     self.assertEqual(group.locator('.kv').all_text_contents(), expected)
             expect(self.page.get_by_role('button', name='rule', exact=True)).to_have_count(len(groups) - 1)
@@ -1039,8 +1057,12 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('button', name='Details', exact=True).click()
         expect(self.page.locator('#details-title')).to_have_text('Shortest Common Superstring')
         expect(self.page.locator('#drawer-body article')).to_contain_text('substring containment')
-        selector = self.page.evaluate("""() => [...document.querySelectorAll('#drawer-body article a[href^="#"]')]
-            .find(a => GRAPH_DETAILS.anchors[a.hash.slice(1)] === 'problem:ShortestCommonSupersequence')?.getAttribute('href')""")
+        selector = self.page.evaluate("""async () => {
+            const url = performance.getEntriesByType('resource').find(entry => entry.name.includes('graph-details.json')).name;
+            const {anchors} = await (await fetch(url)).json();
+            return [...document.querySelectorAll('#drawer-body article a[href^="#"]')]
+                .find(a => anchors[a.hash.slice(1)] === 'problem:ShortestCommonSupersequence')?.getAttribute('href');
+        }""")
         self.assertIsNotNone(selector)
         self.page.locator('#drawer-body article a[href="' + selector + '"]').first.click()
         expect(self.page.locator('#details-title')).to_have_text('Shortest Common Supersequence')
@@ -1126,7 +1148,7 @@ class WebsiteTests(unittest.TestCase):
     def test_graph_keyboard_visits_disconnected_families_and_both_ends(self):
         self.page.goto(self.base + 'graph.html')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
-        graph = self.page.evaluate('window.REDUCTIONS')
+        graph = self.scene_data()
         names = list(dict.fromkeys(node['name'] for node in graph['nodes']))
         linked = {graph['nodes'][edge[side]]['name'] for edge in graph['edges'] for side in ['source', 'target']
                   if graph['nodes'][edge['source']]['name'] != graph['nodes'][edge['target']]['name']}

@@ -1,3 +1,5 @@
+import { graphStartup } from './graph-startup.ts';
+import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "./graph-growth.mts";
 import { validatePathReply, type PathRequest } from './path-worker-data.mts';
@@ -11,16 +13,15 @@ interface Family { name: string; category: GraphSceneData['nodes'][number]['cate
 type PathResult = WasmPathResult & { polynomial_comparison?: WasmComparisonResult; order?: number[] };
 interface State { source: number | null; target: number | null; limit: number; result: PathResult | null;
   selected: number | null; picked: boolean; showSlower: boolean; busy: boolean }
-declare global { interface Window { REDUCTIONS: unknown } }
 
 type Bounds = ReturnType<GraphScene['labelBox']>;
 
 (async () => {
 "use strict";
-performance.mark("graph:script", {detail: {eager_worker: Boolean(window.graphStartup?.worker)}});
+performance.mark("graph:script", {detail: {eager_worker: Boolean(graphStartup.worker)}});
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
 const el = <T extends keyof HTMLElementTagNameMap>(tag: T, cls?: string, text?: string) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-const D = window.REDUCTIONS = await window.graphStartup.scene;
+const D = window.REDUCTIONS = await graphStartup.scene;
 performance.mark("graph:scene-parsed");
 const defaults = Object.fromEntries(D.nodes.flatMap((n, i) => n.default ? [[n.name, i]] : []));
 const aliasMap = D.aliases;
@@ -345,7 +346,7 @@ function showDetails(title: string, key: string, parentKey: string) {
     const [source, target] = key.slice(5).split("->").map(endpoint);
     atlas.href = `./index.html#reduction/${source![0]}/${target![0]}?from=${source![1]}&to=${target![1]}`;
   }
-  window.renderDetails(body, "", "", key, parentKey, (problem) => {
+  renderDetails(body, "", "", key, parentKey, (problem) => {
     const [name, variant] = problem.split("/") as [string, string?];
     const index = variant == null ? defaults[name]! : D.nodes.findIndex((n) => n.name === name && variantKey(n.variant) === variant);
     if (index == null || index < 0) return;
@@ -388,8 +389,8 @@ $("#details-drawer").addEventListener("keydown", (e) => {
 });
 
 /* ---------- Path engine ---------- */
-let worker = window.graphStartup.worker, reqId = 0, clock = 0;
-window.graphStartup.worker = null;
+let worker = graphStartup.worker, reqId = 0, clock = 0;
+graphStartup.worker = null;
 const cache = new Map<string, PathResult>();
 function stopWorker() { worker?.terminate(); worker = null; }
 function compute(source: number, target: number, limit: number, onPaths: (result: PathResult) => void): Promise<PathResult> {
@@ -650,7 +651,7 @@ document.fonts?.ready.then(() => {
   scheduleLabels();
 });
 })().catch(() => {
-  window.graphStartup?.worker?.terminate();
-  if (window.graphStartup) window.graphStartup.worker = null;
+  graphStartup.worker?.terminate();
+  graphStartup.worker = null;
   document.querySelector('#results')!.textContent = 'Cannot load graph. Reload this release and try again.';
 });
