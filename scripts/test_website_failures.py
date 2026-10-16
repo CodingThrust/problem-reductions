@@ -70,6 +70,35 @@ class WebsiteFailureTests(test_website.WebsiteTests):
             server.server_close()
         self.addCleanup(close)
 
+    def test_atlas_rejects_malformed_record_and_recovers(self):
+        resource = self.assets / 'problem-data/MaximumIndependentSet.json'
+        original = resource.read_bytes()
+        record = json.loads(original)
+        record['nodes'][0]['category'] = 123
+        resource.write_text(json.dumps(record))
+        self.page.goto(self.base + 'index.html#problem/MaximumIndependentSet')
+        expect(self.page.get_by_role('alert')).to_contain_text('Invalid atlas data', timeout=1000)
+        resource.write_bytes(original)
+        self.page.evaluate("location.hash = 'atlas'")
+        self.page.locator('#atlas-search').fill('MIS')
+        self.page.locator('a.atlas-row[href="#problem/MaximumIndependentSet"]').click()
+        expect(self.page.locator('#variant-select')).to_have_value('graph=SimpleGraph,weight=One')
+
+    def test_home_rejects_malformed_summary_and_recovers(self):
+        resource = self.assets / 'index.js'
+        original = resource.read_bytes()
+        # Corrupt the actual embedded value when the production bundle assigns it.
+        resource.write_bytes(b"Object.defineProperty(window, 'REDUCTIONS', {configurable: true, set(value) {"
+                             b"value.edges[0].source = -1; Object.defineProperty(window, 'REDUCTIONS',"
+                             b"{value, writable: true, configurable: true}); }});\n" + original)
+        self.page.goto(self.base + 'index.html')
+        expect(self.page.get_by_role('alert')).to_contain_text('Invalid atlas data', timeout=1000)
+        resource.write_bytes(original)
+        self.page.reload()
+        expect(self.page.locator('main .hero')).to_be_visible()
+        self.page.evaluate("location.hash = 'atlas'")
+        expect(self.page.locator('#atlas-search')).to_be_visible()
+
     def assert_engine_recovery(self, name, damaged):
         resource = self.assets / name
         original = resource.read_bytes()

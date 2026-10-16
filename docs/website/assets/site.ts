@@ -1,12 +1,23 @@
+import { validateAtlasSummary, validateAtlasRecord } from './atlas-data.mts';
+import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from './atlas-data.validator.mjs';
+
 /* The site is a static client of the same registry exports as the book and paper. */
 (() => {
   "use strict";
-  const summary = window.REDUCTIONS;
-  let data = summary;
-  const records = new Map();
+  const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+  const main = $('main');
+  function showError(error: unknown) {
+    const alert = Object.assign(document.createElement('p'), {textContent: error instanceof Error ? error.message : String(error)});
+    alert.setAttribute('role', 'alert');
+    main.replaceChildren(alert);
+  }
+  let summary: AtlasSummary;
+  try { summary = validateAtlasSummary(window.REDUCTIONS); }
+  catch (error) { showError(error); return; }
+  const records = new Map<string, Promise<AtlasRecord>>();
   const names = new Map(summary.schemas.map(schema => [schema.name, schema]));
-  let atlasRows;
-  const main = document.querySelector("main");
+  let atlasRows: Map<string, Element> | undefined;
+  // Indexed references below rely on the validated summary/record contracts.
   const homeHTML = main.innerHTML;
   history.scrollRestoration = "manual";
   const baseTitle = "Problem Reductions";
@@ -18,7 +29,7 @@
     algebraic: "Algebra",
     misc: "Other structures",
   };
-  const aliases = {
+  const aliases: Record<string, string> = {
     MIS: "MaximumIndependentSet",
     MVC: "MinimumVertexCover",
     SAT: "Satisfiability",
@@ -27,9 +38,9 @@
   };
   let filter = "all";
   let query = "";
-  let toastTimer;
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let focusSearchAfterNavigation = false;
-  const escape = (value) =>
+  const escape = (value: unknown) =>
     String(value ?? "").replace(
       /[&<>"']/g,
       (c) =>
@@ -39,57 +50,57 @@
           ">": "&gt;",
           '"': "&quot;",
           "'": "&#39;",
-        })[c],
+        } as Record<string, string>)[c]!,
     );
-  const nameOf = (name) =>
+  const nameOf = (name: string) =>
     names.get(name)?.display_name ||
     name
       .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-  const variantKey = (node) =>
+  const variantKey = (node: {variant: Variant}) =>
     Object.entries(node.variant)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
       .join(",");
-  const variantLabel = (node) =>
+  const variantLabel = (node: {variant: Variant}) =>
     Object.entries(node.variant)
       .map(([k, v]) => `${k}: ${v}`)
       .join(" · ") || "Default variant";
-  const problemHref = (name, node) =>
+  const problemHref = (name: string, node?: {variant: Variant}) =>
     `#problem/${encodeURIComponent(name)}${node ? `?variant=${encodeURIComponent(variantKey(node))}` : ""}`;
-  const ruleHref = (edge) =>
-    `#reduction/${encodeURIComponent(data.nodes[edge.source].name)}/${encodeURIComponent(data.nodes[edge.target].name)}?from=${encodeURIComponent(variantKey(data.nodes[edge.source]))}&to=${encodeURIComponent(variantKey(data.nodes[edge.target]))}`;
-  const schemaOf = (name) => data.schemas.find((s) => s.name === name);
-  const description = (name) =>
+  const ruleHref = (edge: SummaryEdge, nodes: AtlasSummary['nodes'] | AtlasRecord['nodes'] = summary.nodes) =>
+    `#reduction/${encodeURIComponent(nodes[edge.source]!.name)}/${encodeURIComponent(nodes[edge.target]!.name)}?from=${encodeURIComponent(variantKey(nodes[edge.source]!))}&to=${encodeURIComponent(variantKey(nodes[edge.target]!))}`;
+  const schemaOf = (name: string) => summary.schemas.find((s) => s.name === name);
+  const description = (name: string) =>
     schemaOf(name)?.description ||
     "Explore the registered variants, reduction contracts, and implementation of this computational problem.";
-  const apiHref = (path) => `./api/problemreductions/${path}`;
-  const sourceHref = (edge) => `${repo}/blob/main/${edge.source_path}`;
-  const families = [...new Set(data.nodes.map((n) => n.name))].sort();
-  const variantsOf = (name) =>
+  const apiHref = (path: string) => `./api/problemreductions/${path}`;
+  const sourceHref = (edge: RecordEdge) => `${repo}/blob/main/${edge.source_path}`;
+  const families = [...new Set(summary.nodes.map((n) => n.name))].sort();
+  const variantsOf = (name: string, data: AtlasRecord) =>
     data.nodes
       .map((n, i) => ({ ...n, index: i }))
       .filter((n) => n.name === name);
-  const edgesOf = (name) =>
-    data.edges.filter(
+  const edgesOf = (name: string) =>
+    summary.edges.filter(
       (e) =>
-        data.nodes[e.source].name === name ||
-        data.nodes[e.target].name === name,
+        summary.nodes[e.source]!.name === name ||
+        summary.nodes[e.target]!.name === name,
     );
-  const featuredEdge = data.edges.find(
+  const featuredEdge = summary.edges.find(
     (e) =>
-      data.nodes[e.source].name === "MinimumVertexCover" &&
-      data.nodes[e.target].name === "MaximumIndependentSet",
+      summary.nodes[e.source]!.name === "MinimumVertexCover" &&
+      summary.nodes[e.target]!.name === "MaximumIndependentSet",
   );
   const catalog = families.map(name => {
-    const variants = summary.nodes.filter(node => node.name === name), category = variants[0].category;
+    const variants = summary.nodes.filter(node => node.name === name), category = variants[0]!.category;
     return {name, category,
       search: `${name} ${nameOf(name)} ${description(name)} ${(names.get(name)?.aliases || []).join(' ')}`.toLowerCase(),
       html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connections</span></div></div><span aria-hidden="true">↗</span></a>`};
   }).sort((a, b) => nameOf(a.name).localeCompare(nameOf(b.name)));
 
-  function notify(message) {
-    const toast = document.querySelector(".toast");
+  function notify(message: string) {
+    const toast = $(".toast");
     toast.textContent = message;
     toast.classList.add("visible");
     clearTimeout(toastTimer);
@@ -99,7 +110,7 @@
   function graphArt() {
     const width = 630,
       height = 430;
-    const highlights = {
+    const highlights: Record<string, [number, number, string]> = {
       MaximumIndependentSet: [310, 242, "Independent Set"],
       MinimumVertexCover: [452, 155, "Vertex Cover"],
       Satisfiability: [145, 162, "Satisfiability"],
@@ -109,7 +120,7 @@
       ILP: [330, 370, "ILP"],
       Coloring: [92, 249, "Coloring"],
     };
-    const positions = {};
+    const positions: Record<string, [number, number, string?]> = {};
     families.forEach((name, i) => {
       const angle = i * 2.39996323;
       const radius = Math.sqrt((i + 1) / families.length);
@@ -118,17 +129,17 @@
         218 + Math.sin(angle) * radius * 191,
       ];
     });
-    const seen = new Set();
-    const lines = data.edges
+    const seen = new Set<string>();
+    const lines = summary.edges
       .map((e) => {
-        const from = data.nodes[e.source].name,
-          to = data.nodes[e.target].name;
+        const from = summary.nodes[e.source]!.name,
+          to = summary.nodes[e.target]!.name;
         if (from === to) return "";
         const key = [from, to].sort().join("/");
         if (seen.has(key)) return "";
         seen.add(key);
-        const [x1, y1] = positions[from],
-          [x2, y2] = positions[to];
+        const [x1, y1] = positions[from]!,
+          [x2, y2] = positions[to]!;
         const featured =
           [from, to].includes("MinimumVertexCover") &&
           [from, to].includes("MaximumIndependentSet");
@@ -138,7 +149,7 @@
     const nodes = [...families]
       .sort((a, b) => Number(!!highlights[a]) - Number(!!highlights[b]))
       .map((name) => {
-        const [x, y] = positions[name];
+        const [x, y] = positions[name]!;
         const isFocus = [
           "MaximumIndependentSet",
           "MinimumVertexCover",
@@ -158,12 +169,12 @@
     [200, 190],
     [100, 190],
     [69, 94],
-  ];
+  ] as const;
   function cycleSVG(mode = "independent", labels = false) {
     const selected = mode === "independent" ? [0, 2] : [1, 3, 4];
     return `<svg viewBox="0 0 300 225" role="img" aria-label="Five-vertex cycle with ${mode === "independent" ? "an independent set of two" : "a vertex cover of three"} highlighted">${cyclePoints
       .map(([x, y], i) => {
-        const next = cyclePoints[(i + 1) % cyclePoints.length];
+        const next = cyclePoints[(i + 1) % cyclePoints.length]!;
         return `<line x1="${x}" y1="${y}" x2="${next[0]}" y2="${next[1]}" stroke="var(--diagram-line)" stroke-width="1.5"/>`;
       })
       .join(
@@ -172,12 +183,12 @@
   }
 
   function complementArt() {
-    const graph = (offset, selected) =>
-      `<g transform="translate(${offset},20) scale(.67)">${cyclePoints.map(([x, y], i) => `<line x1="${x}" y1="${y}" x2="${cyclePoints[(i + 1) % 5][0]}" y2="${cyclePoints[(i + 1) % 5][1]}" stroke="var(--diagram-line)" stroke-width="2"/>`).join("")}${cyclePoints.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="13" fill="${selected.includes(i) ? "var(--diagram-selected)" : "var(--paper)"}" stroke="var(--diagram-line)" stroke-width="1.5"/>`).join("")}</g>`;
+    const graph = (offset: number, selected: number[]) =>
+      `<g transform="translate(${offset},20) scale(.67)">${cyclePoints.map(([x, y], i) => `<line x1="${x}" y1="${y}" x2="${cyclePoints[(i + 1) % 5]![0]}" y2="${cyclePoints[(i + 1) % 5]![1]}" stroke="var(--diagram-line)" stroke-width="2"/>`).join("")}${cyclePoints.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="13" fill="${selected.includes(i) ? "var(--diagram-selected)" : "var(--paper)"}" stroke="var(--diagram-line)" stroke-width="1.5"/>`).join("")}</g>`;
     return `<svg viewBox="0 0 520 245" role="img" aria-label="A vertex cover of size three becomes an independent set of size two by complementing the selection">${graph(15, [1, 3, 4])}${graph(305, [0, 2])}<path d="M235 102h48m-6-6 6 6-6 6" fill="none" stroke="var(--diagram-line)" stroke-width="1.5"/><text x="260" y="133" text-anchor="middle" font-family="monospace" font-size="10" fill="var(--muted)">V ∖ S</text><g font-family="DM Sans, sans-serif" text-anchor="middle" fill="var(--diagram-label)"><text x="115" y="201" font-size="13">Minimum Vertex Cover</text><text x="405" y="201" font-size="13">Maximum Independent Set</text><text x="115" y="224" font-size="10" fill="var(--muted)">3 selected vertices</text><text x="405" y="224" font-size="10" fill="var(--muted)">2 selected vertices</text></g></svg>`;
   }
 
-  function miniArt(name) {
+  function miniArt(name: string) {
     if (name === "MaximumIndependentSet") return cycleSVG();
     if (name === "Satisfiability")
       return '<img src="./assets/sat.svg" alt="Example Boolean clauses" width="300" height="112">';
@@ -185,21 +196,21 @@
   }
 
   function hydrateHome() {
-    document.querySelector("#hero-graph").innerHTML = graphArt();
-    document.querySelector("#problem-showcase").innerHTML = [
+    $("#hero-graph").innerHTML = graphArt();
+    $("#problem-showcase").innerHTML = [
       "MaximumIndependentSet",
       "Satisfiability",
       "QUBO",
     ]
       .filter((name) => families.includes(name))
       .map((name) => {
-        const variants = variantsOf(name);
-        return `<a class="problem-card" href="${problemHref(name)}"><span class="context-label">${escape(categories[variants[0].category] || "Computational problem")}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><span aria-hidden="true">↗</span></div></a>`;
+        const variants = summary.nodes.filter(node => node.name === name);
+        return `<a class="problem-card" href="${problemHref(name)}"><span class="context-label">${escape(categories[variants[0]!.category] || "Computational problem")}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><span aria-hidden="true">↗</span></div></a>`;
       })
       .join("");
-    document.querySelector("#featured-art").innerHTML = complementArt();
+    $("#featured-art").innerHTML = complementArt();
     if (featuredEdge) {
-      document.querySelector("#featured-result-link").href =
+      $<HTMLAnchorElement>("#featured-result-link").href =
         ruleHref(featuredEdge);
     }
   }
@@ -243,18 +254,17 @@
         </div>
       </div>`;
     renderResults();
-    document
-      .querySelector("#atlas-search")
+    $("#atlas-search")
       .addEventListener("input", (event) => {
-        query = event.target.value;
+        query = (event.currentTarget as HTMLInputElement).value;
         renderResults();
       });
-    document.querySelectorAll("[data-filter]").forEach((button) =>
+    document.querySelectorAll<HTMLElement>("[data-filter]").forEach((button) =>
       button.addEventListener("click", () => {
-        filter = button.dataset.filter;
+        filter = button.dataset.filter!;
         document
-          .querySelectorAll("[data-filter]")
-          .forEach((b) => b.setAttribute("aria-pressed", b === button));
+          .querySelectorAll<HTMLElement>("[data-filter]")
+          .forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
         renderResults();
       }),
     );
@@ -264,46 +274,46 @@
     if (!atlasRows) {
       const rows = document.createElement('div');
       rows.innerHTML = catalog.map(entry => entry.html).join('');
-      atlasRows = new Map(catalog.map((entry, i) => [entry.name, rows.children[i]]));
+      atlasRows = new Map(catalog.map((entry, i) => [entry.name, rows.children[i]!]));
     }
     const search = query.trim().toLowerCase();
     const alias = aliases[query.trim().toUpperCase()] || "";
     const results = catalog.filter(entry =>
       (filter === 'all' || entry.category === filter) &&
       (!search || entry.name === alias || entry.search.includes(search)));
-    document.querySelector(".result-count").textContent =
+    $(".result-count").textContent =
       `${results.length} problem${results.length === 1 ? "" : "s"}`;
-    const box = document.querySelector('#atlas-results');
-    if (results.length) box.replaceChildren(...results.map(entry => atlasRows.get(entry.name)));
+    const box = $('#atlas-results');
+    if (results.length) box.replaceChildren(...results.map(entry => atlasRows!.get(entry.name)!));
     else box.innerHTML = `<div class="empty-state"><h2>No matching problems.</h2><p>Try a broader term or explore another input structure.</p><button class="button secondary" id="reset-search">Reset search and filters</button></div>`;
-    document.querySelector("#reset-search")?.addEventListener("click", () => {
+    $("#reset-search")?.addEventListener("click", () => {
       query = "";
       filter = "all";
       atlasPage();
-      document.querySelector("#atlas-search").focus();
+      $("#atlas-search").focus();
     });
   }
 
-  function relation(edge, currentIndex) {
-    const source = data.nodes[edge.source],
-      target = data.nodes[edge.target];
+  function relation(edge: RecordEdge, currentIndex: number, data: AtlasRecord) {
+    const source = data.nodes[edge.source]!,
+      target = data.nodes[edge.target]!;
     const outgoing = edge.source === currentIndex;
     const other = outgoing ? target : source;
     const variant = Object.keys(other.variant).length ? variantLabel(other) : "";
-    return `<a class="relation-link" href="${ruleHref(edge)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability">Turing reduction</span>' : ""}</a>`;
+    return `<a class="relation-link" href="${ruleHref(edge, data.nodes)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability">Turing reduction</span>' : ""}</a>`;
   }
 
-  function codePanel(command) {
+  function codePanel(command: string) {
     return `<div class="code-panel"><div class="terminal-header"><button class="copy-button" data-copy="${escape(command)}" aria-label="Copy command">Copy</button></div><pre>${escape(command)}</pre></div>`;
   }
 
-  function openReferenceProblem(key) {
-    const [name, variant] = key.split("/");
+  function openReferenceProblem(key: string) {
+    const [name, variant] = key.split("/") as [string, string?];
     location.hash = `#problem/${encodeURIComponent(name)}${variant ? `?variant=${encodeURIComponent(variant)}` : ""}`;
   }
 
-  function problemPage(name, params) {
-    const variants = variantsOf(name);
+  function problemPage(name: string, params: URLSearchParams, data: AtlasRecord) {
+    const variants = variantsOf(name, data);
     if (!variants.length) return notFound();
     const requested = params.get("variant");
     if (
@@ -316,8 +326,8 @@
       variants.find(
         (n) => n.variant.graph === "SimpleGraph" && n.variant.weight === "One",
       ) ||
-      variants[0];
-    const schema = schemaOf(name);
+      variants[0]!;
+    const schema = data.schemas[0];
     const incoming = data.edges.filter((e) => e.target === node.index);
     const outgoing = data.edges.filter((e) => e.source === node.index);
     document.title = `${nameOf(name)} — ${baseTitle}`;
@@ -343,11 +353,11 @@
           <section id="problem-connections" class="reference-tool-panel" aria-label="Connections" hidden>
             <section class="connection-group" aria-label="Incoming reductions">
               <header><h3>Incoming <span>${incoming.length}</span></h3><span>Other problems → ${escape(nameOf(name))}</span></header>
-              ${incoming.map((e) => relation(e, node.index)).join("")}
+              ${incoming.map((e) => relation(e, node.index, data)).join("")}
             </section>
             <section class="connection-group" aria-label="Outgoing reductions">
               <header><h3>Outgoing <span>${outgoing.length}</span></h3><span>${escape(nameOf(name))} → Other problems</span></header>
-              ${outgoing.map((e) => relation(e, node.index)).join("")}
+              ${outgoing.map((e) => relation(e, node.index, data)).join("")}
             </section>
           </section>
           <section id="problem-fields" class="reference-tool-panel" aria-label="Instance fields" hidden>
@@ -390,41 +400,40 @@
           </p>
         </aside>
       </div>`;
-    document
-      .querySelector("#variant-select")
+    $("#variant-select")
       .addEventListener("change", (event) => {
         const selected = variants.find(
-          (n) => variantKey(n) === event.target.value,
+          (n) => variantKey(n) === (event.currentTarget as HTMLSelectElement).value,
         );
         location.hash = problemHref(name, selected);
       });
-    window.renderDetails(document.querySelector("#reference-detail"), "", "",
+    window.renderDetails($("#reference-detail"), "", "",
       `problem:${name}/${variantKey(node)}`, `problem:${name}`, openReferenceProblem);
   }
 
-  function rulePage(sourceName, targetName, params) {
+  function rulePage(sourceName: string, targetName: string | undefined, params: URLSearchParams, data: AtlasRecord) {
     const edge = data.edges.find(
       (e) =>
-        data.nodes[e.source].name === sourceName &&
-        data.nodes[e.target].name === targetName &&
-        (!params.has("from") || variantKey(data.nodes[e.source]) === params.get("from")) &&
-        (!params.has("to") || variantKey(data.nodes[e.target]) === params.get("to")),
+        data.nodes[e.source]!.name === sourceName &&
+        data.nodes[e.target]!.name === targetName &&
+        (!params.has("from") || variantKey(data.nodes[e.source]!) === params.get("from")) &&
+        (!params.has("to") || variantKey(data.nodes[e.target]!) === params.get("to")),
     );
     if (!edge) return notFound();
-    const source = data.nodes[edge.source],
-      target = data.nodes[edge.target];
-    document.title = `${nameOf(sourceName)} → ${nameOf(targetName)} — ${baseTitle}`;
+    const source = data.nodes[edge.source]!,
+      target = data.nodes[edge.target]!;
+    document.title = `${nameOf(sourceName)} → ${nameOf(target.name)} — ${baseTitle}`;
     main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <div class="breadcrumbs">
           <a href="#atlas">← Back</a>
         </div>
-        <h1>${escape(nameOf(sourceName))} → ${escape(nameOf(targetName))}</h1>
+        <h1>${escape(nameOf(sourceName))} → ${escape(nameOf(target.name))}</h1>
       </div>
       <div class="wrap reading-layout">
         <div class="reading-content">
           <dl class="rule-endpoints">
             <div><dt>Source</dt><dd class="rule-endpoint"><a href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))} <span aria-hidden="true">↗</span></a>${Object.keys(source.variant).length ? `<span>${escape(variantLabel(source))}</span>` : ""}</dd></div>
-            <div><dt>Target</dt><dd class="rule-endpoint"><a href="${problemHref(targetName, target)}">${escape(nameOf(targetName))} <span aria-hidden="true">↗</span></a>${Object.keys(target.variant).length ? `<span>${escape(variantLabel(target))}</span>` : ""}</dd></div>
+            <div><dt>Target</dt><dd class="rule-endpoint"><a href="${problemHref(target.name, target)}">${escape(nameOf(target.name))} <span aria-hidden="true">↗</span></a>${Object.keys(target.variant).length ? `<span>${escape(variantLabel(target))}</span>` : ""}</dd></div>
           </dl>
           <section id="rule-parameters" aria-label="Parameters">
             <h2>Parameters</h2>
@@ -441,7 +450,7 @@
           <a href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}">Test source <span>↗</span></a>
         </aside>
       </div>`;
-    window.renderDetails(document.querySelector("#reference-detail"), "", "",
+    window.renderDetails($("#reference-detail"), "", "",
       `rule:${sourceName}/${variantKey(source)}->${targetName}/${variantKey(target)}`,
       `rule:${sourceName}->${targetName}`, openReferenceProblem);
   }
@@ -454,36 +463,35 @@
 
   async function render() {
     const hash = location.hash.slice(1) || "home";
-    const [path, search = ""] = hash.split("?");
-    let parts;
+    const [path, search = ""] = hash.split("?") as [string, string?];
+    let parts: [string, ...string[]];
     try {
-      parts = path.split("/").map(decodeURIComponent);
+      parts = path.split("/").map(decodeURIComponent) as [string, ...string[]];
     } catch {
       notFound();
       return;
     }
     const params = new URLSearchParams(search);
+    let record: AtlasRecord | undefined;
     if (["atlas", "problem", "reduction"].includes(parts[0])) window.loadDetailsIndex().catch(() => {});
     if (["problem", "reduction"].includes(parts[0])) {
       const name = parts[1];
-      if (!families.includes(name)) { notFound(); return; }
+      if (!name || !families.includes(name)) { notFound(); return; }
       try {
         if (!records.has(name)) {
           records.set(name, fetch(`./assets/problem-data/${encodeURIComponent(name)}.json`).then(response => {
             if (!response.ok) throw new Error("Cannot load atlas. Reload the page to get the current release.");
             return response.json();
-          }));
+          }).then((value: unknown) => validateAtlasRecord(value, name)));
         }
-        const record = await records.get(name);
+        record = await records.get(name)!;
         if ((location.hash.slice(1) || "home") !== hash) return;
-        data = record;
       } catch (error) {
         records.delete(name);
-        main.replaceChildren(Object.assign(document.createElement("p"), {textContent: error.message}));
-        main.firstChild.setAttribute("role", "alert");
+        showError(error);
         return;
       }
-    } else data = summary;
+    }
     const isHome = [
       "home",
       "research",
@@ -501,10 +509,10 @@
       location.replace("./open-questions/");
       return;
     }
-    else if (parts[0] === "problem") problemPage(parts[1], params);
-    else if (parts[0] === "reduction") rulePage(parts[1], parts[2], params);
+    else if (parts[0] === "problem") problemPage(parts[1]!, params, record!);
+    else if (parts[0] === "reduction") rulePage(parts[1]!, parts[2], params, record!);
     else notFound();
-    document.querySelectorAll("[data-nav]").forEach((link) => {
+    document.querySelectorAll<HTMLElement>("[data-nav]").forEach((link) => {
       const active =
         link.dataset.nav === parts[0] ||
         (["problem", "reduction"].includes(parts[0]) &&
@@ -525,12 +533,13 @@
     if (location.hash !== "#atlas") {
       focusSearchAfterNavigation = true;
       location.hash = "atlas";
-    } else document.querySelector("#atlas-search")?.focus();
+    } else $("#atlas-search")?.focus();
   }
   document.addEventListener("keydown", (event) => {
+    const target = event.target as HTMLElement;
     const typing =
-      /INPUT|TEXTAREA|SELECT/.test(event.target.tagName) ||
-      event.target.isContentEditable;
+      /INPUT|TEXTAREA|SELECT/.test(target.tagName) ||
+      target.isContentEditable;
     if (
       ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") ||
       (event.key === "/" && !typing)
@@ -540,20 +549,21 @@
     }
   });
   document.addEventListener("click", async (event) => {
+    if (!(event.target instanceof Element)) return;
     const tool = event.target.closest('.reference-tools button');
     if (tool) {
       const open = tool.getAttribute('aria-expanded') === 'false';
-      tool.parentElement.querySelectorAll('button').forEach((button) => {
+      tool.parentElement!.querySelectorAll('button').forEach((button) => {
         const selected = button === tool && open;
         button.setAttribute('aria-expanded', String(selected));
-        document.getElementById(button.getAttribute('aria-controls')).hidden = !selected;
+        document.getElementById(button.getAttribute('aria-controls')!)!.hidden = !selected;
       });
       return;
     }
-    const button = event.target.closest("[data-copy]");
+    const button = event.target.closest<HTMLElement>("[data-copy]");
     if (!button) return;
     try {
-      await navigator.clipboard.writeText(button.dataset.copy);
+      await navigator.clipboard.writeText(button.dataset.copy!);
       notify("Command copied to clipboard");
     } catch {
       notify("Select the command to copy it. Clipboard access is unavailable.");
@@ -562,7 +572,7 @@
   window.addEventListener("hashchange", async () => {
     await render();
     if (focusSearchAfterNavigation) {
-      document.querySelector("#atlas-search")?.focus();
+      $("#atlas-search")?.focus();
       focusSearchAfterNavigation = false;
     } else {
       main.focus({ preventScroll: true });

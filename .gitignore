@@ -97,6 +97,7 @@ claude-output.log
 !docs/website/wasm-paths.schema.json
 !docs/website/wasm-comparison.schema.json
 !docs/website/path-graph.schema.json
+!docs/website/atlas-data.schema.json
 !docs/website/path-worker-request.schema.json
 !docs/website/path-worker-reply.schema.json
 .claude/worktrees/

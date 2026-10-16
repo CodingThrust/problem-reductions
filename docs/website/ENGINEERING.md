@@ -64,8 +64,9 @@ CSS minification is disabled because its color/alpha transformations changed pix
 
 `npm run typecheck` is a strict, separate `noEmit` check; Vite only emits runtime
 JavaScript. `npm run lint:frontend` applies correctness rules without formatting
-changes. Legacy JavaScript has an explicit `checkJs: false` migration boundary;
-that does not certify semantic typing of legacy files. Real browser/compiler
+changes. All application entry points and modules are now TypeScript; the checker
+no longer enables legacy JavaScript. The remaining `graph-layout.js` is a Node-only
+input to the existing build-time layout generator, not a browser application module. Real browser/compiler
 fixtures prove TS emission, strict rejection, CSP, native CSS rendering and shared
 module delivery. Runtime contracts migrate incrementally.
 
@@ -253,7 +254,27 @@ CDP-only multitouch skips remain explicit. CSS and WASM bytes are unchanged;
 manual accessibility and CI acceptance remain open. No new benchmark pilot was
 run for the type migration.
 
-Home/Atlas data boundaries, request wire structs and `site.js` still need migration.
+`site.ts` now types the complete Home/Atlas module. The version-1
+`atlas-data.schema.json` covers both the embedded summary and lazy family records.
+Producer output is validated in one batch before writing records; browser inputs
+are unknown until schema/reference validation, before catalog access or caching.
+The contract preserves exact formula strings, optional metadata, nullable fields,
+variant/edge order and safe indices, and restricts embedded MathML and link paths.
+Reference-page functions receive their typed record explicitly; the summary stays
+separate. Malformed input reports an alert and failed record loads can be retried.
+Markup, CSS, native mathematical computation and lazy loading are preserved.
+Local acceptance passed production, recovery and nested-path checks in all three
+engines, with the existing two CDP-only skips. All 218 family records and the
+browser-delivered summary agree semantically with the previous artifact apart
+from the version/kind fields. Fourteen existing desktop/mobile screenshot
+references match exactly; CSS and WASM bytes are unchanged. Validator timing
+remains part of the final contract-stage performance check.
+
+Revert the Atlas schema/generated files, producer markers/validation, typed site
+entry and checker configuration together to roll back this migration. Deploy a
+complete prior release; do not mix old data with the new consumer.
+
+Native export validation and WASM request wire schemas still need migration.
 Rollback the worker protocol, scene capability version, validators, producer and
 both typed entry points together to the prior complete release; preserve the
 independent path/comparison schemas and Vite integration.

@@ -38,7 +38,9 @@ class WebsiteBuildTests(unittest.TestCase):
                          'docs/website/assets/path-graph.validator.mjs', 'docs/website/assets/path-graph.validator.d.mts',
                          'docs/website/path-worker-request.schema.json', 'docs/website/assets/path-worker-request.validator.mjs',
                          'docs/website/assets/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
-                         'docs/website/assets/path-worker-reply.validator.mjs', 'docs/website/assets/path-worker-reply.validator.d.mts']:
+                         'docs/website/assets/path-worker-reply.validator.mjs', 'docs/website/assets/path-worker-reply.validator.d.mts',
+                         'docs/website/atlas-data.schema.json', 'docs/website/assets/atlas-data.validator.mjs',
+                         'docs/website/assets/atlas-data.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
@@ -142,15 +144,25 @@ class WebsiteBuildTests(unittest.TestCase):
             self.assertFalse((root / 'main.js').exists(), 'The separate checker emitted runtime code')
 
     def test_problem_records_preserve_variants_and_incident_endpoints(self):
-        nodes = [{'name': name, 'variant': {'weight': weight}} for name, weight in
+        nodes = [{'name': name, 'variant': {'weight': weight}, 'category': 'misc', 'default': weight == 'One',
+                  'parameter_names': [], 'complexity': '1', 'complexity_mathml': build_website.expression_mathml('1'),
+                  'doc_path': f'models/misc/struct.{name}.html', 'api_path': f'models/misc/struct.{name}.html'} for name, weight in
                  [('Neighbor', 'One'), ('Source', 'One'), ('Target', 'One'), ('Source', 'i64'), ('Remote', 'One'), ('Source', 'f64')]]
-        edges = [{'source': source, 'target': target} for source, target in [(1, 2), (3, 0), (0, 4)]]
-        schemas = [{'name': name} for name in ['Neighbor', 'Source', 'Target', 'Remote']]
+        edges = [{'source': source, 'target': target, 'parameters': [], 'parameter_contract_error': None,
+                  'witness': True, 'aggregate': False, 'turing': False, 'doc_path': 'rules/example/index.html',
+                  'source_path': 'src/rules/example.rs', 'test_path': None, 'api_path': 'rules/trait.ReduceTo.html'}
+                 for source, target in [(1, 2), (3, 0), (0, 4)]]
+        schemas = [{'name': name, 'category': 'misc', 'description': '', 'fields': [],
+                    'module_path': f'problemreductions::models::misc::{name.lower()}',
+                    'source_path': f'src/models/misc/{name.lower()}.rs'} for name in ['Neighbor', 'Source', 'Target', 'Remote']]
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             build_website.build_problem_records(output, nodes, edges, schemas)
             record = json.loads((output / 'Source.json').read_text())
-        self.assertEqual(record['schemas'], [{'name': 'Source'}])
+            nodes[0]['category'] = 123
+            with self.assertRaises(subprocess.CalledProcessError):
+                build_website.build_problem_records(output, nodes, edges, schemas)
+        self.assertEqual(record['schemas'], [schemas[1]])
         self.assertEqual({node['variant']['weight'] for node in record['nodes'] if node['name'] == 'Source'}, {'One', 'i64', 'f64'})
         self.assertNotIn('Remote', [node['name'] for node in record['nodes']])
         self.assertEqual([(record['nodes'][edge['source']]['name'], record['nodes'][edge['source']]['variant']['weight'],

@@ -138,16 +138,21 @@ def publish_open_questions(source, output):
 
 def build_problem_records(output, nodes, edges, schemas):
     output.mkdir(parents=True, exist_ok=True)
+    records = []
     for schema in schemas:
         own = {i for i, node in enumerate(nodes) if node['name'] == schema['name']}
         incident = [edge for edge in edges if edge['source'] in own or edge['target'] in own]
         selected = sorted(own | {edge[end] for edge in incident for end in ('source', 'target')})
         indices = {old: new for new, old in enumerate(selected)}
-        record = {'nodes': [nodes[i] for i in selected],
+        record = {'schema_version': 1, 'kind': 'record', 'nodes': [nodes[i] for i in selected],
                   'edges': [{**edge, 'source': indices[edge['source']], 'target': indices[edge['target']]}
                             for edge in incident],
                   'schemas': [schema]}
-        (output / (schema['name'] + '.json')).write_text(json.dumps(record, separators=(',', ':')))
+        records.append(record)
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-records'],
+                   input=json.dumps(records), text=True, check=True)
+    for record in records:
+        (output / (record['schemas'][0]['name'] + '.json')).write_text(json.dumps(record, separators=(',', ':')))
 
 
 def build(output, graph_path, schemas_path, open_questions=None):
@@ -254,10 +259,13 @@ def build(output, graph_path, schemas_path, open_questions=None):
         check=True, capture_output=True, text=True).stdout)
     build_problem_records(output / "assets/problem-data", site_nodes, site_edges, schemas)
     summary = {
+        "schema_version": 1, "kind": "summary",
         "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
         "edges": [{key: edge[key] for key in ("source", "target")} for edge in edges],
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-summary'],
+                   input=json.dumps(summary), text=True, check=True)
     (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
     scene = {"schema_version": 2, "layout": layout, "aliases": graph["aliases"],
              "edges": [{key: edge[key] for key in ("source", "target", "witness", "turing")} for edge in edges],

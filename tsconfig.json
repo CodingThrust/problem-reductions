@@ -14,9 +14,7 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "allowImportingTsExtensions": true,
-    "allowJs": true,
-    "checkJs": false
+    "allowImportingTsExtensions": true
   },
-  "include": ["docs/website/assets/**/*.js", "docs/website/assets/**/*.ts", "docs/website/assets/**/*.mts"]
+  "include": ["docs/website/assets/**/*.ts", "docs/website/assets/**/*.mts"]
 }

@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/atlas-data",
+  "title": "AtlasData",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/AtlasSummary"
+    },
+    {
+      "$ref": "#/$defs/AtlasRecord"
+    }
+  ],
+  "$defs": {
+    "Name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "Category": {
+      "type": "string",
+      "enum": [
+        "graph",
+        "formula",
+        "set",
+        "algebraic",
+        "misc"
+      ]
+    },
+    "Variant": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "Index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "DocPath": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$"
+    },
+    "SourcePath": {
+      "type": "string",
+      "pattern": "^src/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.rs$"
+    },
+    "MathML": {
+      "type": "string",
+      "pattern": "^<math xmlns=\"http://www\\.w3\\.org/1998/Math/MathML\" aria-label=\"[^\"<>]*\">(?:<(?:mrow|mi|mn|mo|mfrac|msup|msqrt)>|<mi mathvariant=\"normal\">|</(?:mrow|mi|mn|mo|mfrac|msup|msqrt)>|[^<>])*</math>$"
+    },
+    "SummaryNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "category",
+        "variant"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Name"
+        },
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "variant": {
+          "$ref": "#/$defs/Variant"
+        }
+      }
+    },
+    "SummaryEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "target"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/Index"
+        },
+        "target": {
+          "$ref": "#/$defs/Index"
+        }
+      }
+    },
+    "SummarySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Name"
+        },
+        "description": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "RecordNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "category",
+        "variant",
+        "default",
+        "parameter_names",
+        "complexity",
+        "complexity_mathml",
+        "doc_path",
+        "api_path"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Name"
+        },
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "variant": {
+          "$ref": "#/$defs/Variant"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "parameter_names": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "complexity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "complexity_mathml": {
+          "$ref": "#/$defs/MathML"
+        },
+        "doc_path": {
+          "$ref": "#/$defs/DocPath"
+        },
+        "api_path": {
+          "$ref": "#/$defs/DocPath"
+        }
+      }
+    },
+    "Parameter": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "contract",
+            "formula",
+            "reason",
+            "mathml"
+          ],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contract": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "upper_bound"
+              ]
+            },
+            "formula": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "null"
+            },
+            "mathml": {
+              "$ref": "#/$defs/MathML"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "contract",
+            "formula",
+            "reason",
+            "mathml"
+          ],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contract": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "formula": {
+              "type": "null"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mathml": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "RecordEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "target",
+        "witness",
+        "aggregate",
+        "turing",
+        "parameter_contract_error",
+        "parameters",
+        "doc_path",
+        "source_path",
+        "api_path",
+        "test_path"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/Index"
+        },
+        "target": {
+          "$ref": "#/$defs/Index"
+        },
+        "witness": {
+          "type": "boolean"
+        },
+        "aggregate": {
+          "type": "boolean"
+        },
+        "turing": {
+          "type": "boolean"
+        },
+        "parameter_contract_error": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          }
+        },
+        "doc_path": {
+          "$ref": "#/$defs/DocPath"
+        },
+        "source_path": {
+          "$ref": "#/$defs/SourcePath"
+        },
+        "api_path": {
+          "$ref": "#/$defs/DocPath"
+        },
+        "test_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourcePath"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type_name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "RecordSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "description",
+        "category",
+        "fields",
+        "module_path",
+        "source_path"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Name"
+        },
+        "description": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Field"
+          }
+        },
+        "module_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_path": {
+          "$ref": "#/$defs/SourcePath"
+        }
+      }
+    },
+    "AtlasSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "nodes",
+        "edges",
+        "schemas"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "const": "summary"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummaryNode"
+          },
+          "minItems": 1
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummaryEdge"
+          }
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SummarySchema"
+          },
+          "minItems": 1
+        }
+      },
+      "title": "AtlasSummary"
+    },
+    "AtlasRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "nodes",
+        "edges",
+        "schemas"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "const": "record"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RecordNode"
+          },
+          "minItems": 1
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RecordEdge"
+          }
+        },
+        "schemas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RecordSchema"
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      },
+      "title": "AtlasRecord"
+    }
+  }
+}

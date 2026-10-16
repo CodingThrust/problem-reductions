@@ -7,6 +7,7 @@ import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts'
 import { parseWasmComparison, validateComparisonParameters } from '../docs/website/assets/wasm-comparison-data.mts';
 import { validatePathGraphData } from '../docs/website/assets/path-graph-data.mts';
 import { validatePathRequest, validatePathReply } from '../docs/website/assets/path-worker-data.mts';
+import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/assets/atlas-data.mts';
 
 function scene() {
   return {
@@ -528,4 +529,53 @@ test('comparison validation covers empty batches and rejects repeated pairs in a
   for (const count of [-1, NaN, 9007199254740992]) {
     assert.throws(() => parseWasmComparison(JSON.stringify(comparison()), count, 'summary'));
   }
+});
+
+function atlasSummary() {
+  return {schema_version: 1, kind: 'summary',
+    nodes: [{name: 'Alpha', variant: {weight: 'One'}, category: 'graph'}, {name: 'Beta', variant: {}, category: 'misc'}],
+    edges: [{source: 0, target: 1}], schemas: [{name: 'Alpha', description: 'First problem'}, {name: 'Beta', description: 'Second problem'}]};
+}
+function atlasRecord() {
+  const summary = atlasSummary(), mathml = '<math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="n"><mi mathvariant="normal">n</mi></math>';
+  return {schema_version: 1, kind: 'record',
+    nodes: summary.nodes.map(node => ({...node, default: true, parameter_names: ['n'], complexity: 'n', complexity_mathml: mathml,
+      doc_path: `models/graph/struct.${node.name}.html`, api_path: `models/graph/struct.${node.name}.html`})),
+    edges: [{source: 0, target: 1, witness: true, aggregate: false, turing: false, parameter_contract_error: null,
+      parameters: [{field: 'n', contract: 'exact', formula: '9007199254740993 / 7 * n^9007199254740995', reason: null,
+        mathml: '<math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="9007199254740993 / 7 * n^9007199254740995"><mrow><mfrac><mn>9007199254740993</mn><mn>7</mn></mfrac><mo>·</mo><msup><mi mathvariant="normal">n</mi><mn>9007199254740995</mn></msup></mrow></math>'}],
+      doc_path: 'rules/alpha_beta/index.html', source_path: 'src/rules/alpha_beta.rs', api_path: 'rules/trait.ReduceTo.html', test_path: null}],
+    schemas: [{...summary.schemas[0], category: 'graph', fields: [{name: 'n', type_name: 'u64', description: ''}],
+      module_path: 'problemreductions::models::graph::alpha', source_path: 'src/models/graph/alpha.rs'}]};
+}
+test('Atlas contracts preserve summary metadata, exact formulas and nullable fields', () => {
+  const summary = atlasSummary(), record = atlasRecord();
+  summary.schemas[0].aliases = ['A']; summary.schemas[0].display_name = 'Alpha problem';
+  assert.deepEqual(validateAtlasSummary(structuredClone(summary)), summary);
+  assert.deepEqual(validateAtlasRecord(structuredClone(record), 'Alpha'), record);
+  assert.equal(Object.hasOwn(validateAtlasRecord(record).schemas[0], 'aliases'), false);
+  const producer = spawnSync(process.execPath, ['scripts/validate_website_data.mjs', 'atlas-records'],
+    {input: JSON.stringify([record]), encoding: 'utf8'});
+  assert.equal(producer.status, 0, producer.stderr);
+});
+test('Atlas contracts reject malformed data and unsafe embedded markup or links', () => {
+  for (const mutate of [
+    value => { value.nodes[0].category = 'other'; }, value => { value.edges[0].parameters[0].formula = 9007199254740992; },
+    value => { value.nodes[0].complexity_mathml = '<img src=x onerror=alert(1)>'; },
+    value => { value.edges[0].parameters[0].mathml = '<math><script>alert(1)</script></math>'; },
+    value => { value.nodes[0].api_path = '../index.html'; }, value => { value.schemas[0].aliases = null; },
+  ]) { const record = atlasRecord(); mutate(record); assert.throws(() => validateAtlasRecord(record)); }
+  const summary = atlasSummary(); summary.schema_version = 2;
+  assert.throws(() => validateAtlasSummary(summary));
+  assert.throws(() => validateAtlasSummary(atlasRecord()));
+  assert.throws(() => validateAtlasRecord(atlasSummary()));
+});
+test('Atlas contracts reject mismatched families and invalid graph references', () => {
+  assert.throws(() => validateAtlasRecord(atlasRecord(), 'Beta'));
+  const summary = atlasSummary(); summary.schemas.pop();
+  assert.throws(() => validateAtlasSummary(summary));
+  const record = atlasRecord(); record.edges[0].target = 2;
+  assert.throws(() => validateAtlasRecord(record));
+  const duplicate = atlasSummary(); duplicate.nodes.push({...duplicate.nodes[0]});
+  assert.throws(() => validateAtlasSummary(duplicate));
 });

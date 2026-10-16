@@ -291,8 +291,8 @@ Deliverables:
   as unknown, validate, then use the value; validate incoming worker requests and
   replies as discriminated unions with version compatibility. Preserve termination
   cancellation and the existing bounded cache rather than adding scheduling machinery.
-- Adopt strict TS for each migrated file; legacy JS receives bounded `checkJs`
-  coverage until migrated. Run every relevant config in CI. Avoid `any`, suppression
+- Adopt strict TS for each migrated file; remove the legacy JavaScript exception
+  once the application migration is complete. Run every relevant config in CI. Avoid `any`, suppression
   directives and blanket assertions; allow a justified assertion after validation.
 - Type the existing `GraphScene` public interface and real operations. Preserve its
   SVG implementation and DOM-independent application inputs; no generic
