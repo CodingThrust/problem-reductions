@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
+import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 
-if (process.argv[2] !== 'graph-scene') throw new Error('Usage: node scripts/validate_website_data.mjs graph-scene < DATA');
 /** @type {unknown} */
 const value = JSON.parse(readFileSync(0, 'utf8'));
-validateGraphSceneData(value);
+switch (process.argv[2]) {
+  case 'graph-scene': validateGraphSceneData(value); break;
+  case 'graph-details': validateDetailsIndexData(value, new URL(process.argv[3]), new URL(process.argv[4])); break;
+  default: throw new Error('Usage: node scripts/validate_website_data.mjs graph-scene | graph-details PAGE_URL ARTICLES_URL < DATA');
+}

@@ -29,7 +29,9 @@ class WebsiteBuildTests(unittest.TestCase):
             assets.mkdir(parents=True)
             (root / 'node_modules').symlink_to(ROOT / 'node_modules', target_is_directory=True)
             for name in ['scripts/generate_website_contracts.mjs', 'docs/website/graph-scene.schema.json',
-                         'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts']:
+                         'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts',
+                         'docs/website/graph-details.schema.json', 'docs/website/assets/graph-details.validator.mjs',
+                         'docs/website/assets/graph-details.validator.d.mts']:
                 shutil.copyfile(ROOT / name, root / name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)

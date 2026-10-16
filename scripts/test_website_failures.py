@@ -149,6 +149,25 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         article = self.site / manifest['entries']['problem:MaximumIndependentSet']
         self.assert_detail_recovery(article, 'Cannot load documentation (404)')
 
+    def test_graph_details_rejects_index_urls_outside_current_articles_and_recovers(self):
+        resource = self.assets / 'graph-details.json'
+        original = resource.read_bytes()
+        manifest = json.loads(original)
+        manifest['entries']['problem:MaximumIndependentSet'] = './index.html'
+        resource.write_text(json.dumps(manifest))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        def open_details():
+            self.open_problem_popover('MaximumIndependentSet')
+            self.page.get_by_role('button', name='Details', exact=True).click()
+        open_details()
+        expect(self.page.locator('#drawer-body [role="alert"]')).to_contain_text('Invalid documentation index', timeout=1000)
+        resource.write_bytes(original)
+        self.page.get_by_role('button', name='Close details', exact=True).click()
+        open_details()
+        expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
+        self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
+
     def test_graph_rejects_unknown_scene_category_before_rendering(self):
         resource = self.assets / 'graph-scene.json.gz'
         scene = json.loads(gzip.decompress(resource.read_bytes()))

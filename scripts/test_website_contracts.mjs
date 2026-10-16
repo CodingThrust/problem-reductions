@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
+import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
 
 function scene() {
   return {
@@ -68,4 +69,60 @@ test('producer validation accepts valid data and fails on an invalid scene', () 
   assert.equal(valid.status, 0, valid.stderr);
   value.edges[0].target = 3;
   assert.notEqual(run(value).status, 0);
+});
+
+const page = new URL('https://example.test/research/reductions/index.html');
+const articles = new URL('./releases/current/assets/details/', page);
+function details() {
+  return {
+    schema_version: 1,
+    entries: { 'problem:Alpha': './releases/current/assets/details/problem/Alpha.html',
+      'rule:Alpha->Beta': './releases/current/assets/details/rule/Alpha-%3EBeta.html' },
+    anchors: { 'def:Alpha': 'problem:Alpha' },
+  };
+}
+
+test('documentation index preserves encoded filenames and anchor targets', () => {
+  const value = details();
+  assert.deepEqual(validateDetailsIndexData(value, page, articles), value);
+  const result = spawnSync(process.execPath,
+    ['scripts/validate_website_data.mjs', 'graph-details', page.href, articles.href],
+    { input: JSON.stringify(value), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('documentation index rejects invalid shapes and dangling anchors', () => {
+  for (const mutate of [
+    value => { delete value.schema_version; },
+    value => { value.schema_version = 2; },
+    value => { value.entries = []; },
+    value => { value.entries = {}; },
+    value => { value.entries.unexpected = './releases/current/assets/details/Alpha.html'; },
+    value => { value.anchors['def:Beta'] = 'problem:Missing'; },
+    value => { value.anchors['def:Alpha'] = null; },
+  ]) {
+    const value = details();
+    mutate(value);
+    assert.throws(() => validateDetailsIndexData(value, page, articles));
+  }
+});
+
+test('documentation index rejects URLs outside the current release article subtree', () => {
+  for (const url of [
+    './index.html', './releases/old/assets/details/Alpha.html',
+    'https://other.test/research/reductions/releases/current/assets/details/Alpha.html',
+    './releases/current/assets/details/../graph.html',
+    './releases/current/assets/details/%2e%2e/graph.html',
+    './releases/current/assets/details/%2e%2e%2fgraph.html',
+    './releases/current/assets/details/%5cAlpha.html',
+    './releases/current/assets/details/%XX.html',
+    './releases/current/assets/details/Alpha.html?release=old',
+    './releases/current/assets/details/Alpha.html#section',
+    './releases/current/assets/details/Alpha.json',
+    'javascript:alert(1)',
+  ]) {
+    const value = details();
+    value.entries['problem:Alpha'] = url;
+    assert.throws(() => validateDetailsIndexData(value, page, articles), url);
+  }
 });

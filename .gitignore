@@ -94,6 +94,7 @@ claude-output.log
 !tsconfig.json
 !docs/website/performance-results.json
 !docs/website/graph-scene.schema.json
+!docs/website/graph-details.schema.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/

@@ -2,8 +2,8 @@
 
 Source audit: 2026-10-16, against the current working tree. This is a coverage
 inventory and migration checklist, not a claim that contracts are implemented.
-Generated production artifacts are fingerprinted by `check_website.py`. The scene-only
-contract slice passed local production checks; it does not certify other rows.
+Generated production artifacts are fingerprinted by `check_website.py`. Scene and
+documentation-index contracts passed local production checks; other rows remain open.
 
 | Payload / producer | Consumer | Current protection | Minimum migration requirement |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@ contract slice passed local production checks; it does not certify other rows.
 | `graph-scene.json.gz`, emitted by Python | `assets/graph-startup.ts`: decompress, parse as unknown, schema/reference validation; consumed by `graph.js` | Versioned schema, generated standalone validator/types; producer validation; strict loader and cross-field checks; full local production verification passed | Local negative-input, all-engine production/nested/failure, screenshot and startup-cost checks passed; CI/manual gates and remaining rows stay open |
 | `path-graph.json.gz`, emitted by Python | `assets/path-worker.js`: decompress, `JSON.parse` | HTTP status check; later Rust deserialization and endpoint validation | Validate the worker's parsed unknown before caching/using it; parameter contracts and formulas remain exact strings; retain Rust's validation |
 | Per-family `problem-data/*.json`, emitted by `build_problem_records` | `assets/site.js`: `response.json()` | HTTP check; producer test covers incident endpoints and reindexing | Schema for nodes/edges/schemas plus endpoint-reference checks; distinguish absent optional metadata from null |
-| `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.js`: `response.json()`, shared by graph and Atlas | HTTP check and rejected-fetch cache eviction | Schema for `entries` and `anchors`; validate URLs against the same origin/release and retain retry/eviction behavior |
+| `graph-details.json`, emitted by `build_graph_details.py` | `assets/details.ts`: parsed unknown, validated before caching; shared by graph and Atlas | Versioned schema, generated guard/types, producer validation; URLs confined to the current release's article subtree; anchor targets checked | Local malformed-input and all-engine rejection/retry, production and nested-path checks passed; preserve bounded cache, HTML safety guard and CSP; CI/manual gates remain open |
 | Main thread → worker `{source,target,limit,paths?}` | `path-worker.js`: `onmessage` | Untyped structured clone; WASM later validates a constructed request | Validate incoming unknown against a request union, version, safe index/limit bounds and optional cached route shape |
 | Worker → main thread `{phase,result}` or `{phase,error}` | `graph.js`: `onmessage` | Untyped envelope; stale worker identity checked | Validate phase and mutually exclusive result/error shape plus the appropriate payload; retain worker termination, identity checks and bounded cache |
 | JSON strings for `find_paths`, `compare_paths`, `summarize_paths` | `problemreductions-web/src/lib.rs` | Typed Rust `Deserialize` requests and semantic validation | Derive request schemas from real wire structs; validate browser-side requests before serialization and preserve Rust validation |
@@ -45,7 +45,8 @@ contract slice passed local production checks; it does not certify other rows.
 - Prefer typed Rust wire structs with Schemars-derived schemas and generated TS
   types/runtime validators, alongside Python-owned artifact schemas. Confirm the
   actual Serde union/optional-field representations in one complete migration
-  before selecting tools. No contract tooling is adopted by this audit.
+  before extending the migration. Ajv standalone guards and generated TS types now
+  cover the two Python-owned contracts; Rust mathematical contracts remain open.
 
 ## Related boundaries that are not JSON parsing
 

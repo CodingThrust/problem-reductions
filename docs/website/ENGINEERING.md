@@ -77,7 +77,7 @@ Rollback build integration, module entries and worker URL changes together to th
 prior Python asset-copy path and a complete prior static release. Keep useful
 compatibility checks. Never combine old HTML/data with newly compiled modules.
 
-## Graph-scene contract and strict migration
+## Runtime contracts and strict migration
 
 The first completed local slice uses `graph-scene.schema.json` (version 1) for
 Python producer validation and browser validation. `graph-startup.ts` parses as
@@ -85,6 +85,14 @@ Python producer validation and browser validation. `graph-startup.ts` parses as
 run before scene construction. They reject unsafe indices, nonfinite coordinates,
 unsupported versions, duplicate variants independent of key order, invalid defaults,
 orphan aliases and incomplete/extra layout entries. Rust mathematics is unchanged.
+
+`graph-details.schema.json` (version 1) validates producer output and the shared
+`details.ts` loader before caching or article lookup. Cross-field checks reject
+dangling anchors, external/stale-release URLs, non-article paths and malformed or
+traversing encoded paths. Resolve the article directory from the index asset URL;
+Vite treats a literal directory URL relative to `import.meta.url` as a source asset.
+Lazy article loading, the 24-entry cache, eviction/retry, references, footnotes,
+generated-HTML safety validation, CSP and existing markup/styles are preserved.
 
 Ajv 8.20.0 generates standalone validation code; Vite bundles its static helpers,
 so production does not compile schemas or require dynamic evaluation.
@@ -104,21 +112,28 @@ npm run lint:frontend
 Direct Python builds also check generation drift. Fixtures prove stale schemas
 fail the check and typed source reaches lint's control-flow rules. The unknown-
 category browser test failed on the preceding artifact, then passed before any SVG
-was rendered on rejection. Required-board verification passed 79 root cases, nine
-failure cases and seven nested workflows per engine, with the documented multi-touch
-skips. All fourteen screenshots matched; no raw TS/declarations were published.
+was rendered on rejection. The invalid-index browser case also failed on the prior
+artifact and now confirms rejection and successful retry after repairing the real
+HTTP resource. Latest required-board verification passed 79 root cases, ten failure
+cases and seven nested workflows per engine, with the documented multi-touch skips.
+All fourteen screenshots matched; no raw TS/declarations were published.
 
-Ten isolated untraced cold runs measured scene validation at 0.75 ms median /
-0.90 ms sampled p95. Startup JS is 60,403 decoded bytes, up 13,571 over Vite alone;
-WASM is unchanged. Graph/route readiness proxies were 49.9/74.45 ms median and
-67.0/101.6 ms sampled p95. All ten startup inputs preceded comparison completion.
-These are informational observations, not speedup/non-regression certificates.
-Raw evidence is stored externally under the retained batch's `scene-contract/`.
+The scene-only pilot measured validation at 0.75 ms median / 0.90 ms sampled p95.
+After index migration, ten isolated untraced cold runs measured 65,863 decoded
+startup JS bytes (+5,460 over that slice); WASM hashes are unchanged. Graph/route
+readiness proxies were 49.35/74.05 ms median and 64.1/76.0 ms sampled p95. Startup
+fill-to-suggestion round trips were 36.75/50.3 ms; all ten inputs preceded comparison
+completion. A separate ten-process first lazy-index batch measured validation at
+1.6/1.7 ms median/sampled p95. These are informational observations, not speedup,
+tail-stability or non-regression certificates. Evidence is stored externally under
+the retained batch's `scene-contract/` and `details-contract/`.
 
 Other data boundaries, exact mathematical wire structs, worker envelopes, the
 existing GraphScene interface and remaining application files still need migration.
 Rollback this slice's schema, generated code, producer version/validation and loader
-entry together, restoring a complete prior release while retaining Vite.
+entry together, restoring a complete prior release while retaining Vite. Revert the
+documentation-index schema, producer version/validation and shared consumer together
+independently of the scene migration.
 
 ## Open Question Board and CI
 

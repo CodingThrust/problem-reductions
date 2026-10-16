@@ -97,6 +97,7 @@ def deduplicate_glyphs(content):
 
 def build_details(output):
     started = time.monotonic()
+    subprocess.run(['node', str(ROOT / 'scripts/generate_website_contracts.mjs'), '--check'], check=True)
     with tempfile.TemporaryDirectory(prefix="reduction-details-") as directory:
         html_path = Path(directory) / "details.html"
         subprocess.run([
@@ -122,8 +123,11 @@ def build_details(output):
         path.write_text(content)
         entries[key] = "./assets/" + quote(relative.as_posix(), safe="/")
         total_bytes += path.stat().st_size
-    (output / "graph-details.json").write_text(
-        json.dumps({"entries": entries, "anchors": parser.anchors}, ensure_ascii=True))
+    index = json.dumps({"schema_version": 1, "entries": entries, "anchors": parser.anchors}, ensure_ascii=True)
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'graph-details',
+                    (output.resolve().parent / 'index.html').as_uri(), (output.resolve() / 'details').as_uri() + '/'],
+                   input=index, text=True, check=True)
+    (output / "graph-details.json").write_text(index)
     print(f"Built {len(entries)} detail files in {time.monotonic() - started:.1f}s: "
           f"{original_bytes / 1e6:.1f} MB → {total_bytes / 1e6:.1f} MB; "
           f"index {(output / 'graph-details.json').stat().st_size / 1e3:.1f} KB")

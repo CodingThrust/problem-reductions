@@ -1,53 +1,80 @@
+import { validateDetailsIndexData } from './graph-details-data.mts';
+import type { GraphDetailsIndex } from './graph-details.validator.mjs';
+
+declare global {
+  interface Window {
+    GRAPH_DETAILS?: GraphDetailsIndex;
+    loadDetailsIndex(): Promise<GraphDetailsIndex>;
+    renderDetails(detail: HTMLElement, title: string, variant: string, key: string, parentKey: string,
+      onProblem: (name: string) => void): Promise<void>;
+  }
+}
+
 (() => {
   "use strict";
-  const detailCache = new Map();
-  let manifest;
+  const detailCache = new Map<string, Promise<string>>();
+  let manifest: Promise<GraphDetailsIndex> | null = null;
   let renderRequest = 0;
-  function normalizeReferenceRoles(container) {
+  function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+  function normalizeReferenceRoles(container: Element) {
     for (const wrapper of container.querySelectorAll('sup[role="doc-noteref"], sup[role="doc-backlink"]')) {
-      for (const link of wrapper.querySelectorAll('a[href]')) link.setAttribute('role', wrapper.getAttribute('role'));
+      const role = wrapper.getAttribute('role');
+      if (role) for (const link of wrapper.querySelectorAll('a[href]')) link.setAttribute('role', role);
       wrapper.removeAttribute('role');
     }
   }
   window.loadDetailsIndex = function() {
     if (window.GRAPH_DETAILS) return Promise.resolve(window.GRAPH_DETAILS);
-    manifest ||= fetch('./assets/graph-details.json').then(response => {
+    const indexURL = new URL('./assets/graph-details.json', window.location.href);
+    manifest ||= fetch(indexURL).then(response => {
       if (!response.ok) throw new Error('Cannot load documentation index. Reload the page to get the current release.');
       return response.json();
-    }).then(index => window.GRAPH_DETAILS = index).catch(error => {
+    }).then((value: unknown) => {
+      performance.mark('details:index-json-parsed');
+      const index = validateDetailsIndexData(value, new URL(window.location.href), new URL('./details/', indexURL));
+      performance.mark('details:index-validated');
+      return window.GRAPH_DETAILS = index;
+    }).catch(error => {
       manifest = null;
       throw error;
     });
     return manifest;
   };
-  function loadDetail(key) {
-    const url = window.GRAPH_DETAILS.entries[key];
+  function loadDetail(key: string): Promise<string> {
+    const url = window.GRAPH_DETAILS?.entries[key];
     if (!url) return Promise.reject(new Error(`Missing detail file: ${key}`));
-    if (!detailCache.has(url)) {
-      detailCache.set(url, fetch(url).then((response) => {
+    let content = detailCache.get(url);
+    if (!content) {
+      content = fetch(url).then((response) => {
         if (!response.ok) throw new Error(`Cannot load documentation (${response.status})`);
         return response.text();
       }).catch((error) => {
         detailCache.delete(url);
         throw error;
-      }));
-      if (detailCache.size > 24) detailCache.delete(detailCache.keys().next().value);
+      });
+      detailCache.set(url, content);
+      const oldest = detailCache.keys().next();
+      if (detailCache.size > 24 && !oldest.done) detailCache.delete(oldest.value);
     } else {
-      const cached = detailCache.get(url);
       detailCache.delete(url);
-      detailCache.set(url, cached);
+      detailCache.set(url, content);
     }
-    return detailCache.get(url);
+    return content;
   }
 
   window.renderDetails = async function(detail, title, variant, key, parentKey, onProblem) {
     const request = ++renderRequest;
     detail.replaceChildren();
     detail.onclick = (event) => {
+      if (!(event.target instanceof Element)) return;
       const link = event.target.closest('a[href^="#"]');
       if (!link) return;
-      const anchor = link.hash.slice(1);
-      const key = window.GRAPH_DETAILS.anchors[anchor];
+      const anchor = link.getAttribute('href')?.slice(1);
+      if (!anchor) return;
+      const anchors = window.GRAPH_DETAILS?.anchors;
+      const key = anchors && Object.hasOwn(anchors, anchor) ? anchors[anchor] : undefined;
       if (key?.startsWith("problem:") && key !== detail.querySelector("article")?.dataset.contentKey) {
         event.preventDefault();
         onProblem(key.slice("problem:".length));
@@ -55,12 +82,13 @@
       }
       if (link.getAttribute("role") === "doc-biblioref") {
         event.preventDefault();
-        const references = detail.querySelector(".detail-references");
+        const references = detail.querySelector<HTMLDetailsElement>(".detail-references");
+        if (!references) return;
         references.open = true;
         references.scrollIntoView({ block: "nearest" });
         return;
       }
-      const target = detail.querySelector(`[id="${CSS.escape(link.hash.slice(1))}"]`);
+      const target = detail.querySelector(`[id="${CSS.escape(anchor)}"]`);
       if (!target) {
         if (key === detail.querySelector("article")?.dataset.contentKey) {
           event.preventDefault();
@@ -72,7 +100,7 @@
       const references = target.closest("details");
       if (references) references.open = true;
       const focus = target.matches('sup') ? target.querySelector('a[href]') : target;
-      if (focus) {
+      if (focus instanceof HTMLElement || focus instanceof SVGElement) {
         if (!focus.matches('a[href], button, input, select, textarea, summary, [tabindex]')) focus.tabIndex = -1;
         focus.focus({preventScroll: true});
       }
@@ -94,21 +122,19 @@
     article.className = "typst-detail";
     article.textContent = "Loading documentation…";
     detail.append(article);
-    if (!window.GRAPH_DETAILS) {
-      try {
-        await window.loadDetailsIndex();
-      } catch (error) {
-        manifest = null;
-        if (request === renderRequest) {
-          article.textContent = error.message;
-          article.setAttribute("role", "alert");
-        }
-        return;
+    let index: GraphDetailsIndex;
+    try {
+      index = await window.loadDetailsIndex();
+    } catch (error) {
+      if (request === renderRequest) {
+        article.textContent = errorMessage(error);
+        article.setAttribute("role", "alert");
       }
+      return;
     }
     if (request !== renderRequest || !article.isConnected) return;
-    const contentKey = window.GRAPH_DETAILS.entries[key] ? key : parentKey;
-    const available = Boolean(window.GRAPH_DETAILS.entries[contentKey]);
+    const contentKey = index.entries[key] ? key : parentKey;
+    const available = Boolean(index.entries[contentKey]);
     if (!available) {
       const note = document.createElement("p");
       note.className = "detail-source";
@@ -135,13 +161,15 @@
       article.querySelectorAll('pre').forEach(code => { code.tabIndex = 0; });
       normalizeReferenceRoles(article);
       const citations = new Set([...article.querySelectorAll('a[role="doc-biblioref"]')]
-        .map((link) => link.hash.slice(1)));
+        .map((link) => link.getAttribute('href')?.slice(1)));
       if (citations.size) {
         const references = document.createElement("details");
         references.className = "detail-references";
-        references.innerHTML = "<summary>References</summary><div></div>";
+        const summary = document.createElement('summary');
+        summary.textContent = 'References';
+        const body = document.createElement('div');
+        references.append(summary, body);
         article.after(references);
-        const body = references.lastElementChild;
         let loaded = false;
         references.addEventListener("toggle", async () => {
           if (!references.open || loaded) return;
@@ -153,7 +181,7 @@
             });
             loaded = true;
           } catch (error) {
-            body.textContent = error.message;
+            body.textContent = errorMessage(error);
             body.setAttribute("role", "alert");
           }
         });
@@ -164,13 +192,13 @@
         try {
           notes.innerHTML = await loadDetail("footnotes");
           normalizeReferenceRoles(notes);
-          const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.hash.slice(1)));
+          const used = new Set([...article.querySelectorAll('a[role="doc-noteref"]')].map((link) => link.getAttribute('href')?.slice(1)));
           notes.querySelectorAll('li').forEach((item) => {
             if (!used.has(item.id)) item.remove();
           });
         } catch (error) {
           // The article is already rendered; only its footnotes degrade.
-          notes.textContent = error.message;
+          notes.textContent = errorMessage(error);
           notes.setAttribute("role", "alert");
         }
         if (!article.isConnected) return;
@@ -178,7 +206,7 @@
       }
     } catch (error) {
       if (!article.isConnected) return;
-      article.textContent = error.message;
+      article.textContent = errorMessage(error);
       article.setAttribute("role", "alert");
     } finally {
       article.removeAttribute("aria-busy");
