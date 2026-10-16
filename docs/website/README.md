@@ -34,9 +34,9 @@ The drawer reserves desktop graph space without moving the camera; step and
 article problem links also frame and pulse the corresponding node.
 
 `scripts/build_graph_details.py` compiles once with Typst 0.15.1 and extracts
-each article into the release's `assets/details/` directory. The graph's existing
-registry payload includes the URL index, avoiding a separate index request before
-the first article. Entering the Atlas starts the shared index download in the
+each article into the release's `assets/details/` directory. The documentation
+URL/anchor index loads on the first drawer open, before looking up that article.
+Entering the Atlas starts the shared index download in the
 background, alongside any selected problem's metadata. Articles load on
 selection; the 24 most recently used articles are cached. References load
 when expanded. Repeated SVG glyph definitions are shared within each article.
@@ -48,11 +48,15 @@ experimental, so the build fails on export errors.
 
 ## Performance measurements and architecture investigation
 
+This section records the comparator and startup study before the Vite/TypeScript
+migration. See [engineering checks](ENGINEERING.md) for current verification,
+performance observations and outstanding acceptance checks.
+
 Measured on 15–16 October 2026 on a 32 GiB Apple M6, Node 24.21 and Chromium 145
 (Playwright 1.58), using release WASM builds. The baseline already includes the
 previous website fixes. Raw samples and regression fingerprints are retained outside Git
-and record the actual inputs, memory definitions and artifact hashes. Times below
-are medians of three fresh processes, excluding enumeration, WASM initialization,
+and record the actual inputs, memory definitions and artifact hashes. The following
+computation table reports medians of three fresh processes, excluding enumeration, WASM initialization,
 JavaScript parsing and file writes. The widest registered query's baseline has
 one sample. These development measurements are not device or CDN guarantees.
 
@@ -102,7 +106,7 @@ to the monomial fixtures. No network or computation is mocked.
 The website is a static client of generated Rust registry exports. The web crate
 compiles the same expression, parameter-transform, polynomial, path-search and
 comparison sources as the native library, without linking the model catalogue or
-HiGHS into WASM. One worker handles symbolic computation; Cytoscape handles the
+HiGHS into WASM. One worker handles symbolic computation; native SVG handles the
 collapsed family graph; Typst articles are generated at build time.
 
 Native stage samples put parsing and composing 100 routes at about **25 ms**,
@@ -167,62 +171,197 @@ measured bottleneck. [V8's compilation pipeline](https://v8.dev/docs/wasm-compil
 explains the value of retaining the worker; [shared-memory requirements](https://developer.mozilla.org/en-US/docs/Web/API/WorkerGlobalScope/crossOriginIsolated)
 make a threaded migration a hosting and memory decision as well as a CPU decision.
 
-### Rendering and loading alternatives
+### Cold Graph navigation
 
-The fixed overlap-removal pass now runs in the layout generator, preserving the
-published geometry and removing its repeated `O(80 F²)` browser work. Native
-scene interaction still uses Cytoscape. Increasing the route limit changes the
-comparison batch and route list, while the scene still has the same 218 family
-nodes. The complete browser audit records
-startup long tasks and pan frame intervals; cold startup on a 1.6 Mbps,
-150 ms connection is still about seven seconds. Larger optimized WASM adds
-roughly 27 KB of compressed transfer, so computation gains do not imply a
-comparable network-startup gain. Production CDN compression was not benchmarked.
-The slow scenario uses 4× main-thread throttling, which does not throttle workers
-and is not equivalent to a physical phone.
+These are **complete application cold starts**, measured separately from the
+100/999-route computation benchmarks above. The controlled slow profile reproduced
+7.62 / 7.70 s median/p95 full startup, rather than
+exactly ten seconds on the user's device. The unthrottled desktop results below
+make the environment dependence explicit.
 
-A separate renderer-only probe uses the actual 218 family nodes, 305 family
-edges, all labels, identical geometry/fonts and a 120-frame pan trajectory:
+Each sample launches a new Chromium process, temporary profile and browser context,
+clears the HTTP cache and starts a new WASM worker. Service workers are blocked;
+loopback bypasses the local proxy. All runs use the actual built website and Rust
+WASM, with real searches, route rendering and interaction. Browser traces are
+recorded for every sample, at 1440 × 1000 and device scale factor 1. Default motion stays enabled.
 
-| Renderer-only probe | Cytoscape Canvas | Native SVG prototype |
+The slow link shares **200,000 bytes/s and 150 ms response latency across all
+requests**, including worker requests; the page CPU is throttled 4×. Workers are
+not separately throttled, so this is not a physical-phone simulation. Each slow
+cell reports **median / p95 across 20 successful samples**, using nearest rank p95.
+Raw text delivery and HTTP gzip are measured independently under identical settings.
+
+| Navigation-to-event or resource | Before, raw server | After, raw server |
 | --- | ---: | ---: |
-| Throttled cold ready time, one run | 4.67 s | 2.42 s |
-| Resource transfer, uncompressed server | 805 KB | 370 KB |
-| JavaScript heap after GC | 5.5 MiB | 1.4 MiB |
-| DOM nodes | 26 | 976 |
-| Pan frame p95 | about 26 ms | about 26 ms |
+| Meaningful graph (s) | 6.67 / 6.72 | 1.40 / 1.49 |
+| Verified search interaction (s) | 7.17 / 7.30 | 1.48 / 1.59 |
+| Selectable routes (s) | 7.11 / 7.16 | 3.02 / 3.04 |
+| Full readiness (s) | 7.62 / 7.70 | 3.58 / 3.61 |
+| Blocking above 50 ms (ms) | 128 / 149 | 0 / 0 |
+| Transferred (KiB) | 1206.9 / 1206.9 | 508.2 / 508.2 |
+| Peak Chromium RSS sum (MiB) | 643.7 / 679.1 | 547.5 / 552.6 |
+| Peak page JS heap (MiB) | 17.76 / 24.57 | 4.56 / 4.71 |
+
+| Navigation-to-event or resource | Before, HTTP gzip | After, HTTP gzip |
+| --- | ---: | ---: |
+| Meaningful graph (s) | 2.62 / 2.65 | 0.87 / 1.00 |
+| Verified search interaction (s) | 2.95 / 2.98 | 0.99 / 1.12 |
+| Selectable routes (s) | 3.30 / 3.32 | 2.54 / 2.57 |
+| Full readiness (s) | 3.83 / 3.86 | 3.11 / 3.16 |
+| Blocking above 50 ms (ms) | 204 / 247 | 0 / 4 |
+| Transferred (KiB) | 547.1 / 547.1 | 406.5 / 406.5 |
+| Peak Chromium RSS sum (MiB) | 682.4 / 689.7 | 548.0 / 556.4 |
+| Peak page JS heap (MiB) | 23.98 / 25.05 | 4.52 / 4.59 |
+
+Meaningful graph means the graph and controls have rendered, followed by two
+animation frames. Verified interaction fills the source field and checks the real
+MIS suggestion while startup continues; this includes browser-driver latency and
+is not an INP measurement. Selectable routes means real enumeration results have
+painted, with comparison still allowed to be pending. Full readiness additionally
+waits for the comparison, fonts and three stable viewport frames after the final
+camera animation. Optional documentation is outside this initial-query milestone.
+Browser FCP can show only site navigation and is not used as a
+substitute for a meaningful Graph render.
+
+For the **unthrottled loopback desktop** profile (10 new processes per cell):
+
+| Navigation-to-event | Before | After |
+| --- | ---: | ---: |
+| Meaningful graph (s) | 0.11 / 0.14 | 0.06 / 0.07 |
+| Verified search interaction (s) | 0.35 / 0.42 | 0.18 / 0.21 |
+| Selectable routes (s) | 0.19 / 0.21 | 0.08 / 0.12 |
+| Full readiness (s) | 0.74 / 0.77 | 0.66 / 0.68 |
+
+The critical path is visible in a representative baseline trace: HTML completes at
+0.20 s; the registry script downloads from
+0.20–5.74 s,
+Cytoscape from 0.20–6.39 s,
+and preloaded WASM from 0.20–5.37 s.
+Only then does the Graph script start at 6.40 s, install its
+controls at 6.53 s and create the worker. The routes
+paint at 7.11 s; comparison DOM finishes at
+7.08 s; fonts/camera finish at 7.62 s.
+The baseline's main-thread work could delay the route paint past the comparison DOM update.
+**These download intervals overlap; adding them would invent startup time.**
+
+Phase timings for the raw slow profile, again median / p95:
+
+| Phase | Before | After |
+| --- | ---: | ---: |
+| Main JS parse (ms) | 35.8 / 39.7 | 23.1 / 25.4 |
+| Main JS compile (ms) | 54.0 / 58.3 | 29.5 / 31.5 |
+| Main JS execution (ms) | 1010.2 / 1039.5 | 61.3 / 67.6 |
+| WASM download, overlapping (ms) | 5149 / 5174 | 2790 / 2814 |
+| WASM compiler thread intervals (ms) | 171.3 / 192.4 | 179.8 / 192.8 |
+| WASM synchronous instantiation (ms) | 0.048 / 0.064 | 0.058 / 0.100 |
+| Engine ready from navigation (s) | 6.96 / 7.01 | 2.98 / 3.01 |
+| Graph model/construction (ms) | 34.3 / 35.9 | 11.1 / 11.9 |
+| Controls/initial viewport setup (ms) | 89.3 / 94.2 | 20.6 / 23.2 |
+| Path enumeration, including API serialization (ms) | 4.5 / 5.2 | 4.7 / 5.1 |
+| 20-route comparison, including API serialization (ms) | 65.4 / 68.0 | 69.6 / 75.4 |
+| Comparison delivery, ranking and DOM update (ms) | 39.9 / 46.1 | 19.9 / 24.2 |
+| Main layout (ms) | 32.6 / 36.2 | 143.8 / 152.1 |
+| Main style recalculation (ms) | 15.8 / 18.2 | 49.8 / 55.5 |
+
+The phase table includes both overlapping work and nested JS work; it must not be
+summed into wall time. Parsing/compilation numbers cover main-thread trace events,
+including the small measurement observer. WASM compilation includes lazy and
+background compilation on multiple threads. The per-run machine-readable records
+also contain compressed/decoded JS bytes, scene/worker JSON parsing and initialization
+spans. After splitting metadata, scene JSON parsing is
+0.60 / 0.90 ms and worker metadata JSON parsing is
+0.30 / 0.40 ms. Before the split, metadata
+was an executable object literal, included in JavaScript parsing/evaluation.
+
+The worker's fetch-to-initialization span now includes waiting for a still-running
+download: initialization starts earlier instead of waiting behind graph construction.
+There is no separate global mathematical catalogue initialization; graph deserialization,
+expression composition and certificate construction occur inside the measured Rust
+API calls. React rendering, hydration and React effects are absent: this is plain
+JavaScript with native SVG.
+
+The implemented changes remove work and dependencies from the critical path:
+
+- Native SVG replaces the 434 KB Cytoscape browser bundle and its canvas render
+  loop. The build-time layout and overlap removal remain unchanged. Pan, wheel/dock
+  zoom, node dragging, touch pinch/pan, label culling, routes, popovers and drawers
+  are covered by actual browser interaction checks. Label metrics are cached, and
+  unchanged classes no longer cause repeated DOM attribute writes during camera motion.
+- The scene receives positions, names, variants, aliases and endpoint pairs only.
+  Descriptions, the documentation URL/anchor index and mathematical edge contracts
+  no longer travel in one executable registry script. The documentation index loads
+  on the first drawer open; articles, references and proofs keep their existing lazy
+  renderer and exact-variant fallback behavior.
+- A small bootstrap starts the worker and scene fetch before graph setup. Inside
+  the worker, the WASM stream and compressed mathematical registry load in parallel.
+  The registry is fetched/parsed once there, and query messages contain endpoints
+  and limits instead of cloning the full graph on every call. The existing eight-query
+  cache, retained idle worker and termination on cancellation remain.
+- Routes still appear before comparison completes; users can search, pan and inspect
+  nodes while the engine downloads. No default routes or comparisons are fabricated,
+  skipped, precomputed for the benchmark or replaced with weaker mathematical checks.
+
+The WASM binary is **byte-identical before and after**. Worker linear-memory high
+water remains 3.375 / 3.375 MiB; polynomial kernels,
+comparison verdicts and proof APIs are unchanged. A worker pool would duplicate
+module/data memory and add scheduling/serialization for a default comparison of
+about 70 ms; it does not
+address the measured download/renderer bottleneck. Repeated Rust-side API parsing
+remains in those small calls; adding a new stateful WASM registry API is not justified
+by this profile. SVG uses more cumulative browser layout/style time than Canvas,
+but spreads it across short frames; the table reports that cost instead of hiding it.
+
+A three-run exploratory **preload ablation**, with the compressed slow profile,
+measured 3.09 s full readiness with WASM preload versus 3.25 s without it. The scene
+painted about 90 ms earlier without preload, while usable results arrived about
+150 ms later. Preload stays because it improves the query critical path; it does
+not eliminate the download or initialize WASM by itself.
+
+Memory numbers are **sampled peaks**, not exact physical peaks: approximately every
+50 ms plus instrumentation overhead. The Chromium RSS sum includes browser, GPU,
+network and tracing processes and may double-count shared pages. Page JS heap uses
+precise V8 reporting without forced GC and excludes native DOM, worker heap and
+WASM. WASM capacity records its allocation high water. Blocking means the sum of
+main-thread task time exceeding 50 ms from navigation to full readiness, rather
+than Lighthouse's FCP-to-TTI TBT definition.
+
+Verification: all 49 browser checks pass, including CLI route/profile comparisons,
+copy-and-solve, comparison-time selection, cancellation, exact-variant proof drawers,
+mobile layout, drag, wheel anchoring and real browser touch events. Build/security,
+MathML and existing graph-JS tests pass. V8 coverage records 98.38% of the new SVG
+renderer source positions exercised. All 257 node parameter schemas and 344 mathematical
+edge records match the source registry; the full WASM regression preserves all 190
+pair verdicts/certificates for the default query and agrees with the summary API.
+No Rust source changed; native workspace tests and Rust coverage were not rerun.
+
+Earlier exploratory runs exposed the default Python HTTP server's five-entry
+accept queue rejecting scripts during the cold burst. Those entire batches were
+invalidated. The final harness uses a 128-entry queue and fails on any request or
+browser error; no serving failures are included in these statistics. This also
+explains why a simple preview server is unsuitable as an unchecked performance
+measurement server.
+
+Reproduce after building the website:
 
 ```sh
-uv run --no-project --with playwright==1.58.0 python scripts/benchmark_website_renderers.py book --output /tmp/renderers.json
+uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_startup.py book --output /tmp/graph-startup --repeat 20
+# Same link and CPU, with normal HTTP compression for text assets:
+uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_startup.py book --output /tmp/graph-startup-gzip --repeat 20 --gzip
+# Separate desktop measurement:
+uv run --no-project --with playwright==1.58.0 python scripts/benchmark_graph_startup.py book --output /tmp/graph-startup-desktop --repeat 10 --profile desktop
 ```
 
-**SVG is a promising next renderer, not a proven application replacement.** This
-probe omits route selection/styling, label culling, dragging, touch gestures,
-popovers and drawers. Its JS heap measurement excludes native DOM storage. It
-shows a download and scripting opportunity, not full UX parity or total memory
-superiority. A local gzip measurement reduces the vendor script to 136 KB, so real CDN compression can reduce the download advantage. A full
-migration should preserve the browser suite and be measured on physical mobile
-hardware. WebGL is not automatically preferable: the current scene is small,
-and [Cytoscape's own WebGL guidance](https://blog.js.cytoscape.org/2025/01/13/webgl-preview/)
-describes its strongest case as substantially larger networks and notes style
-limitations. No GPU speedup is claimed without a device-specific benchmark.
+Each output directory contains full `results.json`, incremental `samples.json` and
+one compressed Chrome/Perfetto trace per run. Keep sample measurements, artifact hashes
+and metric definitions outside Git as described in [engineering checks](ENGINEERING.md).
+The isolated historical
+renderer probe remains available in `scripts/benchmark_website_renderers.py`;
+it is not used as evidence for the complete application numbers above.
 
-Other measured costs are smaller: JavaScript parsing of the actual 100-route
-summary takes about 2 ms, while profile expansion and comparison take over a
-second. Replacing JSON with a custom binary protocol is therefore lower priority
-than the kernel changes. Asset hashes shared across releases and normal HTTP
-Content-Encoding for WASM are worth evaluating against real CDN headers; the
-current gzip stream is portable to the uncompressed local server, but its
-synthetic Response lacks the original fetch URL used by V8's persistent code
-cache ([V8 documentation](https://v8.dev/blog/wasm-code-caching)). No service worker or hosting change was added on an unmeasured assumption.
-
-Unavailable size fields now display `?` and sort after known growth within the
-candidate front; missing certificates are not treated as constant-size problems.
-Copying or inspecting a route locks its selection while comparison completes.
-The earlier Atlas changes remain: a lightweight family summary, lazy per-family
-metadata, cached row elements, offscreen layout skipping, and a prefetched shared
-documentation index. Those paths already measured around 0.11 s for Atlas opening
-and under 5 ms for search updates in the throttled scenario.
+Production CDN headers, Firefox/Safari and physical phones have not been measured.
+The user's exact ten-second device/network case remains unverified; the report
+claims improvements only for the explicitly measured cold-start environments.
+Early worker construction/network failure recovery has not been fault-injected.
 
 ## Build and preview
 
@@ -295,8 +434,8 @@ the website builder afterward. The GitHub Pages workflow does this automatically
   results are never fabricated. A reduction's registration does not imply formal proof.
 - Navigation, filters, search, clipboard actions, and the example are keyboard
   accessible. Layouts adapt to mobile; motion respects reduced-motion preferences.
-- No frontend framework is required. The graph uses self-hosted Cytoscape, with
-  its license copied beside the script. fCoSE runs only at build time.
+- No frontend framework is required. The graph uses native SVG; Cytoscape/fCoSE
+  run only at build time to generate the preset layout.
 
 The static website does not yet provide agent execution, an experiment database,
 or live research telemetry. The research section describes the intended loop and

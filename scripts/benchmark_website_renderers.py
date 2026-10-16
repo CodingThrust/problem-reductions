@@ -11,6 +11,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import re
+import shutil
 import tempfile
 from threading import Thread
 
@@ -19,7 +20,7 @@ from playwright.sync_api import sync_playwright
 # Both renderers use the same geometry, labels, font, edges, and pan trajectory.
 PROBE = r"""
 (async()=>{
- const D=window.REDUCTIONS, families=new Map(), links=new Map();
+ const D=window.REDUCTIONS || await new Response((await fetch(document.body.dataset.scene)).body.pipeThrough(new DecompressionStream('gzip'))).json(), families=new Map(), links=new Map();
  for(const n of D.nodes)if(!families.has(n.name))families.set(n.name,{name:n.name,neighbors:new Set()});
  for(const e of D.edges){const s=D.nodes[e.source].name,t=D.nodes[e.target].name;if(s===t)continue;families.get(s).neighbors.add(t);families.get(t).neighbors.add(s);links.set(s+"→"+t,{s,t});}
  const nodes=[...families.values()].map(n=>({...n,x:D.layout[n.name].x*1.6,y:D.layout[n.name].y*1.6,size:Math.max(6,Math.min(22,6+2.4*Math.sqrt(n.neighbors.size)))}));
@@ -54,20 +55,21 @@ class QuietHandler(SimpleHTTPRequestHandler):
 
 def benchmark(book):
     html = (book / 'graph.html').read_text()
-    assets = re.search(r'src="([^"?]+)graph-data.js', html)[1]
+    assets, entry = re.search(r'src="([^"?]+/)(graph-data|graph-startup|graph)\.js', html).groups()
     rows = []
     with tempfile.TemporaryDirectory(prefix='renderer-benchmark-') as directory:
         root = Path(directory)
         (root / 'releases').symlink_to(book / 'releases', target_is_directory=True)
         (root / 'probe.js').write_text(PROBE)
+        shutil.copyfile(Path(__file__).resolve().parents[1] / 'node_modules/cytoscape/dist/cytoscape.min.js', root / 'cytoscape.min.js')
         for kind in ['canvas', 'svg']:
-            canvas = f'<script src="{assets}cytoscape.min.js" defer></script>' if kind == 'canvas' else ''
+            canvas = '<script src="./cytoscape.min.js" defer></script>' if kind == 'canvas' else ''
             (root / f'{kind}.html').write_text(f"""<!doctype html><html><head>
 <meta charset="utf-8"><meta http-equiv="Content-Security-Policy"
  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
 <link rel="stylesheet" href="{assets}graph.css">{canvas}
-<script src="{assets}graph-data.js" defer></script><script src="./probe.js" defer></script>
-</head><body data-renderer="{kind}"><div id="scene" style="position:fixed;inset:0"></div></body></html>""")
+{'<script src="' + assets + 'graph-data.js" defer></script>' if entry == 'graph-data' else ''}<script src="./probe.js" defer></script>
+</head><body data-renderer="{kind}" data-scene="{assets}graph-scene.json.gz"><div id="scene" style="position:fixed;inset:0"></div></body></html>""")
         server = PreviewServer(('127.0.0.1', 0), partial(QuietHandler, directory=directory))
         thread = Thread(target=server.serve_forever, daemon=True)
         thread.start()

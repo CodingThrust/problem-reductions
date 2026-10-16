@@ -218,10 +218,10 @@ startup report now distinguishes metadata JSON parsing from schema/reference
 validation and reports missing validation marks as unavailable. Evidence is retained
 externally in `path-metadata-contract/`; timing gates and the earlier hitch stay open.
 
-The path benchmark's sample mode now validates full/summary results and reports
-`parse_validate_ms` rather than calling the combined interval `parse_ms`. Its legacy
-default HTML entry lookup still fails on the current Vite `graph.js` entry; that
-discovery repair remains open. The adopted startup/interaction harnesses are separate.
+The path benchmark's sample mode validates full/summary results and reports
+`parse_validate_ms` rather than calling the combined interval `parse_ms`. Both legacy
+benchmark tools recognize the current Vite `graph.js` entry. The adopted
+startup/interaction harnesses are separate.
 
 A separate two-route wide-exponent stress fixture also traps in the pre-fix WASM
 comparator (`unreachable`). Its suspected cause is resource growth while computing

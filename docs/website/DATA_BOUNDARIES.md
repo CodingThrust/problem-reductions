@@ -54,8 +54,7 @@ application's contract migration.
   before extending the migration. Ajv standalone guards and generated TS types now
   cover eleven contracts: scene, documentation index, path metadata, Atlas summary/record,
   native exports, both Rust requests/responses and both worker envelopes. The legacy path
-  benchmark's default entry discovery also needs repair for the current Vite output;
-  only its direct sample mode is currently verified.
+  benchmark's default command also passes full/summary checks against the current Vite output.
 
 ## Related boundaries that are not JSON parsing
 

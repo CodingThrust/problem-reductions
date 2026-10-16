@@ -9,6 +9,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {performance} from 'node:perf_hooks';
 import {parseWasmComparison} from '../docs/website/assets/wasm-comparison-data.mts';
+import {gunzipSync} from 'node:zlib';
 
 const script = fileURLToPath(import.meta.url);
 if (process.argv[2] === '--sample') {
@@ -42,11 +43,13 @@ if (process.argv[2] === '--sample') {
   const repeats = Number(option('--repeat', '3'));
   assert(Number.isInteger(repeats) && repeats > 0);
   const html = fs.readFileSync(path.join(book, 'graph.html'), 'utf8');
-  const graphScript = html.match(/src="([^"]*graph-data\.js)[^"]*"/)[1];
+  const graphScript = html.match(/src="([^"]*(?:graph-data|graph-startup|graph)\.js)[^"]*"/)[1];
   const assets = path.dirname(path.resolve(book, graphScript));
   const context = {window: {}};
-  vm.runInNewContext(fs.readFileSync(path.join(assets, 'graph-data.js'), 'utf8'), context);
-  const graph = context.window.REDUCTIONS;
+  if (graphScript.endsWith('graph-data.js')) {
+    vm.runInNewContext(fs.readFileSync(path.join(assets, 'graph-data.js'), 'utf8'), context);
+  }
+  const graph = context.window.REDUCTIONS || JSON.parse(gunzipSync(fs.readFileSync(path.join(assets, 'path-graph.json.gz'))));
   const endpoint = name => graph.nodes.findIndex(n => n.name === name && n.default);
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'website-path-benchmark-'));
   const rows = [];
