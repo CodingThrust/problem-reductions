@@ -392,30 +392,23 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // YES instance: triangle + self-loop folds to lollipop.
-    //
-    // Q1: R(x, u) ∧ R(u, v) ∧ R(v, x) ∧ R(u, u)
-    // Q2: R(x, a) ∧ R(a, a) ∧ R(a, x)
-    //
-    // The substitution σ: U(0) → U(2), U(1) → U(2), U(2) → U(2)
-    // maps Q1 → Q2 (as a set). Config = [3, 3, 3].
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "conjunctive_query_foldability",
         instance: Box::new(ConjunctiveQueryFoldability::new(
-            0,       // domain_size
-            1,       // num_distinguished (x)
-            3,       // num_undistinguished (u, v, a)
-            vec![2], // one binary relation R
+            0,
+            1,
+            3,
+            vec![2],
             vec![
-                (0, vec![Term::Distinguished(0), Term::Undistinguished(0)]), // R(x, u)
-                (0, vec![Term::Undistinguished(0), Term::Undistinguished(1)]), // R(u, v)
-                (0, vec![Term::Undistinguished(1), Term::Distinguished(0)]), // R(v, x)
-                (0, vec![Term::Undistinguished(0), Term::Undistinguished(0)]), // R(u, u)
+                (0, vec![Term::Distinguished(0), Term::Undistinguished(0)]),
+                (0, vec![Term::Undistinguished(0), Term::Undistinguished(1)]),
+                (0, vec![Term::Undistinguished(1), Term::Distinguished(0)]),
+                (0, vec![Term::Undistinguished(0), Term::Undistinguished(0)]),
             ],
             vec![
-                (0, vec![Term::Distinguished(0), Term::Undistinguished(2)]), // R(x, a)
-                (0, vec![Term::Undistinguished(2), Term::Undistinguished(2)]), // R(a, a)
-                (0, vec![Term::Undistinguished(2), Term::Distinguished(0)]), // R(a, x)
+                (0, vec![Term::Distinguished(0), Term::Undistinguished(2)]),
+                (0, vec![Term::Undistinguished(2), Term::Undistinguished(2)]),
+                (0, vec![Term::Undistinguished(2), Term::Distinguished(0)]),
             ],
         )),
         optimal_config: serde_json::json!(vec![3, 3, 3]),

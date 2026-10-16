@@ -349,8 +349,7 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // The AND source forces arcs 0 and 1 (cost 3); each OR node needs its cheapest
-    // outgoing arc, 3 and 5 (costs 1 and 2), giving optimum 6.
+    // The AND source forces both branches; each OR node's cheapest arc attains the lower bound.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_and_or_graph",
         instance: Box::new(MinimumWeightAndOrGraph::new(

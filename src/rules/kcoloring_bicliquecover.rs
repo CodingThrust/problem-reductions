@@ -322,9 +322,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kcoloring_to_bicliquecover",
         build: || {
-            // P_2 with q = 2: vertices {0, 1}, one edge (0, 1).
-            // A valid 2-coloring is (0, 1). Target has 8 vertices and rank 4,
-            // small enough to keep the canonical bundle compact.
+            // Use a tiny source to keep the constructed bundle compact.
             let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
             let coloring = vec![0usize, 1usize];
             let target_config = forward_witness(&source, &coloring);

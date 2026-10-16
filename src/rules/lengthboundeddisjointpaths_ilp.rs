@@ -248,7 +248,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "lengthboundeddisjointpaths_to_ilp",
         build: || {
-            // 4-vertex diamond: s=0, t=3, K=2
             let source = LengthBoundedDisjointPaths::new(
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
                 0,

@@ -275,7 +275,6 @@ fn validate_matrix_dimensions(
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Adjacency matrix of path graph P_6, K=6 (one block per row).
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_block_minimization",
         instance: Box::new(ConsecutiveBlockMinimization::new(

@@ -180,13 +180,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_biconnectivityaugmentation",
         build: || {
-            // Square graph (4-cycle): 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            // Potential edges for 4 vertices (indices 0..5):
-            // 0: (0,1) w=1, 1: (0,2) w=2, 2: (0,3) w=1,
-            // 3: (1,2) w=1, 4: (1,3) w=2, 5: (2,3) w=1
-            // HC 0-1-2-3-0 selects edges (0,1),(1,2),(2,3),(0,3) => indices 0,3,5,2
-            // Config: [1, 0, 1, 1, 0, 1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 BiconnectivityAugmentation<SimpleGraph, i64>,

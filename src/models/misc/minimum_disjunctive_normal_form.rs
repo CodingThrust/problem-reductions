@@ -329,9 +329,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
             vec![false, true, true, true, true, true, true, false],
         )),
-        // Select prime implicants: p1(¬x1∧x2), p4(x1∧¬x3), p5(¬x2∧x3)
-        // The order of PIs depends on the QMC algorithm output.
-        // We'll verify this in tests.
+        // The witness depends on the constructor's prime-implicant ordering.
         optimal_config: serde_json::json!(vec![true, false, false, true, true, false]),
         optimal_value: serde_json::json!(3),
     }]

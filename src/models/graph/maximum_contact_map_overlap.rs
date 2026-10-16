@@ -317,14 +317,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    //   G_1: n_1 = 4, E_1 = {{0,2}, {1,3}}
-    //   G_2: n_2 = 5, E_2 = {{0,3}, {1,4}, {0,2}}
-    // Optimal alignment: 0->0, 1->1, 2->3, 3->4 (encoded as [1, 2, 4, 5]).
-    //   - order-preserving: 1 < 2 < 4 < 5
-    //   - injectivity: all values distinct
-    //   - contact {0,2}: mapped (0, 3); sorted (0, 3) in E_2
-    //   - contact {1,3}: mapped (1, 4); sorted (1, 4) in E_2
-    //   - value = 2 contacts preserved.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_contact_map_overlap",
         instance: Box::new(MaximumContactMapOverlap::new(

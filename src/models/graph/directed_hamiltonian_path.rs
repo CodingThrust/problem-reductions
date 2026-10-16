@@ -170,7 +170,6 @@ pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Hamiltonian path: [0, 1, 3, 2, 4, 5]
     let graph = DirectedGraph::new(
         6,
         vec![

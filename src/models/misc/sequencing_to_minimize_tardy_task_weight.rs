@@ -247,14 +247,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_to_minimize_tardy_task_weight",
-        // 5 tasks, lengths [3,2,4,1,2], weights [5,3,7,2,4], deadlines [6,4,10,2,8]
-        // Optimal schedule: [t4,t1,t5,t3,t2] = config [3,0,4,2,1]
-        // Start times: t4 starts 0, completes 1 (tardy: C=1 <= d=2, ok)
-        // t1 starts 1, completes 4 (tardy: C=4 <= d=6, ok)
-        // t5 starts 4, completes 6 (tardy: C=6 <= d=8, ok)
-        // t3 starts 6, completes 10 (tardy: C=10 <= d=10, ok)
-        // t2 starts 10, completes 12 (tardy: C=12 > d=4, tardy weight 3)
-        // Total tardy weight = 3
         instance: Box::new(SequencingToMinimizeTardyTaskWeight::new(
             vec![3, 2, 4, 1, 2],
             vec![5, 3, 7, 2, 4],

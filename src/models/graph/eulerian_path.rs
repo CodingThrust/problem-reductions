@@ -180,8 +180,6 @@ fn is_valid_eulerian_trail(graph: &DirectedGraph, config: &[usize]) -> bool {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1 between 0 and 1).
-    // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
     let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
     let optimal_config = vec![0usize, 2, 3, 1];
     vec![crate::example_db::specs::ModelExampleSpec {

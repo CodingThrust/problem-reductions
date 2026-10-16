@@ -302,22 +302,8 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Optimal: C = [a, b, c, ptr(0), ptr(0), EOS, EOS, EOS, EOS]
-    //   active_len = 5, pointers = 2
-    //   cost = 5 + (2-1)*2 = 7
-    //
-    // Config encoding:
-    //   alphabet_size = 3, string_len = 9, domain = 3+9+1 = 13
-    //   Literals: 0=a, 1=b, 2=c
-    //   EOS: 3
-    //   Pointers: 4=ptr(C[0]), 5=ptr(C[1]), ...
     let s: Vec<usize> = vec![0, 1, 2, 0, 1, 2, 0, 1, 2];
-    let optimal_config = vec![
-        0, 1, 2, // literals a, b, c
-        4, // ptr(C[0]) -> greedy "abc"
-        4, // ptr(C[0]) -> greedy "abc"
-        3, 3, 3, 3, // EOS padding
-    ];
+    let optimal_config = vec![0, 1, 2, 4, 4, 3, 3, 3, 3];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_internal_macro_data_compression",
         instance: Box::new(MinimumInternalMacroDataCompression::new(3, s, 2)),

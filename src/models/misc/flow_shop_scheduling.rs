@@ -279,7 +279,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             25,
         )),
-        // Job order [3,0,4,2,1] has makespan 23.
         optimal_config: serde_json::json!(vec![3, 0, 4, 2, 1]),
         optimal_value: serde_json::json!(true),
     }]

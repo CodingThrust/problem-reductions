@@ -335,31 +335,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummaximalmatching_to_minimummatrixdomination",
         build: || {
-            //
-            // Bipartite graph B with L = {l0, l1}, R = {r0, r1, r2} and edges
-            // F = {(l0, r0), (l0, r1), (l0, r2), (l1, r1), (l1, r2)}.
-            //
-            // Source edge indices (in BipartiteGraph::edges() order):
-            //   0: (l0, r0) = (0, 0)
-            //   1: (l0, r1) = (0, 1)
-            //   2: (l0, r2) = (0, 2)
-            //   3: (l1, r1) = (1, 1)
-            //   4: (l1, r2) = (1, 2)
-            //
-            // mm(B) = 2; one optimum is M = {(l0, r0), (l1, r1)} ->
-            // source_config = [1, 0, 0, 1, 0].
-            //
-            // Constructed N x N matrix with N = 5; 1-entries in row-major
-            // order (matching the source edge order above):
-            //   idx 0: (0, 2)  <- (l0, r0)
-            //   idx 1: (0, 3)  <- (l0, r1)
-            //   idx 2: (0, 4)  <- (l0, r2)
-            //   idx 3: (1, 3)  <- (l1, r1)
-            //   idx 4: (1, 4)  <- (l1, r2)
-            //
-            // Selecting target_config = [1, 0, 0, 1, 0] picks 1-entries
-            // {(0, 2), (1, 3)}, which together dominate every other 1-entry by
-            // shared row 0 or row 1.
             let source = MinimumMaximalMatching::new(BipartiteGraph::new(
                 2,
                 3,

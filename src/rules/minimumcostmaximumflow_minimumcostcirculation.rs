@@ -134,10 +134,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumcostmaximumflow_to_minimumcostcirculation",
         build: || {
-            // Canonical 4-vertex diamond.
-            // Optimal source flow: [2, 1, 1, 1, 2] with value 3, cost 7.
-            // Target circulation appends return arc (3 -> 0) with
-            // flow value 3, giving config [2, 1, 1, 1, 2, 3].
             let source = MinimumCostMaximumFlow::new(
                 DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
                 0,

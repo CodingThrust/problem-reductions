@@ -217,7 +217,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_with_release_times_and_deadlines",
-        // Feasible schedule order: t3, t0, t1, t2, t4
         instance: Box::new(SequencingWithReleaseTimesAndDeadlines::new(
             vec![3, 2, 4, 1, 2],
             vec![0, 1, 5, 0, 8],

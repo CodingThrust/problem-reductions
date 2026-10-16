@@ -224,10 +224,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closestsubstring_to_ilp",
         build: || {
-            // Canonical instance: binary alphabet, length-3
-            // windows on three length-5 strings. Optimum radius is 1; one
-            // optimal center is 010 with windows (0, 1, 0) selecting 000,
-            // 010, 110 from s_1, s_2, s_3 respectively.
             let source = ClosestSubstring::new(
                 2,
                 vec![

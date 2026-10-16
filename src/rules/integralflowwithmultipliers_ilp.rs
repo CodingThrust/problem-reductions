@@ -127,7 +127,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "integralflowwithmultipliers_to_ilp",
         build: || {
-            // Simple diamond: s=0, t=3, intermediate vertices 1,2 with multiplier 1
             let source = IntegralFlowWithMultipliers::new(
                 DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
                 0,

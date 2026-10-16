@@ -260,8 +260,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 8 sentences, all true, with implications forming a cycle
-    // Optimal: select {a, b} (indices 0, 1) → closure = all 8
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_axiom_set",
         instance: Box::new(MinimumAxiomSet::new(

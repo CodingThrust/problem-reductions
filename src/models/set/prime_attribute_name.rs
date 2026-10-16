@@ -275,7 +275,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             3,
         )),
-        // {2, 3} is a candidate key containing attribute 3
         optimal_config: serde_json::json!(vec![false, false, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

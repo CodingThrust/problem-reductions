@@ -370,20 +370,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 tasks, lengths [2,1,3,2,1], 2 processors, precedences [(0,2),(1,3)]
-    // D_max = 2+1+3+2+1 = 9
-    // Optimal schedule (makespan 5):
-    //   t0: slots 0,1         → t0*9+0=1, t0*9+1=1
-    //   t1: slot 0            → t1*9+0=1
-    //   t2: slots 2,3,4       → t2*9+2=1, t2*9+3=1, t2*9+4=1
-    //   t3: slots 2,3         → t3*9+2=1, t3*9+3=1
-    //   t4: slot 1            → t4*9+1=1
-    // config indices (length 45):
-    //   t0 (0..9):  [1,1,0,0,0,0,0,0,0]
-    //   t1 (9..18): [1,0,0,0,0,0,0,0,0]
-    //   t2 (18..27):[0,0,1,1,1,0,0,0,0]
-    //   t3 (27..36):[0,0,1,1,0,0,0,0,0]
-    //   t4 (36..45):[0,1,0,0,0,0,0,0,0]
     let mut config = vec![vec![false; 9]; 5];
     config[0][0] = true;
     config[0][1] = true;

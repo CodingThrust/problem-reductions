@@ -311,7 +311,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             7,
             5,
         )),
-        // V1={0,1,2,3}, V2={4,5,6,7}: cut edges (2,4)=2,(3,5)=1,(3,6)=3 => 6
         optimal_config: serde_json::json!(vec![false, false, false, false, true, true, true, true]),
         optimal_value: serde_json::json!(6),
     }]

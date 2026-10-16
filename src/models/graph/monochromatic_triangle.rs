@@ -222,13 +222,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // K4: 4 vertices, 6 edges, has a valid 2-coloring avoiding monochromatic triangles.
-    // Edges in order: (0,1),(0,2),(0,3),(1,2),(1,3),(2,3)
-    // Config [0,0,1,1,0,1]:
-    //   Triangle (0,1,2): edges 0,1,3 -> colors 0,0,1 -> not monochromatic
-    //   Triangle (0,1,3): edges 0,2,4 -> colors 0,1,0 -> not monochromatic
-    //   Triangle (0,2,3): edges 1,2,5 -> colors 0,1,1 -> not monochromatic
-    //   Triangle (1,2,3): edges 3,4,5 -> colors 1,0,1 -> not monochromatic
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "monochromatic_triangle_simplegraph",
         instance: Box::new(MonochromaticTriangle::new(SimpleGraph::new(

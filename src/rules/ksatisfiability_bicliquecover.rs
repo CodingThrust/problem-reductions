@@ -914,7 +914,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {
-                    source_config: serde_json::json!([true]), // x_1 = true
+                    source_config: serde_json::json!([true]),
                     target_config: serde_json::to_value(target_config)
                         .expect("solution serialization must succeed"),
                 },

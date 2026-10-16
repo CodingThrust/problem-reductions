@@ -251,8 +251,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_register_sufficiency_for_loops",
-        // 3 variables on a loop of length 6, all pairs conflict (K3)
-        // Optimal: 3 registers (chromatic number of K3)
         instance: Box::new(MinimumRegisterSufficiencyForLoops::new(
             6,
             vec![(0, 3), (2, 3), (4, 3)],

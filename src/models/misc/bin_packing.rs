@@ -228,7 +228,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bin_packing",
-        // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
         instance: Box::new(BinPacking::<i64>::new(vec![3, 3, 4], 7).unwrap()),
         optimal_config: serde_json::json!(vec![0, 1, 0]),
         optimal_value: serde_json::json!(2),

@@ -293,12 +293,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Two competing cycles on V = {0, 1, 2}:
-    //   cycle A: 0->1->0  (cost per unit = 2 + (-3) = -1, capacity 2)
-    //   cycle B: 0->2->0  (cost per unit = 1 + (-4) = -3, capacity 1)
-    // Optimal: push both to capacity.
-    //   arc 0 (0->1) = 2, arc 1 (1->0) = 2, arc 2 (0->2) = 1, arc 3 (2->0) = 1
-    //   cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = 4 - 6 + 1 - 4 = -5
     let problem = MinimumCostCirculation::new(
         crate::topology::DirectedGraph::new(3, vec![(0, 1), (1, 0), (0, 2), (2, 0)]),
         vec![2, 2, 1, 1],

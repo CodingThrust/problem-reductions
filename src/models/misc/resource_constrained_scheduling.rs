@@ -276,7 +276,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "resource_constrained_scheduling",
-        // 6 tasks, 3 processors, 1 resource B_1=20, deadline 2
         instance: Box::new(
             ResourceConstrainedScheduling::new(
                 3,

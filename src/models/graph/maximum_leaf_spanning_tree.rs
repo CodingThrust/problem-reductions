@@ -246,9 +246,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (1, 3),
             ],
         ))),
-        // Edges: 0:(0,1), 1:(0,2), 2:(0,3), 3:(1,4), 4:(2,4), 5:(2,5), 6:(3,5), 7:(4,5), 8:(1,3)
-        // Tree: {(0,1),(0,2),(0,3),(2,4),(2,5)} = indices 0,1,2,4,5
-        // Leaves: 1,3,4,5 (degree 1 each), Internal: 0 (deg 3), 2 (deg 3)
         optimal_config: serde_json::json!(vec![
             true, true, true, false, true, true, false, false, false
         ]),

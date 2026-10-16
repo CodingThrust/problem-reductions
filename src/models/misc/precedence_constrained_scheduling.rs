@@ -264,7 +264,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (6, 7),
             ],
         )),
-        // Valid schedule: slot 0: {t0,t1}, slot 1: {t2,t3,t4}, slot 2: {t5,t6}, slot 3: {t7}
         optimal_config: serde_json::json!(vec![0, 0, 1, 1, 1, 2, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]

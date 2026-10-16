@@ -334,7 +334,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![6, 4, 3, 2, 1],
             2,
         )),
-        // P0={t0,t2,t4}, P1={t1,t3} => config [0, 1, 0, 1, 0]
         optimal_config: serde_json::json!(vec![0, 1, 0, 1, 0]),
         optimal_value: serde_json::json!(47),
     }]

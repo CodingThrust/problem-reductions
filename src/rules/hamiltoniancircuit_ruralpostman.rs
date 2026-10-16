@@ -177,16 +177,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_ruralpostman",
         build: || {
-            // Triangle graph: 3 vertices, 3 edges, HC = [0, 1, 2]
             let source = HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
 
-            // Target graph has 6 vertices, 3 + 6 = 9 edges, 3 required edges.
-            // HC [0, 1, 2] uses connectivity edges:
-            //   0->1: fwd edge of source edge 0=(0,1), idx=3
-            //   1->2: fwd edge of source edge 1=(1,2), idx=5
-            //   2->0: bwd edge of source edge 2=(0,2), idx=8
-            // Required edges all have multiplicity 1.
-            // target_config = [1, 1, 1, 1, 0, 1, 0, 0, 1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 Decision<RuralPostman<SimpleGraph, i64>>,

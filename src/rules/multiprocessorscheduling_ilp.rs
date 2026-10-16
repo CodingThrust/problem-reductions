@@ -110,7 +110,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiprocessorscheduling_to_ilp",
         build: || {
-            // Grouping lengths 4+3 and 5 meets the deadline of 7.
             let source = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 7);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

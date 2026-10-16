@@ -261,16 +261,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 3 players, M_i = {0, 1} for all i.
-    // F1 = x1*x2*x3:        factors [[0,1,0,0],[0,0,1,0],[0,0,0,1]]
-    // F2 = (1-x1)*x2:       factors [[1,-1,0,0],[0,0,1,0]]
-    // F3 = x1*(1-x3):       factors [[0,1,0,0],[1,0,0,-1]]
-    //
-    // config [0,1,0] → assignment (0,1,0).
-    // F1(0,1,0) = 0*1*0 = 0. Deviations for player 1: y'=1 → F1(1,1,0)=0. No improvement.
-    // F2(0,1,0) = (1-0)*1 = 1. Deviations for player 2: y'=0 → F2(0,0,0)=0. No improvement.
-    // F3(0,1,0) = 0*(1-0) = 0. Deviations for player 3: y'=1 → F3(0,1,1)=0. No improvement.
-    // → (0,1,0) is a Nash equilibrium.
     let polynomials = vec![
         vec![vec![0, 1, 0, 0], vec![0, 0, 1, 0], vec![0, 0, 0, 1]],
         vec![vec![1, -1, 0, 0], vec![0, 0, 1, 0]],

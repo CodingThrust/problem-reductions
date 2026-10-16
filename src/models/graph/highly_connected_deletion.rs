@@ -338,7 +338,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             vec![(0, 1), (0, 2), (1, 2), (2, 3)],
         ))),
-        // Edges in input order; deleting only edge index 3 = (2,3) leaves K3 + {3}.
         optimal_config: serde_json::json!(vec![false, false, false, true]),
         optimal_value: serde_json::json!(1),
     }]

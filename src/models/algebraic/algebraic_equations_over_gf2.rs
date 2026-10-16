@@ -223,17 +223,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             AlgebraicEquationsOverGF2::new(
                 3,
                 vec![
-                    // x0*x1 + x2 = 0
                     vec![vec![0, 1], vec![2]],
-                    // x1*x2 + x0 + 1 = 0
                     vec![vec![1, 2], vec![0], vec![]],
-                    // x0 + x1 + x2 + 1 = 0
                     vec![vec![0], vec![1], vec![2], vec![]],
                 ],
             )
             .unwrap(),
         ),
-        // config [1,0,0]: eq1: 0*0+0=0 ✓, eq2: 0*0+1+1=0 ✓, eq3: 1+0+0+1=0 ✓
         optimal_config: serde_json::json!(vec![true, false, false]),
         optimal_value: serde_json::json!(true),
     }]

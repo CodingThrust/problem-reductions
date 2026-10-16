@@ -270,7 +270,6 @@ pub(crate) fn is_valid_hamiltonian_st_path<G: Graph>(
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Hamiltonian s-t path: [0, 3, 2, 1, 4, 5]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_path_between_two_vertices_simplegraph",
         instance: Box::new(HamiltonianPathBetweenTwoVertices::new(

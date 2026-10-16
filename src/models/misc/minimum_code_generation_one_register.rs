@@ -385,7 +385,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_one_register",
-        // Evaluating v3, v2, v1, v0 gives positions [3, 2, 1, 0] for internal vertices.
         instance: Box::new(MinimumCodeGenerationOneRegister::new(
             7,
             vec![

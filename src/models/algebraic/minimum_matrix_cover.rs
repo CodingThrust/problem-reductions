@@ -177,8 +177,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4×4 symmetric matrix with zero diagonal
-    // Config [0,1,1,0] → f=(-1,+1,+1,-1) → value = -20
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_matrix_cover",
         instance: Box::new(MinimumMatrixCover::new(vec![

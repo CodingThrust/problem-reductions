@@ -355,11 +355,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 7 vertices, inputs={0,1}, outputs={5,6}
-    // Internal vertices are {2,3,4}
-    // Arcs: (0,2),(0,3),(1,3),(1,4),(2,5),(3,5),(3,6),(4,6)
-    // Pairs: (0,5)->{0,2,3,5}, (0,6)->{0,3,6}, (1,5)->{1,3,5}, (1,6)->{1,3,4,6}
-    // Config [1,0,0,1]: select pairs (0,5) and (1,6) -> covers all internal vertices -> Min(2)
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_fault_detection_test_set",
         instance: Box::new(MinimumFaultDetectionTestSet::new(

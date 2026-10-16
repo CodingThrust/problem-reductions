@@ -144,7 +144,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maxcut_to_minimumcutintoboundedsets",
         build: || {
-            // Triangle with unit weights: max cut = 2
             let source = MaxCut::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1i64, 1, 1],

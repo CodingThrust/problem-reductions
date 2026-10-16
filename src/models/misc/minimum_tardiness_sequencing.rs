@@ -405,7 +405,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
-        // Unit-length variant
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_tardiness_sequencing",
             instance: Box::new(MinimumTardinessSequencing::<One>::new(
@@ -416,11 +415,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
             optimal_value: serde_json::json!(1),
         },
-        // Arbitrary-length variant
         crate::example_db::specs::ModelExampleSpec {
             id: "minimum_tardiness_sequencing_weighted",
-            // 5 tasks, lengths [3,2,2,1,2], deadlines [4,3,8,3,6], prec (0→2, 1→3)
-            // Optimal schedule: t0,t4,t2,t1,t3 → 2 tardy
             instance: Box::new(MinimumTardinessSequencing::<i64>::with_lengths(
                 vec![3, 2, 2, 1, 2],
                 vec![4, 3, 8, 3, 6],

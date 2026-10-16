@@ -136,17 +136,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_strongconnectivityaugmentation",
         build: || {
-            // 4-cycle: 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
             let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let target = reduction.target_problem();
 
-            // The HC permutation [0, 1, 2, 3] corresponds to the directed cycle
-            // 0->1->2->3->0. We need to find the indices of these arcs in the
-            // candidate list. Candidate arcs are ordered: for each u in 0..n,
-            // for each v in 0..n where u!=v, so arc (u,v) is at index
-            // u*(n-1) + (if v > u then v-1 else v).
             let n = 4;
             let mut target_config = vec![false; n * (n - 1)];
             let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];

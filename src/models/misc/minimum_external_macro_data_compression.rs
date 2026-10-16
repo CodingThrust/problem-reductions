@@ -340,18 +340,12 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Optimal: D="abcdef"(6), C = ptr(0,6) ptr(0,6) ptr(0,6), cost = 6+3+(2-1)*3 = 12.
-    // Solved via ILP reduction (brute force infeasible at this size).
-    //
-    // Config encoding (2*18 = 36 slots):
-    // D-slots: [0,1,2,3,4,5, 6,6,...,6] (6 symbols + 12 empty, empty=alphabet_size=6)
-    // C-slots: [ptr(0,6), ptr(0,6), ptr(0,6), 6,6,...,6] (3 pointers + 15 empty)
-    // ptr(0,6) index: start=0, len=6 → index 5 → encoded as 6+1+5 = 12
+    // Use ILP for this example; its reference enumeration is impractical.
     let s: Vec<usize> = (0..6).cycle().take(18).collect();
     let mut optimal_config = vec![0, 1, 2, 3, 4, 5];
-    optimal_config.extend(vec![6; 12]); // empty D-slots
-    optimal_config.extend(vec![12, 12, 12]); // 3 pointers to D[0..6]
-    optimal_config.extend(vec![6; 15]); // empty C-slots
+    optimal_config.extend(vec![6; 12]);
+    optimal_config.extend(vec![12, 12, 12]);
+    optimal_config.extend(vec![6; 15]);
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_external_macro_data_compression",
         instance: Box::new(MinimumExternalMacroDataCompression::new(6, s, 2)),

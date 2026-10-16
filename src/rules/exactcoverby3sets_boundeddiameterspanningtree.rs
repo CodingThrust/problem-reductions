@@ -203,24 +203,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "exactcoverby3sets_to_boundeddiameterspanningtree",
         build: || {
-            // q = 2, m = 2: X = {0..5}, C = [{0,1,2}, {3,4,5}].
-            // Exact cover: both subsets. Target has 11 vertices and 11 edges,
-            // so brute-force solving stays well under the 5s test budget.
+            // Keep the reduced tree small enough for the reference solver's test budget.
             let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
 
-            // Source: select both subsets.
             let source_config = vec![true, true];
 
-            // Target spanning tree (n = 11, n-1 = 10 edges):
-            //   (r,v1)=idx 0, (v1,v2)=idx 1, (r,s0)=idx 2, (r,s1)=idx 3,
-            //   (s0,e0)=idx 4, (s0,e1)=idx 5, (s0,e2)=idx 6,
-            //   (s1,e3)=idx 7, (s1,e4)=idx 8, (s1,e5)=idx 9,
-            //   (s0,s1)=idx 10 (unused clique edge).
-            //
-            // Layout (from `reduce_to`):
-            //   edge order = forced(2) + root-to-set(m=2) + set-to-element(6) + clique(1)
-            //              = indices 0..1, 2..3, 4..9, 10
-            // Select every edge except the clique edge.
             let target_config = vec![
                 true, true, true, true, true, true, true, true, true, true, false,
             ];
