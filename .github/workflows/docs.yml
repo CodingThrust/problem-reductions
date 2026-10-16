@@ -20,13 +20,13 @@ jobs:
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
       RUST_TEST_THREADS: '2'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Read Open Question Board source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: GiggleLiu/autoresearch-gadgets
-          ref: main
+          ref: 47d882601a169efb24655406ee2e411d86d481f7
           path: open-questions-source
           token: ${{ secrets.PROJECT_READ_TOKEN }}
           persist-credentials: false
@@ -36,7 +36,7 @@ jobs:
       - name: Build Open Question Board
         run: uv run --project open-questions-source/website --locked python open-questions-source/website/build.py
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: '1.99.0'
           targets: wasm32-unknown-unknown
@@ -44,7 +44,7 @@ jobs:
       - name: Install browser binding tools
         run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24.21.0'
           cache: npm
@@ -72,7 +72,7 @@ jobs:
           git diff --exit-code -- Cargo.lock package-lock.json
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: './book'
 
@@ -84,11 +84,11 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d # v4
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

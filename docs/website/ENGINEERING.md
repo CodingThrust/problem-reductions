@@ -262,11 +262,14 @@ Python browser tooling, including its transitive dependencies, is pinned in
 `scripts/website-requirements.txt`; CI and the command above use Python 3.12.14.
 CI now selects
 Ubuntu 24.04, Rust 1.99.0 and Node 24.21.0, rejects build-time lockfile drift, and
-records the GitHub runner image version in artifact provenance. GitHub's maintained
-runner image and action tags can still change; this is not an immutable environment.
-The revised workflow has not run on GitHub yet. Action-revision pinning and
-the full browser/failure matrix remain required
-before claiming CI reproducibility or adopting cross-runner performance gates.
+records the GitHub runner image version in artifact provenance. Actions and the
+separately built board source are pinned to full commit hashes, resolved from their
+upstream repositories. Update the board revision deliberately when publishing new
+research content; its source tree currently matches the local board checkout used
+for the production tests. The hosted Ubuntu image can still change, so the runner
+image/version remains part of each result rather than an immutable-environment claim.
+The revised workflow has not run on GitHub yet; that verification remains required
+before claiming CI reproducibility. Cross-runner timing gates remain informational.
 Verification-only provenance labels the current checkout as the verifier source;
 it does not claim to identify the build source of an externally supplied artifact.
 
