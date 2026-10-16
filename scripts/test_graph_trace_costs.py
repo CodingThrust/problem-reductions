@@ -28,6 +28,29 @@ class FrameCostTests(unittest.TestCase):
         self.assertEqual(report["first_input_script_render_ms"], 8)
         self.assertEqual(report["p95_active_script_render_ms"], 8)
 
+    def test_first_presentation_uses_matching_frame_id(self):
+        thread = {"pid": 1, "tid": 2}
+        track = {"local": "frame-track"}
+        events = [{**thread, "name": "thread_name", "args": {"name": "CrRendererMain"}},
+                  {**thread, "name": "AnimationFrame", "ph": "b", "ts": 0, "id2": track,
+                   "args": {"animation_frame_timing_info": {}, "id": "first"}},
+                  {**thread, "name": "EventDispatch", "ph": "X", "ts": 5000, "dur": 1000,
+                   "args": {"data": {"type": "pointerdown"}}},
+                  {**thread, "name": "AnimationFrame", "ph": "e", "ts": 10000, "id2": track},
+                  {**thread, "name": "AnimationFrame::Presentation", "ph": "n", "ts": 11000, "args": {"id": "previous"}},
+                  {**thread, "name": "AnimationFrame::Presentation", "ph": "n", "ts": 17000, "args": {"id": "first"}},
+                  {**thread, "name": "AnimationFrame", "ph": "b", "ts": 20000, "id2": track,
+                   "args": {"animation_frame_timing_info": {}, "id": "next"}}]
+        report = trace_frame_costs(events, "pointerdown")
+        self.assertEqual(report.get("presentation_status"), "supported")
+        self.assertEqual(report.get("first_input_frame_to_presentation_ms"), 17)
+        self.assertEqual(report.get("first_input_handler_to_presentation_ms"), 12)
+        events = [event for event in events if event["name"] != "AnimationFrame::Presentation"]
+        missing = trace_frame_costs(events, "pointerdown")
+        self.assertEqual(missing["status"], "supported")
+        self.assertEqual(missing.get("presentation_status"), "unsupported")
+        self.assertIsNone(missing.get("first_input_frame_to_presentation_ms"))
+
     def test_unknown_trace_format_is_unavailable(self):
         report = trace_frame_costs([], "wheel")
         self.assertEqual(report["status"], "unsupported")

@@ -348,7 +348,8 @@ the required prompt feature. The corrected source pin matches the tested local
 board tree, but its fresh CI build failed fetching a commit-pinned `Challenge.lean`
 with HTTP 404. That external source/access failure must be resolved and the full
 workflow verified. A clean archive of that pinned board source was also rebuilt locally in this
-stage: fetching Q045 `comparator.json` failed with a proxy tunnel HTTP 503. This
+stage: fetching Q045 `comparator.json` failed with a proxy tunnel HTTP 503. A direct-network
+retry progressed to Q054 before a TLS EOF fetching `Challenge.lean`. This
 fresh dependency build remains unverified; the existing built board passes the
 integrated production checks. Neither failed CI run certifies Linux browser behavior. Further
 feature pushes and workflow runs require explicit authorization.
@@ -476,3 +477,21 @@ Browser timing, Node guard cost and renderer cost are distinct measurements. Eac
 nearest-rank p95 here is the maximum of ten observations, so these remain informative
 pilots, not calibrated regression gates or proof of the absolute frame targets.
 Manual screen-reader/device acceptance and fresh CI verification remain open.
+
+The final interaction pilot used the same production artifact on an Apple M6 Mac,
+macOS 27.0.1, with ten fresh processes per scenario and an idle control (50 traces).
+All scenarios asserted their effect; none recorded a LoAF. First-frame presentation
+feedback is joined by frame ID, following [Chromium's tracing implementation](https://chromium.googlesource.com/chromium/src/third_party/+/refs/heads/main/blink/renderer/core/frame/animation_frame_timing_monitor.cc).
+Median / sampled p95 frame-to-feedback times were 27.71/38.01 ms wheel,
+36.67/39.80 ms pan, 31.79/46.95 ms drag and 10.98/28.59 ms keyboard activation.
+Handler-entry-to-feedback sampled p95s were 23.93/39.00/46.06/20.91 ms respectively;
+these exclude prior input queueing. Headless feedback does not certify physical display
+latency or the complete 8 ms rendering target. The earlier hitch was not reproduced,
+so no renderer optimization is justified by this pilot. Timing remains informational.
+
+The existing harness now reports presentation support separately from CPU slices,
+and counts samples returned by `getCoalescedEvents()` with explicit API support.
+Fourteen focused checks passed, including a real traced keyboard activation; the
+parser agreed with independent analysis of all 40 gesture traces. One further harness
+run verified all five scenarios and 30 pointer samples each for pan and drag.
+Raw evidence is retained outside Git in `2026-10-16-final-interactions`.

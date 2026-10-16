@@ -33,6 +33,9 @@ class InteractionTraceTests(unittest.TestCase):
                 costs = trace_frame_costs(entries, 'keydown')
                 self.assertEqual(costs['status'], 'supported')
                 self.assertGreater(costs['first_input_script_render_ms'], 0)
+                self.assertEqual(costs['presentation_status'], 'supported')
+                self.assertGreaterEqual(costs['first_input_frame_to_presentation_ms'], costs['first_input_handler_to_presentation_ms'])
+                self.assertGreater(costs['first_input_handler_to_presentation_ms'], 0)
             finally:
                 browser.close()
 

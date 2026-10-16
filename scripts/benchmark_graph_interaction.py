@@ -29,7 +29,9 @@ from check_website import prepare_output
 PROBE = """() => {
   const probe = window.__interactionProbe = {frames: [], loaf: [], events: [],
     loaf_status: 'unsupported', loaf_error: null, event_status: 'unsupported',
-    event_error: null, event_timing: []};
+    event_error: null, event_timing: [],
+    coalesced_status: typeof PointerEvent.prototype.getCoalescedEvents === 'function' ? 'supported' : 'unsupported',
+    coalesced_count: typeof PointerEvent.prototype.getCoalescedEvents === 'function' ? 0 : null};
   let last = performance.now();
   const tick = () => {
     const now = performance.now();
@@ -41,6 +43,8 @@ PROBE = """() => {
   for (const type of ['wheel', 'pointerdown', 'pointermove', 'pointerup', 'keydown', 'keyup'])
     document.addEventListener(type, e => {
       if (type === 'pointermove' && !e.buttons) return;
+      if (type === 'pointermove' && probe.coalesced_status === 'supported')
+        probe.coalesced_count += e.getCoalescedEvents().length;
       probe.events.push({type, start: performance.now(), timestamp: e.timeStamp, buttons: e.buttons});
     }, {capture: true, passive: true});
   if (PerformanceObserver.supportedEntryTypes.includes('long-animation-frame')) {
@@ -107,8 +111,10 @@ def first_input(probe, name):
 
 
 def trace_frame_costs(events, input_type):
+    presentation = {"presentation_status": "unsupported", "first_input_frame_to_presentation_ms": None,
+                    "first_input_handler_to_presentation_ms": None}
     unavailable = {"status": "unsupported", "p95_active_script_render_ms": None,
-                   "first_input_script_render_ms": None}
+                   "first_input_script_render_ms": None, **presentation}
     main = {(e["pid"], e["tid"]) for e in events if e["name"] == "thread_name"
             and e.get("args", {}).get("name") == "CrRendererMain"}
     if len(main) != 1:
@@ -119,8 +125,10 @@ def trace_frame_costs(events, input_type):
                          and "animation_frame_timing_info" in e.get("args", {})})
     if len(boundaries) < 2:
         return {**unavailable, "reason": "Missing Chromium animation-frame boundaries"}
-    inputs = sorted(e["ts"] for e in events if e["name"] == "EventDispatch" and e.get("ph") == "X"
-                    and e.get("args", {}).get("data", {}).get("type") == input_type) if input_type else []
+    input_events = sorted((e for e in events if e["name"] == "EventDispatch" and e.get("ph") == "X"
+                           and e.get("args", {}).get("data", {}).get("type") == input_type),
+                          key=lambda e: e["ts"]) if input_type else []
+    inputs = [event["ts"] for event in input_events]
     if input_type and (not inputs or inputs[0] < boundaries[0] or inputs[-1] >= boundaries[-1]):
         return {**unavailable, "reason": "Trace boundaries do not cover every requested input"}
     updates = {"UpdateLayoutTree", "Layout", "Paint"}
@@ -144,9 +152,34 @@ def trace_frame_costs(events, input_type):
         frames.append(cost)
         if inputs and start <= inputs[0] < end:
             first_cost = cost
+    if input_events:
+        timings = sorted((e for e in events if e["name"] == "AnimationFrame" and e.get("ph") == "b"
+                          and "animation_frame_timing_info" in e.get("args", {})), key=lambda e: e["ts"])
+        index = max(i for i, frame in enumerate(timings) if frame["ts"] <= inputs[0])
+        first = input_events[0]
+        # An input between completed frames belongs to the next rendered frame.
+        for frame in timings[index:index + 2]:
+            if not frame.get("id2") or not frame.get("args", {}).get("id"):
+                break
+            end = min((e["ts"] for e in events if e["name"] == "AnimationFrame" and e.get("ph") == "e"
+                       and e.get("id2") == frame["id2"] and e["ts"] >= frame["ts"]), default=None)
+            if end is None:
+                break
+            if end < first["ts"] + first["dur"]:
+                continue
+            # Matching trace IDs matter: a nearby presentation can belong to a different frame.
+            shown = next((e for e in events if e["name"] == "AnimationFrame::Presentation"
+                          and e.get("args", {}).get("id") == frame["args"]["id"]), None)
+            if shown is not None and shown["ts"] >= end:
+                presentation = {"presentation_status": "supported",
+                    "first_input_frame_to_presentation_ms": (shown["ts"] - frame["ts"]) / 1000,
+                    "first_input_handler_to_presentation_ms": (shown["ts"] - first["ts"]) / 1000}
+            break
+    else:
+        presentation["presentation_status"] = "not_applicable"
     return {"status": "supported", "sample_unit": "active_main_thread_frame_window",
             "quantile_estimator": "nearest_rank", "complete_windows": len(boundaries) - 1,
-            "active_script_render_ms": frames, "first_input_script_render_ms": first_cost,
+            "active_script_render_ms": frames, "first_input_script_render_ms": first_cost, **presentation,
             "p95_active_script_render_ms": quantile(frames, .95),
             "scope": "union of named main-thread script/style/layout/prepaint/paint/compositing slices; includes instrumentation, excludes GPU/raster threads and unclassified work"}
 
@@ -326,13 +359,16 @@ if __name__ == "__main__":
         summary = {name: {key: summarize_runs([row[name][key] for row in runs])
                          for key in ["p95_ms", "max_ms", "loaf_count"]} for name in runs[0]}
         trace_summary = {name: {key: summarize_runs([row[name].get("trace_frame_costs", {}).get(key) for row in runs])
-                               for key in ["p95_active_script_render_ms", "first_input_script_render_ms"]}
+                               for key in ["p95_active_script_render_ms", "first_input_script_render_ms",
+                                           "first_input_frame_to_presentation_ms", "first_input_handler_to_presentation_ms"]}
                          for name in runs[0]}
         with open(args.output, "w") as f:
             json.dump({"cpu_throttle": args.cpu, "platform": platform.platform(),
                        "measurement_scope": "rAF cadence and >50 ms LoAF diagnostics; optional Chromium traces account for named main-thread script/render slices separately",
                        "cache_state": "fresh_browser_process_and_context_per_scenario",
                        "trace_instrumentation": "enabled; adds overhead" if args.trace_dir else "disabled",
+                       "benchmark_script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                       "presentation_scope": "first requested event's completed frame correlated by trace ID with Chromium presentation feedback; handler-to-feedback excludes prior input queueing; headless feedback is not physical display latency",
                        "event_timing_scope": "discrete events at durationThreshold=16 ms, quantized durations; continuous wheel/move not covered; absent entries are not zero latency",
                        "gating": "informational; no stable CI variance or tail estimate established",
                        "run_summary": summary, "trace_run_summary": trace_summary, "runs": runs}, f, indent=1)

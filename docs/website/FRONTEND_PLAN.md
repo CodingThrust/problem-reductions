@@ -1,7 +1,8 @@
 # Frontend engineering modernization plan
 
-Status: revised scope accepted on 2026-10-16; engineering implementation starts with
-Stage 0. Existing working-tree preparation is not evidence that a stage has passed.
+Status: revised scope accepted on 2026-10-16; build integration, runtime contracts,
+strict application TypeScript and selective module cleanup are implemented locally.
+Required CI, manual accessibility and physical-device performance acceptance remain open.
 See [engineering checks](ENGINEERING.md) for the fresh-artifact command and evidence
 limits. Stage 0 remains in progress until all of its acceptance criteria pass.
 
