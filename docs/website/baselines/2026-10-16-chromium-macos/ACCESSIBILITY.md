@@ -46,3 +46,12 @@ Follow the required [manual acceptance script](../../ACCESSIBILITY_CHECKS.md).
 Manual keyboard/VoiceOver and physical mobile results remain unrecorded, and Stage 1
 remains incomplete. Roll back this isolated increment with its test-only dependency;
 retain the evidence and known defects until the replacement passes the same checks.
+
+The following isolated contrast fix reuses the existing secondary text color for
+small metadata, placeholders and rule links. The popup metadata test failed at
+3.57925:1 before the fix and passes at 7.49836:1 against its opaque background.
+The test passed in all three pinned engines; the fresh required-board build passed
+all 74 browser workflows and the existing checks. `contrast-screenshots.json.gz`
+records its capture: only Graph route/popover/drawer images changed at each viewport;
+the eight Home/Atlas/empty/unknown images remain identical. Layout, palette values
+and fonts did not change. Other incomplete contrast results still require review.

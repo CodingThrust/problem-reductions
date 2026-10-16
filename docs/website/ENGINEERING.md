@@ -258,6 +258,15 @@ and the required manual/device checks still need implementation or verification.
 The sporadic long-frame defect remains under investigation; the trace pilot is not
 a claim that it was fixed.
 
+A direct WCAG luminance check found 3.57925:1 contrast for small popup metadata on
+its opaque background. The labels now reuse the existing secondary text color
+(7.49836:1 there), as do small placeholder, suggestion, parameter and rule-link text
+that used the same insufficient color. Palette values, typography and layout are
+unchanged. The browser regression reads the computed colors and checks the unrounded
+ratio against [WCAG's 4.5:1 minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
+This deliberately changes those text pixels for accessibility; the original
+screenshots remain the reference, and other incomplete contrast checks remain open.
+
 Rollback each accessibility fix independently, retaining its regression test as
 evidence of the known defect. Revert the scan integration and its test-only pin
 together if necessary; keep the existing fresh-artifact build/preview command.

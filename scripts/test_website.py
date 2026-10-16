@@ -158,6 +158,31 @@ class WebsiteTests(unittest.TestCase):
         expect(weight).to_have_attribute('aria-pressed', 'true')
         expect(weight).to_be_focused(timeout=500)
 
+    def test_graph_popover_metadata_has_readable_contrast(self):
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').focus()
+        self.page.keyboard.press('Enter')
+        expect(self.page.locator('#pop')).to_be_visible()
+        samples = self.page.locator('#pop .opt-key').evaluate_all('''nodes => nodes.map(node => {
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            const rgba = color => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color;
+                ctx.fillRect(0, 0, 1, 1); return Array.from(ctx.getImageData(0, 0, 1, 1).data); };
+            return {text: node.textContent, foreground: rgba(getComputedStyle(node).color),
+                background: rgba(getComputedStyle(node.closest('.pop')).backgroundColor)};
+        })''')
+        self.assertGreater(len(samples), 0)
+        def luminance(rgba):
+            self.assertEqual(rgba[3], 255, 'This contrast fixture requires opaque colors')
+            channels = [value / 255 for value in rgba[:3]]
+            linear = [value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+                      for value in channels]
+            return sum(weight * value for weight, value in zip([0.2126, 0.7152, 0.0722], linear))
+        for sample in samples:
+            high, low = sorted([luminance(sample['foreground']), luminance(sample['background'])], reverse=True)
+            self.assertGreaterEqual((high + 0.05) / (low + 0.05), 4.5, sample['text'])
+
     def test_graph_footnotes_have_link_roles_and_restore_reference_focus(self):
         self.page.goto(self.base + 'graph.html')
         self.page.locator('.steps button').first.click()
