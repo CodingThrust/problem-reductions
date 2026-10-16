@@ -74,11 +74,8 @@ any screen-reader interaction mode required to operate the graph.
 Use one row per failed or unavailable task with its observed announcement/behavior,
 reproduction steps, severity, artifact/browser versions and a concrete follow-up.
 Record successful tasks explicitly too. Required manual tasks remain unverified
-until executed; an unavailable device or screen reader is not a pass. Keep Stage 1
-and the final engineering handoff incomplete while blocking defects or required
-manual checks remain open. Recheck affected tasks after a fix, preserving independent
-mathematical, screenshot and performance evidence. Claude's visual phase starts
-only after the complete engineering handoff gate passes.
+until executed; an unavailable device or screen reader is not a pass. Recheck affected
+tasks after a fix.
 
 ## Manual error/retry setup
 

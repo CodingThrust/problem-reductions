@@ -5,8 +5,7 @@ WASM mathematics and Typst articles as the guide and paper. Preserve their curre
 appearance. See [ENGINEERING.md](ENGINEERING.md) for pinned tools, production
 verification, size budgets, deployment/rollback and outstanding acceptance gates;
 [DATA_BOUNDARIES.md](DATA_BOUNDARIES.md) inventories runtime contracts.
-[FRONTEND_PLAN.md](FRONTEND_PLAN.md) records the staged engineering/design scope,
-and [ACCESSIBILITY_CHECKS.md](ACCESSIBILITY_CHECKS.md) owns manual acceptance.
+[ACCESSIBILITY_CHECKS.md](ACCESSIBILITY_CHECKS.md) owns manual acceptance.
 
 ## Source layout
 
@@ -58,12 +57,8 @@ artifact and records provenance. CI uses the same contracts and production tests
 
 ## Evidence and measurements
 
-The maintained measurement summary and limitations live in
-[ENGINEERING.md](ENGINEERING.md). Raw evidence stays outside Git. Use the existing
-`benchmark_graph_startup.py`, `benchmark_graph_interaction.py`,
-`benchmark_website_paths.mjs` and `capture_website_baselines.py` under `scripts/`;
-these measure the actual application, preserve input/artifact provenance and
-assert effects. The obsolete isolated Canvas/SVG prototype probe was removed.
+The maintained size budgets and cold-start measurements live in
+[ENGINEERING.md](ENGINEERING.md). Raw evidence stays outside Git.
 
 The guide source is `docs/src/`; its reading theme is
 `docs/src/static/docs-theme.css`. Articles come from `docs/paper/reductions.typ`

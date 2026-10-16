@@ -7,7 +7,7 @@ JSON boundaries listed below passed local production checks before delivery clea
 acceptance remain open; the separately owned Open Question Board is outside this
 application's contract migration.
 
-Delivery cleanup preserves these contracts. [Validator measurements and budgets](ENGINEERING.md#validator-delivery-and-size-budgets-2026-10-16)
+Delivery cleanup preserves these contracts. [Size budgets](ENGINEERING.md#size-budgets)
 record shared static helpers, realm-specific guard loading and the remaining browser
 verification gap. All eleven schemas are consumed by the generator; none is unused.
 

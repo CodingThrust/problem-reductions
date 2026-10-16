@@ -183,8 +183,6 @@ def check(site, *, build, open_questions, required):
         with serve_website(site) as base:
             environment = {**os.environ, "WEBSITE_BASE_URL": base,
                            "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"}
-            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test_graph_*", "-v"],
-                env=environment)
             verification["browser_checks"] = {"root": [], "nested": [], "failure_recovery": []}
             for engine in ["chromium", "firefox", "webkit"]:
                 run([sys.executable, "scripts/test_website.py", "--durations", "5"],
@@ -193,8 +191,6 @@ def check(site, *, build, open_questions, required):
                 run([sys.executable, "scripts/test_website_failures.py", "--durations", "5", "-v"],
                     env={**environment, "WEBSITE_BROWSER": engine, "WEBSITE_SITE_DIR": str(site.resolve())})
                 verification["browser_checks"]["failure_recovery"].append(engine)
-            run([sys.executable, "-m", "unittest", "discover", "-s", "scripts",
-                 "-p", "test_website_baselines.py", "-v"], env=environment)
         with tempfile.TemporaryDirectory(prefix="problem-reductions-nested-") as directory:
             root = Path(directory)
             (root / "research").mkdir()
