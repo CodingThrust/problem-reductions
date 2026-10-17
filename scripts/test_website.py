@@ -430,7 +430,7 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('main')).not_to_contain_text('Graph preserved; solution complemented')
         source = self.page.locator('.rule-endpoint a').first
         expect(source).to_be_visible()
-        expect(self.page.locator('.rule-endpoint a [aria-hidden="true"]')).to_have_text(['↗', '↗'])
+        expect(self.page.locator('.rule-endpoint a .arrow')).to_have_count(2)
         expect(self.page.locator('h1 a')).to_have_count(0)
         expect(self.page.locator('.rule-endpoints dt')).to_have_text(['Source', 'Target'])
         self.assertTrue(self.page.evaluate('''() =>
@@ -481,7 +481,7 @@ class WebsiteTests(unittest.TestCase):
                             ('reduction/MinimumVertexCover/MaximumIndependentSet', 'src/rules/minimumvertexcover_maximumindependentset.rs'),
                             ('reduction/MaximumIndependentSet/DecisionMaximumIndependentSet', 'src/models/decision.rs')]:
             self.visit(route)
-            expect(self.page.get_by_role('link', name='Open API reference ↗', exact=True)).to_be_visible()
+            expect(self.page.get_by_role('link', name='Open API reference', exact=True)).to_be_visible()
             expect(self.page.get_by_role('link', name='Open implementation')).to_have_attribute(
                 'href', 'https://github.com/CodingThrust/problem-reductions/blob/main/' + path)
 

@@ -99,7 +99,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
     const variants = summary.nodes.filter(node => node.name === name), category = variants[0]!.category;
     return {name, category,
       search: `${name} ${nameOf(name)} ${description(name)} ${(names.get(name)?.aliases || []).join(' ')}`.toLowerCase(),
-      html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connection${edgesOf(name).length === 1 ? '' : 's'}</span></div></div><span aria-hidden="true">↗</span></a>`};
+      html: `<a class="atlas-row" href="${problemHref(name)}"><div><h2>${escape(nameOf(name))}</h2><p>${escape(description(name))}</p><div class="atlas-row-meta"><span>${escape(categories[category] || category)}</span><span>${variants.length} variant${variants.length === 1 ? '' : 's'}</span><span>${edgesOf(name).length} connection${edgesOf(name).length === 1 ? '' : 's'}</span></div></div><i class="arrow ne" aria-hidden="true"></i></a>`};
   }).sort((a, b) => nameOf(a.name).localeCompare(nameOf(b.name)));
 
   function notify(message: string) {
@@ -208,7 +208,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
       .filter((name) => families.includes(name))
       .map((name) => {
         const variants = summary.nodes.filter(node => node.name === name);
-        return `<a class="problem-card" href="${problemHref(name)}"><span class="context-label">${escape(categories[variants[0]!.category] || "Computational problem")}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><span aria-hidden="true">↗</span></div></a>`;
+        return `<a class="problem-card" href="${problemHref(name)}"><span class="context-label">${escape(categories[variants[0]!.category] || "Computational problem")}</span><h3>${escape(nameOf(name))}</h3><p>${escape(description(name))}.</p><div class="mini-art">${miniArt(name)}</div><div class="card-bottom"><span>${variants.length} variant${variants.length === 1 ? "" : "s"} · ${edgesOf(name).length} incident reductions</span><i class="arrow ne" aria-hidden="true"></i></div></a>`;
       })
       .join("");
     $("#featured-art").innerHTML = complementArt();
@@ -250,7 +250,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
               /><kbd>/</kbd></label
             ><span class="result-count" role="status" aria-live="polite"></span>
             <a class="text-link" href="./graph.html"
-              >Explore the reduction graph <span aria-hidden="true">↗</span></a
+              >Explore the reduction graph <i class="arrow ne" aria-hidden="true"></i></a
             >
           </div>
           <div class="atlas-results" id="atlas-results"></div>
@@ -336,7 +336,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
     document.title = `${nameOf(name)} — ${baseTitle}`;
     main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <div class="breadcrumbs">
-          <a href="#atlas">← Back</a>
+          <a href="#atlas"><i class="arrow w" aria-hidden="true"></i> Back</a>
         </div>
         <h1>${escape(nameOf(name))}</h1>
         <div class="variant-control">
@@ -392,11 +392,11 @@ declare global { interface Window { REDUCTIONS: unknown } }
               <dd>${incoming.length} incoming · ${outgoing.length} outgoing</dd>
             </div>
           </dl>
-          <a href="${repo}/blob/main/${schema.source_path}">Open implementation <span>↗</span></a>
+          <a href="${repo}/blob/main/${schema.source_path}">Open implementation <i class="arrow ne" aria-hidden="true"></i></a>
           <a href="${escape(apiHref(node.api_path))}"
-            >Open API reference <span>↗</span></a
-          ><a href="./reductions.pdf">Open PDF reference <span>↗</span></a
-          ><a href="#atlas">Back to the atlas <span>←</span></a>
+            >Open API reference <i class="arrow ne" aria-hidden="true"></i></a
+          ><a href="./reductions.pdf">Open PDF reference <i class="arrow ne" aria-hidden="true"></i></a
+          ><a href="#atlas">Back to the atlas <i class="arrow w" aria-hidden="true"></i></a>
           <p>
             Generated from the library registry. Complexity expressions describe
             registered worst-case bounds; see the cited algorithms in the paper.
@@ -428,15 +428,15 @@ declare global { interface Window { REDUCTIONS: unknown } }
     document.title = `${nameOf(sourceName)} → ${nameOf(target.name)} — ${baseTitle}`;
     main.innerHTML = /* HTML */ `<div class="wrap page-header detail-header">
         <div class="breadcrumbs">
-          <a href="#atlas">← Back</a>
+          <a href="#atlas"><i class="arrow w" aria-hidden="true"></i> Back</a>
         </div>
         <h1>${escape(nameOf(sourceName))} → ${escape(nameOf(target.name))}</h1>
       </div>
       <div class="wrap reading-layout">
         <div class="reading-content">
           <dl class="rule-endpoints">
-            <div><dt>Source</dt><dd class="rule-endpoint"><a href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))} <span aria-hidden="true">↗</span></a>${Object.keys(source.variant).length ? `<span>${escape(variantLabel(source))}</span>` : ""}</dd></div>
-            <div><dt>Target</dt><dd class="rule-endpoint"><a href="${problemHref(target.name, target)}">${escape(nameOf(target.name))} <span aria-hidden="true">↗</span></a>${Object.keys(target.variant).length ? `<span>${escape(variantLabel(target))}</span>` : ""}</dd></div>
+            <div><dt>Source</dt><dd class="rule-endpoint"><a href="${problemHref(sourceName, source)}">${escape(nameOf(sourceName))} <i class="arrow ne" aria-hidden="true"></i></a>${Object.keys(source.variant).length ? `<span>${escape(variantLabel(source))}</span>` : ""}</dd></div>
+            <div><dt>Target</dt><dd class="rule-endpoint"><a href="${problemHref(target.name, target)}">${escape(nameOf(target.name))} <i class="arrow ne" aria-hidden="true"></i></a>${Object.keys(target.variant).length ? `<span>${escape(variantLabel(target))}</span>` : ""}</dd></div>
           </dl>
           <section id="rule-parameters" aria-label="Parameters">
             <h2>Parameters</h2>
@@ -446,11 +446,11 @@ declare global { interface Window { REDUCTIONS: unknown } }
         </div>
         <aside class="reading-aside">
           ${edge.turing ? '<p class="rule-kind">Turing reduction</p>' : ""}
-          <a href="${sourceHref(edge)}">Open implementation <span>↗</span></a
+          <a href="${sourceHref(edge)}">Open implementation <i class="arrow ne" aria-hidden="true"></i></a
           ><a href="${escape(apiHref(edge.api_path))}"
-            >Open API reference <span>↗</span></a
-          ><a href="./reductions.pdf">Open PDF reference <span>↗</span></a>
-          <a href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}">Test source <span>↗</span></a>
+            >Open API reference <i class="arrow ne" aria-hidden="true"></i></a
+          ><a href="./reductions.pdf">Open PDF reference <i class="arrow ne" aria-hidden="true"></i></a>
+          <a href="${repo}/${edge.test_path ? "blob/main/" + edge.test_path : "tree/main/src/unit_tests/rules"}">Test source <i class="arrow ne" aria-hidden="true"></i></a>
         </aside>
       </div>`;
     renderDetails($("#reference-detail"), "", "",
