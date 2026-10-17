@@ -208,8 +208,8 @@ p {
   grid-template-columns: 1fr 1.15fr;
   gap: 40px;
   align-items: center;
-  min-height: 700px;
-  padding-block: 74px 76px;
+  min-height: 560px;
+  padding-block: 56px 48px;
 }
 .hero-copy {
   position: relative;
@@ -366,10 +366,11 @@ p {
   padding-left: 0;
 }
 .stats-bar > div strong {
-  font-size: 32px;
-  letter-spacing: -1.6px;
+  font-size: 34px;
+  letter-spacing: -1.4px;
   line-height: 1.25;
-  font-weight: 400;
+  font-weight: 500;
+  color: var(--lime);
 }
 .stats-bar > div span {
   font-size: 13px;
@@ -386,14 +387,14 @@ p {
   margin-left: 16px;
 }
 .section {
-  padding-block: 98px;
+  padding-block: 72px;
 }
 .section-heading {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 80px;
   align-items: end;
-  margin-bottom: 44px;
+  margin-bottom: 32px;
 }
 .section-heading > p,
 .section-heading > div > p {
@@ -468,9 +469,10 @@ p {
   font-size: 13px;
 }
 .research-section {
-  background: var(--surface);
+  border-top: 1px solid var(--line);
   color: var(--ink);
-  padding-block: 85px;
+  margin-top: 40px;
+  padding-block: 72px 64px;
 }
 .research-section p {
   color: var(--muted);
@@ -565,7 +567,7 @@ p {
   width: 100%;
 }
 .infrastructure-section {
-  padding-block: 40px 104px;
+  padding-block: 72px 24px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 70px;

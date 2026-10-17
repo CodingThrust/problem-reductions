@@ -365,3 +365,44 @@ body {
     display: none;
   }
 }
+
+.docs-tools a[href$="graph.html"],
+.docs-tools a[href$="#atlas"],
+.docs-tools a[href$="#home"] {
+  color: var(--fg);
+}
+ul.start-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin: 22px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.start-cards li {
+  margin: 0;
+}
+.content .start-cards a {
+  display: block;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid var(--table-border-color);
+  border-radius: 8px;
+  background: var(--quote-bg);
+  color: var(--sidebar-fg);
+  font-size: 13px;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.content .start-cards a:hover {
+  border-color: var(--links);
+}
+.start-cards a strong {
+  display: block;
+  color: var(--links);
+  font-size: 15px;
+}
+.content main > p:first-of-type {
+  max-width: 62ch;
+}

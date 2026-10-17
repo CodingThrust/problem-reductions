@@ -505,8 +505,8 @@ class WebsiteTests(unittest.TestCase):
         self.visit()
         expect(self.page.get_by_role("navigation", name="Main navigation")
                .get_by_role("link", name="Research", exact=True)).to_have_count(0)
-        self.page.get_by_role("link", name="Research loop", exact=False).click()
-        expect(self.page.locator("#research")).to_be_in_viewport()
+        self.page.locator(".hero").get_by_role("link", name="Get started").click()
+        expect(self.page.locator("#infrastructure")).to_be_in_viewport()
         self.page.go_back()
         expect(self.page.locator(".hero")).to_be_in_viewport()
 
@@ -516,7 +516,7 @@ class WebsiteTests(unittest.TestCase):
         self.assertTrue(self.page.url.endswith("/introduction.html"))
         expect(self.page.get_by_role("heading", name="Problem Reductions", exact=True)).to_be_visible()
         self.assertNotIn("{{#include", self.page.locator("body").inner_text())
-        self.page.get_by_role('navigation', name='Documentation resources').get_by_role('link', name='Home ↗', exact=True).click()
+        self.page.get_by_role('navigation', name='Documentation resources').get_by_role('link', name='Home', exact=True).click()
         expect(self.page.locator('main .hero')).to_be_visible()
 
     def test_legacy_reduction_graph_url_redirects(self):

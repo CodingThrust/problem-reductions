@@ -37,15 +37,19 @@
       resize();
     });
   }
+  if (page === "introduction.html" || page === "index.html")
+    document.querySelector(".content main > ul")?.classList.add("start-cards");
   const menu = document.querySelector(".menu-bar .right-buttons");
   if (menu && page !== "print.html") {
     const nav = document.createElement("nav");
     nav.className = "docs-tools";
     nav.setAttribute("aria-label", "Documentation resources");
     const links = [
-      ["Home ↗", root + "index.html#home"],
+      ["Home", root + "index.html#home"],
+      ["Graph", root + "graph.html"],
+      ["Atlas", root + "index.html#atlas"],
+      ["Paper ↗", root + "reductions.pdf"],
       ["GitHub ↗", "https://github.com/CodingThrust/problem-reductions"],
-      ["Atlas ↗", root + "index.html#atlas"],
     ];
     for (const [label, href] of links) {
       const link = document.createElement("a");
