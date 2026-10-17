@@ -2,7 +2,7 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
+import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, layeredLayout, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -13,7 +13,7 @@ type Side = 'source' | 'target';
 interface Family { name: string; category: GraphSceneData['nodes'][number]['category']; variants: number[]; nbrs: Set<string> }
 type PathResult = WasmPathResult & { polynomial_comparison?: WasmComparisonResult; order?: number[] };
 interface State { source: number | null; target: number | null; limit: number; result: PathResult | null;
-  selected: number | null; picked: boolean; showSlower: boolean; busy: boolean }
+  selected: number | null; picked: boolean; showSlower: boolean; busy: boolean; objective: "overhead" | "steps" }
 
 type Bounds = ReturnType<GraphScene['labelBox']>;
 
@@ -96,7 +96,7 @@ function placeLabels() {
   scene.classes(scene.nodes, "named");
   scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named: SceneNode[] = [];
-  const cap = exploring && !ex.sel && !ex.query ? 12 : Infinity;
+  const cap = exploring && !ex.sel && !ex.query ? (ex.layout === "layered" ? 60 : 12) : Infinity;
   scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
     const b = box(n);
     if (named.length < cap && fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
@@ -127,7 +127,7 @@ scene.onHover = (n, over) => {
 
 /* ---------- State ---------- */
 let exploring = true;
-const state: State = { source: null, target: null, limit: 20, result: null, selected: null, picked: false, showSlower: false, busy: false };
+const state: State = { source: null, target: null, limit: 20, result: null, selected: null, picked: false, showSlower: false, busy: false, objective: "overhead" };
 
 /* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
 function focusedVariantGroup(root: HTMLElement) {
@@ -436,16 +436,27 @@ function compute(source: number, target: number, limit: number, onPaths: (result
 function orderPaths(result: PathResult) {
   const c = result.polynomial_comparison;
   const degrees = c?.profiles.map(pathDegree), front = new Set(c?.front);
+  const steps = (n: number) => result.paths[n - 1]!.steps;
   result.order = result.paths.map((_, i) => i + 1).sort((a, b) =>
+    (state.objective === "steps" ? steps(a) - steps(b) : 0) ||
     (c ? (Number(front.has(b)) - Number(front.has(a))) || compareDegrees(degrees![a - 1], degrees![b - 1]) : 0) ||
     result.paths[a - 1]!.steps - result.paths[b - 1]!.steps || a - b);
+}
+function renderObjective() {
+  const box = $("#objective");
+  box.hidden = !state.result;
+  segment(box, [{ id: "overhead", text: "Smallest overhead", title: "Routes whose reduced instance grows slowest" }, { id: "steps", text: "Fewest steps", title: "Routes with the fewest reductions" }], state.objective, id => {
+    state.objective = id as State["objective"];
+    if (state.result) { orderPaths(state.result); state.picked = false; select(state.result.order![0]!); }
+    renderObjective();
+  });
 }
 async function run() {
   const id = ++reqId;
   if (state.busy) stopWorker();
   clearInterval(clock);
   state.result = null; state.selected = null; state.picked = false; state.showSlower = false; state.busy = true;
-  paintGraph(); renderResults();
+  paintGraph(); renderResults(); renderObjective();
   frame([scene.byId.get(D.nodes[state.source!]!.name)!, scene.byId.get(D.nodes[state.target!]!.name)!], 1.1);
   if (state.source === state.target) { state.busy = false; renderResults("same"); return; }
   const started = Date.now();
@@ -453,7 +464,7 @@ async function run() {
   try {
     const result = await compute(state.source!, state.target!, state.limit, (paths) => {
       if (id !== reqId || !paths.paths.length) return;
-      orderPaths(paths); state.result = paths;
+      orderPaths(paths); state.result = paths; renderObjective();
       select(paths.order![0]!);
       performance.mark("graph:routes-rendered");
     });
@@ -611,9 +622,11 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     if (seen.has(k) || (k === selectedChain && n !== state.selected)) return false;
     seen.add(k); return true;
   });
-  const onFront = new Set(c?.front), front = shown.filter((n) => !c || onFront.has(n)), slower = shown.filter((n) => c && !onFront.has(n));
+  const fewest = Math.min(...shown.map((n) => state.result!.paths[n - 1]!.steps));
+  const onFront = new Set(state.objective === "steps" ? shown.filter((n) => state.result!.paths[n - 1]!.steps === fewest) : c?.front);
+  const front = shown.filter((n) => (!c && state.objective === "overhead") || onFront.has(n)), slower = shown.filter((n) => !front.includes(n));
   const s = el("div", "summary"), left = el("span");
-  if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
+  if (c || state.objective === "steps") left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
   s.append(left);
   if (state.busy) {
@@ -641,8 +654,9 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 const rules = D.edges as RuleEdge[];
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach } | { kind: "rules"; key: string; from?: number } | null;
-interface Explore { scope: Scope; limit: ClassId; list: "home" | "problems" | "rules"; query: string; sel: Selection; all: boolean }
-const ex: Explore = { scope: "witness", limit: "unknown", list: "home", query: "", sel: null, all: false };
+type Layout = "layered" | "network";
+interface Explore { scope: Scope; limit: ClassId; layout: Layout; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
+const ex: Explore = { scope: "witness", limit: "unknown", layout: "network", tab: "problems", query: "", sel: null, all: false };
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
 const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
@@ -659,8 +673,6 @@ const badge = (cls: ClassId) => {
 const famText = (name: string) => [display(name), name, ...(aliasMap[name] ?? [])].map(t => t.toLowerCase());
 const matchesQuery = (name: string) => { const q = ex.query.trim().toLowerCase(); return !q || famText(name).some(t => t.includes(q)); };
 const pluralize = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const short = (name: string) => (aliasMap[name] ?? [])[0] ?? display(name);
-const START = ["Satisfiability", "MaximumIndependentSet", "TravelingSalesman", "QUBO", "ILP"].filter(n => families.has(n));
 
 function buildModel() {
   const active = activeRules(rules, { scope: ex.scope, limit: ex.limit }), links = active.map(i => rules[i]!);
@@ -675,8 +687,9 @@ function buildModel() {
   });
   const degree = new Map<string, number>();
   fam.forEach(f => { degree.set(f.source, (degree.get(f.source) ?? 0) + 1); degree.set(f.target, (degree.get(f.target) ?? 0) + 1); });
+  const core = new Set([...degree].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([n]) => n));
   const depth = depthsFrom([...families.keys()], [...fam.values()], roots);
-  return { active, links, fam, groups, counts, out, inn, degree, depth };
+  return { active, links, fam, groups, counts, out, inn, degree, depth, core };
 }
 let model = buildModel();
 const ruleClass = (i: number) => edgeGrowth(rules[i]!).cls;
@@ -686,10 +699,23 @@ const reachOf = (v: number, dir: "down" | "up") => reach(D.nodes.length, model.l
 
 /* Frame the dense middle; a few far-flung isolated problems should not shrink everything else. */
 function frameAll() {
+  if (ex.layout === "layered") { frame(scene.nodes, 1.1); return; }
   const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1);
   const cx = linked.reduce((a, n) => a + n.x, 0) / linked.length, cy = linked.reduce((a, n) => a + n.y, 0) / linked.length;
   const near = linked.map(n => [Math.hypot(n.x - cx, n.y - cy), n] as const).sort((a, b) => a[0] - b[0]);
   frame(near.slice(0, Math.ceil(near.length * .85)).map(([, n]) => n), 1.6);
+}
+
+/* Network keeps the build-time force layout; Layers puts problems in columns by their fewest reductions from SAT. */
+function applyLayout(animate: boolean, done?: () => void) {
+  const layered = exploring && ex.layout === "layered";
+  scene.labelSide = layered ? "right" : "below";
+  scene.nodes.forEach(n => { n.labelKey = null; });
+  document.body.classList.toggle("layered", layered);
+  if (!layered) { scene.setGuides([]); scene.arrange(pos, animate, done); return; }
+  const names = [...families.keys()], links = [...model.fam.values()];
+  const { positions, guides } = layeredLayout(names, model.depth, links, { rank: n => families.get(n)!.category + n, row: 30 });
+  scene.arrange(positions, animate, done); scene.setGuides(guides);
 }
 
 /* Canvas state follows the selection; with none, rules are faint and ILP's are fainter still. */
@@ -720,6 +746,7 @@ function paintExplore() {
     if (litRules) scene.classes([edge], "", f.rules.some(i => litRules.has(i)) ? "lit" : "dim");
     else if (litNodes) scene.classes([edge], "", litNodes.has(f.source) && litNodes.has(f.target) ? "lit" : "dim");
     else if (edge.source.id === "ILP" || edge.target.id === "ILP") scene.classes([edge], "", "hub");
+    else if (ex.layout === "network" && !(model.core.has(f.source) && model.core.has(f.target))) scene.classes([edge], "", "quiet");
   });
   scene.nodes.forEach(node => {
     if (litNodes) scene.classes([node], "", litNodes.has(node.id) ? "reach" : "dim");
@@ -741,7 +768,10 @@ function selectRules(key: string, from?: number) {
   paintExplore(); renderExplore(); focusLit();
 }
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
-function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend(); }
+function refreshExplore(relayout = true) {
+  model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend();
+  if (relayout && ex.layout === "layered") applyLayout(!reduced.matches);
+}
 
 function segment(box: HTMLElement, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
   box.replaceChildren(...items.map(item => {
@@ -751,6 +781,9 @@ function segment(box: HTMLElement, items: { id: string; text: string; title?: st
   }));
 }
 function renderMapbar() {
+  segment($("#layout-seg"), [{ id: "network", text: "Network", title: "Force-directed layout" }, { id: "layered", text: "Layers", title: "Columns by distance from SAT" }], ex.layout, id => {
+    ex.layout = id as Layout; renderMapbar(); applyLayout(!reduced.matches, frameAll);
+  });
   segment($("#scope-seg"), SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), ex.scope, id => {
     ex.scope = id as Scope; ex.sel = null; refreshExplore();
   });
@@ -770,24 +803,23 @@ function renderLegend() {
 }
 
 /* ---------- Explore panel ---------- */
-/* One thing at a time: home, results, a full list, a place or a rule. */
+/* Find: search plus two browsable lists. Explore: one place at a time. */
 function renderExplore() {
-  const body = $("#explore-body");
+  const body = $("#explore-body"), tabs = $("#tabs");
   body.replaceChildren();
+  tabs.hidden = !!ex.sel;
   if (ex.sel?.kind === "problem") placeCard(body, ex.sel);
   else if (ex.sel) ruleCard(body, ex.sel);
-  else if (ex.list !== "home") fullList(body, ex.list);
-  else if (ex.query.trim()) results(body);
-  else home(body);
+  else { renderTabs(tabs); list(body); }
   body.scrollTop = 0;
 }
 const problemMatches = () => {
   const q = ex.query.trim().toLowerCase();
   const score = (n: string) => !q ? 0 : famText(n).some(t => t === q) ? 0 : famText(n).some(t => t.startsWith(q)) ? 1 : 2;
-  return [...families.keys()].filter(matchesQuery).sort((a, b) => score(a) - score(b) || (model.degree.get(b) ?? 0) - (model.degree.get(a) ?? 0) || a.localeCompare(b));
+  return [...families.keys()].filter(matchesQuery).sort((a, b) => score(a) - score(b) || display(a).localeCompare(display(b)));
 };
 const ruleMatches = () => [...model.fam.values()].filter(f => matchesQuery(f.source) || matchesQuery(f.target))
-  .sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target));
+  .sort((a, b) => display(a.source).localeCompare(display(b.source)) || display(a.target).localeCompare(display(b.target)));
 function problemRow(name: string) {
   const f = families.get(name)!, row = el("button", "row"); row.type = "button"; row.dataset.name = name;
   const dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
@@ -801,31 +833,16 @@ function ruleRow(f: { source: string; target: string; cls: ClassId; rules: numbe
   row.addEventListener("click", () => selectRules(f.source + "→" + f.target));
   return row;
 }
-function home(body: HTMLElement) {
-  const entries = el("div", "entries");
-  for (const [id, title, n] of [["problems", "Problems", families.size], ["rules", "Reductions", model.fam.size]] as const) {
-    const b = el("button", "entry"); b.type = "button"; b.append(el("span", "entry-title", title), el("span", "entry-n", String(n)), el("span", "entry-go", "›"));
-    b.addEventListener("click", () => { ex.list = id; renderExplore(); }); entries.append(b);
-  }
-  body.append(entries, el("h2", "eyebrow", "Start with"));
-  const chips = el("div", "chips");
-  START.forEach(name => { const c = el("button", "chip", short(name)); c.type = "button"; c.title = display(name); c.addEventListener("click", () => selectProblem(defaults[name]!)); chips.append(c); });
-  body.append(chips);
+function renderTabs(box: HTMLElement) {
+  const n = { problems: problemMatches().length, rules: ruleMatches().length };
+  box.replaceChildren(...(["problems", "rules"] as const).map(id => {
+    const t = el("button", "tab"); t.type = "button"; t.setAttribute("role", "tab"); t.setAttribute("aria-selected", String(ex.tab === id));
+    t.append(id === "problems" ? "Problems" : "Reductions", el("span", "", String(n[id])));
+    t.addEventListener("click", () => { ex.tab = id; renderExplore(); }); return t;
+  }));
 }
-function results(body: HTMLElement) {
-  const ps = problemMatches(), rs = ruleMatches();
-  if (!ps.length && !rs.length) { body.append(el("p", "empty", "Nothing matches")); return; }
-  for (const [title, count, rows, id] of [["Problems", ps.length, ps.slice(0, 6).map(problemRow), "problems"], ["Reductions", rs.length, rs.slice(0, 4).map(ruleRow), "rules"]] as const) {
-    if (!count) continue;
-    const head = el("div", "section-row"); head.append(el("h2", "eyebrow", title));
-    if (count > rows.length) { const more = el("button", "link", `All ${count}`); more.type = "button"; more.addEventListener("click", () => { ex.list = id; renderExplore(); }); head.append(more); }
-    body.append(head, ...rows);
-  }
-}
-function fullList(body: HTMLElement, kind: "problems" | "rules") {
-  back(body, "‹ " + (ex.query.trim() ? "Results" : "Back"), () => { ex.list = "home"; renderExplore(); });
-  body.append(el("h2", "page-title", kind === "problems" ? "Problems" : "Reductions"));
-  const rows = kind === "problems" ? problemMatches().map(problemRow) : ruleMatches().map(ruleRow);
+function list(body: HTMLElement) {
+  const rows = ex.tab === "problems" ? problemMatches().map(problemRow) : ruleMatches().map(ruleRow);
   body.append(...(rows.length ? rows : [el("p", "empty", "Nothing matches")]));
 }
 
@@ -877,7 +894,8 @@ function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" 
   if (!outs.length && !ins.length) body.append(el("p", "empty", "No reductions in this scope"));
   const group = model.groups.groups[model.groups.comp[v]!]!;
   if (group.length > 1) {
-    const wrap = el("section", "block"); wrap.append(el("h2", "eyebrow", "Mutually reducible"));
+    const wrap = el("details", "variant"), sum = el("summary"); sum.append(el("span", "", "Mutually reducible"), el("small", "", String(group.length - 1)));
+    wrap.append(sum);
     const chips = el("div", "chips");
     group.filter(w => w !== v).forEach(w => { const c = el("button", "chip", display(D.nodes[w]!.name) + (multi(D.nodes[w]!.name) ? " · " + vtext(w) : "")); c.type = "button"; c.addEventListener("click", () => selectProblem(w)); chips.append(c); });
     wrap.append(chips); body.append(wrap);
@@ -900,7 +918,7 @@ function ruleCard(body: HTMLElement, sel: Extract<Selection, { kind: "rules" }>)
   });
 }
 $("#find").addEventListener("input", (e) => {
-  ex.query = (e.target as HTMLInputElement).value; ex.sel = null; ex.list = "home"; paintExplore(); renderExplore();
+  ex.query = (e.target as HTMLInputElement).value; ex.sel = null; paintExplore(); renderExplore();
 });
 $("#find").addEventListener("keydown", (e) => {
   if (e.key === "Enter") $<HTMLButtonElement>("#explore-body .row")?.click();
@@ -912,12 +930,13 @@ function setMode(mode: "explore" | "directions") {
   exploring = mode === "explore";
   $("#view-explore").hidden = !exploring; $("#view-directions").hidden = exploring;
   document.body.classList.toggle("explore", exploring);
+  document.body.classList.toggle("layered", exploring && ex.layout === "layered");
   closePop();
   if (exploring) {
-    refreshExplore(); frameAll();
+    refreshExplore(false); applyLayout(!reduced.matches, frameAll);
     history.replaceState(null, "", location.pathname + location.search);
   } else {
-    scene.classes(scene.elements, CLEAN);
+    scene.classes(scene.elements, CLEAN); applyLayout(!reduced.matches);
     syncEnds(); renderResults(); paintGraph();
     history.replaceState(null, "", "#directions");
     if (state.source == null) $("#source").focus({ preventScroll: true }); else if (state.target == null) $("#target").focus({ preventScroll: true });
@@ -945,7 +964,7 @@ if (location.hash === "#directions") {
   syncEnds(); frame(scene.elements, 1, false); run();
 } else {
   document.body.classList.add("explore");
-  refreshExplore(); frameAll();
+  refreshExplore(false); frameAll();
 }
 performance.mark("graph:interactive");
 document.fonts?.ready.then(() => {

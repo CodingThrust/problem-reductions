@@ -151,12 +151,12 @@ class WebsiteTests(unittest.TestCase):
 
     def test_accessibility_graph_explore(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#explore-body .entry').first).to_be_visible()
+        expect(self.page.locator('#explore-body .row').first).to_be_visible()
         self.assert_accessible('graph-explore')
 
     def test_accessibility_graph_place_card(self):
         self.page.goto(self.base + 'graph.html')
-        self.page.get_by_role('button', name='SAT', exact=True).click()
+        self.page.locator('#explore-body .row', has_text='Satisfiability').first.click()
         expect(self.page.locator('.place-name')).to_be_visible()
         self.assert_accessible('graph-place-card')
 
@@ -165,12 +165,33 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#view-directions')).to_be_hidden()
         self.page.locator('#find').fill('MIS')
         expect(self.page.locator('#explore-body .row').first).to_contain_text('Maximum Independent Set')
-        expect(self.page.locator('#explore-body')).to_contain_text('Reductions')
+        self.page.get_by_role('tab', name='Reductions').click()
+        self.assertGreater(self.page.locator('#explore-body .row').count(), 0)
+        self.page.get_by_role('tab', name='Problems').click()
         self.page.locator('#find').press('Enter')
         expect(self.page.locator('.place-name')).to_have_text('Maximum Independent Set')
         expect(self.page.locator('#explore-body')).to_contain_text('Reduces to')
         self.page.get_by_role('button', name='‹ Back').click()
         expect(self.page.locator('.place-name')).to_have_count(0)
+
+    def test_graph_layers_view_is_an_alternative_layout(self):
+        self.page.goto(self.base + 'graph.html')
+        x = lambda name: self.page.locator(f'.scene-node[data-node="{name}"]').evaluate('n => n.getBoundingClientRect().x')
+        expect(self.page.locator('.guide')).to_have_count(0)
+        self.page.get_by_role('radio', name='Layers').click()
+        expect(self.page.locator('.guide').first).to_contain_text('SAT')
+        self.page.wait_for_timeout(900)
+        self.assertLess(x('Satisfiability'), x('QUBO'))
+        self.page.get_by_role('radio', name='Network').click()
+        expect(self.page.locator('.guide')).to_have_count(0)
+
+    def test_graph_directions_objective_reranks_routes(self):
+        self.page.goto(self.base + 'graph.html#directions')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#objective')).to_be_visible()
+        self.page.get_by_role('radio', name='Fewest steps').click()
+        expect(self.page.get_by_role('radio', name='Fewest steps')).to_have_attribute('aria-checked', 'true')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
 
     def test_graph_directions_has_its_own_entry_and_returns_to_explore(self):
         self.page.goto(self.base + 'graph.html')
