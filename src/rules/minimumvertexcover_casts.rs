@@ -2,6 +2,8 @@
 
 use crate::impl_variant_reduction;
 use crate::models::graph::MinimumVertexCover;
+use crate::models::Decision;
+use crate::rules::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::One;
 
@@ -23,3 +25,17 @@ crate::register_aggregate_reduction!(
 #[cfg(test)]
 #[path = "../unit_tests/rules/minimumvertexcover_casts.rs"]
 mod tests;
+
+impl_variant_reduction!(
+    Decision,
+    <MinimumVertexCover<SimpleGraph, One>> => <MinimumVertexCover<SimpleGraph, i64>>,
+    fields: [num_vertices, num_edges],
+    |src| Decision::new(
+        ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(src.inner())?.target_problem().clone(),
+        *src.bound())
+);
+type DecisionWeightCast = crate::rules::VariantReductionResult<
+    Decision<MinimumVertexCover<SimpleGraph, One>>,
+    Decision<MinimumVertexCover<SimpleGraph, i64>>,
+>;
+crate::register_aggregate_reduction!(DecisionWeightCast);
