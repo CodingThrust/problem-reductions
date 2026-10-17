@@ -321,13 +321,6 @@ h2.eyebrow { margin: 0; font: 500 12px var(--sans); letter-spacing: .04em; text-
 .mapbar .seg + .seg, .mapbar .growth-legend { margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--line); }
 .growth-legend { display: flex; gap: 2px; }
 
-.guide { font: 600 16px var(--sans); fill: var(--ink-2); letter-spacing: -.01em; }
-.guide-count { font-weight: 400; fill: var(--ink-3); }
-.explore.layered .scene-edge { opacity: .14; }
-.explore.layered .scene-edge.lit { opacity: 1; }
-.explore.layered .scene-edge.dim { opacity: .04; }
-.explore.layered .scene-edge.hub { opacity: .05; }
-.explore.layered .scene-edge.hub.lit { opacity: 1; }
 
 .objective { margin: 4px 16px 6px; }
 .objective[hidden] { display: none; }

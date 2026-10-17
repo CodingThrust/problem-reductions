@@ -2,7 +2,7 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, layeredLayout, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
+import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -96,7 +96,7 @@ function placeLabels() {
   scene.classes(scene.nodes, "named");
   scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named: SceneNode[] = [];
-  const cap = exploring && !ex.sel && !ex.query ? (ex.layout === "layered" ? 60 : 12) : Infinity;
+  const cap = exploring && !ex.sel && !ex.query ? 12 : Infinity;
   scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
     const b = box(n);
     if (named.length < cap && fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
@@ -654,9 +654,8 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 const rules = D.edges as RuleEdge[];
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach } | { kind: "rules"; key: string; from?: number } | null;
-type Layout = "layered" | "network";
-interface Explore { scope: Scope; limit: ClassId; layout: Layout; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
-const ex: Explore = { scope: "witness", limit: "unknown", layout: "network", tab: "problems", query: "", sel: null, all: false };
+interface Explore { scope: Scope; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
+const ex: Explore = { scope: "witness", limit: "unknown", tab: "problems", query: "", sel: null, all: false };
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
 const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
@@ -699,23 +698,10 @@ const reachOf = (v: number, dir: "down" | "up") => reach(D.nodes.length, model.l
 
 /* Frame the dense middle; a few far-flung isolated problems should not shrink everything else. */
 function frameAll() {
-  if (ex.layout === "layered") { frame(scene.nodes, 1.1); return; }
   const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1);
   const cx = linked.reduce((a, n) => a + n.x, 0) / linked.length, cy = linked.reduce((a, n) => a + n.y, 0) / linked.length;
   const near = linked.map(n => [Math.hypot(n.x - cx, n.y - cy), n] as const).sort((a, b) => a[0] - b[0]);
   frame(near.slice(0, Math.ceil(near.length * .85)).map(([, n]) => n), 1.6);
-}
-
-/* Network keeps the build-time force layout; Layers puts problems in columns by their fewest reductions from SAT. */
-function applyLayout(animate: boolean, done?: () => void) {
-  const layered = exploring && ex.layout === "layered";
-  scene.labelSide = layered ? "right" : "below";
-  scene.nodes.forEach(n => { n.labelKey = null; });
-  document.body.classList.toggle("layered", layered);
-  if (!layered) { scene.setGuides([]); scene.arrange(pos, animate, done); return; }
-  const names = [...families.keys()], links = [...model.fam.values()];
-  const { positions, guides } = layeredLayout(names, model.depth, links, { rank: n => families.get(n)!.category + n, row: 30 });
-  scene.arrange(positions, animate, done); scene.setGuides(guides);
 }
 
 /* Canvas state follows the selection; with none, rules are faint and ILP's are fainter still. */
@@ -746,7 +732,7 @@ function paintExplore() {
     if (litRules) scene.classes([edge], "", f.rules.some(i => litRules.has(i)) ? "lit" : "dim");
     else if (litNodes) scene.classes([edge], "", litNodes.has(f.source) && litNodes.has(f.target) ? "lit" : "dim");
     else if (edge.source.id === "ILP" || edge.target.id === "ILP") scene.classes([edge], "", "hub");
-    else if (ex.layout === "network" && !(model.core.has(f.source) && model.core.has(f.target))) scene.classes([edge], "", "quiet");
+    else if (!(model.core.has(f.source) && model.core.has(f.target))) scene.classes([edge], "", "quiet");
   });
   scene.nodes.forEach(node => {
     if (litNodes) scene.classes([node], "", litNodes.has(node.id) ? "reach" : "dim");
@@ -768,10 +754,7 @@ function selectRules(key: string, from?: number) {
   paintExplore(); renderExplore(); focusLit();
 }
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
-function refreshExplore(relayout = true) {
-  model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend();
-  if (relayout && ex.layout === "layered") applyLayout(!reduced.matches);
-}
+function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend(); }
 
 function segment(box: HTMLElement, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
   box.replaceChildren(...items.map(item => {
@@ -781,9 +764,6 @@ function segment(box: HTMLElement, items: { id: string; text: string; title?: st
   }));
 }
 function renderMapbar() {
-  segment($("#layout-seg"), [{ id: "network", text: "Network", title: "Force-directed layout" }, { id: "layered", text: "Layers", title: "Columns by distance from SAT" }], ex.layout, id => {
-    ex.layout = id as Layout; renderMapbar(); applyLayout(!reduced.matches, frameAll);
-  });
   segment($("#scope-seg"), SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), ex.scope, id => {
     ex.scope = id as Scope; ex.sel = null; refreshExplore();
   });
@@ -930,13 +910,12 @@ function setMode(mode: "explore" | "directions") {
   exploring = mode === "explore";
   $("#view-explore").hidden = !exploring; $("#view-directions").hidden = exploring;
   document.body.classList.toggle("explore", exploring);
-  document.body.classList.toggle("layered", exploring && ex.layout === "layered");
   closePop();
   if (exploring) {
-    refreshExplore(false); applyLayout(!reduced.matches, frameAll);
+    refreshExplore(); frameAll();
     history.replaceState(null, "", location.pathname + location.search);
   } else {
-    scene.classes(scene.elements, CLEAN); applyLayout(!reduced.matches);
+    scene.classes(scene.elements, CLEAN);
     syncEnds(); renderResults(); paintGraph();
     history.replaceState(null, "", "#directions");
     if (state.source == null) $("#source").focus({ preventScroll: true }); else if (state.target == null) $("#target").focus({ preventScroll: true });
@@ -964,7 +943,7 @@ if (location.hash === "#directions") {
   syncEnds(); frame(scene.elements, 1, false); run();
 } else {
   document.body.classList.add("explore");
-  refreshExplore(false); frameAll();
+  refreshExplore(); frameAll();
 }
 performance.mark("graph:interactive");
 document.fonts?.ready.then(() => {

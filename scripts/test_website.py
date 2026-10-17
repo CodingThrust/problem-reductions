@@ -174,17 +174,6 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('button', name='‹ Back').click()
         expect(self.page.locator('.place-name')).to_have_count(0)
 
-    def test_graph_layers_view_is_an_alternative_layout(self):
-        self.page.goto(self.base + 'graph.html')
-        x = lambda name: self.page.locator(f'.scene-node[data-node="{name}"]').evaluate('n => n.getBoundingClientRect().x')
-        expect(self.page.locator('.guide')).to_have_count(0)
-        self.page.get_by_role('radio', name='Layers').click()
-        expect(self.page.locator('.guide').first).to_contain_text('SAT')
-        self.page.wait_for_timeout(900)
-        self.assertLess(x('Satisfiability'), x('QUBO'))
-        self.page.get_by_role('radio', name='Network').click()
-        expect(self.page.locator('.guide')).to_have_count(0)
-
     def test_graph_directions_objective_reranks_routes(self):
         self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
