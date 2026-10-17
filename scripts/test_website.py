@@ -152,7 +152,7 @@ class WebsiteTests(unittest.TestCase):
     def test_accessibility_graph_overhead(self):
         self.page.goto(self.base + 'graph.html')
         self.page.get_by_role('tab', name='Overhead').click()
-        expect(self.page.locator('#lens .legend-row').first).to_be_visible()
+        expect(self.page.locator('#lens .seg-bar').first).to_be_visible()
         self.assert_accessible('graph-overhead')
 
     def test_graph_overhead_filter_recolours_edges_and_recomputes_groups(self):

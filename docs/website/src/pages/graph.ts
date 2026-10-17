@@ -672,7 +672,7 @@ function reachOf(focus: number) {
 
 function paintLens() {
   const edgeClasses = classOrder.map(c => "e-" + c).join(" ");
-  scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick " + edgeClasses);
+  scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub " + edgeClasses);
   const linked = new Set<string>(), cyc = new Set<string>();
   model.fam.forEach(f => { linked.add(f.source); linked.add(f.target); });
   model.groups.forEach(g => g.forEach(v => cyc.add(D.nodes[v]!.name)));
@@ -685,6 +685,7 @@ function paintLens() {
     const f = model.fam.get(edge.id);
     if (!f) { scene.classes([edge], "", "off"); return; }
     scene.classes([edge], "", "e-" + f.cls);
+    if (!picked && !focus && (edge.source.id === "ILP" || edge.target.id === "ILP")) scene.classes([edge], "", "hub");
     if ((picked || focus) && !f.rules.some(i => inside(rules[i]!.source) && inside(rules[i]!.target))) scene.classes([edge], "", "dim");
     else if (picked || focus) { lit.add(edge.source.id); lit.add(edge.target.id); }
   });
@@ -699,86 +700,103 @@ function paintLens() {
   scene.nodes.forEach(node => node.shape.setAttribute('aria-label', scene.describe(node) + (cyc.has(node.id) ? ', in a mutually reachable group' : '')));
   scheduleLabels();
 }
+/* Frame the dense middle of the map; a few far-flung isolated problems should not shrink everything else. */
+function frameCore() {
+  const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1);
+  const cx = linked.reduce((a, n) => a + n.x, 0) / linked.length, cy = linked.reduce((a, n) => a + n.y, 0) / linked.length;
+  const near = linked.map(n => [Math.hypot(n.x - cx, n.y - cy), n] as const).sort((a, b) => a[0] - b[0]);
+  frame(near.slice(0, Math.ceil(near.length * .85)).map(([, n]) => n), 1.6);
+}
 function refreshLens() { model = lensModel(); if (lens.group != null && lens.group >= model.groups.length) lens.group = null; paintLens(); renderLens(); }
 
-function radio(box: HTMLElement, label: string, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
-  const row = el("div", "seg"); row.setAttribute("role", "radiogroup"); row.setAttribute("aria-label", label);
-  items.forEach(item => {
-    const b = el("button", "", item.text); b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(item.id === current));
-    if (item.title) b.title = item.title;
-    b.addEventListener("click", () => pick(item.id)); row.append(b);
-  });
-  box.append(row); return row;
-}
-function renderLens() {
-  const box = $("#lens"), hadFocus = document.activeElement?.closest("#lens") ? (document.activeElement as HTMLElement).dataset.key : null;
-  box.replaceChildren();
-  const m = model;
-  if (lens.focus != null) {
-    const { variants, byFamily } = reachOf(lens.focus), f = lens.focus;
-    box.append(el("h2", "lens-title", lens.dir === "down" ? "Reachable from" : "Reaching"));
-    const head = el("p", "focus-head"); head.append(el("strong", "", vname(f)));
-    const clear = el("button", "link", "Clear"); clear.type = "button"; clear.addEventListener("click", () => { lens.focus = null; paintLens(); renderLens(); });
-    box.append(head, el("p", "hint", `${variants.size} variants in ${byFamily.size + 1} families, following only rules in the active set.`), clear);
-    const items = el("div", "reach-list");
-    [...byFamily].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).forEach(([name, vs]) => {
-      const b = el("button", "reach-row"); b.type = "button";
-      b.append(el("span", "", display(name)), el("small", "", multi(name) ? `${vs.length}/${families.get(name)!.variants.length} variants` : ""));
-      b.title = "Compare routes in Paths mode";
-      b.addEventListener("click", () => { const pair = lens.dir === "down" ? [f, vs[0]!] : [vs[0]!, f]; setTab("paths"); state.source = pair[0]!; state.target = pair[1]!; syncEnds(); run(); });
-      items.append(b);
-    });
-    box.append(items);
-  }
-  const intro = el("p", "lens-intro");
-  intro.append("Each arrow is coloured by the ", el("strong", "", "total degree"), " of its target sizes when every source size grows together. A growth convention, not a runtime bound.");
-  box.append(intro);
-  box.append(el("h2", "lens-title", "Rules in scope"));
-  radio(box, "Rule scope", SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), lens.scope, id => { lens.scope = id as Scope; lens.focus = null; lens.group = null; refreshLens(); });
-  box.append(el("p", "hint", SCOPES.find(x => x.id === lens.scope)!.hint));
+const short = (name: string) => aliasMap[name]?.[0] ?? display(name);
+const pct = (n: number, d: number) => d ? Math.round(100 * n / d) : 0;
 
-  box.append(el("h2", "lens-title", "Growth of the reduced problem"));
-  const legend = el("div", "legend"); legend.setAttribute("role", "radiogroup"); legend.setAttribute("aria-label", "Show rules up to this growth class");
-  const limitAt = classOrder.indexOf(lens.limit);
+/* The distribution bar doubles as legend and filter: each segment keeps every class up to itself. */
+function costCard(box: HTMLElement) {
+  const m = model, total = [...m.counts.values()].reduce((a, b) => a + b, 0), limitAt = classOrder.indexOf(lens.limit);
+  const mild = classOrder.slice(0, classOrder.indexOf("quadratic") + 1).reduce((a, c) => a + (m.counts.get(c) ?? 0), 0);
+  const into = rules.filter(r => r[lens.scope] && D.nodes[r.target]!.name === "ILP").length, scoped = rules.filter(r => r[lens.scope]).length;
+  const card = el("section", "lcard cost");
+  const hero = el("div", "hero-n"); hero.append(el("span", "num", String(pct(mild, total))), el("span", "of", "%"));
+  card.append(el("h2", "eyebrow", "Overhead of a reduction"), hero,
+    el("p", "cap", `of ${total} reductions grow at most quadratically in the source size${into > scoped / 4 ? `. ILP alone receives ${into}.` : "."}`));
+  const bar = el("div", "dist"); bar.setAttribute("role", "radiogroup"); bar.setAttribute("aria-label", "Show reductions up to this growth class");
+  const legend = el("div", "dist-legend");
   CLASSES.forEach((c, i) => {
     const n = m.counts.get(c.id) ?? 0;
     if (!n) return;
-    const b = el("button", "legend-row" + (i <= limitAt ? " on" : "")); b.type = "button"; b.setAttribute("role", "radio");
-    b.setAttribute("aria-checked", String(c.id === lens.limit)); b.dataset.key = "limit-" + c.id;
-    const sw = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sw.setAttribute("class", "swatch g-" + c.id); sw.setAttribute("viewBox", "0 0 34 8"); sw.setAttribute("aria-hidden", "true");
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line"); for (const [k, v] of Object.entries({ x1: 1, y1: 4, x2: 33, y2: 4 })) line.setAttribute(k, String(v));
-    sw.append(line);
-    b.append(sw, el("span", "gc-name", c.name), el("span", "gc-label", c.label), el("span", "gc-count", String(n)));
-    b.title = c.id === "unknown" ? "Show every rule, including those with an unavailable target parameter" : `Show rules up to ${c.name.toLowerCase()} growth`;
-    b.addEventListener("click", () => { lens.limit = c.id; lens.focus = null; refreshLens(); });
-    legend.append(b);
+    const on = i <= limitAt, name = `${c.name}: ${n} reductions (${pct(n, total)}%)`;
+    const seg = el("button", "seg-bar g-" + c.id + (on ? " on" : "")); seg.type = "button"; seg.style.flexGrow = String(n);
+    seg.setAttribute("role", "radio"); seg.setAttribute("aria-checked", String(c.id === lens.limit)); seg.setAttribute("aria-label", name); seg.title = name; seg.dataset.key = "limit-" + c.id;
+    seg.addEventListener("click", () => { lens.limit = c.id; lens.focus = null; refreshLens(); });
+    bar.append(seg);
+    const key = el("button", "dist-key g-" + c.id + (on ? " on" : ""), ""); key.type = "button"; key.tabIndex = -1; key.setAttribute("aria-hidden", "true");
+    key.append(el("b", "", c.label), el("span", "", String(n)));
+    key.addEventListener("click", () => seg.click());
+    legend.append(key);
   });
-  box.append(legend);
-  const hubs = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = lens.noIlp; cb.dataset.key = "noilp";
-  const ilpCount = rules.filter((r, i) => r[lens.scope] && (D.nodes[r.source]!.name === "ILP" || D.nodes[r.target]!.name === "ILP")).length;
-  const total = rules.filter(r => r[lens.scope]).length;
-  cb.addEventListener("change", () => { lens.noIlp = cb.checked; lens.focus = null; refreshLens(); });
-  hubs.append(cb, el("span", "", `Hide rules touching ILP (${ilpCount} of ${total})`)); box.append(hubs);
-  const sum = el("p", "lens-sum"); sum.append(el("strong", "", String(m.active.length)), ` of ${total} rules · ${m.fam.size} family links`); box.append(sum);
+  card.append(bar, legend);
+  const showing = lens.limit === "unknown" ? "Showing every reduction" : `Showing ${m.active.length} · ${CLASSES[limitAt]!.name.toLowerCase()} or cheaper`;
+  card.append(el("p", "showing", showing));
+  const seg = el("div", "seg"); seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "Rule scope");
+  SCOPES.forEach(x => {
+    const b = el("button", "", x.name); b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(x.id === lens.scope)); b.title = x.hint;
+    b.addEventListener("click", () => { lens.scope = x.id; lens.focus = null; lens.group = null; refreshLens(); });
+    seg.append(b);
+  });
+  card.append(seg);
+  box.append(card);
+}
 
-  box.append(el("h2", "lens-title", "Mutually reachable groups"));
-  const note = el("p", "hint", m.baseline === m.groups.length
-    ? `${m.groups.length} groups of variants that reduce to each other, through these rules.`
-    : `${m.groups.length} groups now, ${m.baseline} with every rule in scope. Cheaper rules break the rest.`);
-  box.append(note);
+function groupsCard(box: HTMLElement) {
+  const m = model, card = el("section", "lcard");
+  const head = el("div", "lcard-head"); head.append(el("h2", "eyebrow", "Mutually reducible"));
+  const count = el("span", "count", m.baseline === m.groups.length ? String(m.groups.length) : `${m.groups.length} of ${m.baseline}`);
+  count.title = "Groups of variants that reduce to each other"; head.append(count); card.append(head);
+  if (m.baseline !== m.groups.length) card.append(el("p", "cap", `${m.baseline - m.groups.length} fall apart once costlier rules are removed.`));
   const list = el("div", "groups");
   m.groups.forEach((g, gi) => {
-    const b = el("button", "group"); b.type = "button"; b.dataset.key = "group-" + gi; b.setAttribute("aria-pressed", String(lens.group === gi));
-    b.append(el("span", "group-size", String(g.length)));
-    const names = el("span", "group-names"); g.slice().sort((a, c) => a - c).forEach(v => names.append(el("span", "", vname(v)))); b.append(names);
-    b.addEventListener("click", () => { lens.group = lens.group === gi ? null : gi; lens.focus = null; paintLens(); renderLens(); if (lens.group != null) frame(scene.elements.filter(e => e.label && scene.has(e, "reach")), 1.2); });
+    const families = [...new Set(g.map(v => D.nodes[v]!.name))], open = lens.group === gi;
+    const b = el("button", "group"); b.type = "button"; b.dataset.key = "group-" + gi; b.setAttribute("aria-pressed", String(open));
+    b.append(el("span", "group-names", families.map(short).join(" · ")), el("span", "group-size", String(g.length)));
+    b.title = g.map(vname).join("\n");
+    b.addEventListener("click", () => { lens.group = open ? null : gi; lens.focus = null; paintLens(); renderLens(); if (!open) frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.2); });
     list.append(b);
+    if (open) { const d = el("ul", "group-detail"); g.slice().sort((a, c) => a - c).forEach(v => d.append(el("li", "", vname(v)))); list.append(d); }
   });
-  if (!m.groups.length) list.append(el("p", "hint", "No variants are mutually reachable under this filter."));
-  box.append(list);
+  if (!m.groups.length) list.append(el("p", "cap", "None under this filter."));
+  card.append(list); box.append(card);
+}
 
-  const foot = el("p", "hint foot", "Reachability is connectivity among registered reductions. It does not establish solver availability or efficiency.");
-  box.append(foot);
+function focusCard(box: HTMLElement) {
+  const f = lens.focus!, { variants, byFamily } = reachOf(f), card = el("section", "lcard focus");
+  const head = el("div", "lcard-head"); head.append(el("h2", "eyebrow", lens.dir === "down" ? "Reduces to" : "Reduced from"));
+  const clear = el("button", "link", "Clear"); clear.type = "button"; clear.addEventListener("click", () => { lens.focus = null; paintLens(); renderLens(); });
+  head.append(clear); card.append(head);
+  card.append(el("p", "focus-name", display(D.nodes[f]!.name)), el("p", "cap", `${multi(D.nodes[f]!.name) ? vtext(f) + " · " : ""}${variants.size} variants in ${byFamily.size} other families`));
+  const items = el("div", "reach-list");
+  [...byFamily].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).forEach(([name, vs]) => {
+    const b = el("button", "reach-row"); b.type = "button"; b.append(el("span", "", display(name)), el("small", "", multi(name) ? `${vs.length}/${families.get(name)!.variants.length}` : ""));
+    b.title = "Compare routes in Paths";
+    b.addEventListener("click", () => { const pair = lens.dir === "down" ? [f, vs[0]!] : [vs[0]!, f]; setTab("paths"); state.source = pair[0]!; state.target = pair[1]!; syncEnds(); run(); });
+    items.append(b);
+  });
+  card.append(items); box.append(card);
+}
+
+function renderLens() {
+  const box = $("#lens"), hadFocus = document.activeElement?.closest("#lens") ? (document.activeElement as HTMLElement).dataset.key : null;
+  box.replaceChildren();
+  if (lens.focus != null) focusCard(box);
+  costCard(box); groupsCard(box);
+  const about = el("details", "about"); about.append(el("summary", "", "How to read this"));
+  about.append(el("p", "", "Arrows point from source to target. Colour is the total degree of the target's sizes when every source size grows together: a visualization convention, not a runtime bound. Θ marks exact formulas and O upper bounds."));
+  about.append(el("p", "", "Reachability is connectivity among registered reductions; it does not establish solver availability or efficiency. ILP edges are faded on the map because it receives nearly half of all reductions."));
+  const ilp = el("label", "check"), cb = el("input"); cb.type = "checkbox"; cb.checked = lens.noIlp; cb.dataset.key = "noilp";
+  cb.addEventListener("change", () => { lens.noIlp = cb.checked; lens.focus = null; refreshLens(); });
+  ilp.append(cb, el("span", "", "Leave ILP out of the analysis")); about.append(ilp);
+  box.append(about);
   if (hadFocus) box.querySelector<HTMLElement>(`[data-key="${hadFocus}"]`)?.focus({ preventScroll: true });
 }
 
@@ -841,8 +859,8 @@ function setTab(name: "paths" | "overhead") {
   }
   document.body.classList.toggle("lens", lensOn);
   closePop();
-  if (lensOn) { model = lensModel(); paintLens(); renderLens(); frame(scene.elements, 1); }
-  else { scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick " + classOrder.map(c => "e-" + c).join(" ")); paintGraph(); }
+  if (lensOn) { model = lensModel(); paintLens(); renderLens(); frameCore(); }
+  else { scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub " + classOrder.map(c => "e-" + c).join(" ")); paintGraph(); }
 }
 for (const id of ["paths", "overhead"] as const) {
   $("#tab-" + id).addEventListener("click", () => setTab(id));
