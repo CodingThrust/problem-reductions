@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test bench mcp-test fmt clippy doc mdbook website paper paper-data clean coverage rust-export compare qubo-testdata export-schemas release diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
+.PHONY: help build test bench mcp-test fmt clippy doc mdbook website website-data paper paper-data clean coverage rust-export compare qubo-testdata export-schemas release diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
 TEST_FEATURES := example-db
 
@@ -77,13 +77,16 @@ paper-data:
 	cargo run --features "$(TEST_FEATURES)" --example export_examples
 	cargo run --features "$(TEST_FEATURES)" --example export_petersen_mapping
 
-# Build mdBook documentation
-doc: node_modules/elkjs/package.json paper-data
+# Fresh shared inputs for mdBook, the website, and isolated verification builds.
+website-data: node_modules/elkjs/package.json paper-data
 	cargo run --example export_graph
 	node scripts/generate_reduction_graph_layout.js
 	cargo run --example export_schemas
 	cargo build -p problemreductions-cli --bin pred
 	bash scripts/generate_doc_snippets.sh target/debug/pred
+
+# Build mdBook documentation
+doc: website-data
 	mdbook build
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
 	rm -rf book/api
@@ -91,18 +94,12 @@ doc: node_modules/elkjs/package.json paper-data
 	python3 scripts/build_website.py
 
 # Build the product website with fresh atlas data; API/PDF builds remain in doc/paper.
-website: node_modules/elkjs/package.json paper-data
-	cargo run --example export_graph
-	node scripts/generate_reduction_graph_layout.js
-	cargo run --example export_schemas
-	cargo build -p problemreductions-cli --bin pred
-	bash scripts/generate_doc_snippets.sh target/debug/pred
+website: website-data
 	mdbook build
 	python3 scripts/build_website.py
 
 # Generate SVG diagrams from Typst sources (light + dark themes)
 TYPST_DOC_DIAGRAMS := $(wildcard docs/src/static/*.typ)
-TYPST_PAPER_DIAGRAMS := $(wildcard docs/paper/static/*.typ)
 diagrams:
 	@for src in $(TYPST_DOC_DIAGRAMS); do \
 		base=$$(basename $$src .typ); \
@@ -229,7 +226,6 @@ compare: rust-export
 	done
 
 # Closed-loop CLI demo: exercises all commands end-to-end
-PRED := cargo run -p problemreductions-cli --release --
 CLI_DEMO_DIR := /tmp/pred-cli-demo
 cli-demo: cli
 	@echo "=== pred CLI closed-loop demo ==="

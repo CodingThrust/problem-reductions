@@ -1296,6 +1296,39 @@ fn test_to_json() {
 }
 
 #[test]
+fn graph_export_identifies_declared_defaults_and_catalog_aliases() {
+    let graph = ReductionGraph::new();
+    let export = graph.to_json_value().unwrap();
+    let nodes = export["nodes"].as_array().unwrap();
+    for problem in crate::registry::problem_types() {
+        let family: Vec<_> = nodes
+            .iter()
+            .filter(|n| n["name"] == problem.canonical_name)
+            .collect();
+        if family.is_empty() {
+            continue;
+        }
+        let defaults: Vec<_> = family.iter().filter(|n| n["default"] == true).collect();
+        assert_eq!(defaults.len(), 1, "{}", problem.canonical_name);
+        assert_eq!(
+            defaults[0]["variant"],
+            serde_json::to_value(graph.default_variant_for(problem.canonical_name).unwrap())
+                .unwrap()
+        );
+        for alias in problem.aliases {
+            assert!(export["aliases"][problem.canonical_name]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!(alias)));
+        }
+    }
+    assert!(export["aliases"]["KSatisfiability"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("3SAT")));
+}
+
+#[test]
 fn test_to_json_string() {
     let graph = ReductionGraph::new();
     let json_value = graph.to_json_value().unwrap();

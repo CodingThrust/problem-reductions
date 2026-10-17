@@ -40,15 +40,6 @@ fn test_bits_to_biguint() {
 }
 
 #[test]
-fn test_int_to_bits() {
-    assert_eq!(int_to_bits(&BigUint::from(0u32), 3), vec![0, 0, 0]);
-    assert_eq!(int_to_bits(&BigUint::from(1u32), 3), vec![1, 0, 0]);
-    assert_eq!(int_to_bits(&BigUint::from(2u32), 3), vec![0, 1, 0]);
-    assert_eq!(int_to_bits(&BigUint::from(3u32), 3), vec![1, 1, 0]);
-    assert_eq!(int_to_bits(&BigUint::from(7u32), 3), vec![1, 1, 1]);
-}
-
-#[test]
 fn test_read_factors() {
     let problem = Factoring::with_factor_bits(6, 2, 2);
     // bits: [a0, a1, b0, b1]
@@ -56,14 +47,6 @@ fn test_read_factors() {
     let (a, b) = problem.decode_factors(&[0, 1, 1, 1]);
     assert_eq!(a, BigUint::from(2u32));
     assert_eq!(b, BigUint::from(3u32));
-}
-
-#[test]
-fn test_is_factoring_function() {
-    assert!(is_factoring(&6u32.into(), &2u32.into(), &3u32.into()));
-    assert!(is_factoring(&6u32.into(), &3u32.into(), &2u32.into()));
-    assert!(is_factoring(&15u32.into(), &3u32.into(), &5u32.into()));
-    assert!(!is_factoring(&6u32.into(), &2u32.into(), &2u32.into()));
 }
 
 #[test]

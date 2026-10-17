@@ -708,6 +708,12 @@ impl fmt::Display for SubstitutionError {
 
 impl std::error::Error for SubstitutionError {}
 
+impl std::iter::Sum for Expr {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        Self::add_all(iter.collect())
+    }
+}
+
 impl std::ops::Add for Expr {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {

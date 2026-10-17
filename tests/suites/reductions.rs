@@ -522,9 +522,6 @@ mod topology_tests {
     }
 }
 
-// TruthTable integration tests removed (module is now pub(crate));
-// equivalent coverage exists in src/unit_tests/truth_table.rs
-
 /// Tests for QUBO reductions against ground truth JSON.
 mod qubo_reductions {
     use super::*;

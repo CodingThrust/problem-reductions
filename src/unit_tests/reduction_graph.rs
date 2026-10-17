@@ -12,6 +12,58 @@ use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 #[test]
+fn real_graph_path_comparison_runs_from_registered_formulas() {
+    use crate::poly_compare::{compare_all, compare_profiles, Verdict};
+    let graph = crate::rules::ReductionGraph::new();
+    let paths = graph.find_paths_up_to(
+        "MaximumIndependentSet",
+        &graph.variants_for("MaximumIndependentSet")[0],
+        "QUBO",
+        &graph.variants_for("QUBO")[0],
+        4,
+    );
+    assert!(!paths.is_empty());
+    let profiles: Vec<_> = paths
+        .iter()
+        .map(|p| graph.path_polynomial_profile(p).unwrap())
+        .collect();
+    for profile in &profiles {
+        assert!(!profile.domain.is_empty());
+        assert_eq!(
+            compare_profiles(profile, profile).verdict,
+            Verdict::Equivalent
+        );
+    }
+    let result = compare_all(&profiles);
+    assert!(!result.front.is_empty());
+    // Front comparisons must use the same full batch, not standalone two-path scopes.
+    for (i, j, c) in &result.pairs {
+        if result.front.contains(i) && result.front.contains(j) {
+            assert!(!matches!(c.verdict, Verdict::Dominated { .. }));
+        }
+    }
+}
+
+#[test]
+fn exported_nodes_include_the_full_source_parameter_domain() {
+    let graph = ReductionGraph::new().to_json_value().unwrap();
+    let node = graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["name"] == "MaximumIndependentSet")
+        .unwrap();
+    let mut names: Vec<_> = node["parameter_names"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|name| name.as_str().unwrap())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(names, ["num_edges", "num_vertices"]);
+}
+
+#[test]
 fn domination_rows_keep_unit_coefficients_on_high_degree_simple_graphs() {
     let source = MinimumDominatingSet::new(SimpleGraph::star(9), vec![1_i64; 9]);
     let target = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();

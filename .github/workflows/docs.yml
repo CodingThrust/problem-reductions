@@ -14,12 +14,16 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      RUST_TEST_THREADS: '2'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Read Open Question Board source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: GiggleLiu/autoresearch-gadgets
           ref: main
@@ -32,11 +36,17 @@ jobs:
       - name: Build Open Question Board
         run: uv run --project open-questions-source/website --locked python open-questions-source/website/build.py
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: actions/setup-node@v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          node-version: '22'
+          toolchain: '1.99.0'
+          targets: wasm32-unknown-unknown
+
+      - name: Install browser binding tools
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
           cache: npm
 
       - name: Install mdBook
@@ -54,50 +64,24 @@ jobs:
           tar -xJf typst.tar.xz
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Generate data
+      - name: Build and verify deployment artifact
         run: |
-          cargo run --features "example-db" --example export_examples
-          cargo run --example export_petersen_mapping
-          cargo run --example export_graph
-          node scripts/generate_reduction_graph_layout.js
-          cargo run --example export_schemas
-          cargo build -p problemreductions-cli --bin pred
-          bash scripts/generate_doc_snippets.sh target/debug/pred
-
-      - name: Build mdBook
-        run: mdbook build
-
-      - name: Build PDF
-        run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf
-
-      - name: Build rustdoc
-        run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
-
-      - name: Combine documentation
-        run: |
-          mkdir -p book/api
-          cp -r target/doc/* book/api/
-
-      - name: Build research website
-        run: python3 scripts/build_website.py --open-questions open-questions-source/website/dist
-
-      - name: Verify deployment artifact
-        run: |
-          python3 -m pip install playwright==1.58.0
-          python3 -m playwright install --with-deps chromium
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install --with-deps chromium firefox webkit
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-source/website/dist
           npm audit --audit-level=moderate
-          npm run test:reduction-graph-js
-          python3 -m unittest discover -s scripts -p 'test_website_build.py'
-          python3 -m http.server 3001 --bind 127.0.0.1 --directory book &
-          server_pid=$!
-          trap 'kill "$server_pid"' EXIT
-          python3 scripts/test_website.py
+          git diff --exit-code -- Cargo.lock package-lock.json
+
+      - name: Retain verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: website-verification
+          path: |
+            book/verification.json
+            book/verification.log
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: './book'
 
@@ -109,11 +93,11 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     steps:
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d # v4
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

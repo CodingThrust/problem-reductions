@@ -58,16 +58,7 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
         .collect()
 }
 
-/// Solve MIS on a Grid using ILPSolver (unweighted).
-#[allow(dead_code)]
-pub fn solve_grid_mis(result: &MappingResult) -> usize {
-    let edges = result.edges();
-    let num_vertices = result.positions.len();
-    solve_mis(num_vertices, &edges)
-}
-
 /// Solve weighted MIS on a Grid using ILPSolver.
-#[allow(dead_code)]
 pub fn solve_weighted_grid_mis(result: &MappingResult) -> usize {
     let edges = result.edges();
     let num_vertices = result.positions.len();
@@ -97,7 +88,6 @@ pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights
 }
 
 /// Solve weighted MIS and return the binary configuration.
-#[allow(dead_code)]
 pub fn solve_weighted_mis_config(
     num_vertices: usize,
     edges: &[(usize, usize)],

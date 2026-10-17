@@ -32,14 +32,16 @@ pub mod growth;
 pub mod io;
 pub mod models;
 pub mod parameters;
+mod path_search;
+pub mod poly_compare;
+pub mod polynomial;
+mod problem_parameters;
 pub mod random;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
 pub mod topology;
 pub mod traits;
-#[allow(dead_code)]
-pub(crate) mod truth_table;
 pub mod types;
 pub mod variant;
 
