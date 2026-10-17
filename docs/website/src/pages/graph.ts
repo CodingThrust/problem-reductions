@@ -2,7 +2,7 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
+import { CLASSES, growthClass, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -653,7 +653,7 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 /* Analysis runs on concrete variants. A family link only groups the exact variant rules behind it. */
 const rules = D.edges as RuleEdge[];
 type Reach = "direct" | "down" | "up";
-type Selection = { kind: "problem"; variant: number; reach: Reach } | { kind: "rules"; key: string; from?: number } | null;
+type Selection = { kind: "problem"; variant: number; reach: Reach; dir?: "out" | "in" } | { kind: "rules"; key: string; from?: number; index?: number } | null;
 interface Explore { scope: Scope; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
 const ex: Explore = { scope: "witness", limit: "unknown", tab: "problems", query: "", sel: null, all: false };
 const classOrder = CLASSES.map(c => c.id);
@@ -722,7 +722,7 @@ function paintExplore() {
     }
     litNodes = new Set([...near].map(i => D.nodes[i]!.name));
   } else if (sel) {
-    const f = model.fam.get(sel.key);
+    const f = ruleGroup(sel.key);
     if (f) { litRules = new Set(f.rules); litNodes = new Set([f.source, f.target]); }
   } else if (q) litNodes = new Set([...families.keys()].filter(matchesQuery));
   scene.edges.forEach(edge => {
@@ -744,13 +744,20 @@ function paintExplore() {
 }
 
 function focusLit() { frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.4); }
+/* The active rules between two problems. Variant rules inside one family have no graph edge, so they are found by name. */
+function ruleGroup(key: string) {
+  const f = model.fam.get(key);
+  if (f) return f;
+  const [source, target] = key.split("→"), group = model.active.filter(i => D.nodes[rules[i]!.source]!.name === source && D.nodes[rules[i]!.target]!.name === target);
+  return group.length ? { source: source!, target: target!, rules: group } : undefined;
+}
 function selectProblem(variant: number, reach: Reach = "direct", focus = true) {
   ex.sel = { kind: "problem", variant, reach }; ex.all = false; closeDetails();
   paintExplore(); renderExplore();
   if (focus) focusLit();
 }
-function selectRules(key: string, from?: number) {
-  ex.sel = { kind: "rules", key, ...(from == null ? {} : { from }) };
+function selectRules(key: string, from?: number, index?: number) {
+  ex.sel = { kind: "rules", key, ...(from == null ? {} : { from }), ...(index == null ? {} : { index }) };
   paintExplore(); renderExplore(); focusLit();
 }
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
@@ -784,14 +791,15 @@ function renderLegend() {
 
 /* ---------- Explore panel ---------- */
 /* Find: search plus two browsable lists. Explore: one place at a time. */
-function renderExplore() {
-  const body = $("#explore-body"), tabs = $("#tabs");
+function renderExplore(enter = true) {
+  const body = $("#explore-body"), tabs = $("#tabs"), keep = body.scrollTop;
   body.replaceChildren();
   tabs.hidden = !!ex.sel;
   if (ex.sel?.kind === "problem") placeCard(body, ex.sel);
   else if (ex.sel) ruleCard(body, ex.sel);
   else { renderTabs(tabs); list(body); }
-  body.scrollTop = 0;
+  body.scrollTop = enter ? 0 : keep;
+  if (enter && !reduced.matches) { body.classList.remove("enter"); void body.offsetWidth; body.classList.add("enter"); }
 }
 const problemMatches = () => {
   const q = ex.query.trim().toLowerCase();
@@ -800,6 +808,27 @@ const problemMatches = () => {
 };
 const ruleMatches = () => [...model.fam.values()].filter(f => matchesQuery(f.source) || matchesQuery(f.target))
   .sort((a, b) => display(a.source).localeCompare(display(b.source)) || display(a.target).localeCompare(display(b.target)));
+const dir = (sel: Extract<Selection, { kind: "problem" }>) => sel.dir ?? ((model.out.get(sel.variant) ?? []).length || !(model.inn.get(sel.variant) ?? []).length ? "out" : "in");
+const letter = (name: string) => display(name)[0]!.toUpperCase();
+/* Only what differs from the family's default variant; the default itself needs no label. */
+function variantTokens(i: number, all = false) {
+  const n = D.nodes[i]!, base = D.nodes[defaults[n.name]!]!.variant, box = el("span", "vars");
+  Object.entries(n.variant).filter(([k, v]) => all || base[k] !== v).forEach(([k, v]) => { const t = el("span", "var"); t.append(el("i", "", k), v); box.append(t); });
+  return box;
+}
+function overhead(cls: ClassId, accuracy: "exact" | "upper_bound" = "exact") {
+  const c = CLASSES.find(x => x.id === cls)!, b = el("span", "oh g-" + cls, (accuracy === "upper_bound" && cls !== "unknown" ? "≤ " : "") + c.label);
+  b.title = `${c.name} growth${cls === "unknown" ? "" : accuracy === "exact" ? ", exact" : ", upper bound"}`;
+  return b;
+}
+const ruleOverhead = (i: number) => { const g = edgeGrowth(rules[i]!); return overhead(g.cls, g.accuracy); };
+function topbar(body: HTMLElement, text: string, action: () => void) {
+  const bar = el("div", "topbar"), b = el("button", "crumb"); b.type = "button";
+  b.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg>';
+  b.append(text); b.addEventListener("click", action); bar.append(b); body.append(bar);
+}
+
+/* Lists: one row per thing, grouped by initial so a long list has landmarks. */
 function problemRow(name: string) {
   const f = families.get(name)!, row = el("button", "row"); row.type = "button"; row.dataset.name = name;
   const dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
@@ -809,7 +838,9 @@ function problemRow(name: string) {
   return row;
 }
 function ruleRow(f: { source: string; target: string; cls: ClassId; rules: number[] }) {
-  const row = el("button", "row"); row.type = "button"; row.append(badge(f.cls), el("span", "row-name", `${display(f.source)} → ${display(f.target)}`));
+  const row = el("button", "row rule"); row.type = "button";
+  const text = el("span", "row-stack"); text.append(el("span", "row-name", display(f.source)), el("span", "row-sub", "→ " + display(f.target)));
+  row.append(text, overhead(f.cls));
   row.addEventListener("click", () => selectRules(f.source + "→" + f.target));
   return row;
 }
@@ -822,80 +853,132 @@ function renderTabs(box: HTMLElement) {
   }));
 }
 function list(body: HTMLElement) {
-  const rows = ex.tab === "problems" ? problemMatches().map(problemRow) : ruleMatches().map(ruleRow);
-  body.append(...(rows.length ? rows : [el("p", "empty", "Nothing matches")]));
+  const grouped = !ex.query.trim();
+  const items = ex.tab === "problems" ? problemMatches().map(n => [letter(n), problemRow(n)] as const) : ruleMatches().map(f => [letter(f.source), ruleRow(f)] as const);
+  if (!items.length) { body.append(el("p", "empty", "Nothing matches")); return; }
+  let last = "";
+  items.forEach(([l, row]) => { if (grouped && l !== last) { body.append(el("div", "letter", l)); last = l; } body.append(row); });
 }
 
-function back(body: HTMLElement, text: string, action: () => void) {
-  const b = el("button", "back-link", text); b.type = "button"; b.addEventListener("click", action); body.append(b);
+/* A problem: identity, then variant, then its reductions. */
+function reductionRow(i: number, side: "source" | "target", sel: Extract<Selection, { kind: "problem" }>) {
+  const r = rules[i]!, other = r[side], row = el("button", "red"); row.type = "button";
+  const main = el("span", "red-main"), top = el("span", "red-top");
+  top.append(el("span", "red-dir", side === "target" ? "→" : "←"), el("span", "red-name", display(D.nodes[other]!.name)));
+  main.append(top); const tokens = variantTokens(other); if (tokens.childElementCount) main.append(tokens);
+  row.append(main, ruleOverhead(i));
+  row.addEventListener("click", () => selectRules(D.nodes[r.source]!.name + "→" + D.nodes[r.target]!.name, sel.variant, i));
+  return row;
 }
-function ruleRows(title: string, indexes: number[], side: "source" | "target", reachId: "down" | "up", sel: Extract<Selection, { kind: "problem" }>) {
-  const wrap = el("section", "block"), head = el("div", "section-row");
-  head.append(el("h2", "eyebrow", `${title} · ${indexes.length}`));
-  const on = sel.reach === reachId, toggle = el("button", "link", on ? "Clear" : reachId === "down" ? "Everything downstream" : "Everything upstream");
-  toggle.type = "button";
-  toggle.addEventListener("click", () => { sel.reach = on ? "direct" : reachId; paintExplore(); renderExplore(); focusLit(); });
-  head.append(toggle); wrap.append(head);
-  if (on) wrap.append(el("p", "note", `${pluralize(reachOf(sel.variant, reachId).size, "variant")} ${reachId === "down" ? "reachable from here" : "that reach it"}`));
-  (ex.all ? indexes : indexes.slice(0, 5)).forEach(i => {
-    const other = rules[i]![side], f = D.nodes[other]!.name, row = el("div", "rule-row");
-    const go = el("button", "rule-go"); go.type = "button"; go.append(el("span", "", display(f)));
-    if (multi(f)) go.append(el("small", "", vtext(other)));
-    go.addEventListener("click", () => selectProblem(other));
-    const b = el("button", "rule-badge"); b.type = "button"; b.append(badge(ruleClass(i))); b.title = "Show formulas";
-    b.addEventListener("click", () => { const r = rules[i]!; selectRules(D.nodes[r.source]!.name + "→" + D.nodes[r.target]!.name, sel.variant); });
-    row.append(go, b); wrap.append(row);
+function reductions(body: HTMLElement, sel: Extract<Selection, { kind: "problem" }>) {
+  const v = sel.variant, outs = model.out.get(v) ?? [], ins = model.inn.get(v) ?? [];
+  if (!outs.length && !ins.length) { body.append(el("p", "empty", "No reductions in this scope")); return; }
+  const which = dir(sel), indexes = which === "out" ? outs : ins, side = which === "out" ? "target" : "source", reachId = which === "out" ? "down" : "up";
+  const tabs = el("div", "tabs inline"); tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Reductions");
+  ([["out", "Reduces to", outs.length], ["in", "Reduced from", ins.length]] as const).forEach(([id, text, n]) => {
+    const t = el("button", "tab"); t.type = "button"; t.setAttribute("role", "tab"); t.setAttribute("aria-selected", String(which === id)); t.disabled = !n;
+    t.append(text, el("span", "", String(n)));
+    t.addEventListener("click", () => { sel.dir = id; sel.reach = "direct"; ex.all = false; paintExplore(); renderExplore(false); }); tabs.append(t);
   });
-  if (indexes.length > 5) {
+  body.append(tabs);
+  const on = sel.reach === reachId, bar = el("div", "trace");
+  const toggle = el("button", "link", on ? "Stop tracing" : `Trace everything ${reachId === "down" ? "downstream" : "upstream"}`); toggle.type = "button";
+  toggle.addEventListener("click", () => { sel.reach = on ? "direct" : reachId; paintExplore(); renderExplore(false); focusLit(); });
+  bar.append(on ? el("span", "", pluralize(reachOf(v, reachId).size, "variant") + " on the graph") : el("span", "", "On the graph"), toggle);
+  body.append(bar);
+  const rows = el("div", "reds");
+  (ex.all ? indexes : indexes.slice(0, 8)).forEach(i => rows.append(reductionRow(i, side, sel)));
+  body.append(rows);
+  if (indexes.length > 8) {
     const more = el("button", "link more", ex.all ? "Show fewer" : `Show all ${indexes.length}`); more.type = "button";
-    more.addEventListener("click", () => { ex.all = !ex.all; renderExplore(); }); wrap.append(more);
+    more.addEventListener("click", () => { ex.all = !ex.all; renderExplore(false); }); body.append(more);
   }
-  return wrap;
 }
 function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" }>) {
   const v = sel.variant, name = D.nodes[v]!.name, f = families.get(name)!;
-  back(body, "‹ Back", clearSelection);
-  body.append(el("h1", "place-name", display(name)));
-  const depth = model.depth.get(name);
-  const steps = depth === undefined ? null : depth === null ? "Not reachable from SAT" : depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`;
-  body.append(el("p", "place-meta", [f.category[0]!.toUpperCase() + f.category.slice(1), steps].filter(Boolean).join(" · ")));
+  topbar(body, ex.tab === "problems" ? "Problems" : "Reductions", clearSelection);
+  const head = el("header", "identity");
+  head.append(el("h1", "place-name", display(name)));
+  const depth = model.depth.get(name), meta = el("p", "place-meta"), dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
+  meta.append(dot, f.category[0]!.toUpperCase() + f.category.slice(1));
+  const alias = (aliasMap[name] ?? [])[0]; if (alias) meta.append(el("code", "", alias));
+  if (depth !== undefined) meta.append(depth === null ? "Not reachable from SAT" : depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`);
+  head.append(meta);
   const acts = el("div", "acts");
   const go = el("button", "act primary", "Directions"); go.type = "button";
   go.addEventListener("click", () => { state.source = v; if (state.target === v) state.target = null; setMode("directions"); if (state.target != null) run(); });
-  const more = el("button", "act", "Details"); more.type = "button"; more.addEventListener("click", () => showProblem(D.nodes[v]!));
-  acts.append(go, more); body.append(acts);
+  const more = el("button", "act", "Article"); more.type = "button"; more.addEventListener("click", () => showProblem(D.nodes[v]!));
+  acts.append(go, more); head.append(acts); body.append(head);
   if (multi(name)) {
-    const d = el("details", "variant"), s = el("summary"); s.append(el("span", "", "Variant"), el("small", "", vtext(v)));
-    d.append(s); const opts = el("div", "options"); variantOptions(opts, v, j => selectProblem(j, sel.reach, false)); d.append(opts); body.append(d);
+    const sec = el("section", "sec"); sec.append(el("h2", "eyebrow", "Variant"));
+    const opts = el("div", "options"); variantOptions(opts, v, j => selectProblem(j, sel.reach, false)); sec.append(opts); body.append(sec);
   }
-  const outs = model.out.get(v) ?? [], ins = model.inn.get(v) ?? [];
-  if (outs.length) body.append(ruleRows("Reduces to", outs, "target", "down", sel));
-  if (ins.length) body.append(ruleRows("Reduced from", ins, "source", "up", sel));
-  if (!outs.length && !ins.length) body.append(el("p", "empty", "No reductions in this scope"));
+  const sec = el("section", "sec"); reductions(sec, sel); body.append(sec);
   const group = model.groups.groups[model.groups.comp[v]!]!;
   if (group.length > 1) {
-    const wrap = el("details", "variant"), sum = el("summary"); sum.append(el("span", "", "Mutually reducible"), el("small", "", String(group.length - 1)));
+    const wrap = el("details", "fold"), sum = el("summary"); sum.append(el("span", "", "Mutually reducible"), el("small", "", String(group.length - 1)));
     wrap.append(sum);
     const chips = el("div", "chips");
     group.filter(w => w !== v).forEach(w => { const c = el("button", "chip", display(D.nodes[w]!.name) + (multi(D.nodes[w]!.name) ? " · " + vtext(w) : "")); c.type = "button"; c.addEventListener("click", () => selectProblem(w)); chips.append(c); });
     wrap.append(chips); body.append(wrap);
   }
 }
+
+/* One reduction: its two ends, how large the result grows, and every variant it covers. */
+const sup = (d: string) => [...d].map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(c)]).join("");
+const formula = (text: string | null) => text === null ? "unavailable" : text.replaceAll("num_", "").replaceAll("*", "·").replace(/\^(\d+)/g, (_, d: string) => sup(d));
 function ruleCard(body: HTMLElement, sel: Extract<Selection, { kind: "rules" }>) {
-  const f = model.fam.get(sel.key);
-  back(body, "‹ Back", () => { if (sel.from != null) selectProblem(sel.from, "direct", false); else clearSelection(); });
+  const f = ruleGroup(sel.key);
+  const origin = sel.from != null ? display(D.nodes[sel.from]!.name) : ex.tab === "problems" ? "Problems" : "Reductions";
+  topbar(body, origin, () => { if (sel.from != null) selectProblem(sel.from, "direct", false); else clearSelection(); });
   if (!f) return;
-  body.append(el("h1", "place-name", `${display(f.source)} → ${display(f.target)}`), el("p", "place-meta", pluralize(f.rules.length, "variant rule")));
-  [...f.rules].sort((a, b) => classOrder.indexOf(ruleClass(a)) - classOrder.indexOf(ruleClass(b))).forEach(i => {
-    const rule = rules[i]!, g = edgeGrowth(rule), card = el("div", "rule-card");
-    const head = el("button", "rule-head"); head.type = "button";
-    head.append(badge(g.cls), el("span", "rule-ends", `${vtext(rule.source)} → ${vtext(rule.target)}`));
-    head.title = "Open the rule article"; head.addEventListener("click", () => showRule(ruleStep(i)));
-    card.append(head);
-    const dl = el("dl", "growth");
-    g.fields.forEach(x => { dl.append(el("dt", "", prettyField(x.name)), el("dd", "", x.kind === "unavailable" ? "unavailable" : x.lead)); });
-    card.append(dl); body.append(card);
+  const siblings = [...f.rules].sort((a, b) => classOrder.indexOf(ruleClass(a)) - classOrder.indexOf(ruleClass(b)));
+  const i = sel.index != null && f.rules.includes(sel.index) ? sel.index : siblings[0]!, rule = rules[i]!, g = edgeGrowth(rule);
+  body.append(el("p", "eyebrow lead", "Reduction"));
+  const flow = el("div", "flow");
+  for (const [side, role] of [["source", "from"], ["target", "to"]] as const) {
+    const node = rule[side], end = el("button", "end-node " + role); end.type = "button";
+    end.addEventListener("click", () => selectProblem(node, "direct", true));
+    const text = el("span", "end-text"); text.append(el("span", "end-name", display(D.nodes[node]!.name)));
+    const tokens = variantTokens(node, true); if (tokens.childElementCount) text.append(tokens);
+    end.append(el("span", "end-dot"), text); flow.append(end);
+    if (role === "from") { const link = el("div", "flow-link"); link.append(overhead(g.cls, g.accuracy), el("span", "", g.cls === "unknown" ? "Growth undetermined" : CLASSES.find(c => c.id === g.cls)!.name + (g.accuracy === "exact" ? ", exact" : ", upper bound"))); flow.append(link); }
+  }
+  body.append(flow);
+  const sec = el("section", "sec"); sec.append(el("h2", "eyebrow", "Size of the result"));
+  const dl = el("dl", "fields");
+  g.fields.forEach(x => {
+    const row = el("div", "field"), field = rule.fields[x.name]!;
+    const exact = field.accuracy.kind === "exact", mark = field.accuracy.kind === "unavailable" ? "" : exact ? "=" : "≤";
+    const val = el("dd"), text = el("span", "formula");
+    text.append(el("span", "mark", mark), formula(field.certificate));
+    val.append(text, x.degree === null ? el("span", "oh g-unknown", "?") : overhead(growthClass(x.degree), exact ? "exact" : "upper_bound"));
+    row.append(el("dt", "", prettyField(x.name)), val);
+    dl.append(row);
   });
+  sec.append(dl);
+  sec.append(el("p", "foot", "Growth treats every source parameter as scaling together."));
+  body.append(sec);
+  const acts = el("div", "acts"), art = el("button", "act primary", "Rule article"); art.type = "button"; art.addEventListener("click", () => showRule(ruleStep(i)));
+  acts.append(art); body.append(acts);
+  if (siblings.length > 1) {
+    const vs = el("section", "sec"); vs.append(el("h2", "eyebrow", `Covers ${siblings.length} variants`));
+    const rows = el("div", "reds");
+    siblings.forEach(j => {
+      const r = rules[j]!, row = el("button", "red"); row.type = "button"; row.setAttribute("aria-current", String(j === i));
+      const main = el("span", "red-main"); main.append(variantPair(r.source, r.target)); row.append(main, ruleOverhead(j));
+      row.addEventListener("click", () => { ex.sel = { ...sel, index: j }; paintExplore(); renderExplore(false); }); rows.append(row);
+    });
+    vs.append(rows); body.append(vs);
+  }
+}
+function variantPair(a: number, b: number) {
+  const box = el("span", "pair");
+  [[a, "from"], [b, "to"]].forEach(([i, role]) => {
+    const line = el("span", "pair-line " + role), tokens = variantTokens(i as number, true);
+    line.append(el("span", "pair-dot"), tokens.childElementCount ? tokens : el("span", "vars", "default")); box.append(line);
+  });
+  return box;
 }
 $("#find").addEventListener("input", (e) => {
   ex.query = (e.target as HTMLInputElement).value; ex.sel = null; paintExplore(); renderExplore();

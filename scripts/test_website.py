@@ -171,8 +171,29 @@ class WebsiteTests(unittest.TestCase):
         self.page.locator('#find').press('Enter')
         expect(self.page.locator('.place-name')).to_have_text('Maximum Independent Set')
         expect(self.page.locator('#explore-body')).to_contain_text('Reduces to')
-        self.page.get_by_role('button', name='‹ Back').click()
+        self.page.get_by_role('button', name='Problems', exact=True).click()
         expect(self.page.locator('.place-name')).to_have_count(0)
+
+    def test_graph_reduction_view_shows_ends_and_overhead_per_field(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('#find').fill('Satisfiability')
+        self.page.locator('#explore-body .row', has_text='Satisfiability').first.click()
+        self.page.locator('.red').first.click()
+        expect(self.page.locator('.flow .end-node')).to_have_count(2)
+        self.assertGreater(self.page.locator('.field').count(), 0)
+        expect(self.page.locator('.flow-link .oh')).to_be_visible()
+        self.assert_accessible('graph-reduction-view')
+        self.page.get_by_role('button', name='Satisfiability', exact=True).first.click()
+        expect(self.page.locator('.place-name')).to_be_visible()
+
+    def test_graph_problem_view_switches_between_outgoing_and_incoming(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.locator('#find').fill('Maximum Independent Set')
+        self.page.locator('#explore-body .row').first.click()
+        expect(self.page.get_by_role('tab', name='Reduces to')).to_have_attribute('aria-selected', 'true')
+        self.page.get_by_role('tab', name='Reduced from').click()
+        expect(self.page.get_by_role('tab', name='Reduced from')).to_have_attribute('aria-selected', 'true')
+        self.assertGreater(self.page.locator('.red').count(), 0)
 
     def test_graph_directions_objective_reranks_routes(self):
         self.page.goto(self.base + 'graph.html#directions')
