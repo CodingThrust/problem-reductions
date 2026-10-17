@@ -3,15 +3,14 @@ use super::*;
 
 /// Find nonnegative x with A x <= b; every returned point is checked against A,b.
 pub(super) fn feasible(
-    a: Vec<Vec<BigRational>>,
-    b: Vec<BigRational>,
+    a: &[Vec<BigRational>],
+    b: &[BigRational],
 ) -> Result<Option<Vec<BigRational>>, Reason> {
     let n = a.first().map_or(0, Vec::len);
     if n > 24 {
         return Err(Reason::ResourceLimit("exact LP variables"));
     }
-    let original: Vec<_> = a.into_iter().zip(b).collect();
-    let mut rows = original.clone();
+    let mut rows: Vec<_> = a.iter().cloned().zip(b.iter().cloned()).collect();
     for i in 0..n {
         let mut row = vec![BigRational::zero(); n];
         row[i] = -BigRational::one();
@@ -71,7 +70,7 @@ pub(super) fn feasible(
         }
         point.push(lower);
     }
-    if !original.iter().all(|(r, b)| {
+    if !a.iter().zip(b).all(|(r, b)| {
         r.iter()
             .zip(&point)
             .map(|(a, x)| a * x)

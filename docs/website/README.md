@@ -16,15 +16,15 @@ verification, size budgets, deployment/rollback and outstanding acceptance gates
   drawer/index and 24-entry article cache).
 - `src/workers/path-worker.ts`: Rust/WASM search and comparison; cancellation terminates
   the worker, successful queries retain it, and results use an eight-entry cache.
-- `src/lib/`: `*-data.mts` boundary checks for the eleven contracts, `graph-growth.mts`
+- `src/lib/`: `*-data.mts` boundary checks, `graph-growth.mts`
   (exact certificate degrees) and `graph-layout.js` (Node-only layout options for the
   Python build; not a browser module).
 - `src/styles/`: `site.css`, `graph.css`, `details.css`.
-- `*.schema.json`: the eleven JSON contracts. `src/generated/` holds the committed
+- `*.schema.json`: JSON contracts. `src/generated/` holds the committed
   validators, declarations and `validator-runtime*.mjs`; edit schemas and regenerate,
   never edit guards.
-- `assets/fonts/`: licensed WOFF2 fonts. Pages share one variable DM Sans; Graph adds
-  DM Mono and a smaller unhinted italic subset, and the full hinted italic stays separate.
+- `assets/fonts/`: licensed WOFF2 fonts. Pages share variable DM Sans and Instrument
+  Serif; Graph adds DM Mono.
 - `formulas/`: Typst inputs compiled to the homepage's equation SVGs.
 
 No registry exports, generated articles, WASM binaries, screenshots or benchmark
@@ -57,7 +57,7 @@ artifact and records provenance. CI uses the same contracts and production tests
 
 ## Evidence and measurements
 
-The maintained size budgets and cold-start measurements live in
+The maintained size budgets and delivery checks live in
 [ENGINEERING.md](ENGINEERING.md). Raw evidence stays outside Git.
 
 The guide source is `docs/src/`; its reading theme is

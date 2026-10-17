@@ -14,9 +14,7 @@ pub mod types;
 
 use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
-#[cfg(feature = "schema-export")]
-use poly_compare::Verdict;
-use poly_compare::{compare_all_verdicts, compare_summary, Profile, Reason};
+use poly_compare::{compare_summary, Profile, Reason};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
@@ -207,7 +205,7 @@ pub fn path_request_schema() -> schemars::Schema {
     wire_schema::<Query>(schemars::generate::SchemaSettings::draft2020_12().for_deserialize())
 }
 
-/// `compare_paths` and `summarize_paths` consume the same input contract.
+/// Generate the input contract for `summarize_paths`.
 #[cfg(feature = "schema-export")]
 pub fn comparison_request_schema() -> schemars::Schema {
     wire_schema::<ComparisonQuery>(
@@ -242,8 +240,6 @@ fn wire_schema<T: schemars::JsonSchema>(
 struct WasmComparisonResult {
     #[cfg_attr(feature = "schema-export", schemars(extend("const" = 5)))]
     schema_version: u8,
-    #[cfg_attr(feature = "schema-export", schemars(extend("const" = "generic")))]
-    mode: &'static str,
     profiles: Vec<ComparisonProfile>,
     #[cfg_attr(
         feature = "schema-export",
@@ -251,9 +247,6 @@ struct WasmComparisonResult {
     )]
     front: Vec<usize>,
     counts: ComparisonCounts,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "schema-export", schemars(with = "Vec<ComparisonPair>"))]
-    pairs: Option<Vec<ComparisonPair>>,
 }
 
 #[derive(Serialize)]
@@ -280,38 +273,6 @@ impl From<[usize; 4]> for ComparisonCounts {
             unknown,
         }
     }
-}
-
-#[derive(Serialize)]
-#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
-struct ComparisonPair {
-    #[cfg_attr(
-        feature = "schema-export",
-        schemars(inner(range(min = 1, max = JS_SAFE_MAX)))
-    )]
-    paths: [usize; 2],
-    #[cfg_attr(feature = "schema-export", schemars(extend("enum" = Verdict::ALL)))]
-    verdict: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "schema-export", schemars(with = "Dominance"))]
-    dominates: Option<Dominance>,
-}
-
-#[derive(Serialize)]
-#[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
-struct Dominance {
-    #[cfg_attr(
-        feature = "schema-export",
-        schemars(range(min = 1, max = JS_SAFE_MAX))
-    )]
-    winner: usize,
-    #[cfg_attr(
-        feature = "schema-export",
-        schemars(range(min = 1, max = JS_SAFE_MAX))
-    )]
-    loser: usize,
 }
 
 #[derive(Serialize)]
@@ -408,19 +369,9 @@ impl Graph {
     }
 }
 
-/// Compare exactly the routes returned by `find_paths`, retaining their one-based indices.
-#[wasm_bindgen]
-pub fn compare_paths(input: &str) -> Result<String, JsError> {
-    compare_paths_impl(input, false)
-}
-
-/// Browser result: certificates, all pair counts and the front, without pair records.
+/// Browser result: certificates, all pair counts and the front, retaining one-based route indices.
 #[wasm_bindgen]
 pub fn summarize_paths(input: &str) -> Result<String, JsError> {
-    compare_paths_impl(input, true)
-}
-
-fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError> {
     let query: ComparisonQuery = serde_json::from_str(input)?;
     let Graph { nodes, edges } = &query.graph;
     let mut profiles = Vec::new();
@@ -487,32 +438,7 @@ fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError
         );
         profiles.push(profile);
     }
-    let (front, counts, pairs) = if summary_only {
-        let result = compare_summary(&profiles);
-        (result.front, result.counts, None)
-    } else {
-        let result = compare_all_verdicts(&profiles);
-        let pairs = result
-            .pairs
-            .iter()
-            .map(|(i, j, comparison)| {
-                let dominates = comparison
-                    .verdict
-                    .winner_loser(*i, *j)
-                    .map(|(winner, loser)| Dominance {
-                        winner: winner + 1,
-                        loser: loser + 1,
-                    });
-                ComparisonPair {
-                    paths: [i + 1, j + 1],
-                    verdict: comparison.verdict.name(),
-                    dominates,
-                }
-            })
-            .collect();
-        let counts = result.counts();
-        (result.front, counts, Some(pairs))
-    };
+    let result = compare_summary(&profiles);
     let profiles = profiles
         .iter()
         .map(|profile| {
@@ -552,11 +478,9 @@ fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError
         .collect();
     Ok(serde_json::to_string(&WasmComparisonResult {
         schema_version: 5,
-        mode: "generic",
         profiles,
-        front: front.into_iter().map(|index| index + 1).collect(),
-        counts: counts.into(),
-        pairs,
+        front: result.front.into_iter().map(|index| index + 1).collect(),
+        counts: result.counts.into(),
     })?)
 }
 

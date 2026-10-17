@@ -283,12 +283,6 @@ fn dominates(a: &Monomial, b: &Monomial) -> bool {
 }
 impl Coverage {
     pub fn verify(&self, denominator: &Poly) -> bool {
-        if let [(b, w)] = self.weights.as_slice() {
-            if w.is_one() {
-                return denominator.terms().get(b).is_some_and(Signed::is_positive)
-                    && dominates(b, &self.exponent);
-            }
-        }
         self.weights.iter().all(|(b, w)| {
             !w.is_negative() && denominator.terms().get(b).is_some_and(|c| c.is_positive())
         }) && self.weights.iter().map(|(_, w)| w).sum::<BigRational>() == BigRational::one()
@@ -366,18 +360,16 @@ impl<'a> CoverageLp<'a> {
             .map(|v| -BigRational::from_integer(BigInt::from(exponent(a, v))))
             .collect();
         rhs.extend([BigRational::one(), -BigRational::one()]);
-        Ok(
-            lp::feasible(self.rows.clone(), rhs)?.map(|weights| Coverage {
-                exponent: a.clone(),
-                weights: self
-                    .support
-                    .iter()
-                    .zip(weights)
-                    .filter(|(_, w)| !w.is_zero())
-                    .map(|(b, w)| ((*b).clone(), w))
-                    .collect(),
-            }),
-        )
+        Ok(lp::feasible(&self.rows, &rhs)?.map(|weights| Coverage {
+            exponent: a.clone(),
+            weights: self
+                .support
+                .iter()
+                .zip(weights)
+                .filter(|(_, w)| !w.is_zero())
+                .map(|(b, w)| ((*b).clone(), w))
+                .collect(),
+        }))
     }
 }
 /// A curve along which `x^a` outgrows every monomial of `lower`.
@@ -385,7 +377,7 @@ fn separating_curve(vars: &[Symbol], a: &Monomial, lower: &Poly) -> Result<Optio
     let direction = if lower.is_zero() {
         Some(vec![BigRational::one(); vars.len()])
     } else {
-        let rows = lower
+        let rows: Vec<_> = lower
             .terms()
             .keys()
             .map(|b| {
@@ -398,7 +390,7 @@ fn separating_curve(vars: &[Symbol], a: &Monomial, lower: &Poly) -> Result<Optio
                     .collect()
             })
             .collect();
-        lp::feasible(rows, vec![-BigRational::one(); lower.terms().len()])?
+        lp::feasible(&rows, &vec![-BigRational::one(); lower.terms().len()])?
     };
     Ok(direction.map(|direction| {
         let denominator: BigInt = direction.iter().map(|e| e.denom()).product();
@@ -589,7 +581,7 @@ struct ComparisonBatch {
     supports: Vec<Arc<Poly>>,
     domain: BTreeSet<Symbol>,
     signed: Vec<usize>,
-    evaluations: HashMap<(usize, Curve), Option<Arc<CurveEvaluation>>>,
+    evaluations: HashMap<usize, HashMap<Curve, Option<Arc<CurveEvaluation>>>>,
     regular: HashMap<Curve, bool>,
     curves: HashMap<Vec<Symbol>, Arc<Vec<Curve>>>,
 }
@@ -600,7 +592,10 @@ struct CurveEvaluation {
 }
 impl ComparisonBatch {
     fn new(polynomials: Vec<Poly>) -> Self {
-        let polynomials: Vec<_> = polynomials.into_iter().map(Arc::new).collect();
+        let polynomials: Vec<_> = std::iter::once(Poly::zero())
+            .chain(polynomials)
+            .map(Arc::new)
+            .collect();
         let indices = polynomials
             .iter()
             .enumerate()
@@ -637,51 +632,37 @@ impl ComparisonBatch {
     }
 
     fn prepare<'a>(&self, poly: &'a Poly) -> Prepared<'a> {
-        let (hull, support) = self
-            .indices
-            .get(poly)
-            .copied()
-            .map(|i| (self.hulls[i].clone(), self.supports[i].clone()))
-            .unwrap_or_else(|| {
-                assert!(poly.is_zero(), "nonzero certificates belong to the batch");
-                let zero = Arc::new(Poly::zero());
-                (zero.clone(), zero)
-            });
+        let i = self.indices[poly];
         Prepared {
             poly,
-            hull,
-            support,
+            hull: self.hulls[i].clone(),
+            support: self.supports[i].clone(),
         }
     }
 
     fn evaluate_index(&mut self, index: usize, curve: &Curve) -> Option<Arc<CurveEvaluation>> {
-        self.evaluations
-            .entry((index, curve.clone()))
-            .or_insert_with(|| {
-                let poly = &self.polynomials[index];
-                let terms = on_curve(poly, curve)?;
-                let height = height(poly, curve);
-                let regular = height
-                    .as_ref()
-                    .and_then(|h| terms.get(h))
-                    .is_some_and(Signed::is_positive);
-                Some(Arc::new(CurveEvaluation {
-                    terms,
-                    height,
-                    regular,
-                }))
+        let evaluations = self.evaluations.entry(index).or_default();
+        if let Some(evaluation) = evaluations.get(curve) {
+            return evaluation.clone();
+        }
+        let poly = &self.polynomials[index];
+        let evaluation = on_curve(poly, curve).map(|terms| {
+            let height = height(poly, curve);
+            let regular = height
+                .as_ref()
+                .and_then(|h| terms.get(h))
+                .is_some_and(Signed::is_positive);
+            Arc::new(CurveEvaluation {
+                terms,
+                height,
+                regular,
             })
-            .clone()
+        });
+        evaluations.insert(curve.clone(), evaluation.clone());
+        evaluation
     }
 
     fn evaluate_curve(&mut self, poly: &Poly, curve: &Curve) -> Option<Arc<CurveEvaluation>> {
-        if poly.is_zero() {
-            return Some(Arc::new(CurveEvaluation {
-                terms: BTreeMap::new(),
-                height: None,
-                regular: true,
-            }));
-        }
         let index = *self.indices.get(poly)?;
         self.evaluate_index(index, curve)
     }
@@ -711,7 +692,7 @@ impl ComparisonBatch {
 fn direction(
     f: &Prepared,
     g: &Prepared,
-    ambient: &BTreeSet<Symbol>,
+    vars: &[Symbol],
     batch: &mut ComparisonBatch,
 ) -> Direction {
     let immediate = if f.poly == g.poly {
@@ -726,10 +707,9 @@ fn direction(
             return Direction::Yes(proof);
         }
     }
-    let vars: Vec<_> = ambient.iter().cloned().collect();
-    let lp = CoverageLp::new(&g.support, &vars);
+    let lp = CoverageLp::new(&g.support, vars);
     let coverage: Result<Option<Vec<_>>, _> =
-        f.hull.terms().keys().map(|a| lp.cover(a, &vars)).collect();
+        f.hull.terms().keys().map(|a| lp.cover(a, vars)).collect();
     let mut reason = match coverage {
         Ok(Some(coverage)) => {
             let proof = GenericProof::Newton(coverage);
@@ -743,8 +723,8 @@ fn direction(
     };
     let curves = batch
         .curves
-        .entry(vars.clone())
-        .or_insert_with(|| Arc::new(cell_curves(&vars, &batch.polynomials)))
+        .entry(vars.to_vec())
+        .or_insert_with(|| Arc::new(cell_curves(vars, &batch.polynomials)))
         .clone();
     for curve in curves.iter() {
         if let Some(w) = refute(curve, f.poly, g.poly, batch) {
@@ -752,7 +732,7 @@ fn direction(
         }
     }
     for a in f.support.terms().keys() {
-        match separating_curve(&vars, a, &g.support) {
+        match separating_curve(vars, a, &g.support) {
             Ok(Some(curve)) => {
                 // Curves include the full batch domain; positive polynomials cannot cancel.
                 if let Some(w) = refute(&curve, f.poly, g.poly, batch) {
@@ -799,10 +779,11 @@ fn compare_in_batch(
     ambient.extend(batch.domain.iter().cloned());
     ambient.extend(fp.variables());
     ambient.extend(gp.variables());
+    let vars: Vec<_> = ambient.into_iter().collect();
     let [fs, gs] = [fp, gp].map(|poly| batch.prepare(poly));
     FieldComparison {
-        forward: direction(&fs, &gs, &ambient, batch),
-        reverse: direction(&gs, &fs, &ambient, batch),
+        forward: direction(&fs, &gs, &vars, batch),
+        reverse: direction(&gs, &fs, &vars, batch),
     }
 }
 
@@ -890,15 +871,6 @@ impl PathComparison {
         counts
     }
 }
-pub fn compare_all(profiles: &[Profile]) -> PathComparison {
-    compare_all_with_fields(profiles, true)
-}
-
-/// Verify the same comparisons, retaining verdicts and the front without per-field proof records.
-pub fn compare_all_verdicts(profiles: &[Profile]) -> PathComparison {
-    compare_all_with_fields(profiles, false)
-}
-
 /// All pair counts and candidate paths, without allocating pairwise proof records.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComparisonSummary {
@@ -1017,7 +989,7 @@ pub fn compare_summary(profiles: &[Profile]) -> ComparisonSummary {
     }
 }
 
-fn compare_all_with_fields(profiles: &[Profile], retain_fields: bool) -> PathComparison {
+pub fn compare_all(profiles: &[Profile]) -> PathComparison {
     let mut batch = ComparisonBatch::new(batch_certificates(profiles));
     // Identical profiles share one comparison result.
     let mut representatives: Vec<usize> = Vec::new();
@@ -1042,15 +1014,11 @@ fn compare_all_with_fields(profiles: &[Profile], retain_fields: bool) -> PathCom
             let comparison = cache
                 .entry((class[i], class[j]))
                 .or_insert_with(|| {
-                    let mut comparison = compare_profiles_in_batch(
+                    compare_profiles_in_batch(
                         &profiles[representatives[class[i]]],
                         &profiles[representatives[class[j]]],
                         &mut batch,
-                    );
-                    if !retain_fields {
-                        comparison.fields.clear();
-                    }
-                    comparison
+                    )
                 })
                 .clone();
             if let Verdict::Dominated { worse } = comparison.verdict {

@@ -19,15 +19,18 @@ from finalize_website import finalize
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def build_frontend(output):
+def build_frontend(output, counts, summary):
     with tempfile.TemporaryDirectory(prefix='problem-reductions-frontend-') as directory:
-        compiled = Path(directory)
-        subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(output), str(compiled)], check=True)
-        for path in (output / 'assets').iterdir():
-            if path.suffix in {'.js', '.mjs', '.css', '.ts', '.mts'} and path.name != 'path-selection.js':
-                path.unlink()
-        shutil.rmtree(output / 'src', ignore_errors=True)
-        shutil.copytree(compiled, output, dirs_exist_ok=True)
+        staged = Path(directory)
+        shutil.copytree(ROOT / 'docs/website/src', staged / 'src')
+        shutil.copytree(output / 'assets', staged / 'assets')
+        (staged / 'assets/home-data.js').write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
+        for filename in ('index.html', 'graph.html'):
+            html = (ROOT / 'docs/website' / filename).read_text()
+            for key, value in counts.items():
+                html = html.replace(f"__{key}__", str(value))
+            (staged / filename).write_text(html)
+        subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(staged), str(output)], check=True)
 
 
 def expression_mathml(expression):
@@ -169,7 +172,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
     if (output / "open-questions").exists():
         shutil.rmtree(output / "open-questions")
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
-    shutil.copytree(source / "src", output / "src", dirs_exist_ok=True)
     for name in ("sat", "qubo"):
         subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
                         str(output / "assets" / f"{name}.svg")], check=True)
@@ -203,11 +205,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
         "VARIANT_COUNT": len(nodes),
         "RULE_COUNT": len(edges),
     }
-    for filename in ("index.html", "graph.html"):
-        html = (source / filename).read_text()
-        for key, value in counts.items():
-            html = html.replace(f"__{key}__", str(value))
-        (output / filename).write_text(html)
     # Some cast rules are covered by shared suites rather than a dedicated file.
     # Only publish direct test links when the file actually exists.
     site_edges = []
@@ -264,7 +261,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
     }
     subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-summary'],
                    input=json.dumps(summary), text=True, check=True)
-    (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
     scene = {"schema_version": 2, "layout": layout, "aliases": graph["aliases"],
              "edges": [{key: edge[key] for key in ("source", "target", "witness", "turing")} for edge in edges],
              "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
@@ -282,12 +278,12 @@ def build(output, graph_path, schemas_path, open_questions=None):
     # runs at the same speed; only the comparison summary is slower, and it already follows the first routes.
     subprocess.run(["cargo", "build", "--profile", "wasm-release", "--target", "wasm32-unknown-unknown",
                     "-p", "problemreductions-web"], cwd=ROOT, check=True)
-    subprocess.run(["wasm-bindgen", "--target", "web", "--out-name", "path-selection",
+    subprocess.run(["wasm-bindgen", "--no-typescript", "--target", "web", "--out-name", "path-selection",
                     "--out-dir", str(output / "assets"),
                     str(ROOT / "target/wasm32-unknown-unknown/wasm-release/problemreductions_web.wasm")], check=True)
     wasm = output / "assets/path-selection_bg.wasm"
     wasm.with_suffix('.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
-    build_frontend(output)
+    build_frontend(output, counts, summary)
     finalize(output)
     if open_questions is not None:
         publish_open_questions(open_questions, output / "open-questions")

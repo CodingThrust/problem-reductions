@@ -53,7 +53,7 @@ self.onmessage = async ({data}: MessageEvent<unknown>) => {
     phase = "comparison";
     if (result.paths.length) {
       performance.mark("engine:comparison-start");
-      const comparison = parseWasmComparison(summarize_paths(JSON.stringify({graph, paths: result.paths} satisfies ComparisonQuery)), result.paths.length, 'summary');
+      const comparison = parseWasmComparison(summarize_paths(JSON.stringify({graph, paths: result.paths} satisfies ComparisonQuery)), result.paths.length);
       validateComparisonParameters(comparison, graph.nodes[request.source]!.parameter_names, graph.nodes[request.target]!.parameter_names);
       performance.mark("engine:comparison-end");
       self.postMessage({schema_version: 1, phase, result: comparison});

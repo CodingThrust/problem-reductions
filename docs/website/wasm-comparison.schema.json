@@ -15,16 +15,6 @@
         "minimum": 1
       }
     },
-    "mode": {
-      "type": "string",
-      "const": "generic"
-    },
-    "pairs": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/ComparisonPair"
-      }
-    },
     "profiles": {
       "type": "array",
       "items": {
@@ -41,7 +31,6 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "mode",
     "profiles",
     "front",
     "counts"
@@ -144,38 +133,6 @@
       "required": [
         "certificate",
         "accuracy"
-      ]
-    },
-    "ComparisonPair": {
-      "type": "object",
-      "properties": {
-        "dominates": {
-          "$ref": "#/$defs/Dominance"
-        },
-        "paths": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "maximum": 9007199254740991,
-            "minimum": 1
-          },
-          "maxItems": 2,
-          "minItems": 2
-        },
-        "verdict": {
-          "type": "string",
-          "enum": [
-            "Dominated",
-            "Equivalent",
-            "Incomparable",
-            "Unknown"
-          ]
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "paths",
-        "verdict"
       ]
     },
     "ComparisonProfile": {
@@ -284,26 +241,6 @@
             "detail"
           ]
         }
-      ]
-    },
-    "Dominance": {
-      "type": "object",
-      "properties": {
-        "loser": {
-          "type": "integer",
-          "maximum": 9007199254740991,
-          "minimum": 1
-        },
-        "winner": {
-          "type": "integer",
-          "maximum": 9007199254740991,
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "winner",
-        "loser"
       ]
     }
   }

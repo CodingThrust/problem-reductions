@@ -4,7 +4,6 @@
 /**
  * Compare exactly the routes returned by `find_paths`, retaining their one-based indices.
  */
-export function compare_paths(input: string): string;
 
 export function find_paths(input: string): string;
 
@@ -17,7 +16,6 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly compare_paths: (a: number, b: number, c: number) => void;
     readonly find_paths: (a: number, b: number, c: number) => void;
     readonly summarize_paths: (a: number, b: number, c: number) => void;
     readonly __wbindgen_add_to_stack_pointer: (a: number) => number;

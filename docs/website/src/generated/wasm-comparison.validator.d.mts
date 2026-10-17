@@ -34,8 +34,6 @@ export type ComparisonReason =
 export interface WasmComparisonResult {
   counts: ComparisonCounts;
   front: number[];
-  mode: "generic";
-  pairs?: ComparisonPair[];
   profiles: ComparisonProfile[];
   schema_version: 5;
 }
@@ -44,19 +42,6 @@ export interface ComparisonCounts {
   Equivalent: number;
   Incomparable: number;
   Unknown: number;
-}
-export interface ComparisonPair {
-  dominates?: Dominance;
-  /**
-   * @minItems 2
-   * @maxItems 2
-   */
-  paths: [number, number];
-  verdict: "Dominated" | "Equivalent" | "Incomparable" | "Unknown";
-}
-export interface Dominance {
-  loser: number;
-  winner: number;
 }
 export interface ComparisonProfile {
   fields: {

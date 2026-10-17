@@ -29,7 +29,7 @@ The command installs locked Node dependencies, checks types and lint, regenerate
 registry/example data and CLI snippets, and assembles mdBook, paper, API and website
 in a new temporary directory. It serves that exact artifact over HTTP and checks
 mathematical agreement, copied-route reduction/solving, CSP, lazy delivery,
-accessibility, failure recovery and benchmark instrumentation. Servers close on failure.
+accessibility, and failure recovery. Servers close on failure.
 
 `verification.json` records source revision/dirty fingerprints, untracked source
 hashes, tools, lockfiles, runner image and artifact hashes. `verification.log`
@@ -43,9 +43,6 @@ verification: the verifier rejects source changes made during the run. Use a
 separate checkout for concurrent work. For an existing complete artifact, use
 `--site /path/to/artifact`; its provenance explicitly identifies verification-only
 mode and does not claim the current checkout built an externally supplied artifact.
-`Cargo.lock` is now tracked, matching the existing local dependency resolution.
-Schema generation/checking uses `--locked`; CI's lockfile drift check can now detect
-Rust resolution changes. There are no dependency upgrades in this adoption.
 
 ## Build integration and rollback
 
@@ -58,19 +55,13 @@ CSS minification is disabled because its color/alpha transformations changed pix
 
 `npm run typecheck` is a strict, separate `noEmit` check; Vite only emits runtime
 JavaScript. `npm run lint:frontend` applies correctness rules without formatting
-changes. All application entry points and modules are now TypeScript; the checker
-no longer enables legacy JavaScript. The remaining `graph-layout.js` is a Node-only
-input to the existing build-time layout generator, not a browser application module. Real browser/compiler
-fixtures prove TS emission, strict rejection, CSP, native CSS rendering and shared
-module delivery. Runtime contracts migrate incrementally.
+changes. Application entry points and modules are TypeScript; `graph-layout.js`
+is a Node-only input to the build-time layout generator. Browser/compiler fixtures
+check TS emission, strict rejection, CSP, CSS rendering and shared module delivery.
 
-The worker buffers decompressed WASM before binding initialization. Native Firefox
-cold-query replays exposed a pre-existing streaming stall before Vite; buffered
-initialization passed the diagnostic replays and subsequent production workflows.
-The temporary input buffer currently holds 776,965 bytes. The exact browser cause remains
-unconfirmed. Compression, early preload, worker termination and bounded caches are
-preserved. This compatibility fix does not establish that the sporadic frame hitch
-is fixed.
+The worker buffers decompressed WASM before binding initialization to avoid a
+Firefox streaming stall. Compression, early preload, worker termination and
+bounded caches are preserved.
 
 Rollback build integration, module entries and worker URL changes together to the
 prior Python asset-copy path and a complete prior static release. Keep useful
@@ -78,15 +69,16 @@ compatibility checks. Never combine old HTML/data with newly compiled modules.
 
 ## Size budgets
 
-Blocking deterministic budgets, with about 5% raw / 6% gzip production headroom:
+Blocking deterministic budgets:
 
 - `build_frontend.mjs`: all emitted `.js` chunks/assets, worker included and shared
   chunks counted once, at most **320,000 raw / 60,000 gzip bytes**. External binding
   JS, mdBook, Open Question Board and non-JS resources are outside this budget.
 - `test:frontend-contracts`: committed guards and runtime helpers together, at most
-  **230,000 raw / 34,000 gzip bytes** (about 10% / 13% headroom).
+  **230,000 raw / 34,000 gzip bytes**.
 
-The build budget runs in Python builds and CI. The contract suite exercises budget
+The build budget runs in Python builds and CI. The contract suite checks its
+committed guard budget and verifies that oversized production JavaScript is rejected.
 
 ## Open Question Board and CI
 
@@ -108,15 +100,9 @@ rejects lockfile drift. The hosted Ubuntu 24.04 image remains mutable; provenanc
 records its image/version. Available logs and provenance are uploaded as CI diagnostics,
 including after failures. Production publication remains gated to `main`.
 
-## Cold-start delivery (2026-10-16)
+## Browser delivery
 
-Slow-4G profile (1.6 Mbps, 100 ms RTT, 4x CPU, Chromium, text compressed): the
-transfer of the path engine dominates. The browser WASM build alone uses
-the `wasm-release` Cargo profile (`opt-level = "z"`, `panic = "abort"`); the workspace release
-profile used by the CLI and tests is unchanged. Gzipped size: 267 KB to 167 KB
-(raw 777 KB to 549 KB). First routes: about 2.25 s to 1.8 s (3-5 runs each; treat as
-directional). Unthrottled, path search time is unchanged (66 vs 69 ms) and the
-comparison summary takes 204 ms instead of 129 ms; it already follows the routes.
-`graph.html` also preloads the scene and path-graph JSON, so the scene appears at
-about 0.97 s in every run instead of 1.0 to 1.45 s. A low-priority WASM preload made
-no difference. Not yet measured: real hosting, physical devices, Firefox and WebKit timing.
+The browser WASM build uses the `wasm-release` Cargo profile (`opt-level = "z"`,
+`panic = "abort"`); the CLI and tests use the workspace profiles. `graph.html`
+preloads the scene and path-graph JSON. Measure current artifacts on representative
+hosting and devices before making timing or size claims.

@@ -57,5 +57,5 @@ export function validatePathReply(value: unknown, graph: RouteGraph, request: Pa
     return { ...value, result: paths };
   }
   if (!result?.paths.length) throw error();
-  return { ...value, result: validateWasmComparisonData(value.result, result.paths.length, 'summary') };
+  return { ...value, result: validateWasmComparisonData(value.result, result.paths.length) };
 }

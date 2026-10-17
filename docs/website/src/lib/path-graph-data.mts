@@ -1,5 +1,5 @@
 import { validatePathGraph, type PathGraphData } from '../generated/path-graph.validator.mjs';
-import { nodeKey } from './variant.mts';
+import { validateGraphReferences } from './variant.mts';
 
 export function validatePathGraphData(value: unknown): PathGraphData {
   if (!validatePathGraph(value)) throw new Error('Invalid path metadata contract. Reload the current release.');
@@ -9,19 +9,15 @@ export function validatePathGraphData(value: unknown): PathGraphData {
 
 export function validatePathGraphReferences(value: Pick<PathGraphData, 'nodes' | 'edges'>): void {
   const error = () => new Error('Invalid path metadata contract. Reload the current release.');
-  const variants = new Set<string>(), defaults = new Map<string, number>();
-  for (const node of value.nodes) {
-    const key = nodeKey(node);
-    if (variants.has(key)) throw error();
-    variants.add(key);
-    defaults.set(node.name, (defaults.get(node.name) ?? 0) + (node.default ? 1 : 0));
-  }
+  validateGraphReferences(value, error);
+  const defaults = new Map<string, number>();
+  for (const node of value.nodes) defaults.set(node.name, (defaults.get(node.name) ?? 0) + (node.default ? 1 : 0));
   if ([...defaults.values()].some(count => count !== 1)) throw error();
   const edges = new Set<string>();
   for (const edge of value.edges) {
-    const source = value.nodes[edge.source], target = value.nodes[edge.target];
+    const target = value.nodes[edge.target]!;
     const key = `${edge.source}:${edge.target}`;
-    if (!source || !target || edges.has(key)) throw error();
+    if (edges.has(key)) throw error();
     edges.add(key);
     const fields = new Set(edge.parameters.map(parameter => parameter.field));
     if (fields.size !== edge.parameters.length || [...fields].some(field => !target.parameter_names.includes(field))

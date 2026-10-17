@@ -1,4 +1,4 @@
-use problemreductions_web::{compare_paths, find_paths, summarize_paths};
+use problemreductions_web::{find_paths, summarize_paths};
 use serde_json::{json, Value};
 
 fn graph() -> Value {
@@ -62,7 +62,7 @@ fn comparison_ranks_the_supplied_exact_variant_routes() {
         "One"
     );
     let comparison: Value = serde_json::from_str(
-        &compare_paths(
+        &summarize_paths(
             &json!({
                 "graph":graph, "paths":[result["paths"][1],result["paths"][0]]
             })
@@ -83,12 +83,7 @@ fn comparison_ranks_the_supplied_exact_variant_routes() {
         })
     );
     assert_eq!(comparison["profiles"].as_array().unwrap().len(), 2);
-    assert_eq!(
-        comparison["pairs"],
-        json!([{
-            "paths":[1,2], "verdict":"Dominated", "dominates":{"winner":1,"loser":2}
-        }])
-    );
+    assert_eq!(comparison["counts"]["Dominated"], 1);
 }
 
 #[test]
@@ -105,11 +100,9 @@ fn browser_summary_keeps_profiles_counts_and_front_without_pair_payloads() {
     )
     .unwrap();
     let input = json!({"graph": graph, "paths": routes["paths"]}).to_string();
-    let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
     let summary: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
     assert_eq!(summary["schema_version"], 5);
-    assert_eq!(summary["mode"], "generic");
-    assert_eq!(summary["profiles"], full["profiles"]);
+    assert!(summary.get("mode").is_none());
     assert_eq!(
         summary["counts"],
         json!({"Dominated":1,"Equivalent":0,"Incomparable":0,"Unknown":0})
@@ -155,9 +148,6 @@ fn comparison_retains_exact_wide_rational_coefficients() {
             BigRational::new(BigInt::from(9007199254740993u64), BigInt::from(7u8))
         )])
     );
-    let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
-    assert_eq!(full["profiles"], result["profiles"]);
-    assert_eq!(full["pairs"], json!([]));
     assert!(result.get("pairs").is_none());
 }
 
@@ -207,7 +197,7 @@ fn comparison_retains_explicit_null_certificates_and_typed_unavailable_reasons()
 }
 
 #[test]
-fn nondominated_comparisons_omit_dominance_and_keep_both_routes() {
+fn nondominated_comparisons_keep_both_routes() {
     for (formula, verdict) in [
         ("n", "Equivalent"),
         ("m", "Incomparable"),
@@ -221,14 +211,9 @@ fn nondominated_comparisons_omit_dominance_and_keep_both_routes() {
         )
         .unwrap();
         let input = json!({"graph":graph, "paths":routes["paths"]}).to_string();
-        let full: Value = serde_json::from_str(&compare_paths(&input).unwrap()).unwrap();
         let summary: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
-        assert_eq!(full["front"], json!([1, 2]));
-        assert_eq!(full["counts"][verdict], 1);
-        assert_eq!(full["pairs"], json!([{"paths":[1,2],"verdict":verdict}]));
-        assert_eq!(summary["front"], full["front"]);
-        assert_eq!(summary["counts"], full["counts"]);
-        assert_eq!(summary["profiles"], full["profiles"]);
+        assert_eq!(summary["front"], json!([1, 2]));
+        assert_eq!(summary["counts"][verdict], 1);
         assert!(summary.get("pairs").is_none());
     }
 }

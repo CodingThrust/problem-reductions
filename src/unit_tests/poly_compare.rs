@@ -445,16 +445,16 @@ fn proof_verifiers_reject_tampered_weights_and_curves() {
 #[test]
 fn exact_lp_finds_fractional_points_and_rejects_infeasibility() {
     let r = |v: i64| BigRational::from_integer(v.into());
-    let feasible = lp::feasible(vec![vec![r(-3)], vec![r(2)]], vec![r(-1), r(1)])
+    let feasible = lp::feasible(&[vec![r(-3)], vec![r(2)]], &[r(-1), r(1)])
         .unwrap()
         .unwrap();
     assert_eq!(feasible, vec![BigRational::new(1.into(), 3.into())]);
     assert_eq!(
-        lp::feasible(vec![vec![r(-1)], vec![r(1)]], vec![r(-2), r(1)]).unwrap(),
+        lp::feasible(&[vec![r(-1)], vec![r(1)]], &[r(-2), r(1)]).unwrap(),
         None
     );
     assert!(matches!(
-        lp::feasible(vec![vec![r(1); 25]], vec![r(1)]),
+        lp::feasible(&[vec![r(1); 25]], &[r(1)]),
         Err(Reason::ResourceLimit(_))
     ));
 }

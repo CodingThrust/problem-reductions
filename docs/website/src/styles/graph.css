@@ -1,11 +1,4 @@
 @font-face {
-  font-family: "DM Sans";
-  src: url("../../assets/fonts/dm-sans-variable.woff2") format("woff2");
-  font-weight: 400 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
   font-family: "DM Mono";
   src: url("../../assets/fonts/dm-mono-regular.woff2") format("woff2");
   font-weight: 400;
