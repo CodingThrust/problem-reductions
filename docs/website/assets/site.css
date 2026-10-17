@@ -1,14 +1,7 @@
 @font-face {
   font-family: DM Sans;
-  src: url("./fonts/dm-sans-regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: DM Sans;
-  src: url("./fonts/dm-sans-semibold.woff2") format("woff2");
-  font-weight: 500 800;
+  src: url("./fonts/dm-sans-variable.woff2") format("woff2");
+  font-weight: 400 600;
   font-style: normal;
   font-display: swap;
 }
@@ -176,9 +169,6 @@ p {
 }
 .site-footer .project-logo {
   width: 224px;
-}
-.brand-period {
-  color: var(--green);
 }
 .site-header nav {
   display: flex;
@@ -1008,20 +998,6 @@ pre {
   background: var(--surface);
   color: var(--ink);
   font-size: 15px;
-}
-.variant-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 18px;
-}
-.variant-tag {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 4px 8px;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--muted);
 }
 .relation-link {
   display: flex;

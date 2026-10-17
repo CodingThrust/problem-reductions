@@ -33,7 +33,6 @@ const modalDetails = matchMedia("(max-width: 1167px)");
 // Scene references and route indices below rely on the validated boundary contracts.
 /* ---------- Registry model ---------- */
 const display = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
-const shortName = (name: string) => (aliasMap[name] || []).find((a) => /^[A-Z0-9-]{2,6}$/.test(a)) || display(name);
 const families = new Map<string, Family>();
 D.nodes.forEach((n, i) => {
   if (!families.has(n.name)) families.set(n.name, { name: n.name, category: n.category, variants: [], nbrs: new Set() });
