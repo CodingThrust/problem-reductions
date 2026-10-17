@@ -228,7 +228,7 @@ fields to issue templates. Changes to issue templates require user approval.
 ### Paper (docs/paper/reductions.typ)
 - `problem-def(name)[def][body]` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`. Title comes from `display-name` dict.
 - `reduction-rule(source, target, example: bool, ...)[rule][proof]` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state. Overhead auto-derived from JSON edge data.
-- Every directed reduction needs its own `reduction-rule` entry (except trivial Decision↔Optimization pairs which are auto-filtered)
+- Every directed reduction needs its own `reduction-rule` entry (except trivial Decision↔Optimization pairs and pure `One → i64 → f64` numeric casts, which are auto-filtered)
 - Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper; `Decision<P> ↔ P` edges are excluded since they are trivial solve-and-compare reductions
 - `display-name` dict maps `ProblemName` to display text
 
@@ -302,7 +302,7 @@ Also add to the `display-name` dictionary:
 ]
 ```
 
-Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against the generated `reduction_graph.json` export.
+Every nontrivial directed reduction in the graph needs its own `reduction-rule` entry. Do not add paper explanations for pure `One → i64 → f64` numeric casts. Other same-model variant reductions, such as graph transformations and bounded-integer encodings, still require entries. The paper auto-checks completeness against the generated `reduction_graph.json` export.
 
 ## Complexity Verification Requirements
 
