@@ -1,4 +1,4 @@
-import { validateGraphDetails, type GraphDetailsIndex } from './graph-details.validator.mjs';
+import { validateGraphDetails, type GraphDetailsIndex } from '../generated/graph-details.validator.mjs';
 
 export function validateDetailsIndexData(value: unknown, page: URL, articles: URL): GraphDetailsIndex {
   const error = () => new Error('Invalid documentation index. Reload the current release.');

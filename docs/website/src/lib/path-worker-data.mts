@@ -1,10 +1,10 @@
-import { validatePathRequestEnvelope, type PathRequestEnvelope } from './path-worker-request.validator.mjs';
-import { validatePathReplyEnvelope } from './path-worker-reply.validator.mjs';
+import { validatePathRequestEnvelope, type PathRequestEnvelope } from '../generated/path-worker-request.validator.mjs';
+import { validatePathReplyEnvelope } from '../generated/path-worker-reply.validator.mjs';
 import { validateWasmPathResultData } from './wasm-paths-data.mts';
 import { validateWasmComparisonData } from './wasm-comparison-data.mts';
-import type { Endpoint, WasmPathResult } from './wasm-paths.validator.mjs';
-import type { GraphSceneData } from './graph-scene.validator.mjs';
-import type { PathGraphData } from './path-graph.validator.mjs';
+import type { Endpoint, WasmPathResult } from '../generated/wasm-paths.validator.mjs';
+import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
+import type { PathGraphData } from '../generated/path-graph.validator.mjs';
 
 type RouteGraph = Pick<GraphSceneData, 'nodes' | 'edges'> | PathGraphData;
 export type PathRequest = Extract<PathRequestEnvelope, { kind: 'search' }>

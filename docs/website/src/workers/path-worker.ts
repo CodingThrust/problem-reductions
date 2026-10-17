@@ -1,10 +1,10 @@
-import type { Query } from './wasm-path-request.validator.mjs';
-import type { ComparisonQuery } from './wasm-comparison-request.validator.mjs';
+import type { Query } from '../generated/wasm-path-request.validator.mjs';
+import type { ComparisonQuery } from '../generated/wasm-comparison-request.validator.mjs';
 import init, { find_paths, summarize_paths } from "./path-selection.js";
-import { parseWasmPathResult } from './wasm-paths-data.mts';
-import { parseWasmComparison, validateComparisonParameters } from './wasm-comparison-data.mts';
-import { validatePathGraphData } from './path-graph-data.mts';
-import { validatePathRequest, validatePathRoutes } from './path-worker-data.mts';
+import { parseWasmPathResult } from '../lib/wasm-paths-data.mts';
+import { parseWasmComparison, validateComparisonParameters } from '../lib/wasm-comparison-data.mts';
+import { validatePathGraphData } from '../lib/path-graph-data.mts';
+import { validatePathRequest, validatePathRoutes } from '../lib/path-worker-data.mts';
 
 performance.mark("engine:script");
 const graph = fetch(new URL('./path-graph.json.gz', import.meta.url)).then(async (response) => {

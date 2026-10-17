@@ -1,5 +1,5 @@
-import { validateGraphSceneData } from './graph-scene-data.mts';
-import type { GraphSceneData } from './graph-scene.validator.mjs';
+import { validateGraphSceneData } from '../lib/graph-scene-data.mts';
+import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
 
 // Start independent downloads before the renderer finishes loading.
 export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | null} = {
@@ -17,7 +17,7 @@ export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | nul
 };
 graphStartup.scene.catch(() => {});
 try {
-  const worker = graphStartup.worker = new Worker(new URL('./path-worker.ts', import.meta.url), {type: 'module'});
+  const worker = graphStartup.worker = new Worker(new URL('../workers/path-worker.ts', import.meta.url), {type: 'module'});
   performance.mark('graph:worker-started');
   worker.addEventListener('error', (event) => {
     event.preventDefault();

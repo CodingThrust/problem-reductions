@@ -30,7 +30,7 @@ try {
     const entry = resolve(temporary, `${name}.mjs`);
     await writeFile(entry, `export {${exportName}} from "./${name}.cjs";\n`);
     entries[`${name}.validator`] = entry;
-    outputs[`docs/website/assets/${name}.validator.d.mts`] = types +
+    outputs[`docs/website/src/generated/${name}.validator.d.mts`] = types +
       `\nexport declare function ${exportName}(value: unknown): value is ${schema.title};\n`;
   }
   const result = await build({
@@ -42,7 +42,7 @@ try {
     },
   });
   for (const item of (Array.isArray(result) ? result : [result]).flatMap(result => result.output)) {
-    if (item.type === 'chunk') outputs[`docs/website/assets/${item.fileName}`] = item.code;
+    if (item.type === 'chunk') outputs[`docs/website/src/generated/${item.fileName}`] = item.code;
   }
 } finally {
   await rm(temporary, { recursive: true, force: true });

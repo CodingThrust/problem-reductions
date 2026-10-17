@@ -16,5 +16,5 @@
     "forceConsistentCasingInFileNames": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["docs/website/assets/**/*.ts", "docs/website/assets/**/*.mts"]
+  "include": ["docs/website/src/**/*.ts", "docs/website/src/**/*.mts"]
 }

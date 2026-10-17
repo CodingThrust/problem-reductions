@@ -1,7 +1,7 @@
 import tsParser from '@typescript-eslint/parser';
 
-export default [{ ignores: ['docs/website/assets/path-selection.d.ts'] }, {
-  files: ['docs/website/assets/**/*.{js,mjs,ts,mts}', 'scripts/build_frontend.mjs'],
+export default [{ ignores: ['docs/website/src/workers/path-selection.d.ts'] }, {
+  files: ['docs/website/src/**/*.{js,mjs,ts,mts}', 'scripts/build_frontend.mjs'],
   rules: {
     'constructor-super': 'error',
     'for-direction': 'error',
@@ -17,6 +17,6 @@ export default [{ ignores: ['docs/website/assets/path-selection.d.ts'] }, {
     'valid-typeof': 'error',
   },
 }, {
-  files: ['docs/website/assets/**/*.{ts,mts}'],
+  files: ['docs/website/src/**/*.{ts,mts}'],
   languageOptions: { parser: tsParser },
 }];

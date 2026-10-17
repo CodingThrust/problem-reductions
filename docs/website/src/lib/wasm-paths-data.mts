@@ -1,4 +1,4 @@
-import { validateWasmPaths, type Endpoint, type WasmPathResult } from './wasm-paths.validator.mjs';
+import { validateWasmPaths, type Endpoint, type WasmPathResult } from '../generated/wasm-paths.validator.mjs';
 
 function sameEndpoint(left: Endpoint, right: Endpoint): boolean {
   const entries = Object.entries(left.variant);

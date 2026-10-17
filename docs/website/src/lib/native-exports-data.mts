@@ -1,4 +1,4 @@
-import { validateNativeExports, type NativeExports } from './native-exports.validator.mjs';
+import { validateNativeExports, type NativeExports } from '../generated/native-exports.validator.mjs';
 import { validatePathGraphReferences } from './path-graph-data.mts';
 
 export function validateNativeExportData(value: unknown): NativeExports {

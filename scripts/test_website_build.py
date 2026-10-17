@@ -25,26 +25,26 @@ class WebsiteBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'workspace with spaces'
             (root / 'scripts').mkdir(parents=True)
-            assets = root / 'docs/website/assets'
+            assets = root / 'docs/website/src/generated'
             assets.mkdir(parents=True)
             (root / 'node_modules').symlink_to(ROOT / 'node_modules', target_is_directory=True)
             for name in ['scripts/generate_website_contracts.mjs', 'docs/website/graph-scene.schema.json',
-                         'docs/website/assets/graph-scene.validator.mjs', 'docs/website/assets/graph-scene.validator.d.mts',
-                         'docs/website/graph-details.schema.json', 'docs/website/assets/graph-details.validator.mjs',
-                         'docs/website/assets/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
-                         'docs/website/assets/wasm-paths.validator.mjs', 'docs/website/assets/wasm-paths.validator.d.mts',
-                         'docs/website/wasm-comparison.schema.json', 'docs/website/assets/wasm-comparison.validator.mjs',
-                         'docs/website/assets/wasm-comparison.validator.d.mts', 'docs/website/path-graph.schema.json',
-                         'docs/website/assets/path-graph.validator.mjs', 'docs/website/assets/path-graph.validator.d.mts',
-                         'docs/website/path-worker-request.schema.json', 'docs/website/assets/path-worker-request.validator.mjs',
-                         'docs/website/assets/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
-                         'docs/website/assets/path-worker-reply.validator.mjs', 'docs/website/assets/path-worker-reply.validator.d.mts',
-                         'docs/website/atlas-data.schema.json', 'docs/website/assets/atlas-data.validator.mjs',
-                         'docs/website/assets/atlas-data.validator.d.mts',
+                         'docs/website/src/generated/graph-scene.validator.mjs', 'docs/website/src/generated/graph-scene.validator.d.mts',
+                         'docs/website/graph-details.schema.json', 'docs/website/src/generated/graph-details.validator.mjs',
+                         'docs/website/src/generated/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
+                         'docs/website/src/generated/wasm-paths.validator.mjs', 'docs/website/src/generated/wasm-paths.validator.d.mts',
+                         'docs/website/wasm-comparison.schema.json', 'docs/website/src/generated/wasm-comparison.validator.mjs',
+                         'docs/website/src/generated/wasm-comparison.validator.d.mts', 'docs/website/path-graph.schema.json',
+                         'docs/website/src/generated/path-graph.validator.mjs', 'docs/website/src/generated/path-graph.validator.d.mts',
+                         'docs/website/path-worker-request.schema.json', 'docs/website/src/generated/path-worker-request.validator.mjs',
+                         'docs/website/src/generated/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
+                         'docs/website/src/generated/path-worker-reply.validator.mjs', 'docs/website/src/generated/path-worker-reply.validator.d.mts',
+                         'docs/website/atlas-data.schema.json', 'docs/website/src/generated/atlas-data.validator.mjs',
+                         'docs/website/src/generated/atlas-data.validator.d.mts',
                          *[f'docs/website/{name}.schema.json' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request']],
-                         *[f'docs/website/assets/{name}.validator{suffix}' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request'] for suffix in ['.mjs', '.d.mts']]]:
+                         *[f'docs/website/src/generated/{name}.validator{suffix}' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request'] for suffix in ['.mjs', '.d.mts']]]:
                 shutil.copyfile(ROOT / name, root / name)
-            for path in (ROOT / 'docs/website/assets').glob('validator-runtime*.mjs'):
+            for path in (ROOT / 'docs/website/src/generated').glob('validator-runtime*.mjs'):
                 shutil.copyfile(path, assets / path.name)
             command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
             result = subprocess.run(command, capture_output=True, text=True)
@@ -81,7 +81,7 @@ class WebsiteBuildTests(unittest.TestCase):
     def test_frontend_lint_checks_typescript_control_flow(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / 'docs/website/assets/route.ts'
+            source = root / 'docs/website/src/route.ts'
             source.parent.mkdir(parents=True)
             config = root / 'eslint.config.mjs'
             config.write_text(f'export {{default}} from "{(ROOT / "eslint.config.mjs").as_uri()}";\n')

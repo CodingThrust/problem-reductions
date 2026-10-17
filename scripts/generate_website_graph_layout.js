@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const cytoscape = require("cytoscape");
 cytoscape.use(require("cytoscape-fcose"));
-const options = require("../docs/website/assets/graph-layout.js");
+const options = require("../docs/website/src/lib/graph-layout.js");
 const { createReductionGraphModel } = require("../docs/src/static/reduction-graph.js");
 const graph = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const model = createReductionGraphModel(graph);

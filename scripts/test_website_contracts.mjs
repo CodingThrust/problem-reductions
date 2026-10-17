@@ -1,6 +1,6 @@
-import {validateNativeExportData} from '../docs/website/assets/native-exports-data.mts';
-import {validateWasmPathRequest} from '../docs/website/assets/wasm-path-request.validator.mjs';
-import {validateWasmComparisonRequest} from '../docs/website/assets/wasm-comparison-request.validator.mjs';
+import {validateNativeExportData} from '../docs/website/src/lib/native-exports-data.mts';
+import {validateWasmPathRequest} from '../docs/website/src/generated/wasm-path-request.validator.mjs';
+import {validateWasmComparisonRequest} from '../docs/website/src/generated/wasm-comparison-request.validator.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
@@ -8,16 +8,16 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { validateGraphSceneData } from '../docs/website/assets/graph-scene-data.mts';
-import { validateDetailsIndexData } from '../docs/website/assets/graph-details-data.mts';
-import { parseWasmPathResult } from '../docs/website/assets/wasm-paths-data.mts';
-import { parseWasmComparison, validateComparisonParameters } from '../docs/website/assets/wasm-comparison-data.mts';
-import { validatePathGraphData } from '../docs/website/assets/path-graph-data.mts';
-import { validatePathRequest, validatePathReply } from '../docs/website/assets/path-worker-data.mts';
-import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/assets/atlas-data.mts';
+import { validateGraphSceneData } from '../docs/website/src/lib/graph-scene-data.mts';
+import { validateDetailsIndexData } from '../docs/website/src/lib/graph-details-data.mts';
+import { parseWasmPathResult } from '../docs/website/src/lib/wasm-paths-data.mts';
+import { parseWasmComparison, validateComparisonParameters } from '../docs/website/src/lib/wasm-comparison-data.mts';
+import { validatePathGraphData } from '../docs/website/src/lib/path-graph-data.mts';
+import { validatePathRequest, validatePathReply } from '../docs/website/src/lib/path-worker-data.mts';
+import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/src/lib/atlas-data.mts';
 
 test('standalone contracts stay within the generated-code size budget', () => {
-  const assets = new URL('../docs/website/assets/', import.meta.url);
+  const assets = new URL('../docs/website/src/generated/', import.meta.url);
   const bundles = readdirSync(assets).filter(name => name.endsWith('.validator.mjs') || name.startsWith('validator-runtime'))
     .map(name => readFileSync(new URL(name, assets)));
   assert.ok(bundles.reduce((sum, bytes) => sum + bytes.length, 0) <= 230_000, 'Generated validators exceed 230 kB raw');

@@ -1,4 +1,4 @@
-import { validateWasmComparison, type WasmComparisonResult } from './wasm-comparison.validator.mjs';
+import { validateWasmComparison, type WasmComparisonResult } from '../generated/wasm-comparison.validator.mjs';
 
 export function validateComparisonParameters(value: WasmComparisonResult, source: readonly string[], target: readonly string[]): void {
   const coordinates = new Set(source), fields = new Set(target);

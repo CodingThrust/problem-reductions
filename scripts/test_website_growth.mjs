@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { growth, pathDegree, sizeBadge, compareDegrees } from '../docs/website/assets/graph-growth.mts';
+import { growth, pathDegree, sizeBadge, compareDegrees } from '../docs/website/src/lib/graph-growth.mts';
 
 const field = (certificate, kind = 'exact') => ({ certificate, accuracy: { kind } });
 

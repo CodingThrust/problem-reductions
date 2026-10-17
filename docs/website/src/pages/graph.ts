@@ -1,12 +1,12 @@
 import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem } from "./graph-scene.ts";
-import { growth, pathDegree, sizeBadge, compareDegrees } from "./graph-growth.mts";
-import { validatePathReply, type PathRequest } from './path-worker-data.mts';
+import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
+import { validatePathReply, type PathRequest } from '../lib/path-worker-data.mts';
 
-import type { Endpoint, Route, Step, WasmPathResult } from './wasm-paths.validator.mjs';
-import type { WasmComparisonResult } from './wasm-comparison.validator.mjs';
-import type { GraphSceneData } from './graph-scene.validator.mjs';
+import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.validator.mjs';
+import type { WasmComparisonResult } from '../generated/wasm-comparison.validator.mjs';
+import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
 
 type Side = 'source' | 'target';
 interface Family { name: string; category: GraphSceneData['nodes'][number]['category']; variants: number[]; nbrs: Set<string> }
@@ -393,7 +393,7 @@ function compute(source: number, target: number, limit: number, onPaths: (result
       cached: {schema_version: cached.schema_version, paths: cached.paths, truncated: cached.truncated}}
     : {schema_version: 1, kind: 'search', source, target, limit};
   return new Promise<PathResult>((resolve, reject) => {
-    try { worker ||= new Worker(new URL('./path-worker.ts', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
+    try { worker ||= new Worker(new URL('../workers/path-worker.ts', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
     const engine = worker;
     let result = cached;
     worker.onmessage = ({ data }: MessageEvent<unknown>) => {

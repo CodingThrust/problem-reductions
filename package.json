@@ -4,7 +4,7 @@
   "scripts": {
     "build:frontend": "node scripts/build_frontend.mjs",
     "typecheck": "tsc --project tsconfig.json",
-    "lint:frontend": "eslint docs/website/assets scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs scripts/test_website_growth.mjs",
+    "lint:frontend": "eslint docs/website/src scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs scripts/test_website_growth.mjs",
     "generate:reduction-graph-layout": "node scripts/generate_reduction_graph_layout.js",
     "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js",
     "generate:frontend-contracts": "cargo run --locked -p problemreductions-web --features schema-export --example export_frontend_schema && node scripts/generate_website_contracts.mjs",

@@ -1,4 +1,4 @@
-import { validatePathGraph, type PathGraphData } from './path-graph.validator.mjs';
+import { validatePathGraph, type PathGraphData } from '../generated/path-graph.validator.mjs';
 
 export function validatePathGraphData(value: unknown): PathGraphData {
   if (!validatePathGraph(value)) throw new Error('Invalid path metadata contract. Reload the current release.');

@@ -10,21 +10,21 @@ verification, size budgets, deployment/rollback and outstanding acceptance gates
 ## Source layout
 
 - `index.html`, `graph.html`: Home/Atlas and Graph entry markup and preloads.
-- `assets/site.ts`, `site.css`: Home/Atlas navigation, search and reference pages.
-- `assets/graph-startup.ts`, `graph.ts`, `graph-scene.ts`, `graph.css`: validated
-  scene download, graph controller and native SVG rendering/gestures.
-- `assets/path-worker.ts`: Rust/WASM search and comparison; cancellation terminates
+- `src/pages/`: `site.ts` (Home/Atlas navigation, search, reference pages);
+  `graph-startup.ts`, `graph.ts`, `graph-scene.ts` (validated scene download, graph
+  controller, native SVG rendering/gestures); `details.ts` (shared lazy article
+  drawer/index and 24-entry article cache).
+- `src/workers/path-worker.ts`: Rust/WASM search and comparison; cancellation terminates
   the worker, successful queries retain it, and results use an eight-entry cache.
-- `assets/details.ts`, `details.css`: shared lazy article drawer/index and
-  24-entry article cache. `graph-growth.mts` displays exact certificate degrees.
-- `*.schema.json`, `assets/*-data.mts`: eleven contracts and their cross-field
-  checks. `assets/*.validator.mjs`, matching declarations and `validator-runtime*.mjs`
-  are committed generated outputs; edit schemas and regenerate, never edit guards.
-- `assets/graph-layout.js`: Node-only options used by the Python build's layout
-  generator; it is not a browser module.
-- `assets/fonts/`: licensed WOFF2 fonts. Home/guide retain the original static DM
-  Sans weights; Graph retains its variable font and smaller unhinted italic subset.
-  The full hinted italic face remains separate to preserve both pages' rendering.
+- `src/lib/`: `*-data.mts` boundary checks for the eleven contracts, `graph-growth.mts`
+  (exact certificate degrees) and `graph-layout.js` (Node-only layout options for the
+  Python build; not a browser module).
+- `src/styles/`: `site.css`, `graph.css`, `details.css`.
+- `*.schema.json`: the eleven JSON contracts. `src/generated/` holds the committed
+  validators, declarations and `validator-runtime*.mjs`; edit schemas and regenerate,
+  never edit guards.
+- `assets/fonts/`: licensed WOFF2 fonts. Pages share one variable DM Sans; Graph adds
+  DM Mono and a smaller unhinted italic subset, and the full hinted italic stays separate.
 - `formulas/`: Typst inputs compiled to the homepage's equation SVGs.
 
 No registry exports, generated articles, WASM binaries, screenshots or benchmark

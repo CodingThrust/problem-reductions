@@ -27,6 +27,7 @@ def build_frontend(output):
         for path in (output / 'assets').iterdir():
             if path.suffix in {'.js', '.mjs', '.css', '.ts', '.mts'} and path.name != 'path-selection.js':
                 path.unlink()
+        shutil.rmtree(output / 'src', ignore_errors=True)
         shutil.copytree(compiled, output, dirs_exist_ok=True)
 
 
@@ -169,6 +170,7 @@ def build(output, graph_path, schemas_path, open_questions=None):
     if (output / "open-questions").exists():
         shutil.rmtree(output / "open-questions")
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
+    shutil.copytree(source / "src", output / "src", dirs_exist_ok=True)
     for name in ("sat", "qubo"):
         subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
                         str(output / "assets" / f"{name}.svg")], check=True)

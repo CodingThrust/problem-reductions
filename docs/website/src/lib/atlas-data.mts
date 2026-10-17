@@ -1,4 +1,4 @@
-import { validateAtlas, type AtlasData, type AtlasSummary, type AtlasRecord } from './atlas-data.validator.mjs';
+import { validateAtlas, type AtlasData, type AtlasSummary, type AtlasRecord } from '../generated/atlas-data.validator.mjs';
 
 const error = () => new Error('Invalid atlas data. Reload the current release and try again.');
 

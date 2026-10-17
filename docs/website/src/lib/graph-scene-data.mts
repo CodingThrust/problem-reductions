@@ -1,4 +1,4 @@
-import { validateGraphScene, type GraphSceneData } from './graph-scene.validator.mjs';
+import { validateGraphScene, type GraphSceneData } from '../generated/graph-scene.validator.mjs';
 
 export function validateGraphSceneData(value: unknown): GraphSceneData {
   if (!validateGraphScene(value)) throw new Error('Invalid graph scene contract. Reload the current release.');
