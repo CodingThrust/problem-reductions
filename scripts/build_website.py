@@ -261,12 +261,17 @@ def build(output, graph_path, schemas_path, open_questions=None):
     }
     subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-summary'],
                    input=json.dumps(summary), text=True, check=True)
-    scene = {"layout": layout, "aliases": graph["aliases"],
-             "edges": [{key: edge[key] for key in ("source", "target", "witness", "turing")} for edge in edges],
-             "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
     engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
               "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
                         for edge in edges]}
+    # Each registered reduction's certified target-parameter growth, from the same engine as Paths mode.
+    growth = json.loads(subprocess.run(
+        ["cargo", "run", "--locked", "-q", "-p", "problemreductions-web", "--example", "export_edge_growth"],
+        cwd=ROOT, input=json.dumps(engine), check=True, capture_output=True, text=True).stdout)
+    scene = {"layout": layout, "aliases": graph["aliases"],
+             "edges": [{**{key: edge[key] for key in ("source", "target", "witness", "aggregate", "turing")}, "fields": fields}
+                       for edge, fields in zip(edges, growth, strict=True)],
+             "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
     for name, data in (("graph-scene", scene), ("path-graph", engine)):
         subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), name],
                        input=json.dumps(data), text=True, check=True)

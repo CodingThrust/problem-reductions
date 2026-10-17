@@ -8,7 +8,7 @@ export interface SceneNode extends Omit<SceneNodeInput, 'label'> {
   labelKey: string | null; width: number; height: number;
 }
 export interface SceneEdge {
-  id: string; source: SceneNode; target: SceneNode; shape: SVGLineElement;
+  id: string; source: SceneNode; target: SceneNode; shape: SVGLineElement; hit: SVGLineElement;
   label?: never;
 }
 export type SceneItem = SceneNode | SceneEdge;
@@ -49,7 +49,15 @@ export class GraphScene {
     const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -5 10 10', refX: 9, refY: 0,
       markerWidth: 11, markerHeight: 11, orient: 'auto', markerUnits: 'userSpaceOnUse'});
     marker.append(make('path', {d: 'M0,-4.5 L10,0 L0,4.5 Z', fill: 'var(--accent)'}));
-    defs.append(marker); this.svg.append(defs, this.world); container.append(this.svg);
+    defs.append(marker);
+    // One arrowhead per growth class so the colour follows the edge without relying on context-stroke.
+    for (const cls of ['constant', 'linear', 'quadratic', 'cubic', 'higher', 'unknown']) {
+      const head = make('marker', {id: 'arrow-' + cls, viewBox: '0 -5 10 10', refX: 9, refY: 0, markerWidth: 7, markerHeight: 7,
+        orient: 'auto', markerUnits: 'userSpaceOnUse'});
+      head.append(make('path', {d: 'M0,-4 L10,0 L0,4 Z', fill: `var(--g-${cls})`}));
+      defs.append(head);
+    }
+    this.svg.append(defs, this.world); container.append(this.svg);
     this.nodes = nodes.map(data => {
       const shape = make('g', {class: 'scene-node', 'data-node': data.id, role: 'button', tabindex: -1,
         'aria-haspopup': 'dialog', 'aria-label': data.label});
@@ -63,9 +71,11 @@ export class GraphScene {
     this.edges = edges.map(({s, t}) => {
       const source = this.byId.get(s), target = this.byId.get(t);
       if (!source?.label || !target?.label) throw new Error('A scene edge references a missing node');
-      const edge = {id: s + '→' + t, source, target,
-        shape: make('line', {class: 'scene-edge', 'data-edge': s + '→' + t, 'aria-hidden': 'true'})};
-      this.byId.set(edge.id, edge); this.world.append(edge.shape); return edge;
+      const id = s + '→' + t;
+      const edge = {id, source, target,
+        shape: make('line', {class: 'scene-edge', 'data-edge': id, 'aria-hidden': 'true'}),
+        hit: make('line', {class: 'edge-hit', 'data-hit': id, 'aria-hidden': 'true'})};
+      this.byId.set(edge.id, edge); this.world.append(edge.hit, edge.shape); return edge;
     });
     for (const node of this.nodes) this.world.append(node.shape);
     this.elements = [...this.nodes, ...this.edges];
@@ -81,8 +91,8 @@ export class GraphScene {
       if (e.button !== 0) return;
       this.stop();
       const p = point(e); pointers.set(e.pointerId, p);
-      const target = e.target instanceof Element ? e.target.closest('[data-node], [data-edge]') : null;
-      const id = target?.getAttribute('data-node') || target?.getAttribute('data-edge');
+      const target = e.target instanceof Element ? e.target.closest('[data-node], [data-edge], [data-hit]') : null;
+      const id = target?.getAttribute('data-node') || target?.getAttribute('data-edge') || target?.getAttribute('data-hit');
       gesture = {item: id ? this.byId.get(id) : undefined,
         moved: pointers.size > 1, start: p};
       this.svg.setPointerCapture(e.pointerId);
@@ -232,8 +242,10 @@ export class GraphScene {
     for (const node of this.nodes) node.shape.setAttribute('transform', `translate(${node.x} ${node.y})`);
     for (const edge of this.edges) {
       const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 4;
-      edge.shape.setAttribute('x1', String(a.x)); edge.shape.setAttribute('y1', String(a.y));
-      edge.shape.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); edge.shape.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
+      for (const line of [edge.shape, edge.hit]) {
+        line.setAttribute('x1', String(a.x)); line.setAttribute('y1', String(a.y));
+        line.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); line.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
+      }
     }
   }
   moveNode(node: SceneNode, dx: number, dy: number) {
@@ -279,7 +291,7 @@ export class GraphScene {
     this.animation = requestAnimationFrame(step);
   }
   labelBox(node: SceneNode): Bounds {
-    const important = ['route', 'start', 'end', 'hover', 'focused'].some(c => this.has(node, c));
+    const important = ['route', 'start', 'end', 'hover', 'focused', 'reach'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
     const key = size + ':' + text;
     if (node.labelKey !== key) {
@@ -297,8 +309,9 @@ export class GraphScene {
       node.width = Math.max(...lines.map(line => this.measure.measureText(line).width));
       node.height = lines.length * size * 1.25;
       node.label.replaceChildren(...lines.map((line, i) => {
+        // Wrapped lines stay separated for assistive technology, which reads textContent.
         const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = line; return span;
+        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = i < lines.length - 1 ? line + ' ' : line; return span;
       }));
       node.label.setAttribute('font-size', String(size));
     }

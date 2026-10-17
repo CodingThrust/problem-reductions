@@ -33,8 +33,15 @@
 </header>
 <main id="canvas" aria-label="Reduction graph"><div id="cy"></div></main>
 
-<section class="panel" aria-label="Reduction paths">
-  <header class="panel-head"><h1 class="brand"><a href="./index.html">Reduction paths</a></h1></header>
+<section class="panel" aria-label="Reduction graph tools">
+  <header class="panel-head">
+    <h1 class="brand"><a href="./index.html">Reduction graph</a></h1>
+    <div class="tabs" role="tablist" aria-label="Graph tools">
+      <button type="button" role="tab" id="tab-paths" aria-controls="view-paths" aria-selected="true">Paths</button>
+      <button type="button" role="tab" id="tab-overhead" aria-controls="view-overhead" aria-selected="false" tabindex="-1">Overhead</button>
+    </div>
+  </header>
+  <div id="view-paths" class="view" role="tabpanel" aria-labelledby="tab-paths">
   <div class="ends" id="ends">
     <div class="end from">
       <span class="pin" aria-hidden="true"></span>
@@ -49,6 +56,10 @@
   </div>
   <div id="search-status" class="sr-only" role="status"></div>
   <div class="results" id="results" aria-live="polite"></div>
+  </div>
+  <div id="view-overhead" class="view" role="tabpanel" aria-labelledby="tab-overhead" hidden>
+    <div class="lens" id="lens"></div>
+  </div>
 </section>
 
 <div class="pop" id="pop" role="dialog" aria-labelledby="pop-title" hidden></div>

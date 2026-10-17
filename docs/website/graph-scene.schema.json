@@ -23,12 +23,27 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["source", "target", "witness", "turing"],
+        "required": ["source", "target", "witness", "aggregate", "turing", "fields"],
         "properties": {
           "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
           "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
           "witness": {"type": "boolean"},
-          "turing": {"type": "boolean"}
+          "aggregate": {"type": "boolean"},
+          "turing": {"type": "boolean"},
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object", "additionalProperties": false,
+              "required": ["certificate", "accuracy"],
+              "properties": {
+                "certificate": {"type": ["string", "null"], "minLength": 1},
+                "accuracy": {
+                  "type": "object", "required": ["kind"],
+                  "properties": {"kind": {"enum": ["exact", "upper_bound", "unavailable"]}}
+                }
+              }
+            }
+          }
         }
       }
     },

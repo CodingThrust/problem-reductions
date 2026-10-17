@@ -149,6 +149,40 @@ class WebsiteTests(unittest.TestCase):
         self.page.keyboard.press('Enter')
         self.assert_accessible('graph-popover')
 
+    def test_accessibility_graph_overhead(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.get_by_role('tab', name='Overhead').click()
+        expect(self.page.locator('#lens .legend-row').first).to_be_visible()
+        self.assert_accessible('graph-overhead')
+
+    def test_graph_overhead_filter_recolours_edges_and_recomputes_groups(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.get_by_role('tab', name='Overhead').click()
+        groups = self.page.locator('#lens .group')
+        everything = groups.count()
+        self.assertGreater(everything, 0)
+        edges = self.page.locator('.scene-edge.e-linear, .scene-edge.e-quadratic, .scene-edge.e-cubic, .scene-edge.e-higher')
+        self.assertGreater(edges.count(), 0)
+        self.page.locator('[data-key="limit-linear"]').click()
+        self.assertLess(groups.count(), everything)
+        self.assertEqual(self.page.locator('#lens [role="radio"][aria-checked="true"][data-key="limit-linear"]').count(), 1)
+        self.assertGreater(self.page.locator('.scene-edge.off').count(), 0)
+        self.page.get_by_role('tab', name='Paths').click()
+        self.assertEqual(self.page.locator('.scene-edge.off').count(), 0)
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+
+    def test_graph_overhead_reach_hands_off_to_paths(self):
+        self.page.goto(self.base + 'graph.html')
+        self.page.get_by_role('tab', name='Overhead').click()
+        self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').focus()
+        self.page.keyboard.press('Enter')
+        self.page.get_by_role('button', name='Downstream').click()
+        expect(self.page.locator('#lens .reach-row').first).to_be_visible()
+        self.page.locator('#lens .reach-row', has_text='QUBO').click()
+        expect(self.page.locator('#tab-paths')).to_have_attribute('aria-selected', 'true')
+        expect(self.page.locator('#target')).to_have_value('QUBO')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+
     def test_accessibility_graph_desktop_drawer(self):
         self.page.goto(self.base + 'graph.html')
         self.page.locator('.steps button').first.click()
@@ -598,7 +632,7 @@ class WebsiteTests(unittest.TestCase):
         self.visit()
         self.page.get_by_role('link', name='Graph', exact=True).click()
         expect(self.page.locator('#cy svg.graph-scene').first).to_be_visible()
-        self.page.get_by_role('link', name='Reduction paths', exact=True).click()
+        self.page.get_by_role('link', name='Reduction graph', exact=True).click()
         expect(self.page.locator('main .hero')).to_be_visible()
 
     def test_graph_pan_zoom_and_node_drag_preserve_route(self):

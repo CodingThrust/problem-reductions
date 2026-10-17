@@ -336,6 +336,49 @@ struct ComparisonQuery {
     paths: Vec<Route>,
 }
 
+impl Edge {
+    /// The registered parameter relation of this one reduction.
+    fn transform(&self, label: &str) -> Result<ParameterTransform, String> {
+        if let Some(error) = &self.parameter_contract_error {
+            return Err(error.clone());
+        }
+        let mut fields = Vec::new();
+        for parameter in &self.parameters {
+            if parameter.contract == Contract::Unavailable {
+                continue;
+            }
+            let formula = parameter
+                .formula
+                .as_ref()
+                .ok_or("Missing parameter formula.")?;
+            let relation = if parameter.contract == Contract::Exact {
+                ParameterRelation::Exact
+            } else {
+                ParameterRelation::UpperBound
+            };
+            fields.push((
+                parameter.field.clone(),
+                relation,
+                Expr::try_parse(formula).map_err(|error| error.to_string())?,
+            ));
+        }
+        let mut transform = ParameterTransform::from_fields(label.to_string(), fields)
+            .map_err(|error| error.to_string())?;
+        for parameter in &self.parameters {
+            if parameter.contract == Contract::Unavailable {
+                transform.declare_unavailable(
+                    &parameter.field,
+                    parameter
+                        .reason
+                        .as_deref()
+                        .ok_or("Missing reason for unavailable parameter.")?,
+                );
+            }
+        }
+        Ok(transform)
+    }
+}
+
 impl Graph {
     fn route_indices(&self, route: &Route) -> Result<Vec<usize>, JsError> {
         if route.path.is_empty() || route.steps != route.path.len() {
@@ -378,39 +421,12 @@ pub fn summarize_paths(input: &str) -> Result<String, JsError> {
                 .iter()
                 .find(|edge| edge.source == pair[0] && edge.target == pair[1])
                 .ok_or_else(|| JsError::new("Path references an unregistered reduction."))?;
-            if let Some(error) = &edge.parameter_contract_error {
-                return Err(JsError::new(error));
-            }
-            let mut fields = Vec::new();
-            for parameter in &edge.parameters {
-                if parameter.contract == Contract::Unavailable {
-                    continue;
-                }
-                let formula = parameter
-                    .formula
-                    .as_ref()
-                    .ok_or_else(|| JsError::new("Missing parameter formula."))?;
-                let relation = if parameter.contract == Contract::Exact {
-                    ParameterRelation::Exact
-                } else {
-                    ParameterRelation::UpperBound
-                };
-                fields.push((parameter.field.clone(), relation, Expr::try_parse(formula)?));
-            }
-            let mut transform = ParameterTransform::from_fields(
-                format!("{} -> {}", nodes[pair[0]].name, nodes[pair[1]].name),
-                fields,
-            )?;
-            for parameter in &edge.parameters {
-                if parameter.contract == Contract::Unavailable {
-                    transform.declare_unavailable(
-                        &parameter.field,
-                        parameter.reason.as_deref().ok_or_else(|| {
-                            JsError::new("Missing reason for unavailable parameter.")
-                        })?,
-                    );
-                }
-            }
+            let transform = edge
+                .transform(&format!(
+                    "{} -> {}",
+                    nodes[pair[0]].name, nodes[pair[1]].name
+                ))
+                .map_err(|error| JsError::new(&error))?;
             composed = Some(if let Some(prefix) = composed {
                 prefix.compose(
                     &transform,
@@ -437,34 +453,7 @@ pub fn summarize_paths(input: &str) -> Result<String, JsError> {
     let profiles = profiles
         .iter()
         .map(|profile| {
-            let fields = profile
-                .fields
-                .iter()
-                .map(|(name, field)| {
-                    let (certificate, accuracy) = match &field.certificate {
-                        Ok((poly, relation)) => (
-                            Some(poly.to_expr().to_string()),
-                            match relation {
-                                ParameterRelation::Exact => ComparisonAccuracy::Exact,
-                                ParameterRelation::UpperBound => ComparisonAccuracy::UpperBound,
-                            },
-                        ),
-                        Err(reason) => (
-                            None,
-                            ComparisonAccuracy::Unavailable {
-                                reason: reason.into(),
-                            },
-                        ),
-                    };
-                    (
-                        name.clone(),
-                        ComparisonField {
-                            certificate,
-                            accuracy,
-                        },
-                    )
-                })
-                .collect();
+            let fields = comparison_fields(profile);
             ComparisonProfile {
                 source_coordinates: profile.domain.iter().map(ToString::to_string).collect(),
                 fields,
@@ -476,6 +465,51 @@ pub fn summarize_paths(input: &str) -> Result<String, JsError> {
         front: result.front.into_iter().map(|index| index + 1).collect(),
         counts: result.counts.into(),
     })?)
+}
+
+fn comparison_fields(profile: &Profile) -> BTreeMap<String, ComparisonField> {
+    profile
+        .fields
+        .iter()
+        .map(|(name, field)| {
+            let (certificate, accuracy) = match &field.certificate {
+                Ok((poly, relation)) => (
+                    Some(poly.to_expr().to_string()),
+                    match relation {
+                        ParameterRelation::Exact => ComparisonAccuracy::Exact,
+                        ParameterRelation::UpperBound => ComparisonAccuracy::UpperBound,
+                    },
+                ),
+                Err(reason) => (
+                    None,
+                    ComparisonAccuracy::Unavailable {
+                        reason: reason.into(),
+                    },
+                ),
+            };
+            (
+                name.clone(),
+                ComparisonField {
+                    certificate,
+                    accuracy,
+                },
+            )
+        })
+        .collect()
+}
+
+/// Growth of every registered reduction taken alone: one certified field map per edge, in edge order.
+pub fn edge_growth(input: &str) -> Result<String, String> {
+    let Graph { nodes, edges } = serde_json::from_str(input).map_err(|error| error.to_string())?;
+    let growth = edges
+        .iter()
+        .map(|edge| {
+            let label = format!("{} -> {}", nodes[edge.source].name, nodes[edge.target].name);
+            edge.transform(&label)
+                .map(|transform| comparison_fields(&Profile::from_transform(&transform)))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    serde_json::to_string(&growth).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

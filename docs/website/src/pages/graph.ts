@@ -1,7 +1,8 @@
 import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
-import { GraphScene, type SceneNode, type SceneItem } from "./graph-scene.ts";
+import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
+import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, type ClassId, type RuleEdge, type Scope, type FamilyRule } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -89,7 +90,7 @@ const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = reques
 function placeLabels() {
   const r = freeRect(), boxes: Bounds[] = [];
   const box = (n: SceneNode) => scene.labelBox(n);
-  const important = (n: SceneNode) => ["route", "start", "end", "hover", "focused"].some(c => scene.has(n, c));
+  const important = (n: SceneNode) => ["route", "start", "end", "hover", "focused", "reach"].some(c => scene.has(n, c));
   const fits = (b: Bounds) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
   const hit = (b: Bounds) => boxes.some(o => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
   scene.classes(scene.nodes, "named");
@@ -106,7 +107,7 @@ scene.onChange = scheduleLabels;
 scene.onDrag = () => { scheduleLabels(); placePop(); };
 scene.onHover = (n, over) => {
   scene.classes([n], over ? "" : "hover", over ? "hover" : "");
-  if (!state.result) {
+  if (!state.result && !lensOn) {
     if (over) {
       scene.classes(scene.elements.filter(e => e !== n && !families.get(n.id)!.nbrs.has(e.id)), "", "dim");
       scene.classes(scene.edges.filter(e => e.source === n || e.target === n), "dim", "nbr");
@@ -116,6 +117,7 @@ scene.onHover = (n, over) => {
 };
 
 /* ---------- State ---------- */
+let lensOn = false;
 const state: State = { source: null, target: null, limit: 20, result: null, selected: null, picked: false, showSlower: false, busy: false };
 
 /* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
@@ -245,14 +247,14 @@ for (const side of ["source", "target"] as const) {
 $("#swap").addEventListener("click", () => { [state.source, state.target] = [state.target, state.source]; syncEnds(); if (state.source != null && state.target != null) run(); });
 
 /* ---------- Node popover ---------- */
-let popNode: SceneNode | null = null, popIndex: number | null = null;
+let popNode: SceneNode | null = null, popAnchor: SceneItem | null = null, popIndex: number | null = null;
 function routeVariantOf(name: string) {
   const r = state.result?.paths[state.selected! - 1]; if (!r) return null;
   const hit = endpoints(r).find((e) => e.name === name);
   return hit ? indexOf.get(keyOf(hit)) : null;
 }
 function openPop(node: SceneNode, {keyboard = false} = {}) {
-  popNode = node;
+  popNode = popAnchor = node;
   const name = node.id;
   popIndex = [state.source, state.target].find((i) => i != null && D.nodes[i]!.name === name) ?? routeVariantOf(name) ?? defaults[name]!;
   renderPop();
@@ -270,12 +272,13 @@ function renderPop() {
   acts.append(a, b); pop.append(acts);
   const details = el("button", "pop-details", "Details"); details.type = "button";
   details.onclick = () => showProblem(D.nodes[popIndex!]!); pop.append(details);
+  if (lensOn) pop.append(popLens(popIndex!));
   pop.hidden = false; placePop();
   restoreVariantGroup(pop, focusGroup);
 }
 function placePop() {
-  if (!popNode || $("#pop").hidden) return;
-  const pop = $("#pop"), p = scene.position(popNode), r = freeRect();
+  if (!popAnchor || $("#pop").hidden) return;
+  const pop = $("#pop"), p = scene.position(popAnchor), r = freeRect();
   pop.style.maxHeight = Math.max(1, r.h - 24) + "px";
   const w = pop.offsetWidth, h = pop.offsetHeight;
   let x = p.x + 20; if (x + w > r.x + r.w - 12) x = p.x - 20 - w;
@@ -284,7 +287,7 @@ function placePop() {
 }
 function closePop(restoreFocus = false) {
   const opener = popNode?.shape;
-  popNode = null; $("#pop").hidden = true;
+  popNode = popAnchor = null; $("#pop").hidden = true;
   if (restoreFocus) opener?.focus({preventScroll: true});
 }
 scene.onNodeTap = openPop;
@@ -362,6 +365,7 @@ function pulseAndFrame(name: string) {
 }
 $("#close-details").onclick = closeDetails;
 scene.onEdgeTap = (edge) => {
+  if (lensOn) { openEdgePop(edge); return; }
   if (!scene.has(edge, "route")) return;
   const step = state.result?.paths[state.selected! - 1]!.path.find((s) =>
     s.from.name === edge.source.id && s.to.name === edge.target.id);
@@ -469,6 +473,7 @@ function routeEls(n: number) {
   return [...ids].map(id => scene.byId.get(id)!);
 }
 function paintGraph() {
+  if (lensOn) return;
   scene.classes(scene.elements, "dim ghost route start end nbr");
   scene.nodes.forEach(n => { n.routeLabel = display(n.id); });
   if (state.result && state.selected) {
@@ -620,6 +625,231 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     box.append(t);
     if (open) slower.forEach((n) => box.append(pathRow(n, true)));
   }
+}
+
+
+/* ---------- Overhead lens ---------- */
+/* Analysis runs on concrete variants. A family edge only groups the exact variant rules behind it. */
+const rules = D.edges as RuleEdge[];
+interface Lens { scope: Scope; limit: ClassId; noIlp: boolean; focus: number | null; dir: 'down' | 'up'; group: number | null }
+const lens: Lens = { scope: 'witness', limit: 'unknown', noIlp: false, focus: null, dir: 'down', group: null };
+const classOrder = CLASSES.map(c => c.id);
+const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
+  { id: 'witness', name: 'Witness', hint: 'Rules that map solutions back to the source. Paths mode searches this scope.' },
+  { id: 'aggregate', name: 'Value', hint: 'Rules that also map completed values (optimum, count, decision).' },
+  { id: 'turing', name: 'Turing', hint: 'Multi-query rules, such as binary search over a decision bound.' },
+];
+const vtext = (i: number) => Object.entries(D.nodes[i]!.variant).map(([k, v]) => k + ": " + v).join("  ") || "default";
+const vname = (i: number) => display(D.nodes[i]!.name) + (multi(D.nodes[i]!.name) ? " · " + vtext(i) : "");
+const skipIlp = () => new Set(lens.noIlp ? rules.flatMap((r, i) => D.nodes[r.source]!.name === "ILP" || D.nodes[r.target]!.name === "ILP" ? [i] : []) : []);
+const badge = (cls: ClassId) => {
+  const c = CLASSES.find(x => x.id === cls)!, b = el("span", "gc g-" + cls, c.label);
+  b.title = c.name; return b;
+};
+const nontrivial = (groups: number[][]) => groups.filter(g => g.length > 1).sort((a, b) => b.length - a.length);
+function lensModel() {
+  const skip = skipIlp(), active = activeRules(rules, { scope: lens.scope, limit: lens.limit, skip });
+  const links = active.map(i => rules[i]!), fam = familyRules(D.nodes, rules, active);
+  const groups = nontrivial(components(D.nodes.length, links).groups);
+  const scoped = activeRules(rules, { scope: lens.scope, limit: "unknown", skip });
+  const counts = new Map<ClassId, number>();
+  scoped.forEach(i => { const c = edgeGrowth(rules[i]!).cls; counts.set(c, (counts.get(c) ?? 0) + 1); });
+  const baseline = nontrivial(components(D.nodes.length, scoped.map(i => rules[i]!)).groups).length;
+  return { active, links, fam, groups, scoped, counts, baseline };
+}
+let model = lensModel();
+const ruleClass = (i: number) => edgeGrowth(rules[i]!).cls;
+const ruleSteps = (i: number) => ({ from: { name: D.nodes[rules[i]!.source]!.name, variant: D.nodes[rules[i]!.source]!.variant },
+  to: { name: D.nodes[rules[i]!.target]!.name, variant: D.nodes[rules[i]!.target]!.variant } });
+
+function reachOf(focus: number) {
+  const variants = reach(D.nodes.length, model.links, focus, lens.dir);
+  const byFamily = new Map<string, number[]>();
+  variants.forEach(v => { const n = D.nodes[v]!.name; (byFamily.get(n) ?? byFamily.set(n, []).get(n)!).push(v); });
+  byFamily.delete(D.nodes[focus]!.name);
+  return { variants, byFamily };
+}
+
+function paintLens() {
+  const edgeClasses = classOrder.map(c => "e-" + c).join(" ");
+  scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick " + edgeClasses);
+  const linked = new Set<string>(), cyc = new Set<string>();
+  model.fam.forEach(f => { linked.add(f.source); linked.add(f.target); });
+  model.groups.forEach(g => g.forEach(v => cyc.add(D.nodes[v]!.name)));
+  scene.nodes.forEach(n => { n.routeLabel = display(n.id); });
+  const picked = lens.group != null ? new Set(model.groups[lens.group]) : null;
+  const focus = lens.focus != null ? { ...reachOf(lens.focus), v: lens.focus } : null;
+  const inside = (v: number) => picked ? picked.has(v) : focus ? v === focus.v || focus.variants.has(v) : true;
+  const lit = new Set<string>();
+  scene.edges.forEach(edge => {
+    const f = model.fam.get(edge.id);
+    if (!f) { scene.classes([edge], "", "off"); return; }
+    scene.classes([edge], "", "e-" + f.cls);
+    if ((picked || focus) && !f.rules.some(i => inside(rules[i]!.source) && inside(rules[i]!.target))) scene.classes([edge], "", "dim");
+    else if (picked || focus) { lit.add(edge.source.id); lit.add(edge.target.id); }
+  });
+  scene.nodes.forEach(node => {
+    const members = families.get(node.id)!.variants;
+    if (cyc.has(node.id)) scene.classes([node], "", "cyc");
+    if (picked || focus) {
+      if (members.some(inside) && (lit.has(node.id) || (focus && members.includes(focus.v)) || members.some(v => picked?.has(v)))) scene.classes([node], "", "reach");
+      else scene.classes([node], "", "dim");
+    } else if (!linked.has(node.id)) scene.classes([node], "", "dim");
+  });
+  scene.nodes.forEach(node => node.shape.setAttribute('aria-label', scene.describe(node) + (cyc.has(node.id) ? ', in a mutually reachable group' : '')));
+  scheduleLabels();
+}
+function refreshLens() { model = lensModel(); if (lens.group != null && lens.group >= model.groups.length) lens.group = null; paintLens(); renderLens(); }
+
+function radio(box: HTMLElement, label: string, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
+  const row = el("div", "seg"); row.setAttribute("role", "radiogroup"); row.setAttribute("aria-label", label);
+  items.forEach(item => {
+    const b = el("button", "", item.text); b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(item.id === current));
+    if (item.title) b.title = item.title;
+    b.addEventListener("click", () => pick(item.id)); row.append(b);
+  });
+  box.append(row); return row;
+}
+function renderLens() {
+  const box = $("#lens"), hadFocus = document.activeElement?.closest("#lens") ? (document.activeElement as HTMLElement).dataset.key : null;
+  box.replaceChildren();
+  const m = model;
+  if (lens.focus != null) {
+    const { variants, byFamily } = reachOf(lens.focus), f = lens.focus;
+    box.append(el("h2", "lens-title", lens.dir === "down" ? "Reachable from" : "Reaching"));
+    const head = el("p", "focus-head"); head.append(el("strong", "", vname(f)));
+    const clear = el("button", "link", "Clear"); clear.type = "button"; clear.addEventListener("click", () => { lens.focus = null; paintLens(); renderLens(); });
+    box.append(head, el("p", "hint", `${variants.size} variants in ${byFamily.size + 1} families, following only rules in the active set.`), clear);
+    const items = el("div", "reach-list");
+    [...byFamily].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).forEach(([name, vs]) => {
+      const b = el("button", "reach-row"); b.type = "button";
+      b.append(el("span", "", display(name)), el("small", "", multi(name) ? `${vs.length}/${families.get(name)!.variants.length} variants` : ""));
+      b.title = "Compare routes in Paths mode";
+      b.addEventListener("click", () => { const pair = lens.dir === "down" ? [f, vs[0]!] : [vs[0]!, f]; setTab("paths"); state.source = pair[0]!; state.target = pair[1]!; syncEnds(); run(); });
+      items.append(b);
+    });
+    box.append(items);
+  }
+  const intro = el("p", "lens-intro");
+  intro.append("Each arrow is coloured by the ", el("strong", "", "total degree"), " of its target sizes when every source size grows together. A growth convention, not a runtime bound.");
+  box.append(intro);
+  box.append(el("h2", "lens-title", "Rules in scope"));
+  radio(box, "Rule scope", SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), lens.scope, id => { lens.scope = id as Scope; lens.focus = null; lens.group = null; refreshLens(); });
+  box.append(el("p", "hint", SCOPES.find(x => x.id === lens.scope)!.hint));
+
+  box.append(el("h2", "lens-title", "Growth of the reduced problem"));
+  const legend = el("div", "legend"); legend.setAttribute("role", "radiogroup"); legend.setAttribute("aria-label", "Show rules up to this growth class");
+  const limitAt = classOrder.indexOf(lens.limit);
+  CLASSES.forEach((c, i) => {
+    const n = m.counts.get(c.id) ?? 0;
+    if (!n) return;
+    const b = el("button", "legend-row" + (i <= limitAt ? " on" : "")); b.type = "button"; b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(c.id === lens.limit)); b.dataset.key = "limit-" + c.id;
+    const sw = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sw.setAttribute("class", "swatch g-" + c.id); sw.setAttribute("viewBox", "0 0 34 8"); sw.setAttribute("aria-hidden", "true");
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line"); for (const [k, v] of Object.entries({ x1: 1, y1: 4, x2: 33, y2: 4 })) line.setAttribute(k, String(v));
+    sw.append(line);
+    b.append(sw, el("span", "gc-name", c.name), el("span", "gc-label", c.label), el("span", "gc-count", String(n)));
+    b.title = c.id === "unknown" ? "Show every rule, including those with an unavailable target parameter" : `Show rules up to ${c.name.toLowerCase()} growth`;
+    b.addEventListener("click", () => { lens.limit = c.id; lens.focus = null; refreshLens(); });
+    legend.append(b);
+  });
+  box.append(legend);
+  const hubs = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = lens.noIlp; cb.dataset.key = "noilp";
+  const ilpCount = rules.filter((r, i) => r[lens.scope] && (D.nodes[r.source]!.name === "ILP" || D.nodes[r.target]!.name === "ILP")).length;
+  const total = rules.filter(r => r[lens.scope]).length;
+  cb.addEventListener("change", () => { lens.noIlp = cb.checked; lens.focus = null; refreshLens(); });
+  hubs.append(cb, el("span", "", `Hide rules touching ILP (${ilpCount} of ${total})`)); box.append(hubs);
+  const sum = el("p", "lens-sum"); sum.append(el("strong", "", String(m.active.length)), ` of ${total} rules · ${m.fam.size} family links`); box.append(sum);
+
+  box.append(el("h2", "lens-title", "Mutually reachable groups"));
+  const note = el("p", "hint", m.baseline === m.groups.length
+    ? `${m.groups.length} groups of variants that reduce to each other, through these rules.`
+    : `${m.groups.length} groups now, ${m.baseline} with every rule in scope. Cheaper rules break the rest.`);
+  box.append(note);
+  const list = el("div", "groups");
+  m.groups.forEach((g, gi) => {
+    const b = el("button", "group"); b.type = "button"; b.dataset.key = "group-" + gi; b.setAttribute("aria-pressed", String(lens.group === gi));
+    b.append(el("span", "group-size", String(g.length)));
+    const names = el("span", "group-names"); g.slice().sort((a, c) => a - c).forEach(v => names.append(el("span", "", vname(v)))); b.append(names);
+    b.addEventListener("click", () => { lens.group = lens.group === gi ? null : gi; lens.focus = null; paintLens(); renderLens(); if (lens.group != null) frame(scene.elements.filter(e => e.label && scene.has(e, "reach")), 1.2); });
+    list.append(b);
+  });
+  if (!m.groups.length) list.append(el("p", "hint", "No variants are mutually reachable under this filter."));
+  box.append(list);
+
+  const foot = el("p", "hint foot", "Reachability is connectivity among registered reductions. It does not establish solver availability or efficiency.");
+  box.append(foot);
+  if (hadFocus) box.querySelector<HTMLElement>(`[data-key="${hadFocus}"]`)?.focus({ preventScroll: true });
+}
+
+/* Node popover section: reach and outgoing rules for the chosen variant. */
+function popLens(v: number) {
+  const wrap = el("div", "pop-lens");
+  const down = reach(D.nodes.length, model.links, v, "down").size, up = reach(D.nodes.length, model.links, v, "up").size;
+  const row = el("div", "pop-reach");
+  for (const [dir, label, n] of [["down", "Downstream", down], ["up", "Upstream", up]] as const) {
+    const b = el("button", "", `${label} ${n}`); b.type = "button"; b.title = `${n} variants ${dir === "down" ? "reachable from" : "that reach"} this one`;
+    b.setAttribute("aria-pressed", String(lens.focus === v && lens.dir === dir));
+    b.addEventListener("click", () => {
+      lens.focus = v; lens.dir = dir; lens.group = null; closePop(); paintLens(); renderLens();
+      frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.2);
+    });
+    row.append(b);
+  }
+  wrap.append(row);
+  const out = [...model.fam.values()].filter(f => f.source === D.nodes[v]!.name);
+  if (out.length) {
+    wrap.append(el("p", "pop-sub", "Rules out of this problem"));
+    out.sort((a, b) => classOrder.indexOf(a.cls) - classOrder.indexOf(b.cls)).forEach(f => {
+      const b = el("button", "pop-rule"); b.type = "button"; b.append(badge(f.cls), el("span", "", display(f.target)));
+      b.addEventListener("click", () => openEdgePop(scene.byId.get(f.source + "→" + f.target) as SceneEdge));
+      wrap.append(b);
+    });
+  }
+  return wrap;
+}
+
+/* Edge inspector: every variant rule behind a family link, with exact and bounded formulas kept apart. */
+function openEdgePop(edge: SceneEdge) {
+  const f = model.fam.get(edge.id);
+  if (!f) return;
+  popNode = null; popAnchor = edge;
+  const pop = $("#pop"); pop.replaceChildren();
+  const title = el("h2", "", display(f.source) + " → " + display(f.target)); title.id = "pop-title"; pop.append(title);
+  pop.append(el("p", "hint", `${f.rules.length} variant rule${f.rules.length === 1 ? "" : "s"} in scope`));
+  [...f.rules].sort((a, b) => classOrder.indexOf(ruleClass(a)) - classOrder.indexOf(ruleClass(b))).forEach(i => {
+    const rule = rules[i]!, g = edgeGrowth(rule), card = el("div", "rule-card");
+    const head = el("button", "rule-head"); head.type = "button";
+    head.append(badge(g.cls), el("span", "rule-ends", `${vtext(rule.source)} → ${vtext(rule.target)}`));
+    head.title = "Open the rule article"; head.addEventListener("click", () => showRule(ruleSteps(i) as Step));
+    card.append(head);
+    const dl = el("dl", "growth");
+    g.fields.forEach(x => { dl.append(el("dt", "", prettyField(x.name)), el("dd", "", x.kind === "unavailable" ? "unavailable" : x.lead)); });
+    card.append(dl);
+    card.append(el("small", "acc", g.accuracy === "exact" ? "Θ: every formula is exact" : "O: at least one formula is an upper bound"));
+    pop.append(card);
+  });
+  const close = el("button", "pop-details", "Close"); close.type = "button"; close.onclick = () => closePop(); pop.append(close);
+  pop.hidden = false; placePop();
+}
+
+function setTab(name: "paths" | "overhead") {
+  lensOn = name === "overhead";
+  for (const id of ["paths", "overhead"] as const) {
+    const tab = $("#tab-" + id); tab.setAttribute("aria-selected", String(id === name)); tab.tabIndex = id === name ? 0 : -1;
+    $("#view-" + id).hidden = id !== name;
+  }
+  document.body.classList.toggle("lens", lensOn);
+  closePop();
+  if (lensOn) { model = lensModel(); paintLens(); renderLens(); frame(scene.elements, 1); }
+  else { scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick " + classOrder.map(c => "e-" + c).join(" ")); paintGraph(); }
+}
+for (const id of ["paths", "overhead"] as const) {
+  $("#tab-" + id).addEventListener("click", () => setTab(id));
+  $("#tab-" + id).addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const other = id === "paths" ? "overhead" : "paths"; setTab(other); $("#tab-" + other).focus();
+  });
 }
 
 /* ---------- Dock and resize ---------- */
