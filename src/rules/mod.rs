@@ -104,6 +104,7 @@ pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
 pub(crate) mod minimummaximalmatching_minimummatrixdomination;
 pub(crate) mod minimummultiwaycut_qubo;
+mod minimumvertexcover_casts;
 pub(crate) mod minimumvertexcover_comparativecontainment;
 pub(crate) mod minimumvertexcover_ensemblecomputation;
 pub(crate) mod minimumvertexcover_longestcommonsubsequence;

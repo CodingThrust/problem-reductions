@@ -11531,6 +11531,19 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
 == Trivial Reductions
 
+#reduction-rule("MinimumVertexCover", "MinimumVertexCover",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "i64"),
+)[
+  A unit-weight vertex cover instance embeds directly into integer-weight vertex cover by assigning integer weight $1$ to every vertex. The graph and both parameter counts are unchanged.
+][
+  _Construction._ Copy the source graph $G = (V, E)$ and set $w_v = 1$ for every $v in V$.
+
+  _Correctness._ In both directions, a vertex subset covers the target edges exactly when it covers the source edges, since the graphs are identical. Every feasible subset $C$ has target weight $sum_(v in C) 1 = |C|$, equal to its source objective, so the optimal subsets and values coincide.
+
+  _Solution extraction._ Return the target vertex-selection vector unchanged. Aggregate value extraction is also the identity.
+]
+
 #let mvc_mis = load-example("MinimumVertexCover", "MaximumIndependentSet")
 #let mvc_mis_sol = mvc_mis.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "MaximumIndependentSet",
