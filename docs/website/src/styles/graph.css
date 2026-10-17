@@ -199,7 +199,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 /* Explore: a map-style panel, with browsing and searching apart from directions */
 .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .panel-head { display: flex; align-items: center; gap: 8px; }
-.search-row { display: flex; gap: 8px; padding: 6px 14px 10px; }
+.search-row { display: flex; gap: 8px; padding: 18px 16px 14px; }
 .searchbox { flex: 1; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; background: rgba(237,242,232,.07); color: var(--ink-3); border: 1px solid transparent; }
 .searchbox:focus-within { border-color: color-mix(in oklab, var(--accent) 55%, transparent); color: var(--ink); }
 .searchbox input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; font-size: 15px; color: var(--ink); }
@@ -212,7 +212,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .back-btn:hover { background: var(--hover); color: var(--ink); }
 .dir-head { padding-top: 14px; padding-bottom: 2px; }
 .dir-head .brand { margin-left: 0; }
-.explore-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 16px; overscroll-behavior: contain; scrollbar-width: thin; }
+.explore-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 20px; overscroll-behavior: contain; scrollbar-width: thin; }
 .seg { display: flex; padding: 3px; gap: 2px; background: rgba(237,242,232,.07); border-radius: 10px; }
 .seg button { flex: 1; padding: 5px 10px; border-radius: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .seg button:hover { color: var(--ink); }
@@ -261,8 +261,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .legend-chip[aria-checked="true"] { background: rgba(237,242,232,.08); box-shadow: inset 0 0 0 1px currentColor; }
 .legend-chip b { font-weight: 500; }
 .legend-chip span { color: var(--ink-2); }
-.guide { font: 600 16px var(--sans); fill: var(--ink-2); letter-spacing: -.01em; }
-.guide-count { font-weight: 400; fill: var(--ink-3); }
 @media (max-width: 760px) {
   .mapbar { left: 10px; top: calc(var(--header-height) + 8px); }
   .growth-legend { left: 10px; bottom: calc(56dvh + 12px); }
@@ -299,8 +297,25 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .explore .scene-edge.hub { opacity: .05; }
 .explore .scene-edge.hub.lit { opacity: 1; }
 
-.explore.layered .scene-edge { opacity: .14; }
-.explore.layered .scene-edge.lit { opacity: 1; }
-.explore.layered .scene-edge.dim { opacity: .04; }
-.explore.layered .scene-edge.hub { opacity: .05; }
-.explore.layered .scene-edge.hub.lit { opacity: 1; }
+
+/* Explore panel: one thing at a time */
+.entries { display: grid; gap: 8px; margin-top: 4px; }
+.entry { display: flex; align-items: baseline; gap: 10px; padding: 16px 16px; border: 1px solid var(--line); border-radius: 14px; text-align: left; }
+.entry:hover { background: var(--hover); }
+.entry-title { flex: 1; font: 500 16px var(--sans); }
+.entry-n { color: var(--ink-3); font: 13px var(--mono); }
+.entry-go { color: var(--ink-3); font-size: 18px; }
+h2.eyebrow { margin: 0; font: 500 12px var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.entries + h2.eyebrow { margin: 28px 0 12px; }
+.section-row { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 6px; }
+.page-title { margin: 4px 0 10px; font: 600 22px/1.2 var(--sans); letter-spacing: -.01em; }
+.block { margin-top: 26px; }
+.block .note { padding: 0 0 6px; }
+.variant { margin: 18px 0 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.variant summary { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; cursor: pointer; font-size: 14px; list-style: none; }
+.variant summary::-webkit-details-marker { display: none; }
+.variant summary small { color: var(--ink-3); font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.variant .options { padding-bottom: 12px; }
+.acts { margin: 16px 0 0; }
+.act.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 500; }
+.act:first-child:not(.primary) { background: none; color: var(--ink); border-color: var(--line); font-weight: 400; }

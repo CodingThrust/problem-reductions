@@ -66,7 +66,7 @@ test('family rules keep every variant rule traceable and never join distinct var
   assert.equal(familyRules(nodes, rules, [1]).get('A→B').cls, 'cubic');
 });
 
-import { depthsFrom, layeredLayout } from '../docs/website/src/lib/graph-structure.mts';
+import { depthsFrom } from '../docs/website/src/lib/graph-structure.mts';
 
 const link = (source, target) => ({ source, target });
 
@@ -74,29 +74,4 @@ test('depth is the fewest reductions from any root, and unreachable problems sta
   const depths = depthsFrom(['SAT', 'A', 'B', 'C', 'Z'], [link('SAT', 'A'), link('A', 'B'), link('SAT', 'B'), link('Z', 'C')], ['SAT']);
   assert.deepEqual([...depths], [['SAT', 0], ['A', 1], ['B', 1], ['C', null], ['Z', null]]);
   assert.equal(depthsFrom(['X'], [], ['Missing']).get('X'), null);
-});
-
-test('layered layout puts depth left to right, unreachable below, and never overlaps nodes', () => {
-  const names = ['SAT', 'A', 'B', 'C', 'Z', 'Y'];
-  const links = [link('SAT', 'A'), link('A', 'B'), link('SAT', 'C')];
-  const depths = depthsFrom(names, links, ['SAT']);
-  const { positions, guides } = layeredLayout(names, depths, links);
-  assert.ok(positions.get('SAT').x < positions.get('A').x);
-  assert.ok(positions.get('A').x < positions.get('B').x);
-  assert.equal(positions.get('A').x, positions.get('C').x);
-  const layerBottom = Math.max(...['SAT', 'A', 'B', 'C'].map(n => positions.get(n).y));
-  for (const n of ['Z', 'Y']) assert.ok(positions.get(n).y > layerBottom);
-  const spots = new Set([...positions.values()].map(p => `${p.x},${p.y}`));
-  assert.equal(spots.size, names.length);
-  assert.deepEqual(guides.map(g => [g.text, g.count]), [['SAT', 1], ['1 step', 2], ['2 steps', 1], ['Not reachable from SAT', 2]]);
-});
-
-test('a crowded layer wraps into sub-columns inside its own band', () => {
-  const names = ['R', ...Array.from({ length: 60 }, (_, i) => 'N' + i)];
-  const links = names.slice(1).map(n => link('R', n));
-  const { positions } = layeredLayout(names, depthsFrom(names, links, ['R']), links);
-  const xs = new Set(names.slice(1).map(n => positions.get(n).x));
-  assert.ok(xs.size > 1);
-  const rows = Math.max(...names.slice(1).map(n => positions.get(n).y)) - Math.min(...names.slice(1).map(n => positions.get(n).y));
-  assert.ok(rows < 60 * 26);
 });

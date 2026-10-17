@@ -2,7 +2,7 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, layeredLayout, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
+import { CLASSES, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -96,7 +96,7 @@ function placeLabels() {
   scene.classes(scene.nodes, "named");
   scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named: SceneNode[] = [];
-  const cap = exploring && !ex.sel && !ex.query ? (ex.layout === "layered" ? 60 : 12) : Infinity;
+  const cap = exploring && !ex.sel && !ex.query ? 12 : Infinity;
   scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
     const b = box(n);
     if (named.length < cap && fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
@@ -639,11 +639,10 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 /* ---------- Explore ---------- */
 /* Analysis runs on concrete variants. A family link only groups the exact variant rules behind it. */
 const rules = D.edges as RuleEdge[];
-type Layout = "layered" | "network";
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach } | { kind: "rules"; key: string; from?: number } | null;
-interface Explore { scope: Scope; limit: ClassId; layout: Layout; list: "problems" | "rules"; query: string; sel: Selection; all: boolean }
-const ex: Explore = { scope: "witness", limit: "unknown", layout: "layered", list: "problems", query: "", sel: null, all: false };
+interface Explore { scope: Scope; limit: ClassId; list: "home" | "problems" | "rules"; query: string; sel: Selection; all: boolean }
+const ex: Explore = { scope: "witness", limit: "unknown", list: "home", query: "", sel: null, all: false };
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
 const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
@@ -660,6 +659,8 @@ const badge = (cls: ClassId) => {
 const famText = (name: string) => [display(name), name, ...(aliasMap[name] ?? [])].map(t => t.toLowerCase());
 const matchesQuery = (name: string) => { const q = ex.query.trim().toLowerCase(); return !q || famText(name).some(t => t.includes(q)); };
 const pluralize = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const short = (name: string) => (aliasMap[name] ?? [])[0] ?? display(name);
+const START = ["Satisfiability", "MaximumIndependentSet", "TravelingSalesman", "QUBO", "ILP"].filter(n => families.has(n));
 
 function buildModel() {
   const active = activeRules(rules, { scope: ex.scope, limit: ex.limit }), links = active.map(i => rules[i]!);
@@ -672,33 +673,23 @@ function buildModel() {
     (out.get(r.source) ?? out.set(r.source, []).get(r.source)!).push(i);
     (inn.get(r.target) ?? inn.set(r.target, []).get(r.target)!).push(i);
   });
-  const degree = new Map<string, { in: number; out: number }>(), at = (n: string) => degree.get(n) ?? degree.set(n, { in: 0, out: 0 }).get(n)!;
-  fam.forEach(f => { at(f.source).out++; at(f.target).in++; });
-  return { active, links, fam, groups, counts, out, inn, degree };
+  const degree = new Map<string, number>();
+  fam.forEach(f => { degree.set(f.source, (degree.get(f.source) ?? 0) + 1); degree.set(f.target, (degree.get(f.target) ?? 0) + 1); });
+  const depth = depthsFrom([...families.keys()], [...fam.values()], roots);
+  return { active, links, fam, groups, counts, out, inn, degree, depth };
 }
 let model = buildModel();
-let depths = new Map<string, number | null>();
 const ruleClass = (i: number) => edgeGrowth(rules[i]!).cls;
 const endpoint = (i: number) => ({ name: D.nodes[i]!.name, variant: D.nodes[i]!.variant });
 const ruleStep = (i: number): Step => ({ from: endpoint(rules[i]!.source), to: endpoint(rules[i]!.target) });
 const reachOf = (v: number, dir: "down" | "up") => reach(D.nodes.length, model.links, v, dir);
 
-/* Layered view: columns are the fewest reductions from SAT. The network view keeps the build-time force layout. */
+/* Frame the dense middle; a few far-flung isolated problems should not shrink everything else. */
 function frameAll() {
-  if (ex.layout === "layered") { frame(scene.nodes, 1.1); return; }
   const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1);
   const cx = linked.reduce((a, n) => a + n.x, 0) / linked.length, cy = linked.reduce((a, n) => a + n.y, 0) / linked.length;
   const near = linked.map(n => [Math.hypot(n.x - cx, n.y - cy), n] as const).sort((a, b) => a[0] - b[0]);
   frame(near.slice(0, Math.ceil(near.length * .85)).map(([, n]) => n), 1.6);
-}
-function applyLayout(animate: boolean, done?: () => void) {
-  scene.labelSide = exploring && ex.layout === "layered" ? "right" : "below";
-  scene.nodes.forEach(n => { n.labelKey = null; });
-  if (!exploring || ex.layout === "network") { scene.setGuides([]); scene.arrange(pos, animate, done); return; }
-  const names = [...families.keys()], links = [...model.fam.values()];
-  depths = depthsFrom(names, links, roots);
-  const { positions, guides } = layeredLayout(names, depths, links, { rank: n => families.get(n)!.category + n, row: 30 });
-  scene.arrange(positions, animate, done); scene.setGuides(guides);
 }
 
 /* Canvas state follows the selection; with none, rules are faint and ILP's are fainter still. */
@@ -719,8 +710,8 @@ function paintExplore() {
     }
     litNodes = new Set([...near].map(i => D.nodes[i]!.name));
   } else if (sel) {
-    const f = model.fam.get(sel.key)!;
-    litRules = new Set(f.rules); litNodes = new Set([f.source, f.target]);
+    const f = model.fam.get(sel.key);
+    if (f) { litRules = new Set(f.rules); litNodes = new Set([f.source, f.target]); }
   } else if (q) litNodes = new Set([...families.keys()].filter(matchesQuery));
   scene.edges.forEach(edge => {
     const f = model.fam.get(edge.id);
@@ -739,21 +730,18 @@ function paintExplore() {
   scheduleLabels();
 }
 
+function focusLit() { frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.4); }
 function selectProblem(variant: number, reach: Reach = "direct", focus = true) {
   ex.sel = { kind: "problem", variant, reach }; ex.all = false; closeDetails();
   paintExplore(); renderExplore();
-  if (focus) frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.4);
+  if (focus) focusLit();
 }
 function selectRules(key: string, from?: number) {
   ex.sel = { kind: "rules", key, ...(from == null ? {} : { from }) };
-  paintExplore(); renderExplore();
-  frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.5);
+  paintExplore(); renderExplore(); focusLit();
 }
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
-function refreshExplore(relayout = true) {
-  model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend();
-  if (relayout && ex.layout === "layered") applyLayout(!reduced.matches);
-}
+function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend(); }
 
 function segment(box: HTMLElement, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
   box.replaceChildren(...items.map(item => {
@@ -763,9 +751,6 @@ function segment(box: HTMLElement, items: { id: string; text: string; title?: st
   }));
 }
 function renderMapbar() {
-  segment($("#layout-seg"), [{ id: "layered", text: "Layered", title: "Columns by distance from SAT" }, { id: "network", text: "Network", title: "Force-directed layout" }], ex.layout, id => {
-    ex.layout = id as Layout; document.body.classList.toggle("layered", ex.layout === "layered"); renderMapbar(); applyLayout(!reduced.matches, frameAll);
-  });
   segment($("#scope-seg"), SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), ex.scope, id => {
     ex.scope = id as Scope; ex.sel = null; refreshExplore();
   });
@@ -785,64 +770,86 @@ function renderLegend() {
 }
 
 /* ---------- Explore panel ---------- */
+/* One thing at a time: home, results, a full list, a place or a rule. */
 function renderExplore() {
-  const body = $("#explore-body"), top = body.scrollTop;
+  const body = $("#explore-body");
   body.replaceChildren();
   if (ex.sel?.kind === "problem") placeCard(body, ex.sel);
   else if (ex.sel) ruleCard(body, ex.sel);
-  else browse(body);
-  body.scrollTop = ex.sel ? 0 : top;
+  else if (ex.list !== "home") fullList(body, ex.list);
+  else if (ex.query.trim()) results(body);
+  else home(body);
+  body.scrollTop = 0;
 }
-function browse(body: HTMLElement) {
+const problemMatches = () => {
   const q = ex.query.trim().toLowerCase();
-  const names = [...families.keys()].filter(matchesQuery), links = [...model.fam.values()].filter(f => matchesQuery(f.source) || matchesQuery(f.target));
-  const tabs = el("div", "seg tabs-seg"); tabs.setAttribute("role", "radiogroup"); tabs.setAttribute("aria-label", "List");
-  segment(tabs, [{ id: "problems", text: `Problems ${names.length}` }, { id: "rules", text: `Rules ${links.length}` }], ex.list, id => { ex.list = id as Explore["list"]; renderExplore(); });
-  body.append(tabs);
-  const list = el("div", "list");
-  if (ex.list === "problems") {
-    const score = (n: string) => !q ? 0 : famText(n).some(t => t === q) ? 0 : famText(n).some(t => t.startsWith(q)) ? 1 : 2;
-    const total = (n: string) => (model.degree.get(n)?.in ?? 0) + (model.degree.get(n)?.out ?? 0);
-    names.sort((a, b) => score(a) - score(b) || total(b) - total(a) || a.localeCompare(b)).forEach(name => {
-      const f = families.get(name)!, d = model.degree.get(name) ?? { in: 0, out: 0 };
-      const row = el("button", "row"); row.type = "button"; row.dataset.name = name;
-      const dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
-      const label = el("span", "row-name", display(name)), alias = (aliasMap[name] ?? [])[0];
-      row.append(dot, label); if (alias) row.append(el("small", "row-alias", alias));
-      row.append(el("span", "row-count", `${d.in} → ${d.out}`));
-      row.title = `${d.in} reduce to it, it reduces to ${d.out}`;
-      row.addEventListener("click", () => selectProblem(defaults[name]!));
-      list.append(row);
-    });
-  } else {
-    links.sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target)).forEach(f => {
-      const row = el("button", "row"); row.type = "button"; row.append(badge(f.cls), el("span", "row-name", `${display(f.source)} → ${display(f.target)}`));
-      if (f.rules.length > 1) row.append(el("span", "row-count", "×" + f.rules.length));
-      row.addEventListener("click", () => selectRules(f.source + "→" + f.target));
-      list.append(row);
-    });
+  const score = (n: string) => !q ? 0 : famText(n).some(t => t === q) ? 0 : famText(n).some(t => t.startsWith(q)) ? 1 : 2;
+  return [...families.keys()].filter(matchesQuery).sort((a, b) => score(a) - score(b) || (model.degree.get(b) ?? 0) - (model.degree.get(a) ?? 0) || a.localeCompare(b));
+};
+const ruleMatches = () => [...model.fam.values()].filter(f => matchesQuery(f.source) || matchesQuery(f.target))
+  .sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target));
+function problemRow(name: string) {
+  const f = families.get(name)!, row = el("button", "row"); row.type = "button"; row.dataset.name = name;
+  const dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
+  row.append(dot, el("span", "row-name", display(name)));
+  const alias = (aliasMap[name] ?? [])[0]; if (alias) row.append(el("small", "row-alias", alias));
+  row.addEventListener("click", () => selectProblem(defaults[name]!));
+  return row;
+}
+function ruleRow(f: { source: string; target: string; cls: ClassId; rules: number[] }) {
+  const row = el("button", "row"); row.type = "button"; row.append(badge(f.cls), el("span", "row-name", `${display(f.source)} → ${display(f.target)}`));
+  row.addEventListener("click", () => selectRules(f.source + "→" + f.target));
+  return row;
+}
+function home(body: HTMLElement) {
+  const entries = el("div", "entries");
+  for (const [id, title, n] of [["problems", "Problems", families.size], ["rules", "Reductions", model.fam.size]] as const) {
+    const b = el("button", "entry"); b.type = "button"; b.append(el("span", "entry-title", title), el("span", "entry-n", String(n)), el("span", "entry-go", "›"));
+    b.addEventListener("click", () => { ex.list = id; renderExplore(); }); entries.append(b);
   }
-  if (!list.childElementCount) list.append(el("p", "empty", "Nothing matches"));
-  body.append(list);
+  body.append(entries, el("h2", "eyebrow", "Start with"));
+  const chips = el("div", "chips");
+  START.forEach(name => { const c = el("button", "chip", short(name)); c.type = "button"; c.title = display(name); c.addEventListener("click", () => selectProblem(defaults[name]!)); chips.append(c); });
+  body.append(chips);
+}
+function results(body: HTMLElement) {
+  const ps = problemMatches(), rs = ruleMatches();
+  if (!ps.length && !rs.length) { body.append(el("p", "empty", "Nothing matches")); return; }
+  for (const [title, count, rows, id] of [["Problems", ps.length, ps.slice(0, 6).map(problemRow), "problems"], ["Reductions", rs.length, rs.slice(0, 4).map(ruleRow), "rules"]] as const) {
+    if (!count) continue;
+    const head = el("div", "section-row"); head.append(el("h2", "eyebrow", title));
+    if (count > rows.length) { const more = el("button", "link", `All ${count}`); more.type = "button"; more.addEventListener("click", () => { ex.list = id; renderExplore(); }); head.append(more); }
+    body.append(head, ...rows);
+  }
+}
+function fullList(body: HTMLElement, kind: "problems" | "rules") {
+  back(body, "‹ " + (ex.query.trim() ? "Results" : "Back"), () => { ex.list = "home"; renderExplore(); });
+  body.append(el("h2", "page-title", kind === "problems" ? "Problems" : "Reductions"));
+  const rows = kind === "problems" ? problemMatches().map(problemRow) : ruleMatches().map(ruleRow);
+  body.append(...(rows.length ? rows : [el("p", "empty", "Nothing matches")]));
 }
 
 function back(body: HTMLElement, text: string, action: () => void) {
   const b = el("button", "back-link", text); b.type = "button"; b.addEventListener("click", action); body.append(b);
 }
-function ruleRows(title: string, indexes: number[], side: "source" | "target") {
-  const wrap = el("section", "block");
-  wrap.append(el("h3", "block-title", `${title} · ${indexes.length}`));
-  const shown = ex.all ? indexes : indexes.slice(0, 6);
-  shown.forEach(i => {
+function ruleRows(title: string, indexes: number[], side: "source" | "target", reachId: "down" | "up", sel: Extract<Selection, { kind: "problem" }>) {
+  const wrap = el("section", "block"), head = el("div", "section-row");
+  head.append(el("h2", "eyebrow", `${title} · ${indexes.length}`));
+  const on = sel.reach === reachId, toggle = el("button", "link", on ? "Clear" : reachId === "down" ? "Everything downstream" : "Everything upstream");
+  toggle.type = "button";
+  toggle.addEventListener("click", () => { sel.reach = on ? "direct" : reachId; paintExplore(); renderExplore(); focusLit(); });
+  head.append(toggle); wrap.append(head);
+  if (on) wrap.append(el("p", "note", `${pluralize(reachOf(sel.variant, reachId).size, "variant")} ${reachId === "down" ? "reachable from here" : "that reach it"}`));
+  (ex.all ? indexes : indexes.slice(0, 5)).forEach(i => {
     const other = rules[i]![side], f = D.nodes[other]!.name, row = el("div", "rule-row");
     const go = el("button", "rule-go"); go.type = "button"; go.append(el("span", "", display(f)));
     if (multi(f)) go.append(el("small", "", vtext(other)));
     go.addEventListener("click", () => selectProblem(other));
     const b = el("button", "rule-badge"); b.type = "button"; b.append(badge(ruleClass(i))); b.title = "Show formulas";
-    b.addEventListener("click", () => { const r = rules[i]!; selectRules(D.nodes[r.source]!.name + "→" + D.nodes[r.target]!.name, (ex.sel as { variant: number }).variant); });
-    row.append(b, go); wrap.append(row);
+    b.addEventListener("click", () => { const r = rules[i]!; selectRules(D.nodes[r.source]!.name + "→" + D.nodes[r.target]!.name, sel.variant); });
+    row.append(go, b); wrap.append(row);
   });
-  if (indexes.length > 6) {
+  if (indexes.length > 5) {
     const more = el("button", "link more", ex.all ? "Show fewer" : `Show all ${indexes.length}`); more.type = "button";
     more.addEventListener("click", () => { ex.all = !ex.all; renderExplore(); }); wrap.append(more);
   }
@@ -850,34 +857,29 @@ function ruleRows(title: string, indexes: number[], side: "source" | "target") {
 }
 function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" }>) {
   const v = sel.variant, name = D.nodes[v]!.name, f = families.get(name)!;
-  back(body, "‹ All problems", clearSelection);
-  body.append(el("h2", "place-name", display(name)));
-  const depth = depths.get(name), steps = ex.layout === "layered" || depth !== undefined ? depth : undefined;
-  const meta = [f.category[0]!.toUpperCase() + f.category.slice(1), steps === undefined ? null : steps === null ? "not reachable from SAT" : steps === 0 ? "SAT itself" : `${pluralize(steps, "step")} from SAT`].filter(Boolean);
-  body.append(el("p", "place-meta", meta.join(" · ")));
-  const opts = el("div", "options"); variantOptions(opts, v, j => selectProblem(j, sel.reach, false)); body.append(opts);
-  const seg = el("div", "seg"); seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "Highlight");
-  segment(seg, [{ id: "direct", text: "Direct" }, { id: "down", text: "Downstream", title: "Everything reachable from here" }, { id: "up", text: "Upstream", title: "Everything that reaches here" }], sel.reach, id => {
-    sel.reach = id as Reach; paintExplore(); renderExplore(); frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.4);
-  });
-  body.append(seg);
-  if (sel.reach !== "direct") body.append(el("p", "place-meta", `${pluralize(reachOf(v, sel.reach).size, "variant")} ${sel.reach === "down" ? "reachable" : "reaching it"}`));
+  back(body, "‹ Back", clearSelection);
+  body.append(el("h1", "place-name", display(name)));
+  const depth = model.depth.get(name);
+  const steps = depth === undefined ? null : depth === null ? "Not reachable from SAT" : depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`;
+  body.append(el("p", "place-meta", [f.category[0]!.toUpperCase() + f.category.slice(1), steps].filter(Boolean).join(" · ")));
   const acts = el("div", "acts");
-  for (const [text, side] of [["Directions from here", "source"], ["Directions to here", "target"]] as const) {
-    const b = el("button", "act", text); b.type = "button";
-    b.addEventListener("click", () => { state[side] = v; state[side === "source" ? "target" : "source"] = state[side === "source" ? "target" : "source"] === v ? null : state[side === "source" ? "target" : "source"]; setMode("directions"); if (state.source != null && state.target != null) run(); });
-    acts.append(b);
+  const go = el("button", "act primary", "Directions"); go.type = "button";
+  go.addEventListener("click", () => { state.source = v; if (state.target === v) state.target = null; setMode("directions"); if (state.target != null) run(); });
+  const more = el("button", "act", "Details"); more.type = "button"; more.addEventListener("click", () => showProblem(D.nodes[v]!));
+  acts.append(go, more); body.append(acts);
+  if (multi(name)) {
+    const d = el("details", "variant"), s = el("summary"); s.append(el("span", "", "Variant"), el("small", "", vtext(v)));
+    d.append(s); const opts = el("div", "options"); variantOptions(opts, v, j => selectProblem(j, sel.reach, false)); d.append(opts); body.append(d);
   }
-  const more = el("button", "act", "Details"); more.type = "button"; more.addEventListener("click", () => showProblem(D.nodes[v]!)); acts.append(more);
-  body.append(acts);
   const outs = model.out.get(v) ?? [], ins = model.inn.get(v) ?? [];
-  if (outs.length) body.append(ruleRows("Reduces to", outs, "target"));
-  if (ins.length) body.append(ruleRows("Reduced from", ins, "source"));
+  if (outs.length) body.append(ruleRows("Reduces to", outs, "target", "down", sel));
+  if (ins.length) body.append(ruleRows("Reduced from", ins, "source", "up", sel));
+  if (!outs.length && !ins.length) body.append(el("p", "empty", "No reductions in this scope"));
   const group = model.groups.groups[model.groups.comp[v]!]!;
   if (group.length > 1) {
-    const wrap = el("section", "block"); wrap.append(el("h3", "block-title", "Mutually reducible with"));
+    const wrap = el("section", "block"); wrap.append(el("h2", "eyebrow", "Mutually reducible"));
     const chips = el("div", "chips");
-    group.filter(w => w !== v).forEach(w => { const c = el("button", "chip", D.nodes[w]!.name === name ? vtext(w) : display(D.nodes[w]!.name) + (multi(D.nodes[w]!.name) ? " · " + vtext(w) : "")); c.type = "button"; c.addEventListener("click", () => selectProblem(w)); chips.append(c); });
+    group.filter(w => w !== v).forEach(w => { const c = el("button", "chip", display(D.nodes[w]!.name) + (multi(D.nodes[w]!.name) ? " · " + vtext(w) : "")); c.type = "button"; c.addEventListener("click", () => selectProblem(w)); chips.append(c); });
     wrap.append(chips); body.append(wrap);
   }
 }
@@ -885,7 +887,7 @@ function ruleCard(body: HTMLElement, sel: Extract<Selection, { kind: "rules" }>)
   const f = model.fam.get(sel.key);
   back(body, "‹ Back", () => { if (sel.from != null) selectProblem(sel.from, "direct", false); else clearSelection(); });
   if (!f) return;
-  body.append(el("h2", "place-name", `${display(f.source)} → ${display(f.target)}`), el("p", "place-meta", pluralize(f.rules.length, "variant rule")));
+  body.append(el("h1", "place-name", `${display(f.source)} → ${display(f.target)}`), el("p", "place-meta", pluralize(f.rules.length, "variant rule")));
   [...f.rules].sort((a, b) => classOrder.indexOf(ruleClass(a)) - classOrder.indexOf(ruleClass(b))).forEach(i => {
     const rule = rules[i]!, g = edgeGrowth(rule), card = el("div", "rule-card");
     const head = el("button", "rule-head"); head.type = "button";
@@ -898,7 +900,7 @@ function ruleCard(body: HTMLElement, sel: Extract<Selection, { kind: "rules" }>)
   });
 }
 $("#find").addEventListener("input", (e) => {
-  ex.query = (e.target as HTMLInputElement).value; ex.sel = null; paintExplore(); renderExplore();
+  ex.query = (e.target as HTMLInputElement).value; ex.sel = null; ex.list = "home"; paintExplore(); renderExplore();
 });
 $("#find").addEventListener("keydown", (e) => {
   if (e.key === "Enter") $<HTMLButtonElement>("#explore-body .row")?.click();
@@ -910,13 +912,12 @@ function setMode(mode: "explore" | "directions") {
   exploring = mode === "explore";
   $("#view-explore").hidden = !exploring; $("#view-directions").hidden = exploring;
   document.body.classList.toggle("explore", exploring);
-  document.body.classList.toggle("layered", exploring && ex.layout === "layered");
   closePop();
   if (exploring) {
-    refreshExplore(false); applyLayout(!reduced.matches, frameAll);
+    refreshExplore(); frameAll();
     history.replaceState(null, "", location.pathname + location.search);
   } else {
-    scene.classes(scene.elements, CLEAN); applyLayout(!reduced.matches);
+    scene.classes(scene.elements, CLEAN);
     syncEnds(); renderResults(); paintGraph();
     history.replaceState(null, "", "#directions");
     if (state.source == null) $("#source").focus({ preventScroll: true }); else if (state.target == null) $("#target").focus({ preventScroll: true });
@@ -943,8 +944,8 @@ if (location.hash === "#directions") {
   state.source = defaults.Satisfiability!; state.target = defaults.QUBO!;
   syncEnds(); frame(scene.elements, 1, false); run();
 } else {
-  document.body.classList.add("explore", "layered");
-  refreshExplore(false); applyLayout(false); frameAll();
+  document.body.classList.add("explore");
+  refreshExplore(); frameAll();
 }
 performance.mark("graph:interactive");
 document.fonts?.ready.then(() => {
