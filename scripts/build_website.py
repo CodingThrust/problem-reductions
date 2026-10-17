@@ -160,7 +160,7 @@ def build_problem_records(output, nodes, edges, schemas):
 
 
 def build(output, graph_path, schemas_path, open_questions=None):
-    subprocess.run(['npm', 'run', 'check:frontend-contracts'], cwd=ROOT, check=True)
+    subprocess.run(['npm', 'run', 'generate:frontend-contracts'], cwd=ROOT, check=True)
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
     subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'native-exports'],

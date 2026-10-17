@@ -1,5 +1,5 @@
 import { loadDetailsIndex, renderDetails } from './details.ts';
-import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from '../generated/atlas-data.validator.mjs';
+import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from '../generated/atlas-data.mjs';
 
 declare global { interface Window { REDUCTIONS: unknown } }
 

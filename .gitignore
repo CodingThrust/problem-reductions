@@ -94,15 +94,9 @@ claude-output.log
 !tsconfig.json
 !docs/website/graph-scene.schema.json
 !docs/website/graph-details.schema.json
-!docs/website/wasm-paths.schema.json
-!docs/website/wasm-comparison.schema.json
 !docs/website/path-graph.schema.json
 !docs/website/atlas-data.schema.json
 !docs/website/native-exports.schema.json
-!docs/website/wasm-path-request.schema.json
-!docs/website/wasm-comparison-request.schema.json
-!docs/website/path-worker-request.schema.json
-!docs/website/path-worker-reply.schema.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/
@@ -112,3 +106,5 @@ docs/src/generated/
 .claude/projects/
 docs/research/
 docs/solutions/
+
+/docs/website/src/generated/

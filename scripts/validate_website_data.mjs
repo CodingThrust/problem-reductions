@@ -1,9 +1,6 @@
-import { validateNativeExportData } from '../docs/website/src/lib/native-exports-data.mts';
+import { validateNativeExportData, validateAtlasSummary, validateAtlasRecord,
+  validateGraphSceneData, validateDetailsIndexData, validatePathGraphData } from './website_contracts.mjs';
 import { readFileSync } from 'node:fs';
-import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/src/lib/atlas-data.mts';
-import { validateGraphSceneData } from '../docs/website/src/lib/graph-scene-data.mts';
-import { validateDetailsIndexData } from '../docs/website/src/lib/graph-details-data.mts';
-import { validatePathGraphData } from '../docs/website/src/lib/path-graph-data.mts';
 
 /** @type {unknown} */
 const value = JSON.parse(readFileSync(0, 'utf8'));

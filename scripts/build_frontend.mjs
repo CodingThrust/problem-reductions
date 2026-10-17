@@ -34,8 +34,6 @@ await build({
     modulePreload: { polyfill: false },
     // The immutable release directory supplies versioning after URL rewriting.
     rolldownOptions: { input: ['index.html', 'graph.html'].map(name => resolve(source, name)), output,
-      // Generated guards only define functions; discard guards unused by this realm.
-      treeshake: { moduleSideEffects: [{ test: /\.validator\.mjs$/, sideEffects: false }] },
     },
   },
   worker: {
@@ -49,7 +47,6 @@ await build({
       },
     }],
     rolldownOptions: { output,
-      treeshake: { moduleSideEffects: [{ test: /\.validator\.mjs$/, sideEffects: false }] },
     },
   },
 });

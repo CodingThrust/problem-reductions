@@ -1,10 +1,10 @@
-import type { Query } from '../generated/wasm-path-request.validator.mjs';
-import type { ComparisonQuery } from '../generated/wasm-comparison-request.validator.mjs';
+import type { Query } from '../generated/wasm-path-request.mjs';
+import type { ComparisonQuery } from '../generated/wasm-comparison-request.mjs';
 import init, { find_paths, summarize_paths } from "./path-selection.js";
-import type { WasmPathResult } from '../generated/wasm-paths.validator.mjs';
-import type { WasmComparisonResult } from '../generated/wasm-comparison.validator.mjs';
-import type { PathGraphData } from '../generated/path-graph.validator.mjs';
-import { validatePathRequest } from '../lib/path-worker-data.mts';
+import type { WasmPathResult } from '../generated/wasm-paths.mjs';
+import type { WasmComparisonResult } from '../generated/wasm-comparison.mjs';
+import type { PathGraphData } from '../generated/path-graph.mjs';
+import { validatePathRequest, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 performance.mark("engine:script");
 const graph = fetch(new URL('./path-graph.json.gz', import.meta.url)).then(async (response) => {
@@ -33,9 +33,9 @@ function loadEngine() {
 const ready = Promise.all([loadEngine(), graph]);
 ready.catch(() => {});
 
-self.onmessage = async ({data}: MessageEvent<unknown>) => {
+self.onmessage = async ({data}: MessageEvent<PathRequest>) => {
   performance.mark("engine:request-received");
-  let phase = "paths";
+  let phase: PathReply['phase'] = "paths";
   try {
     const [, graph] = await ready;
     const started = performance.now();
@@ -46,15 +46,15 @@ self.onmessage = async ({data}: MessageEvent<unknown>) => {
       graph, source: request.source, target: request.target, limit: request.limit,
     } satisfies Query)));
     performance.mark("engine:paths-end");
-    if (request.kind === 'search') self.postMessage({phase, result});
+    if (request.kind === 'search') self.postMessage({phase: 'paths', result} satisfies PathReply);
     phase = "comparison";
     if (result.paths.length) {
       performance.mark("engine:comparison-start");
       const comparison: WasmComparisonResult = JSON.parse(summarize_paths(JSON.stringify({graph, paths: result.paths} satisfies ComparisonQuery)));
       performance.mark("engine:comparison-end");
-      self.postMessage({phase, result: comparison});
+      self.postMessage({phase: 'comparison', result: comparison} satisfies PathReply);
     }
   } catch (error) {
-    self.postMessage({phase, error: error instanceof Error ? error.message : String(error)});
+    self.postMessage({phase, error: error instanceof Error ? error.message : String(error)} satisfies PathReply);
   }
 };

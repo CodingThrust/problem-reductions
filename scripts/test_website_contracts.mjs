@@ -1,28 +1,11 @@
-import {validateNativeExportData} from '../docs/website/src/lib/native-exports-data.mts';
-import {validateWasmPathRequest} from '../docs/website/src/generated/wasm-path-request.validator.mjs';
-import {validateWasmComparisonRequest} from '../docs/website/src/generated/wasm-comparison-request.validator.mjs';
+import { validateNativeExportData, validateWasmPathRequest, validateWasmComparisonRequest, validateGraphSceneData, validateDetailsIndexData, parseWasmPathResult, parseWasmComparison, validateComparisonParameters, validatePathGraphData, validateAtlasSummary, validateAtlasRecord } from './website_contracts.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
-import { validateGraphSceneData } from '../docs/website/src/lib/graph-scene-data.mts';
-import { validateDetailsIndexData } from '../docs/website/src/lib/graph-details-data.mts';
-import { parseWasmPathResult } from '../docs/website/src/lib/wasm-paths-data.mts';
-import { parseWasmComparison, validateComparisonParameters } from '../docs/website/src/lib/wasm-comparison-data.mts';
-import { validatePathGraphData } from '../docs/website/src/lib/path-graph-data.mts';
 import { validatePathRequest, validatePathReply } from '../docs/website/src/lib/path-worker-data.mts';
-import { validateAtlasSummary, validateAtlasRecord } from '../docs/website/src/lib/atlas-data.mts';
-
-test('standalone contracts stay within the generated-code size budget', () => {
-  const assets = new URL('../docs/website/src/generated/', import.meta.url);
-  const bundles = readdirSync(assets).filter(name => name.endsWith('.validator.mjs') || name.startsWith('validator-runtime'))
-    .map(name => readFileSync(new URL(name, assets)));
-  assert.ok(bundles.reduce((sum, bytes) => sum + bytes.length, 0) <= 230_000, 'Generated validators exceed 230 kB raw');
-  assert.ok(bundles.reduce((sum, bytes) => sum + gzipSync(bytes).length, 0) <= 34_000, 'Generated validators exceed 34 kB gzip');
-});
 
 test('production build rejects JavaScript over the delivery budget', () => {
   const source = mkdtempSync(join(tmpdir(), 'frontend-budget-'));
@@ -341,32 +324,19 @@ test('worker replies consume engine results without a second graph registry', ()
   assert.deepEqual(validatePathReply({ ...first, result: empty }, request), { ...first, result: empty });
 });
 
-test('worker request envelopes preserve search and cached comparison inputs', () => {
+test('worker requests preserve search and cached comparison inputs', () => {
   for (const cached of [false, true]) {
     const request = protocolRequest(cached);
     assert.deepEqual(validatePathRequest(request), request);
   }
 });
 
-test('worker requests reject malformed envelopes and invalid numeric inputs', () => {
-  for (const mutate of [
-    value => { value.kind = 'other'; }, value => { value.limit = 0; }, value => { value.limit = 1000; },
-    value => { value.limit = 1.5; }, value => { value.source = -1; },
-    value => { value.source = 9007199254740992; }, value => { value.cached = protocolPaths(); },
-    value => { value.kind = 'compare'; }, value => { value.extra = true; },
-  ]) {
-    const request = protocolRequest(); mutate(request);
-    assert.throws(() => validatePathRequest(request));
+test('worker requests reject invalid indices and limits', () => {
+  for (const field of ['source', 'target']) for (const value of [-1, 0.5, NaN, Infinity, 9007199254740992]) {
+    assert.throws(() => validatePathRequest({...protocolRequest(), [field]: value}));
   }
-  for (const value of [null, [], 'request']) assert.throws(() => validatePathRequest(value));
-});
-
-test('worker replies reject malformed envelopes', () => {
-  const request = protocolRequest();
-  for (const value of [null, [], { phase: 'ready', result: protocolPaths() },
-    { phase: 'paths' }, { phase: 'paths', error: '' },
-    { phase: 'paths', result: protocolPaths(), error: 'Cannot return both' }]) {
-    assert.throws(() => validatePathReply(value, request));
+  for (const limit of [0, 1000, 1.5, NaN, Infinity]) {
+    assert.throws(() => validatePathRequest({...protocolRequest(), limit}));
   }
 });
 

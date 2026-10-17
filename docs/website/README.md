@@ -19,11 +19,11 @@ npm ci
 npm run typecheck
 npm run lint:frontend
 npm run test:frontend-contracts
-npm run check:frontend-contracts
 ```
 
-After changing data shapes, run `npm run generate:frontend-contracts` to regenerate
-schemas, types and build-time validators.
+Types and Rust schemas are regenerated automatically by the checks and website
+build into the ignored `src/generated/` directory. The five static-data schemas
+are maintained here; build-only validation runs in `scripts/website_contracts.mjs`.
 
 For a fresh production build tested in Chromium, Firefox and WebKit:
 

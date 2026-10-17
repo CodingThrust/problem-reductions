@@ -1,1 +1,0 @@
-import{t as e}from"./validator-runtime.mjs";var t=e((e=>{Object.defineProperty(e,"__esModule",{value:!0});function t(e){let t=e.length,n=0,r=0,i;for(;r<t;)n++,i=e.charCodeAt(r++),i>=55296&&i<=56319&&r<t&&(i=e.charCodeAt(r),(i&64512)==56320&&r++);return n}e.default=t,t.code=`require("ajv/dist/runtime/ucs2length").default`}));export{t};

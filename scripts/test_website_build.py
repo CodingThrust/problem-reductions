@@ -21,62 +21,53 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebsiteBuildTests(unittest.TestCase):
-    def test_generated_scene_contract_drift_fails_the_build_check(self):
+    def test_clean_generation_produces_types_and_tracks_schema_changes(self):
+        schemas = subprocess.run([str(ROOT / 'target/debug/examples/export_frontend_schema')],
+                                 capture_output=True, text=True, check=True).stdout
+        json.loads(schemas)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'workspace with spaces'
             (root / 'scripts').mkdir(parents=True)
-            assets = root / 'docs/website/src/generated'
-            assets.mkdir(parents=True)
+            (root / 'docs/website/src/lib').mkdir(parents=True)
             (root / 'node_modules').symlink_to(ROOT / 'node_modules', target_is_directory=True)
-            for name in ['scripts/generate_website_contracts.mjs', 'docs/website/graph-scene.schema.json',
-                         'docs/website/src/generated/graph-scene.validator.mjs', 'docs/website/src/generated/graph-scene.validator.d.mts',
-                         'docs/website/graph-details.schema.json', 'docs/website/src/generated/graph-details.validator.mjs',
-                         'docs/website/src/generated/graph-details.validator.d.mts', 'docs/website/wasm-paths.schema.json',
-                         'docs/website/src/generated/wasm-paths.validator.mjs', 'docs/website/src/generated/wasm-paths.validator.d.mts',
-                         'docs/website/wasm-comparison.schema.json', 'docs/website/src/generated/wasm-comparison.validator.mjs',
-                         'docs/website/src/generated/wasm-comparison.validator.d.mts', 'docs/website/path-graph.schema.json',
-                         'docs/website/src/generated/path-graph.validator.mjs', 'docs/website/src/generated/path-graph.validator.d.mts',
-                         'docs/website/path-worker-request.schema.json', 'docs/website/src/generated/path-worker-request.validator.mjs',
-                         'docs/website/src/generated/path-worker-request.validator.d.mts', 'docs/website/path-worker-reply.schema.json',
-                         'docs/website/src/generated/path-worker-reply.validator.mjs', 'docs/website/src/generated/path-worker-reply.validator.d.mts',
-                         'docs/website/atlas-data.schema.json', 'docs/website/src/generated/atlas-data.validator.mjs',
-                         'docs/website/src/generated/atlas-data.validator.d.mts',
-                         *[f'docs/website/{name}.schema.json' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request']],
-                         *[f'docs/website/src/generated/{name}.validator{suffix}' for name in ['native-exports', 'wasm-path-request', 'wasm-comparison-request'] for suffix in ['.mjs', '.d.mts']]]:
+            for name in ['scripts/generate_website_contracts.mjs',
+                         'docs/website/src/lib/path-worker-data.mts',
+                         *[f'docs/website/{name}.schema.json' for name in
+                           ['atlas-data', 'graph-details', 'graph-scene', 'native-exports', 'path-graph']]]:
                 shutil.copyfile(ROOT / name, root / name)
-            for path in (ROOT / 'docs/website/src/generated').glob('validator-runtime*.mjs'):
-                shutil.copyfile(path, assets / path.name)
-            command = ['node', str(root / 'scripts/generate_website_contracts.mjs'), '--check']
-            result = subprocess.run(command, capture_output=True, text=True)
+            command = ['node', str(root / 'scripts/generate_website_contracts.mjs')]
+            result = subprocess.run(command, input=schemas, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            source = root / 'consumer.mts'
+            source.write_text('''
+import type {GraphSceneData} from './docs/website/src/generated/graph-scene.mjs';
+import type {WasmPathResult} from './docs/website/src/generated/wasm-paths.mjs';
+import type {PathRequest, PathReply} from './docs/website/src/lib/path-worker-data.mts';
+export function position(scene: GraphSceneData) { return scene.layout.Alpha.x; }
+const result: WasmPathResult = {paths: [], truncated: false};
+const request: PathRequest = {kind: 'search', source: 0, target: 1, limit: 1};
+const reply: PathReply = {phase: 'paths', result};
+// @ts-expect-error Rust serializes the truncation marker as a boolean.
+result.truncated = 'yes';
+// @ts-expect-error Comparison messages must carry comparison results.
+const wrongReply: PathReply = {phase: 'comparison', result};
+// @ts-expect-error Cached comparison requests require their engine result.
+const wrongRequest: PathRequest = {kind: 'compare', source: 0, target: 1, limit: 1};
+''')
+            typecheck = [str(ROOT / 'node_modules/.bin/tsc'), '--strict', '--noEmit',
+                         '--target', 'ES2022', '--module', 'NodeNext', '--moduleResolution', 'NodeNext',
+                         '--allowImportingTsExtensions', '--skipLibCheck', str(source)]
+            result = subprocess.run(typecheck, cwd=root, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             schema_path = root / 'docs/website/graph-scene.schema.json'
             schema = json.loads(schema_path.read_text())
             schema['required'].remove('layout')
             schema_path.write_text(json.dumps(schema))
-            result = subprocess.run(command, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('Contract drift', result.stderr)
-            shutil.copyfile(ROOT / 'docs/website/graph-scene.schema.json', schema_path)
-            runtime = assets / 'validator-runtime.mjs'
-            runtime.write_text(runtime.read_text() + '\n')
-            result = subprocess.run(command, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('Contract drift', result.stderr)
-
-    def test_rust_contract_check_rejects_stale_schema(self):
-        with tempfile.TemporaryDirectory() as directory:
-            for name in ['wasm-paths', 'wasm-comparison', 'wasm-path-request', 'wasm-comparison-request']:
-                shutil.copyfile(ROOT / f'docs/website/{name}.schema.json', Path(directory) / f'{name}.schema.json')
-            path = Path(directory) / 'wasm-comparison.schema.json'
-            command = [str(ROOT / 'target/debug/examples/export_frontend_schema'), '--check', directory]
-            result = subprocess.run(command, capture_output=True, text=True)
+            result = subprocess.run(command, input=schemas, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            schema = json.loads(path.read_text())
-            schema['required'].remove('profiles')
-            path.write_text(json.dumps(schema))
-            result = subprocess.run(command, capture_output=True, text=True)
+            result = subprocess.run(typecheck, cwd=root, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn('Rust contract drift', result.stderr)
+            self.assertIn("'scene.layout' is possibly 'undefined'", result.stdout)
 
     def test_frontend_lint_checks_typescript_control_flow(self):
         with tempfile.TemporaryDirectory() as directory:

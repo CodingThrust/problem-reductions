@@ -1,4 +1,4 @@
-import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
+import type { GraphSceneData } from '../generated/graph-scene.mjs';
 
 // Start independent downloads before the renderer finishes loading.
 export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | null} = {

@@ -156,7 +156,6 @@ def check(site, *, build, open_questions):
     try:
         if build:
             run(["npm", "ci"])
-        run(["npm", "run", "check:frontend-contracts"])
         run(["cargo", "test", "--locked", "-p", "problemreductions-web", "--features", "schema-export", "--test", "paths"])
         run(["npm", "run", "test:frontend-contracts"])
         run(["npm", "run", "typecheck"])

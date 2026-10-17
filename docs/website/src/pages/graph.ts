@@ -2,11 +2,11 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { validatePathReply, type PathRequest } from '../lib/path-worker-data.mts';
+import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
-import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.validator.mjs';
-import type { WasmComparisonResult } from '../generated/wasm-comparison.validator.mjs';
-import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
+import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
+import type { WasmComparisonResult } from '../generated/wasm-comparison.mjs';
+import type { GraphSceneData } from '../generated/graph-scene.mjs';
 
 type Side = 'source' | 'target';
 interface Family { name: string; category: GraphSceneData['nodes'][number]['category']; variants: number[]; nbrs: Set<string> }
@@ -396,7 +396,7 @@ function compute(source: number, target: number, limit: number, onPaths: (result
     try { worker ||= new Worker(new URL('../workers/path-worker.ts', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
     const engine = worker;
     let result = cached;
-    worker.onmessage = ({ data }: MessageEvent<unknown>) => {
+    worker.onmessage = ({ data }: MessageEvent<PathReply>) => {
       if (worker !== engine) return;
       try {
         const started = performance.now();

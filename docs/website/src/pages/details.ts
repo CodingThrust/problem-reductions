@@ -1,5 +1,5 @@
 import { validateDetailURL } from '../lib/graph-details-data.mts';
-import type { GraphDetailsIndex } from '../generated/graph-details.validator.mjs';
+import type { GraphDetailsIndex } from '../generated/graph-details.mjs';
 
 let detailsIndex: GraphDetailsIndex | undefined;
 const detailCache = new Map<string, Promise<string>>();
