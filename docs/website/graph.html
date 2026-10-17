@@ -33,34 +33,39 @@
 </header>
 <main id="canvas" aria-label="Reduction graph"><div id="cy"></div></main>
 
-<section class="panel" aria-label="Reduction graph tools">
-  <header class="panel-head">
-    <h1 class="brand"><a href="./index.html">Reduction graph</a></h1>
-    <div class="tabs" role="tablist" aria-label="Graph tools">
-      <button type="button" role="tab" id="tab-paths" aria-controls="view-paths" aria-selected="true">Paths</button>
-      <button type="button" role="tab" id="tab-overhead" aria-controls="view-overhead" aria-selected="false" tabindex="-1">Overhead</button>
+<section class="panel" aria-label="Reduction graph">
+  <div id="view-explore" class="view">
+    <header class="panel-head"><h1 class="brand"><a href="./index.html">Reduction graph</a></h1></header>
+    <div class="search-row">
+      <label class="searchbox"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input id="find" type="search" placeholder="Search problems and rules" autocomplete="off" spellcheck="false" aria-label="Search problems and rules"></label>
+      <button id="go-directions" class="dir-btn" type="button" aria-label="Directions" title="Directions"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 1.8 16.2 9 9 16.2 1.8 9Z"/><path d="M6 10V8.4a1 1 0 0 1 1-1h4.6M10.2 5.9l1.6 1.5-1.6 1.5"/></svg></button>
     </div>
-  </header>
-  <div id="view-paths" class="view" role="tabpanel" aria-labelledby="tab-paths">
-  <div class="ends" id="ends">
-    <div class="end from">
-      <span class="pin" aria-hidden="true"></span>
-      <div><input id="source" placeholder="Start problem" autocomplete="off" spellcheck="false" aria-label="Start problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="source-options" hidden></div></div>
-    </div>
-    <div class="end to">
-      <span class="pin" aria-hidden="true"></span>
-      <div><input id="target" placeholder="End problem" autocomplete="off" spellcheck="false" aria-label="End problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="target-options" hidden></div></div>
-    </div>
-    <button class="swap" id="swap" aria-label="Swap start and end"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5v11M2.5 5 5 2.5 7.5 5M11 13.5v-11M8.5 11l2.5 2.5 2.5-2.5"/></svg></button>
-    <div class="suggest" id="suggest" role="listbox" aria-label="Problems" hidden></div>
+    <div class="explore-body" id="explore-body"></div>
   </div>
-  <div id="search-status" class="sr-only" role="status"></div>
-  <div class="results" id="results" aria-live="polite"></div>
-  </div>
-  <div id="view-overhead" class="view" role="tabpanel" aria-labelledby="tab-overhead" hidden>
-    <div class="lens" id="lens"></div>
+  <div id="view-directions" class="view" hidden>
+    <header class="panel-head dir-head"><button id="back-explore" class="back-btn" type="button" aria-label="Back to explore"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button><h1 class="brand">Directions</h1></header>
+    <div class="ends" id="ends">
+      <div class="end from">
+        <span class="pin" aria-hidden="true"></span>
+        <div><input id="source" placeholder="Start problem" autocomplete="off" spellcheck="false" aria-label="Start problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="source-options" hidden></div></div>
+      </div>
+      <div class="end to">
+        <span class="pin" aria-hidden="true"></span>
+        <div><input id="target" placeholder="End problem" autocomplete="off" spellcheck="false" aria-label="End problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="target-options" hidden></div></div>
+      </div>
+      <button class="swap" id="swap" aria-label="Swap start and end"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5v11M2.5 5 5 2.5 7.5 5M11 13.5v-11M8.5 11l2.5 2.5 2.5-2.5"/></svg></button>
+      <div class="suggest" id="suggest" role="listbox" aria-label="Problems" hidden></div>
+    </div>
+    <div id="search-status" class="sr-only" role="status"></div>
+    <div class="results" id="results" aria-live="polite"></div>
   </div>
 </section>
+
+<div class="mapbar" id="mapbar">
+  <div class="seg" role="radiogroup" aria-label="Layout" id="layout-seg"></div>
+  <div class="seg" role="radiogroup" aria-label="Rule scope" id="scope-seg"></div>
+</div>
+<div class="growth-legend" id="growth-legend" role="radiogroup" aria-label="Show reductions up to this growth"></div>
 
 <div class="pop" id="pop" role="dialog" aria-labelledby="pop-title" hidden></div>
 <nav class="dock" aria-label="Graph navigation">

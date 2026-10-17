@@ -110,3 +110,48 @@ export function familyRules(nodes: readonly { name: string }[], rules: readonly 
   }
   return out;
 }
+
+/* Fewest reductions from any root family; null when no active rule chain leads there. */
+export function depthsFrom(names: readonly string[], links: readonly { source: string; target: string }[], roots: readonly string[]) {
+  const next = new Map<string, string[]>();
+  for (const l of links) (next.get(l.source) ?? next.set(l.source, []).get(l.source)!).push(l.target);
+  const depth = new Map<string, number>(roots.filter(r => names.includes(r)).map(r => [r, 0]));
+  const queue = [...depth.keys()];
+  for (let i = 0; i < queue.length; i++) for (const w of next.get(queue[i]!) ?? []) if (!depth.has(w)) { depth.set(w, depth.get(queue[i]!)! + 1); queue.push(w); }
+  return new Map(names.map(n => [n, depth.get(n) ?? null] as const));
+}
+
+export interface Guide { x: number; y: number; text: string; count: number }
+/* Columns by depth (wrapped into sub-columns when crowded, ordered by the mean row of their sources), then a grid for the unreachable. */
+export function layeredLayout(names: readonly string[], depths: ReadonlyMap<string, number | null>,
+  links: readonly { source: string; target: string }[], { column = 260, row = 26, perColumn = 22, rank = (n: string) => n, root = 'SAT' } = {}) {
+  const positions = new Map<string, { x: number; y: number }>(), guides: Guide[] = [];
+  const preds = new Map<string, string[]>();
+  for (const l of links) (preds.get(l.target) ?? preds.set(l.target, []).get(l.target)!).push(l.source);
+  const layers = new Map<number, string[]>(), lost: string[] = [];
+  for (const n of names) {
+    const d = depths.get(n) ?? null;
+    if (d === null) lost.push(n); else (layers.get(d) ?? layers.set(d, []).get(d)!).push(n);
+  }
+  const rows = new Map<string, number>();
+  const mean = (n: string) => {
+    const ys = (preds.get(n) ?? []).filter(p => rows.has(p)).map(p => rows.get(p)!);
+    return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : Infinity;
+  };
+  let height = 0;
+  [...layers.keys()].sort((a, b) => a - b).forEach(d => {
+    const members = layers.get(d)!.sort((a, b) => mean(a) - mean(b) || rank(a).localeCompare(rank(b)));
+    const subs = Math.ceil(members.length / perColumn), per = Math.ceil(members.length / subs), gap = Math.min(110, (column - 70) / subs);
+    members.forEach((n, i) => {
+      const p = { x: d * column + Math.floor(i / per) * gap, y: (i % per) * row };
+      positions.set(n, p); rows.set(n, p.y); height = Math.max(height, p.y);
+    });
+    guides.push({ x: d * column, y: -56, text: d === 0 ? root : d === 1 ? '1 step' : `${d} steps`, count: members.length });
+  });
+  if (lost.length) {
+    const width = Math.max(1, layers.size) * column, cell = 96, across = Math.max(6, Math.floor(width / cell)), top = height + 150;
+    lost.sort((a, b) => rank(a).localeCompare(rank(b))).forEach((n, i) => positions.set(n, { x: (i % across) * cell, y: top + Math.floor(i / across) * row }));
+    guides.push({ x: 0, y: top - 56, text: `Not reachable from ${root}`, count: lost.length });
+  }
+  return { positions, guides };
+}

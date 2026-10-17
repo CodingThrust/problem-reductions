@@ -22,6 +22,9 @@ export class GraphScene {
   animation: number;
   svg: SVGSVGElement;
   world: SVGGElement;
+  guides: SVGGElement;
+  arrival = 0;
+  labelSide: 'below' | 'right' = 'below';
   nodes: SceneNode[];
   edges: SceneEdge[];
   byId: Map<string, SceneItem>;
@@ -46,6 +49,8 @@ export class GraphScene {
     this.svg = make('svg', {class: 'graph-scene', role: 'group',
       'aria-label': 'Problem families and directed reductions. Arrows move between spatial neighbours. Page Up and Page Down visit every problem. Home and End jump to the first and last problem. Enter or Space opens controls.'});
     this.world = make('g');
+    this.guides = make('g', {class: 'guides', 'aria-hidden': 'true'});
+    this.world.append(this.guides);
     const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -5 10 10', refX: 9, refY: 0,
       markerWidth: 11, markerHeight: 11, orient: 'auto', markerUnits: 'userSpaceOnUse'});
     marker.append(make('path', {d: 'M0,-4.5 L10,0 L0,4.5 Z', fill: 'var(--accent)'}));
@@ -248,6 +253,33 @@ export class GraphScene {
       }
     }
   }
+  /* Replace the labels that name each band of a layout. */
+  setGuides(items: { x: number; y: number; text: string; count: number }[]) {
+    this.guides.replaceChildren(...items.map(item => {
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', 'guide'); label.setAttribute('x', String(item.x)); label.setAttribute('y', String(item.y));
+      const count = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      count.setAttribute('class', 'guide-count'); count.textContent = '  ' + item.count;
+      label.append(item.text, count); return label;
+    }));
+  }
+  /* Move nodes to new positions, easing unless the caller or the user prefers no motion. */
+  arrange(targets: ReadonlyMap<string, Point>, animate: boolean, done?: () => void) {
+    cancelAnimationFrame(this.arrival);
+    const moves = this.nodes.flatMap(n => { const t = targets.get(n.id); return t ? [{n, x: n.x, y: n.y, tx: t.x, ty: t.y}] : []; });
+    const apply = (k: number) => {
+      for (const m of moves) { m.n.x = m.x + (m.tx - m.x) * k; m.n.y = m.y + (m.ty - m.y) * k; }
+      this.updatePositions(); this.onChange?.();
+    };
+    if (!animate) { apply(1); done?.(); return; }
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / 600), k = t < .5 ? 4*t*t*t : 1-(-2*t+2)**3/2;
+      apply(k);
+      if (t < 1) this.arrival = requestAnimationFrame(step); else { this.arrival = 0; done?.(); }
+    };
+    this.arrival = requestAnimationFrame(step);
+  }
   moveNode(node: SceneNode, dx: number, dy: number) {
     this.stop();
     node.x += dx / this.zoom; node.y += dy / this.zoom;
@@ -293,7 +325,7 @@ export class GraphScene {
   labelBox(node: SceneNode): Bounds {
     const important = ['route', 'start', 'end', 'hover', 'focused', 'reach'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
-    const key = size + ':' + text;
+    const right = this.labelSide === 'right', key = size + ':' + text + ':' + this.labelSide;
     if (node.labelKey !== key) {
       node.labelKey = key;
       this.measure.font = `500 ${size}px "DM Sans", sans-serif`;
@@ -311,9 +343,16 @@ export class GraphScene {
       node.label.replaceChildren(...lines.map((line, i) => {
         // Wrapped lines stay separated for assistive technology, which reads textContent.
         const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = i < lines.length - 1 ? line + ' ' : line; return span;
+        span.setAttribute('x', '0'); span.setAttribute('y', String(right ? (i - (lines.length - 1) / 2) * size * 1.25 + size * .35 : 5+size+i*size*1.25)); span.textContent = i < lines.length - 1 ? line + ' ' : line; return span;
       }));
       node.label.setAttribute('font-size', String(size));
+      node.label.setAttribute('text-anchor', right ? 'start' : 'middle');
+    }
+    if (right) {
+      const dx = node.size / 2 + 5;
+      node.label.setAttribute('transform', `translate(${dx} 0) scale(${1/this.zoom})`);
+      const p = this.position(node), left = p.x + dx * this.zoom;
+      return {x1: left - 3, x2: left + node.width + 3, y1: p.y - node.height / 2 - 2, y2: p.y + node.height / 2 + 2};
     }
     node.label.setAttribute('transform', `translate(0 ${node.size/2}) scale(${1/this.zoom})`);
     const p = this.position(node), top = p.y + node.size/2*this.zoom + 5;
