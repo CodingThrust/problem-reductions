@@ -177,14 +177,6 @@ while adding the certificate `n-m` excludes the original forward witnesses. The
 finite implementation reports Unknown for that pair in the larger batch rather
 than pretending the old witness is still valid.
 
-The repository theory note, [*Signed polynomial parameter transformations*](../theory/polynomial-comparator.typ),
-keeps worst-case comparison as mathematical background. Its **Generic comparison
-relative to a fixed batch** section describes the implemented order and proves
-regularity, the probability interpretation, the preorder, coverage sufficiency,
-and regular-valid refutations. Composition uses **Theorem 2.1**; exact convex
-coverage uses **Theorem 3.1**. The continuation hypotheses for safe prefix
-pruning are not registered, so prefixes are always extended.
-
 ## JSON proof schema (version 5)
 
 `--json` and `-o` include `polynomial_comparison` with `schema_version: 5`,
