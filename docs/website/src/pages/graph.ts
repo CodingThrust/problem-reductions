@@ -631,8 +631,8 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 /* ---------- Overhead lens ---------- */
 /* Analysis runs on concrete variants. A family edge only groups the exact variant rules behind it. */
 const rules = D.edges as RuleEdge[];
-interface Lens { scope: Scope; limit: ClassId; noIlp: boolean; focus: number | null; dir: 'down' | 'up'; group: number | null }
-const lens: Lens = { scope: 'witness', limit: 'unknown', noIlp: false, focus: null, dir: 'down', group: null };
+interface Lens { scope: Scope; limit: ClassId; focus: number | null; dir: 'down' | 'up'; group: number | null }
+const lens: Lens = { scope: 'witness', limit: 'unknown', focus: null, dir: 'down', group: null };
 const classOrder = CLASSES.map(c => c.id);
 const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
   { id: 'witness', name: 'Witness', hint: 'Rules that map solutions back to the source. Paths mode searches this scope.' },
@@ -641,17 +641,16 @@ const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
 ];
 const vtext = (i: number) => Object.entries(D.nodes[i]!.variant).map(([k, v]) => k + ": " + v).join("  ") || "default";
 const vname = (i: number) => display(D.nodes[i]!.name) + (multi(D.nodes[i]!.name) ? " · " + vtext(i) : "");
-const skipIlp = () => new Set(lens.noIlp ? rules.flatMap((r, i) => D.nodes[r.source]!.name === "ILP" || D.nodes[r.target]!.name === "ILP" ? [i] : []) : []);
 const badge = (cls: ClassId) => {
   const c = CLASSES.find(x => x.id === cls)!, b = el("span", "gc g-" + cls, c.label);
   b.title = c.name; return b;
 };
 const nontrivial = (groups: number[][]) => groups.filter(g => g.length > 1).sort((a, b) => b.length - a.length);
 function lensModel() {
-  const skip = skipIlp(), active = activeRules(rules, { scope: lens.scope, limit: lens.limit, skip });
+  const active = activeRules(rules, { scope: lens.scope, limit: lens.limit });
   const links = active.map(i => rules[i]!), fam = familyRules(D.nodes, rules, active);
   const groups = nontrivial(components(D.nodes.length, links).groups);
-  const scoped = activeRules(rules, { scope: lens.scope, limit: "unknown", skip });
+  const scoped = activeRules(rules, { scope: lens.scope, limit: "unknown" });
   const counts = new Map<ClassId, number>();
   scoped.forEach(i => { const c = edgeGrowth(rules[i]!).cls; counts.set(c, (counts.get(c) ?? 0) + 1); });
   const baseline = nontrivial(components(D.nodes.length, scoped.map(i => rules[i]!)).groups).length;
@@ -716,11 +715,11 @@ const pct = (n: number, d: number) => d ? Math.round(100 * n / d) : 0;
 function costCard(box: HTMLElement) {
   const m = model, total = [...m.counts.values()].reduce((a, b) => a + b, 0), limitAt = classOrder.indexOf(lens.limit);
   const mild = classOrder.slice(0, classOrder.indexOf("quadratic") + 1).reduce((a, c) => a + (m.counts.get(c) ?? 0), 0);
-  const into = rules.filter(r => r[lens.scope] && D.nodes[r.target]!.name === "ILP").length, scoped = rules.filter(r => r[lens.scope]).length;
   const card = el("section", "lcard cost");
   const hero = el("div", "hero-n"); hero.append(el("span", "num", String(pct(mild, total))), el("span", "of", "%"));
-  card.append(el("h2", "eyebrow", "Overhead of a reduction"), hero,
-    el("p", "cap", `of ${total} reductions grow at most quadratically in the source size${into > scoped / 4 ? `. ILP alone receives ${into}.` : "."}`));
+  const title = el("h2", "eyebrow", "Overhead of a reduction"); title.title = "Total degree of the target sizes when every source size grows together. A visualization convention, not a runtime bound.";
+  card.append(title, hero,
+    el("p", "cap", "of reductions are at most quadratic"));
   const bar = el("div", "dist"); bar.setAttribute("role", "radiogroup"); bar.setAttribute("aria-label", "Show reductions up to this growth class");
   const legend = el("div", "dist-legend");
   CLASSES.forEach((c, i) => {
@@ -737,8 +736,6 @@ function costCard(box: HTMLElement) {
     legend.append(key);
   });
   card.append(bar, legend);
-  const showing = lens.limit === "unknown" ? "Showing every reduction" : `Showing ${m.active.length} · ${CLASSES[limitAt]!.name.toLowerCase()} or cheaper`;
-  card.append(el("p", "showing", showing));
   const seg = el("div", "seg"); seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "Rule scope");
   SCOPES.forEach(x => {
     const b = el("button", "", x.name); b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(x.id === lens.scope)); b.title = x.hint;
@@ -754,7 +751,6 @@ function groupsCard(box: HTMLElement) {
   const head = el("div", "lcard-head"); head.append(el("h2", "eyebrow", "Mutually reducible"));
   const count = el("span", "count", m.baseline === m.groups.length ? String(m.groups.length) : `${m.groups.length} of ${m.baseline}`);
   count.title = "Groups of variants that reduce to each other"; head.append(count); card.append(head);
-  if (m.baseline !== m.groups.length) card.append(el("p", "cap", `${m.baseline - m.groups.length} fall apart once costlier rules are removed.`));
   const list = el("div", "groups");
   m.groups.forEach((g, gi) => {
     const families = [...new Set(g.map(v => D.nodes[v]!.name))], open = lens.group === gi;
@@ -765,7 +761,7 @@ function groupsCard(box: HTMLElement) {
     list.append(b);
     if (open) { const d = el("ul", "group-detail"); g.slice().sort((a, c) => a - c).forEach(v => d.append(el("li", "", vname(v)))); list.append(d); }
   });
-  if (!m.groups.length) list.append(el("p", "cap", "None under this filter."));
+  if (!m.groups.length) list.append(el("p", "cap", "None"));
   card.append(list); box.append(card);
 }
 
@@ -774,7 +770,7 @@ function focusCard(box: HTMLElement) {
   const head = el("div", "lcard-head"); head.append(el("h2", "eyebrow", lens.dir === "down" ? "Reduces to" : "Reduced from"));
   const clear = el("button", "link", "Clear"); clear.type = "button"; clear.addEventListener("click", () => { lens.focus = null; paintLens(); renderLens(); });
   head.append(clear); card.append(head);
-  card.append(el("p", "focus-name", display(D.nodes[f]!.name)), el("p", "cap", `${multi(D.nodes[f]!.name) ? vtext(f) + " · " : ""}${variants.size} variants in ${byFamily.size} other families`));
+  card.append(el("p", "focus-name", display(D.nodes[f]!.name)), el("p", "cap", `${multi(D.nodes[f]!.name) ? vtext(f) + " · " : ""}${variants.size} variants`));
   const items = el("div", "reach-list");
   [...byFamily].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).forEach(([name, vs]) => {
     const b = el("button", "reach-row"); b.type = "button"; b.append(el("span", "", display(name)), el("small", "", multi(name) ? `${vs.length}/${families.get(name)!.variants.length}` : ""));
@@ -790,13 +786,6 @@ function renderLens() {
   box.replaceChildren();
   if (lens.focus != null) focusCard(box);
   costCard(box); groupsCard(box);
-  const about = el("details", "about"); about.append(el("summary", "", "How to read this"));
-  about.append(el("p", "", "Arrows point from source to target. Colour is the total degree of the target's sizes when every source size grows together: a visualization convention, not a runtime bound. Θ marks exact formulas and O upper bounds."));
-  about.append(el("p", "", "Reachability is connectivity among registered reductions; it does not establish solver availability or efficiency. ILP edges are faded on the map because it receives nearly half of all reductions."));
-  const ilp = el("label", "check"), cb = el("input"); cb.type = "checkbox"; cb.checked = lens.noIlp; cb.dataset.key = "noilp";
-  cb.addEventListener("change", () => { lens.noIlp = cb.checked; lens.focus = null; refreshLens(); });
-  ilp.append(cb, el("span", "", "Leave ILP out of the analysis")); about.append(ilp);
-  box.append(about);
   if (hadFocus) box.querySelector<HTMLElement>(`[data-key="${hadFocus}"]`)?.focus({ preventScroll: true });
 }
 
@@ -817,7 +806,6 @@ function popLens(v: number) {
   wrap.append(row);
   const out = [...model.fam.values()].filter(f => f.source === D.nodes[v]!.name);
   if (out.length) {
-    wrap.append(el("p", "pop-sub", "Rules out of this problem"));
     out.sort((a, b) => classOrder.indexOf(a.cls) - classOrder.indexOf(b.cls)).forEach(f => {
       const b = el("button", "pop-rule"); b.type = "button"; b.append(badge(f.cls), el("span", "", display(f.target)));
       b.addEventListener("click", () => openEdgePop(scene.byId.get(f.source + "→" + f.target) as SceneEdge));
@@ -834,7 +822,6 @@ function openEdgePop(edge: SceneEdge) {
   popNode = null; popAnchor = edge;
   const pop = $("#pop"); pop.replaceChildren();
   const title = el("h2", "", display(f.source) + " → " + display(f.target)); title.id = "pop-title"; pop.append(title);
-  pop.append(el("p", "hint", `${f.rules.length} variant rule${f.rules.length === 1 ? "" : "s"} in scope`));
   [...f.rules].sort((a, b) => classOrder.indexOf(ruleClass(a)) - classOrder.indexOf(ruleClass(b))).forEach(i => {
     const rule = rules[i]!, g = edgeGrowth(rule), card = el("div", "rule-card");
     const head = el("button", "rule-head"); head.type = "button";
@@ -844,10 +831,8 @@ function openEdgePop(edge: SceneEdge) {
     const dl = el("dl", "growth");
     g.fields.forEach(x => { dl.append(el("dt", "", prettyField(x.name)), el("dd", "", x.kind === "unavailable" ? "unavailable" : x.lead)); });
     card.append(dl);
-    card.append(el("small", "acc", g.accuracy === "exact" ? "Θ: every formula is exact" : "O: at least one formula is an upper bound"));
     pop.append(card);
   });
-  const close = el("button", "pop-details", "Close"); close.type = "button"; close.onclick = () => closePop(); pop.append(close);
   pop.hidden = false; placePop();
 }
 
