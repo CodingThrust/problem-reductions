@@ -255,6 +255,14 @@ impl Verdict {
     pub fn name(self) -> &'static str {
         Self::ALL[self.index()]
     }
+    /// `(winner, loser)` of a dominated pair `(i, j)`; `None` for every other verdict.
+    pub fn winner_loser(self, i: usize, j: usize) -> Option<(usize, usize)> {
+        match self {
+            Self::Dominated { worse: Side::Right } => Some((i, j)),
+            Self::Dominated { worse: Side::Left } => Some((j, i)),
+            _ => None,
+        }
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldComparison {

@@ -5,13 +5,13 @@ import { validateWasmComparisonData } from './wasm-comparison-data.mts';
 import type { Endpoint, WasmPathResult } from '../generated/wasm-paths.validator.mjs';
 import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
 import type { PathGraphData } from '../generated/path-graph.validator.mjs';
+import { nodeKey } from './variant.mts';
 
 type RouteGraph = Pick<GraphSceneData, 'nodes' | 'edges'> | PathGraphData;
 export type PathRequest = Extract<PathRequestEnvelope, { kind: 'search' }>
   | (Extract<PathRequestEnvelope, { kind: 'compare' }> & { cached: WasmPathResult });
 const error = () => new Error('Invalid path worker contract. Reload the current release.');
-const endpointKey = (node: Endpoint) => JSON.stringify([node.name,
-  Object.entries(node.variant).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)]);
+const endpointKey = (node: Endpoint) => nodeKey(node);
 
 export function validatePathRoutes(result: WasmPathResult, graph: RouteGraph, request: PathRequest): void {
   if (result.paths.length > request.limit || (result.truncated && result.paths.length !== request.limit)) throw error();

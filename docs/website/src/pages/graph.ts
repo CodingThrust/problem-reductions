@@ -423,9 +423,9 @@ function compute(source: number, target: number, limit: number, onPaths: (result
 }
 function orderPaths(result: PathResult) {
   const c = result.polynomial_comparison;
-  const degrees = c?.profiles.map(pathDegree);
+  const degrees = c?.profiles.map(pathDegree), front = new Set(c?.front);
   result.order = result.paths.map((_, i) => i + 1).sort((a, b) =>
-    (c ? (Number(c.front.includes(b)) - Number(c.front.includes(a))) || compareDegrees(degrees![a - 1], degrees![b - 1]) : 0) ||
+    (c ? (Number(front.has(b)) - Number(front.has(a))) || compareDegrees(degrees![a - 1], degrees![b - 1]) : 0) ||
     result.paths[a - 1]!.steps - result.paths[b - 1]!.steps || a - b);
 }
 async function run() {
@@ -598,7 +598,7 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     if (seen.has(k) || (k === selectedChain && n !== state.selected)) return false;
     seen.add(k); return true;
   });
-  const front = shown.filter((n) => !c || c.front.includes(n)), slower = shown.filter((n) => c && !c.front.includes(n));
+  const onFront = new Set(c?.front), front = shown.filter((n) => !c || onFront.has(n)), slower = shown.filter((n) => c && !onFront.has(n));
   const s = el("div", "summary"), left = el("span");
   if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }

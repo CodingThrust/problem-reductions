@@ -24,6 +24,10 @@ from threading import Thread
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def file_digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def tool_path(environment):
     current = environment.get("PATH", "")
     cargo_bin = str(Path(environment.get("CARGO_HOME") or Path.home() / ".cargo") / "bin")
@@ -87,7 +91,7 @@ def source_state(root=ROOT, output=None):
         "revision": git("rev-parse", "HEAD").decode().strip(),
         "working_tree_status": git("status", "--porcelain", *paths).decode(),
         "working_tree_diff_sha256": hashlib.sha256(git("diff", "--binary", "HEAD", *paths)).hexdigest(),
-        "untracked_source": {name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        "untracked_source": {name: file_digest(root / name)
                              for name in untracked if (root / name).is_file()},
         "nested_checkouts": nested,
     }
@@ -99,21 +103,18 @@ def verify_source_unchanged(expected, root=ROOT, output=None):
 
 
 def write_provenance(site, verification, *, source=None):
-    def digest(path):
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-
     tools = {"python": sys.version, **{name: version(name) for name in
              ["playwright", "pyee", "greenlet", "typing_extensions"]}}
     for command in ["git", "cargo", "rustc", "node", "npm", "mdbook", "typst", "wasm-bindgen"]:
         tools[command] = subprocess.check_output([command, "--version"], text=True).strip() if shutil.which(command) else None
     evidence = {
         **(source if source is not None else source_state(output=site)),
-        "lockfiles": {name: digest(ROOT / name) for name in
+        "lockfiles": {name: file_digest(ROOT / name) for name in
                       ["Cargo.lock", "package-lock.json", "scripts/uv.lock", "scripts/website-requirements.txt"]
                       if (ROOT / name).is_file()},
         "platform": platform.platform(), "tools": tools, "verification": verification,
         "github_runner": {"image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion")},
-        "artifacts": {path.relative_to(site).as_posix(): digest(path)
+        "artifacts": {path.relative_to(site).as_posix(): file_digest(path)
                       for path in sorted(site.rglob("*")) if path.is_file() and path != site / "verification.json"},
     }
     (site / "verification.json").write_text(json.dumps(evidence, indent=2) + "\n")
@@ -128,7 +129,7 @@ def verified_artifact(site):
         path = site / name
         if not path.resolve().is_relative_to(site.resolve()):
             raise ValueError(f"Artifact path leaves the verified directory: {name}")
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        if not path.is_file() or file_digest(path) != expected:
             raise ValueError(f"Artifact changed or missing since verification: {name}")
     return report
 

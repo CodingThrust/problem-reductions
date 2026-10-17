@@ -1,4 +1,5 @@
 import { validateGraphScene, type GraphSceneData } from '../generated/graph-scene.validator.mjs';
+import { nodeKey } from './variant.mts';
 
 export function validateGraphSceneData(value: unknown): GraphSceneData {
   if (!validateGraphScene(value)) throw new Error('Invalid graph scene contract. Reload the current release.');
@@ -6,7 +7,7 @@ export function validateGraphSceneData(value: unknown): GraphSceneData {
   const variants = new Set<string>();
   const defaults = new Map<string, number>();
   for (const node of value.nodes) {
-    const key = JSON.stringify([node.name, Object.entries(node.variant).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)]);
+    const key = nodeKey(node);
     if (variants.has(key)) throw new Error('Duplicate graph variant.');
     variants.add(key);
     if (node.default) defaults.set(node.name, (defaults.get(node.name) ?? 0) + 1);

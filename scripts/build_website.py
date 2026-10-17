@@ -2,7 +2,6 @@
 """Overlay the product website on mdBook, using its generated registry exports."""
 
 import argparse
-import os
 import ast
 import gzip
 from html import escape
@@ -281,12 +280,11 @@ def build(output, graph_path, schemas_path, open_questions=None):
             json.dumps(data, separators=(",", ":")).encode(), mtime=0))
     # Size-optimized for the browser only: the CLI and tests keep the workspace release profile. The path search
     # runs at the same speed; only the comparison summary is slower, and it already follows the first routes.
-    subprocess.run(["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "problemreductions-web"],
-                   cwd=ROOT, check=True,
-                   env={**os.environ, "CARGO_PROFILE_RELEASE_OPT_LEVEL": "z", "CARGO_PROFILE_RELEASE_PANIC": "abort"})
+    subprocess.run(["cargo", "build", "--profile", "wasm-release", "--target", "wasm32-unknown-unknown",
+                    "-p", "problemreductions-web"], cwd=ROOT, check=True)
     subprocess.run(["wasm-bindgen", "--target", "web", "--out-name", "path-selection",
                     "--out-dir", str(output / "assets"),
-                    str(ROOT / "target/wasm32-unknown-unknown/release/problemreductions_web.wasm")], check=True)
+                    str(ROOT / "target/wasm32-unknown-unknown/wasm-release/problemreductions_web.wasm")], check=True)
     wasm = output / "assets/path-selection_bg.wasm"
     wasm.with_suffix('.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
     build_frontend(output)

@@ -62,3 +62,9 @@ debug = "full"
 lto = true
 codegen-units = 1
 strip = true
+
+# Size-optimized build for the browser (scripts/build_website.py).
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+panic = "abort"

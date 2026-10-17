@@ -14,10 +14,16 @@ pub mod types;
 
 use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
-use poly_compare::{compare_all_verdicts, compare_summary, Profile, Reason, Side, Verdict};
+#[cfg(feature = "schema-export")]
+use poly_compare::Verdict;
+use poly_compare::{compare_all_verdicts, compare_summary, Profile, Reason};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
+
+/// Largest integer a JavaScript number represents exactly.
+#[cfg(feature = "schema-export")]
+const JS_SAFE_MAX: u64 = 9_007_199_254_740_991;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
@@ -45,9 +51,9 @@ enum Contract {
 #[derive(Deserialize)]
 #[cfg_attr(feature = "schema-export", derive(schemars::JsonSchema))]
 struct Edge {
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     source: usize,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     target: usize,
     witness: bool,
     turing: bool,
@@ -65,9 +71,9 @@ struct Graph {
 #[cfg_attr(feature = "schema-export", schemars(extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-path-request")))]
 struct Query {
     graph: Graph,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     source: usize,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     target: usize,
     #[cfg_attr(feature = "schema-export", schemars(range(min = 1, max = 999)))]
     limit: usize,
@@ -160,7 +166,7 @@ struct Step {
 struct Route {
     #[cfg_attr(
         feature = "schema-export",
-        schemars(range(min = 1, max = 9007199254740991u64))
+        schemars(range(min = 1, max = JS_SAFE_MAX))
     )]
     steps: usize,
     #[cfg_attr(feature = "schema-export", schemars(length(min = 1)))]
@@ -241,7 +247,7 @@ struct WasmComparisonResult {
     profiles: Vec<ComparisonProfile>,
     #[cfg_attr(
         feature = "schema-export",
-        schemars(inner(range(min = 1, max = 9007199254740991u64)))
+        schemars(inner(range(min = 1, max = JS_SAFE_MAX)))
     )]
     front: Vec<usize>,
     counts: ComparisonCounts,
@@ -255,13 +261,13 @@ struct WasmComparisonResult {
 #[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields))]
 #[serde(rename_all = "PascalCase")]
 struct ComparisonCounts {
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     dominated: usize,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     equivalent: usize,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     incomparable: usize,
-    #[cfg_attr(feature = "schema-export", schemars(range(max = 9007199254740991u64)))]
+    #[cfg_attr(feature = "schema-export", schemars(range(max = JS_SAFE_MAX)))]
     unknown: usize,
 }
 
@@ -282,7 +288,7 @@ impl From<[usize; 4]> for ComparisonCounts {
 struct ComparisonPair {
     #[cfg_attr(
         feature = "schema-export",
-        schemars(inner(range(min = 1, max = 9007199254740991u64)))
+        schemars(inner(range(min = 1, max = JS_SAFE_MAX)))
     )]
     paths: [usize; 2],
     #[cfg_attr(feature = "schema-export", schemars(extend("enum" = Verdict::ALL)))]
@@ -298,12 +304,12 @@ struct ComparisonPair {
 struct Dominance {
     #[cfg_attr(
         feature = "schema-export",
-        schemars(range(min = 1, max = 9007199254740991u64))
+        schemars(range(min = 1, max = JS_SAFE_MAX))
     )]
     winner: usize,
     #[cfg_attr(
         feature = "schema-export",
-        schemars(range(min = 1, max = 9007199254740991u64))
+        schemars(range(min = 1, max = JS_SAFE_MAX))
     )]
     loser: usize,
 }
@@ -490,16 +496,13 @@ fn compare_paths_impl(input: &str, summary_only: bool) -> Result<String, JsError
             .pairs
             .iter()
             .map(|(i, j, comparison)| {
-                let dominates = if let Verdict::Dominated { worse } = comparison.verdict {
-                    let (winner, loser) = if worse == Side::Left {
-                        (j + 1, i + 1)
-                    } else {
-                        (i + 1, j + 1)
-                    };
-                    Some(Dominance { winner, loser })
-                } else {
-                    None
-                };
+                let dominates = comparison
+                    .verdict
+                    .winner_loser(*i, *j)
+                    .map(|(winner, loser)| Dominance {
+                        winner: winner + 1,
+                        loser: loser + 1,
+                    });
                 ComparisonPair {
                     paths: [i + 1, j + 1],
                     verdict: comparison.verdict.name(),

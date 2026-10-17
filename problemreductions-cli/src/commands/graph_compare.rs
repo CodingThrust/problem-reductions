@@ -7,11 +7,7 @@ use serde_json::{json, Value};
 
 /// 1-based `(winner, loser)` of a dominated pair.
 fn winner_loser(i: usize, j: usize, verdict: Verdict) -> Option<(usize, usize)> {
-    match verdict {
-        Verdict::Dominated { worse: Side::Right } => Some((i + 1, j + 1)),
-        Verdict::Dominated { worse: Side::Left } => Some((j + 1, i + 1)),
-        _ => None,
-    }
+    verdict.winner_loser(i, j).map(|(w, l)| (w + 1, l + 1))
 }
 
 fn strict_fields(c: &ProfileComparison, worse: Side) -> String {

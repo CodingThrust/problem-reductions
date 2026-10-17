@@ -1,11 +1,12 @@
 import { validateAtlas, type AtlasData, type AtlasSummary, type AtlasRecord } from '../generated/atlas-data.validator.mjs';
+import { nodeKey } from './variant.mts';
 
 const error = () => new Error('Invalid atlas data. Reload the current release and try again.');
 
 function validateReferences(data: AtlasData): void {
   const variants = new Set<string>();
   for (const node of data.nodes) {
-    const key = JSON.stringify([node.name, Object.entries(node.variant).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)]);
+    const key = nodeKey(node);
     if (variants.has(key)) throw error();
     variants.add(key);
   }

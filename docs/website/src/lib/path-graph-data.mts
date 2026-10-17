@@ -1,4 +1,5 @@
 import { validatePathGraph, type PathGraphData } from '../generated/path-graph.validator.mjs';
+import { nodeKey } from './variant.mts';
 
 export function validatePathGraphData(value: unknown): PathGraphData {
   if (!validatePathGraph(value)) throw new Error('Invalid path metadata contract. Reload the current release.');
@@ -10,7 +11,7 @@ export function validatePathGraphReferences(value: Pick<PathGraphData, 'nodes' |
   const error = () => new Error('Invalid path metadata contract. Reload the current release.');
   const variants = new Set<string>(), defaults = new Map<string, number>();
   for (const node of value.nodes) {
-    const key = JSON.stringify([node.name, Object.entries(node.variant).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)]);
+    const key = nodeKey(node);
     if (variants.has(key)) throw error();
     variants.add(key);
     defaults.set(node.name, (defaults.get(node.name) ?? 0) + (node.default ? 1 : 0));

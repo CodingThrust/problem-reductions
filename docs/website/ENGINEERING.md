@@ -112,7 +112,7 @@ including after failures. Production publication remains gated to `main`.
 
 Slow-4G profile (1.6 Mbps, 100 ms RTT, 4x CPU, Chromium, text compressed): the
 transfer of the path engine dominates. The browser WASM build alone uses
-`opt-level = "z"` and `panic = "abort"` (`build_website.py`); the workspace release
+the `wasm-release` Cargo profile (`opt-level = "z"`, `panic = "abort"`); the workspace release
 profile used by the CLI and tests is unchanged. Gzipped size: 267 KB to 167 KB
 (raw 777 KB to 549 KB). First routes: about 2.25 s to 1.8 s (3-5 runs each; treat as
 directional). Unthrottled, path search time is unchanged (66 vs 69 ms) and the
