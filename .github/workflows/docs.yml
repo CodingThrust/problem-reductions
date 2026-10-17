@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: GiggleLiu/autoresearch-gadgets
-          ref: 9ceb0e4c3a4a72b536f8d3d478f9296c546a7bf8
+          ref: main
           path: open-questions-source
           token: ${{ secrets.PROJECT_READ_TOKEN }}
           persist-credentials: false
