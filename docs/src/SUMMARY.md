@@ -16,4 +16,3 @@
 - [Getting started](getting-started.md)
 - [API reference](api.md)
 - [Design](design.md)
-- [Polynomial comparator V1](polynomial-comparator.md)

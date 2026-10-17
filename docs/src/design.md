@@ -551,8 +551,7 @@ that term is also dropped and the certificate is `e' <= n^2/2`.
 Likewise, `m <= n^2` followed by `k = 10 - m` produces `k <= 10`.
 A non-polynomial downstream formula cannot propagate symbolic upper bounds and
 makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
-Big-O display; it does not rank or filter paths. Certified polynomial comparison and
-conservative final-front filtering live in [Polynomial comparator V1](polynomial-comparator.md).
+Big-O display; it does not rank or filter paths.
 
 </details>
 

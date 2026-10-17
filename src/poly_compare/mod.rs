@@ -1,5 +1,4 @@
 //! Certified V1 generic polynomial comparison relative to a fixed path batch.
-//! See `docs/src/polynomial-comparator.md` for semantics and limitations.
 use crate::expr::{Expr, Symbol};
 use crate::parameters::{ParameterRelation, ParameterTransform, ParameterTransformError};
 use crate::polynomial::pow_rational;
