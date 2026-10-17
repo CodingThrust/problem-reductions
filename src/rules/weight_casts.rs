@@ -14,10 +14,8 @@ pub(super) fn exact_float_weights<S: Problem, T: Problem>(
         .iter()
         .map(|&value| {
             let converted = convert(value)?;
-            // Bound every partial subset sum, including cancellation, by the exact-integer range.
-            magnitude = magnitude.checked_add(value.abs()).ok_or_else(|| {
-                ReductionError::integer_overflow::<S, T>("bounding floating-point weight sums")
-            })?;
+            // Bound all subset sums; both addends are below 2^53, so this i64 sum cannot overflow.
+            magnitude += value.abs();
             convert(magnitude)?;
             Ok(converted)
         })

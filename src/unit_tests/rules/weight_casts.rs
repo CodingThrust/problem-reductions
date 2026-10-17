@@ -298,3 +298,63 @@ fn float_promotions_reject_inexact_accumulations_and_products() {
             .unwrap(),
     );
 }
+
+#[test]
+fn float_promotions_reject_unrepresentable_input_fields() {
+    let inexact = MAX_EXACT_F64_INTEGER + 2;
+    for weight in [inexact, i64::MIN] {
+        assert_float_rejected::<
+            MaximumIndependentSet<_, i64>,
+            MaximumIndependentSet<SimpleGraph, f64>,
+        >(MaximumIndependentSet::new(
+            SimpleGraph::new(1, vec![]),
+            vec![weight],
+        ));
+        assert_float_rejected::<MaximumEdgeWeightedKClique<i64>, MaximumEdgeWeightedKClique<f64>>(
+            MaximumEdgeWeightedKClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![weight], 2)
+                .unwrap(),
+        );
+        assert_float_rejected::<BinPacking<i64>, BinPacking<f64>>(
+            BinPacking::new(vec![1], weight).unwrap(),
+        );
+    }
+    assert_float_rejected::<ComparativeContainment<i64>, ComparativeContainment<f64>>(
+        ComparativeContainment::with_weights(
+            1,
+            vec![vec![0]],
+            vec![vec![0]],
+            vec![1],
+            vec![inexact],
+        )
+        .unwrap(),
+    );
+    assert_float_rejected::<
+        PrizeCollectingSteinerForest<_, i64>,
+        PrizeCollectingSteinerForest<SimpleGraph, f64>,
+    >(
+        PrizeCollectingSteinerForest::new(SimpleGraph::new(1, vec![]), vec![1], vec![], inexact, 0)
+            .unwrap(),
+    );
+    assert_float_rejected::<BinPacking<i64>, BinPacking<f64>>(
+        BinPacking::new(vec![inexact], 1).unwrap(),
+    );
+    assert_float_rejected::<
+        PrizeCollectingSteinerForest<_, i64>,
+        PrizeCollectingSteinerForest<SimpleGraph, f64>,
+    >(
+        PrizeCollectingSteinerForest::new(SimpleGraph::new(1, vec![]), vec![inexact], vec![], 1, 0)
+            .unwrap(),
+    );
+}
+
+#[test]
+fn float_forest_promotion_rejects_overflowing_scaled_costs() {
+    let big = MAX_EXACT_F64_INTEGER;
+    assert_float_rejected::<
+        PrizeCollectingSteinerForest<_, i64>,
+        PrizeCollectingSteinerForest<SimpleGraph, f64>,
+    >(
+        PrizeCollectingSteinerForest::new(SimpleGraph::new(1, vec![]), vec![big], vec![], big, 0)
+            .unwrap(),
+    );
+}
