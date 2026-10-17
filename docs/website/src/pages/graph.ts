@@ -96,9 +96,10 @@ function placeLabels() {
   scene.classes(scene.nodes, "named");
   scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named: SceneNode[] = [];
+  const cap = lensOn && lens.focus == null && lens.group == null ? 12 : Infinity;
   scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
     const b = box(n);
-    if (fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
+    if (named.length < cap && fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
   });
   scene.classes(named, "", "named");
   placePop();
@@ -107,6 +108,14 @@ scene.onChange = scheduleLabels;
 scene.onDrag = () => { scheduleLabels(); placePop(); };
 scene.onHover = (n, over) => {
   scene.classes([n], over ? "" : "hover", over ? "hover" : "");
+  if (lensOn && lens.focus == null && lens.group == null) {
+    const nbrs = families.get(n.id)!.nbrs;
+    scene.classes(scene.edges, "lit quiet");
+    if (over) {
+      scene.edges.forEach(e => scene.classes([e], "", e.source === n || e.target === n ? "lit" : "quiet"));
+      scene.nodes.forEach(o => scene.classes([o], "near", o !== n && nbrs.has(o.id) ? "near" : ""));
+    } else scene.classes(scene.nodes, "near");
+  }
   if (!state.result && !lensOn) {
     if (over) {
       scene.classes(scene.elements.filter(e => e !== n && !families.get(n.id)!.nbrs.has(e.id)), "", "dim");
@@ -671,7 +680,7 @@ function reachOf(focus: number) {
 
 function paintLens() {
   const edgeClasses = classOrder.map(c => "e-" + c).join(" ");
-  scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub " + edgeClasses);
+  scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub lit quiet near " + edgeClasses);
   const linked = new Set<string>(), cyc = new Set<string>();
   model.fam.forEach(f => { linked.add(f.source); linked.add(f.target); });
   model.groups.forEach(g => g.forEach(v => cyc.add(D.nodes[v]!.name)));
@@ -686,7 +695,7 @@ function paintLens() {
     scene.classes([edge], "", "e-" + f.cls);
     if (!picked && !focus && (edge.source.id === "ILP" || edge.target.id === "ILP")) scene.classes([edge], "", "hub");
     if ((picked || focus) && !f.rules.some(i => inside(rules[i]!.source) && inside(rules[i]!.target))) scene.classes([edge], "", "dim");
-    else if (picked || focus) { lit.add(edge.source.id); lit.add(edge.target.id); }
+    else if (picked || focus) { lit.add(edge.source.id); lit.add(edge.target.id); scene.classes([edge], "", "lit"); }
   });
   scene.nodes.forEach(node => {
     const members = families.get(node.id)!.variants;
@@ -845,7 +854,7 @@ function setTab(name: "paths" | "overhead") {
   document.body.classList.toggle("lens", lensOn);
   closePop();
   if (lensOn) { model = lensModel(); paintLens(); renderLens(); frameCore(); }
-  else { scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub " + classOrder.map(c => "e-" + c).join(" ")); paintGraph(); }
+  else { scene.classes(scene.elements, "dim ghost route start end nbr off cyc reach pick hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ")); paintGraph(); }
 }
 for (const id of ["paths", "overhead"] as const) {
   $("#tab-" + id).addEventListener("click", () => setTab(id));

@@ -262,7 +262,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .lens .edge-hit { pointer-events: stroke; cursor: pointer; }
 .lens .edge-hit:hover + .scene-edge { stroke-width: 3px; opacity: 1; }
 .lens :is(.scene-edge, .edge-hit) { vector-effect: non-scaling-stroke; }
-.lens .scene-edge { stroke-width: 1.2; opacity: .85; transition: opacity .2s, stroke .2s; }
+.lens .scene-edge { stroke-width: 1; opacity: .34; marker-end: none; transition: opacity .2s, stroke .2s; }
 .lens .scene-edge.off { opacity: 0; }
 .lens .edge-hit:has(+ .scene-edge.off) { pointer-events: none; }
 .lens .scene-edge.dim { opacity: .07; }
@@ -293,3 +293,10 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .rule-card .growth { margin: 8px 0 4px; font-size: 12px; }
 .acc { color: var(--ink-3); font-size: 11.5px; }
 @media (prefers-reduced-motion: reduce) { .seg-bar, .lens .scene-edge { transition: none; } }
+
+.lens .scene-edge:not(.lit) { marker-end: none; }
+.lens .scene-edge.lit { opacity: 1; stroke-width: 1.8; }
+.lens .scene-edge.quiet { opacity: .1; }
+.lens .scene-node.near .node-label { visibility: visible; fill: var(--ink); }
+.lens .scene-edge.hub { opacity: .05; }
+.lens .scene-edge.hub.lit { opacity: 1; }
