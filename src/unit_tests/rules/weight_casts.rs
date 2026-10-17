@@ -9,42 +9,40 @@ use crate::traits::Problem;
 use crate::types::{One, MAX_EXACT_F64_INTEGER};
 use crate::variant::KN;
 use serde::Serialize;
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 #[test]
 fn registered_numeric_variants_have_direct_promotions() {
-    let variants = crate::registry::variant_entries();
-    let edges = crate::rules::registry::reduction_entries();
+    let variants: BTreeSet<_> = crate::registry::variant_entries()
+        .into_iter()
+        .map(|v| (v.name, v.variant_map()))
+        .collect();
+    let edges: BTreeSet<_> = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .filter(|e| e.source_name == e.target_name && e.reduce_fn.is_some())
+        .map(|e| {
+            (
+                e.source_name,
+                ReductionGraph::variant_to_map(&e.source_variant()),
+                ReductionGraph::variant_to_map(&e.target_variant()),
+            )
+        })
+        .collect();
     let mut missing = Vec::new();
-    for source in &variants {
-        for (from, to) in [("One", "i64"), ("i64", "f64")] {
-            for field in ["weight", "coefficient"] {
-                let mut target = source.variant_map();
-                if target.get(field).map(String::as_str) != Some(from) {
-                    continue;
-                }
-                target.insert(field.into(), to.into());
-                if !variants
-                    .iter()
-                    .any(|v| v.name == source.name && v.variant_map() == target)
-                {
-                    continue;
-                }
-                if !edges.iter().any(|e| {
-                    e.source_name == source.name
-                        && e.target_name == source.name
-                        && ReductionGraph::variant_to_map(&e.source_variant())
-                            == source.variant_map()
-                        && ReductionGraph::variant_to_map(&e.target_variant()) == target
-                        && e.reduce_fn.is_some()
-                }) {
-                    missing.push(format!(
-                        "{} {:?} -> {:?}",
-                        source.name,
-                        source.variant_map(),
-                        target
-                    ));
-                }
+    for (name, source) in &variants {
+        for field in ["weight", "coefficient"] {
+            let to = match source.get(field).map(String::as_str) {
+                Some("One") => "i64",
+                Some("i64") => "f64",
+                _ => continue,
+            };
+            let mut target = source.clone();
+            target.insert(field.into(), to.into());
+            if variants.contains(&(*name, target.clone()))
+                && !edges.contains(&(*name, source.clone(), target.clone()))
+            {
+                missing.push(format!("{name} {source:?} -> {target:?}"));
             }
         }
     }
@@ -104,20 +102,19 @@ where
     let source_solution = solver.solve(&source).unwrap();
     let target_solutions = solver.find_all_witnesses(target).unwrap();
     if let Some(source_solution) = source_solution {
+        let optimum = source.evaluate(&source_solution).unwrap();
         assert!(!target_solutions.is_empty());
         for solution in target_solutions {
             let recovered = chain.extract_solution::<S::Solution, _>(&solution).unwrap();
             assert_eq!(recovered, solution);
-            assert_eq!(
-                source.evaluate(&recovered).unwrap(),
-                source.evaluate(&source_solution).unwrap()
-            );
+            let recovered_value = source.evaluate(&recovered).unwrap();
+            assert_eq!(recovered_value, optimum);
             if maps_values {
                 assert!(chain.has_value_mapping());
                 let value = serde_json::to_value(target.evaluate(&solution).unwrap()).unwrap();
                 assert_eq!(
                     chain.extract_value(value).unwrap(),
-                    serde_json::to_value(source.evaluate(&recovered).unwrap()).unwrap()
+                    serde_json::to_value(recovered_value).unwrap()
                 );
             }
         }

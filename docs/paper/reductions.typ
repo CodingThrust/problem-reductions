@@ -16869,7 +16869,9 @@ Problems parameterized by graph type, weight type, target type, or clause width 
         let from = src.variant.at(field, default: none)
         let to = tgt.variant.at(field, default: none)
         let promotion = (from == "One" and to == "i64") or (from == "i64" and to == "f64")
-        promotion and src.variant.pairs().all(((key, value)) => key == field or tgt.variant.at(key, default: none) == value) and src.variant.len() == tgt.variant.len()
+        let promoted = src.variant
+        promoted.insert(field, to)
+        promotion and promoted == tgt.variant
       })
     }
     let source = (name: "MaximumIndependentSet", variant: (graph: "SimpleGraph", weight: "One"))
