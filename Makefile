@@ -100,7 +100,6 @@ website: website-data
 
 # Generate SVG diagrams from Typst sources (light + dark themes)
 TYPST_DOC_DIAGRAMS := $(wildcard docs/src/static/*.typ)
-TYPST_PAPER_DIAGRAMS := $(wildcard docs/paper/static/*.typ)
 diagrams:
 	@for src in $(TYPST_DOC_DIAGRAMS); do \
 		base=$$(basename $$src .typ); \
@@ -227,7 +226,6 @@ compare: rust-export
 	done
 
 # Closed-loop CLI demo: exercises all commands end-to-end
-PRED := cargo run -p problemreductions-cli --release --
 CLI_DEMO_DIR := /tmp/pred-cli-demo
 cli-demo: cli
 	@echo "=== pred CLI closed-loop demo ==="

@@ -23,7 +23,6 @@ benchmarks = ["dep:criterion"]
 
 [dependencies]
 petgraph = { version = "0.8.3", features = ["serde-1"] }
-bitvec = "1.1.1"
 serde = { version = "1.0.229", features = ["derive"] }
 # Persisted problem and reduction data must preserve every finite f64 on replay.
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }

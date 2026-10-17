@@ -11,19 +11,12 @@
       },
       "maxItems": 999
     },
-    "schema_version": {
-      "type": "integer",
-      "const": 1,
-      "maximum": 255,
-      "minimum": 0
-    },
     "truncated": {
       "type": "boolean"
     }
   },
   "additionalProperties": false,
   "required": [
-    "schema_version",
     "paths",
     "truncated"
   ],

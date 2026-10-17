@@ -4,9 +4,8 @@
   "title": "GraphDetailsIndex",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "entries", "anchors"],
+  "required": ["entries", "anchors"],
   "properties": {
-    "schema_version": {"const": 1, "type": "integer"},
     "entries": {
       "type": "object", "minProperties": 1,
       "propertyNames": {"pattern": "^(problem:.+|rule:.+|references|footnotes)$"},

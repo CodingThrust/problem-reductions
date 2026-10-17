@@ -51,7 +51,7 @@ class WebsiteBuildTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             schema_path = root / 'docs/website/graph-scene.schema.json'
             schema = json.loads(schema_path.read_text())
-            schema['properties']['schema_version']['const'] += 1
+            schema['required'].remove('layout')
             schema_path.write_text(json.dumps(schema))
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
@@ -72,7 +72,7 @@ class WebsiteBuildTests(unittest.TestCase):
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             schema = json.loads(path.read_text())
-            schema['properties']['schema_version']['const'] = 2
+            schema['required'].remove('profiles')
             path.write_text(json.dumps(schema))
             result = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
@@ -178,27 +178,6 @@ class WebsiteBuildTests(unittest.TestCase):
         self.assertEqual([(record['nodes'][edge['source']]['name'], record['nodes'][edge['source']]['variant']['weight'],
                            record['nodes'][edge['target']]['name']) for edge in record['edges']],
                          [('Source', 'One', 'Target'), ('Source', 'i64', 'Neighbor')])
-
-    def test_question_board_keeps_assets_and_registry_provenance(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / 'board'
-            (source / 'assets').mkdir(parents=True)
-            (source / 'assets/site.js').write_text('document.body.dataset.ready = "true";')
-            (source / 'assets/site.css').write_text('body { color: green; }')
-            (source / 'index.html').write_text('<html><head><link rel="stylesheet" href="assets/site.css">'
-                '<script src="assets/site.js" defer></script></head><body>Questions</body></html>')
-            registry = json.dumps({'questions': [{'id': 'Q001', 'solutions': [
-                {'materials': [{'path': 'assets/proof.svg'}]}]}]}) + '\n'
-            (source / 'registry.json').write_text(registry)
-            output = root / 'site/open-questions'
-            build_website.publish_open_questions(source, output)
-            html = (output / 'index.html').read_text()
-            self.assertIn("script-src 'self'", html)
-            for url in re.findall(r'(?:src|href)="([^"]+)"', html):
-                self.assertTrue((output / url.split('?')[0]).is_file(), url)
-            self.assertEqual((output / 'registry.json').read_text(), registry)
-            self.assertEqual((source / 'registry.json').read_text(), registry)
 
     def test_documentation_rejects_active_content(self):
         for markup in ['<script>alert(1)</script>', '<img onerror="alert(1)">',

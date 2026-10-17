@@ -122,7 +122,7 @@ def build_details(output):
         path.write_text(content)
         entries[key] = "./assets/" + quote(relative.as_posix(), safe="/")
         total_bytes += path.stat().st_size
-    index = json.dumps({"schema_version": 1, "entries": entries, "anchors": parser.anchors}, ensure_ascii=True)
+    index = json.dumps({"entries": entries, "anchors": parser.anchors}, ensure_ascii=True)
     subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'graph-details',
                     (output.resolve().parent / 'index.html').as_uri(), (output.resolve() / 'details').as_uri() + '/'],
                    input=index, text=True, check=True)

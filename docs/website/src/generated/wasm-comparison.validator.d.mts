@@ -35,7 +35,6 @@ export interface WasmComparisonResult {
   counts: ComparisonCounts;
   front: number[];
   profiles: ComparisonProfile[];
-  schema_version: 5;
 }
 export interface ComparisonCounts {
   Dominated: number;

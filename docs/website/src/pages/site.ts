@@ -1,5 +1,4 @@
 import { loadDetailsIndex, renderDetails } from './details.ts';
-import { validateAtlasSummary, validateAtlasRecord } from '../lib/atlas-data.mts';
 import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from '../generated/atlas-data.validator.mjs';
 
 declare global { interface Window { REDUCTIONS: unknown } }
@@ -14,13 +13,11 @@ declare global { interface Window { REDUCTIONS: unknown } }
     alert.setAttribute('role', 'alert');
     main.replaceChildren(alert);
   }
-  let summary: AtlasSummary;
-  try { summary = validateAtlasSummary(window.REDUCTIONS); }
-  catch (error) { showError(error); return; }
+  const summary = window.REDUCTIONS as AtlasSummary;
   const records = new Map<string, Promise<AtlasRecord>>();
   const names = new Map(summary.schemas.map(schema => [schema.name, schema]));
   let atlasRows: Map<string, Element> | undefined;
-  // Indexed references below rely on the validated summary/record contracts.
+  // The website build validates summary and record references before publishing.
   const homeHTML = main.innerHTML;
   history.scrollRestoration = "manual";
   const baseTitle = "Problem Reductions";
@@ -484,8 +481,8 @@ declare global { interface Window { REDUCTIONS: unknown } }
         if (!records.has(name)) {
           records.set(name, fetch(`./assets/problem-data/${encodeURIComponent(name)}.json`).then(response => {
             if (!response.ok) throw new Error("Cannot load atlas. Reload the page to get the current release.");
-            return response.json();
-          }).then((value: unknown) => validateAtlasRecord(value, name)));
+            return response.json() as Promise<AtlasRecord>;
+          }));
         }
         record = await records.get(name)!;
         if ((location.hash.slice(1) || "home") !== hash) return;

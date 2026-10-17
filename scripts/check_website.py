@@ -134,8 +134,8 @@ def verified_artifact(site):
     return report
 
 
-def check(site, *, build, open_questions, required):
-    verification = {"status": "failed", "commands": [], "open_questions_required": required,
+def check(site, *, build, open_questions):
+    verification = {"status": "failed", "commands": [],
                     "mode": "fresh_build" if build else "existing_artifact",
                     "source_role": "build_and_verifier" if build else "verifier_only"}
     source = source_state(output=site)
@@ -174,16 +174,11 @@ def check(site, *, build, open_questions, required):
         for name in ["index.html", "graph.html", "introduction.html", "reductions.pdf", "api/problemreductions/index.html"]:
             if not (site / name).is_file():
                 raise FileNotFoundError(f"Incomplete production artifact: {site / name}")
-        if required:
-            for name in ["index.html", "registry.json"]:
-                if not (site / "open-questions" / name).is_file():
-                    raise FileNotFoundError(f"Required Open Question Board output absent: {name}")
         run(["npm", "run", "test:reduction-graph-js"])
         for pattern in ["test_website_build.py", "test_website_math.py", "test_website_verification.py"]:
             run([sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", pattern, "--durations", "5", "-v"])
         with serve_website(site) as base:
-            environment = {**os.environ, "WEBSITE_BASE_URL": base,
-                           "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"}
+            environment = {**os.environ, "WEBSITE_BASE_URL": base}
             verification["browser_checks"] = {"root": [], "nested": [], "failure_recovery": []}
             for engine in ["chromium", "firefox", "webkit"]:
                 run([sys.executable, "scripts/test_website.py", "--durations", "5"],
@@ -200,12 +195,10 @@ def check(site, *, build, open_questions, required):
                 cases = ["test_alias_search_and_reset", "test_large_resources_load_only_when_needed",
                          "test_graph_path_route_copy_solves_and_unreachable_query_is_explicit",
                          "test_graph_details_load_lazily_reuse_family_article_and_preserve_atlas_variant",
-                         "test_reduction_evidence_and_typst_proof", "test_published_documentation_resources_and_csp",
-                         "test_home_navigation_opens_question_board"]
+                         "test_reduction_evidence_and_typst_proof", "test_published_documentation_resources_and_csp"]
                 for engine in ["chromium", "firefox", "webkit"]:
                     run([sys.executable, "scripts/test_website.py", "--durations", "5", *["WebsiteTests." + name for name in cases]],
-                        env={**os.environ, "WEBSITE_BASE_URL": base + "research/reductions/", "WEBSITE_BROWSER": engine,
-                             "WEBSITE_REQUIRE_OPEN_QUESTIONS": "1" if required else "0"})
+                        env={**os.environ, "WEBSITE_BASE_URL": base + "research/reductions/", "WEBSITE_BROWSER": engine})
                     verification["browser_checks"]["nested"].append(engine)
         verification["source_unchanged"] = False
         verify_source_unchanged(source, output=site)
@@ -224,12 +217,9 @@ def main():
     mode.add_argument("--output", type=Path, help="Fresh output directory; existing paths are refused")
     mode.add_argument("--site", type=Path, help="Verify an existing complete production artifact")
     parser.add_argument("--open-questions", type=Path, help="Built Open Question Board directory to include")
-    parser.add_argument("--require-open-questions", action="store_true", help="Fail instead of skipping when board output is absent")
     args = parser.parse_args()
     if args.site and args.open_questions:
         parser.error("--open-questions applies to fresh builds; --site verifies the existing artifact")
-    if args.open_questions and not all((args.open_questions / name).is_file() for name in ["index.html", "registry.json"]):
-        parser.error("--open-questions must contain index.html and registry.json")
     os.environ["PATH"] = tool_path(os.environ)
     tools = ["git", "node", "npm", "cargo", "rustc"]
     if args.site is None:
@@ -237,7 +227,7 @@ def main():
     missing = [command for command in tools if shutil.which(command) is None]
     if missing:
         parser.error(f"Missing required tools: {', '.join(missing)}. "
-                     "Install them before retrying; see docs/website/ENGINEERING.md.")
+                     "Install them before retrying; see docs/website/README.md.")
     try:
         site = args.site.resolve() if args.site else prepare_output(args.output)
         if not site.is_dir():
@@ -246,8 +236,7 @@ def main():
         parser.exit(2, f"{error}\nUse a new --output path or --site for an existing artifact.\n")
     print(f"Verification artifact: {site}", flush=True)
     try:
-        check(site, build=args.site is None, open_questions=args.open_questions,
-              required=args.require_open_questions or bool(os.environ.get("CI")) or args.open_questions is not None)
+        check(site, build=args.site is None, open_questions=args.open_questions)
     except ValueError as error:
         parser.exit(1, f"{error}\nArtifact and provenance retained: {site}\n")
     print(f"Verified artifact and provenance: {site}")

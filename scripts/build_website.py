@@ -148,7 +148,7 @@ def build_problem_records(output, nodes, edges, schemas):
         incident = [edge for edge in edges if edge['source'] in own or edge['target'] in own]
         selected = sorted(own | {edge[end] for edge in incident for end in ('source', 'target')})
         indices = {old: new for new, old in enumerate(selected)}
-        record = {'schema_version': 1, 'kind': 'record', 'nodes': [nodes[i] for i in selected],
+        record = {'kind': 'record', 'nodes': [nodes[i] for i in selected],
                   'edges': [{**edge, 'source': indices[edge['source']], 'target': indices[edge['target']]}
                             for edge in incident],
                   'schemas': [schema]}
@@ -254,18 +254,17 @@ def build(output, graph_path, schemas_path, open_questions=None):
         check=True, capture_output=True, text=True).stdout)
     build_problem_records(output / "assets/problem-data", site_nodes, site_edges, schemas)
     summary = {
-        "schema_version": 1, "kind": "summary",
+        "kind": "summary",
         "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
         "edges": [{key: edge[key] for key in ("source", "target")} for edge in edges],
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
     subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-summary'],
                    input=json.dumps(summary), text=True, check=True)
-    scene = {"schema_version": 2, "layout": layout, "aliases": graph["aliases"],
+    scene = {"layout": layout, "aliases": graph["aliases"],
              "edges": [{key: edge[key] for key in ("source", "target", "witness", "turing")} for edge in edges],
              "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
-    engine = {"schema_version": 1,
-              "nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
+    engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
               "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
                         for edge in edges]}
     for name, data in (("graph-scene", scene), ("path-graph", engine)):

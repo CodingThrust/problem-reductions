@@ -24,7 +24,6 @@ export type Parameter =
 export type SourcePath = string;
 
 export interface AtlasSummary {
-  schema_version: 1;
   kind: "summary";
   /**
    * @minItems 1
@@ -55,7 +54,6 @@ export interface SummarySchema {
   aliases?: string[];
 }
 export interface AtlasRecord {
-  schema_version: 1;
   kind: "record";
   /**
    * @minItems 1

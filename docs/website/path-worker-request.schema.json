@@ -5,9 +5,8 @@
   "oneOf": [
     {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "source", "target", "limit"],
+      "required": ["kind", "source", "target", "limit"],
       "properties": {
-        "schema_version": {"type": "integer", "const": 1},
         "kind": {"type": "string", "const": "search"},
         "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
         "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
@@ -16,9 +15,8 @@
     },
     {
       "type": "object", "additionalProperties": false,
-      "required": ["schema_version", "kind", "source", "target", "limit", "cached"],
+      "required": ["kind", "source", "target", "limit", "cached"],
       "properties": {
-        "schema_version": {"type": "integer", "const": 1},
         "kind": {"type": "string", "const": "compare"},
         "source": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
         "target": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},

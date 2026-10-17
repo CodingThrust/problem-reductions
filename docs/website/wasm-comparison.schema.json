@@ -20,17 +20,10 @@
       "items": {
         "$ref": "#/$defs/ComparisonProfile"
       }
-    },
-    "schema_version": {
-      "type": "integer",
-      "const": 5,
-      "maximum": 255,
-      "minimum": 0
     }
   },
   "additionalProperties": false,
   "required": [
-    "schema_version",
     "profiles",
     "front",
     "counts"

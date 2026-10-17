@@ -2,17 +2,14 @@
 
 export type PathReplyEnvelope =
   | {
-      schema_version: 1;
       phase: "paths";
       result: unknown;
     }
   | {
-      schema_version: 1;
       phase: "comparison";
       result: unknown;
     }
   | {
-      schema_version: 1;
       phase: "paths" | "comparison";
       error: string;
     };

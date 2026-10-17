@@ -1,7 +1,6 @@
 """Real HTTP failure/retry checks using mutable copies of the production assets."""
 
 from functools import partial
-from collections import deque
 import gzip
 import json
 import os
@@ -70,34 +69,17 @@ class WebsiteFailureTests(test_website.WebsiteTests):
             server.server_close()
         self.addCleanup(close)
 
-    def test_atlas_rejects_malformed_record_and_recovers(self):
+    def test_atlas_rejects_invalid_json_and_recovers(self):
         resource = self.assets / 'problem-data/MaximumIndependentSet.json'
         original = resource.read_bytes()
-        record = json.loads(original)
-        record['nodes'][0]['category'] = 123
-        resource.write_text(json.dumps(record))
+        resource.write_text('{invalid JSON')
         self.page.goto(self.base + 'index.html#problem/MaximumIndependentSet')
-        expect(self.page.get_by_role('alert')).to_contain_text('Invalid atlas data', timeout=1000)
+        expect(self.page.get_by_role('alert')).to_be_visible(timeout=1000)
         resource.write_bytes(original)
         self.page.evaluate("location.hash = 'atlas'")
         self.page.locator('#atlas-search').fill('MIS')
         self.page.locator('a.atlas-row[href="#problem/MaximumIndependentSet"]').click()
         expect(self.page.locator('#variant-select')).to_have_value('graph=SimpleGraph,weight=One')
-
-    def test_home_rejects_malformed_summary_and_recovers(self):
-        resource = self.assets / 'index.js'
-        original = resource.read_bytes()
-        # Corrupt the actual embedded value when the production bundle assigns it.
-        resource.write_bytes(b"Object.defineProperty(window, 'REDUCTIONS', {configurable: true, set(value) {"
-                             b"value.edges[0].source = -1; Object.defineProperty(window, 'REDUCTIONS',"
-                             b"{value, writable: true, configurable: true}); }});\n" + original)
-        self.page.goto(self.base + 'index.html')
-        expect(self.page.get_by_role('alert')).to_contain_text('Invalid atlas data', timeout=1000)
-        resource.write_bytes(original)
-        self.page.reload()
-        expect(self.page.locator('main .hero')).to_be_visible()
-        self.page.evaluate("location.hash = 'atlas'")
-        expect(self.page.locator('#atlas-search')).to_be_visible()
 
     def assert_engine_recovery(self, name, damaged):
         resource = self.assets / name
@@ -126,13 +108,6 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def test_graph_recovers_after_corrupt_engine_metadata(self):
         self.assert_engine_recovery('path-graph.json.gz', gzip.compress(b'{invalid JSON', mtime=0))
 
-    def test_graph_recovers_after_duplicate_parameter_coordinates(self):
-        resource = self.assets / 'path-graph.json.gz'
-        graph = json.loads(gzip.decompress(resource.read_bytes()))
-        node = next(node for node in graph['nodes'] if node['name'] == 'Satisfiability' and node['default'])
-        node['parameter_names'].append(node['parameter_names'][0])
-        self.assert_engine_recovery('path-graph.json.gz', gzip.compress(json.dumps(graph).encode(), mtime=0))
-
     def worker_reply(self, request):
         self.page.goto(self.base + 'index.html')
         return self.page.evaluate('''({url, request}) => new Promise((resolve, reject) => {
@@ -142,12 +117,12 @@ class WebsiteFailureTests(test_website.WebsiteTests):
             worker.postMessage(request);
         })''', {'url': self.base + self.assets.relative_to(self.site).as_posix() + '/path-worker.js', 'request': request})
 
-    def test_worker_rejects_unsupported_request_version(self):
+    def test_worker_rejects_invalid_request_limit(self):
         graph = json.loads(gzip.decompress((self.assets / 'path-graph.json.gz').read_bytes()))
         source = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'Satisfiability' and node['default'])
         target = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'QUBO' and node['default'])
-        reply = self.worker_reply({'schema_version': 2, 'kind': 'search', 'source': source, 'target': target, 'limit': 1})
-        self.assertEqual(reply, {'schema_version': 1, 'phase': 'paths',
+        reply = self.worker_reply({'kind': 'search', 'source': source, 'target': target, 'limit': 0})
+        self.assertEqual(reply, {'phase': 'paths',
                                 'error': 'Invalid path worker contract. Reload the current release.'})
 
     def test_worker_rejects_cached_routes_without_witness_capability(self):
@@ -155,10 +130,10 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         edge = next(edge for edge in graph['edges'] if not edge['witness'] or edge['turing'])
         endpoint = lambda i: {key: graph['nodes'][i][key] for key in ['name', 'variant']}
         route = {'steps': 1, 'path': [{'from': endpoint(edge['source']), 'to': endpoint(edge['target'])}]}
-        reply = self.worker_reply({'schema_version': 1, 'kind': 'compare', 'source': edge['source'], 'target': edge['target'],
-                                   'limit': 1, 'cached': {'schema_version': 1, 'truncated': False, 'paths': [route]}})
-        self.assertEqual(reply, {'schema_version': 1, 'phase': 'paths',
-                                'error': 'Invalid path worker contract. Reload the current release.'})
+        reply = self.worker_reply({'kind': 'compare', 'source': edge['source'], 'target': edge['target'],
+                                   'limit': 1, 'cached': {'truncated': False, 'paths': [route]}})
+        self.assertEqual(reply, {'phase': 'comparison',
+                                'error': 'Path references an unregistered reduction.'})
 
     def test_graph_rejects_out_of_order_worker_reply_and_recovers(self):
         self.observe_path_worker()
@@ -166,7 +141,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         self.page.goto(self.base + 'graph.html')
         self.page.wait_for_function('() => pathWorkers[0]?.onmessage && document.querySelector("#results .skeleton")')
         self.page.evaluate('''() => pathWorkers[0].dispatchEvent(new MessageEvent('message', {
-            data: structuredClone({schema_version: 1, phase: 'comparison', result: {}})
+            data: structuredClone({phase: 'comparison', result: {}})
         }))''')
         expect(self.page.locator('#results')).to_contain_text('Cannot load the path engine', timeout=1000)
         expect(self.page.get_by_role('button', name='Cancel', exact=True)).to_have_count(0)
@@ -192,61 +167,6 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         self.assertEqual(self.page.evaluate('pathMessages.map(message => message.phase)'), ['paths', 'comparison', 'comparison'])
         self.assertEqual(self.page.evaluate('pathWorkerStarts'), 2)
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
-
-    def test_graph_rejects_a_registered_turing_step_in_a_worker_path_reply(self):
-        graph = json.loads(gzip.decompress((self.assets / 'path-graph.json.gz').read_bytes()))
-        source = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'Satisfiability' and node['default'])
-        forbidden = next(edge for edge in graph['edges'] if graph['nodes'][edge['source']]['name'] == 'QUBO'
-                         and graph['nodes'][edge['source']]['default'] and graph['nodes'][edge['target']]['name'] == 'DecisionQUBO'
-                         and graph['nodes'][edge['target']]['default'] and edge['turing'])
-        neighbors = {i: [] for i in range(len(graph['nodes']))}
-        for edge in graph['edges']:
-            if edge['witness'] and not edge['turing']:
-                neighbors[edge['source']].append(edge['target'])
-        queue, seen = deque([[source]]), {source}
-        while queue:
-            prefix = queue.popleft()
-            if prefix[-1] == forbidden['source']:
-                break
-            for target in neighbors[prefix[-1]]:
-                if target not in seen:
-                    seen.add(target)
-                    queue.append([*prefix, target])
-        self.assertEqual(prefix[-1], forbidden['source'])
-        self.assertNotIn(forbidden['target'], prefix)
-        indices = [*prefix, forbidden['target']]
-        endpoint = lambda i: {key: graph['nodes'][i][key] for key in ['name', 'variant']}
-        route = {'steps': len(indices) - 1, 'path': [{'from': endpoint(a), 'to': endpoint(b)} for a, b in zip(indices, indices[1:])]}
-        self.observe_path_worker()
-        self.engine_release.clear()
-        self.page.goto(self.base + 'graph.html')
-        self.choose_endpoint('target', 'DecisionQUBO')
-        self.page.wait_for_function('() => pathWorkers.at(-1)?.onmessage && document.querySelector("#results .skeleton")')
-        self.page.evaluate('''route => pathWorkers.at(-1).dispatchEvent(new MessageEvent('message', {
-            data: structuredClone({schema_version: 1, phase: 'paths', result: {schema_version: 1, truncated: false, paths: [route]}})
-        }))''', route)
-        expect(self.page.locator('#results')).to_contain_text('Cannot load the path engine', timeout=1000)
-        self.engine_release.set()
-        self.page.get_by_role('button', name='SAT → QUBO', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
-        self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
-
-    def test_worker_rejects_invalid_metadata_before_posting_routes(self):
-        resource = self.assets / 'path-graph.json.gz'
-        graph = json.loads(gzip.decompress(resource.read_bytes()))
-        source = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'Satisfiability' and node['default'])
-        target = next(i for i, node in enumerate(graph['nodes']) if node['name'] == 'QUBO' and node['default'])
-        graph['nodes'][source]['name'] = ''
-        resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
-        self.page.goto(self.base + 'index.html')
-        reply = self.page.evaluate('''({url, source, target}) => new Promise((resolve, reject) => {
-            const worker = new Worker(url, {type: 'module'});
-            worker.onmessage = event => { worker.terminate(); resolve(event.data); };
-            worker.onerror = event => { worker.terminate(); reject(new Error(event.message)); };
-            worker.postMessage({schema_version: 1, kind: 'search', source, target, limit: 1});
-        })''', {'url': self.base + self.assets.relative_to(self.site).as_posix() + '/path-worker.js',
-                'source': source, 'target': target})
-        self.assertEqual(reply, {'schema_version': 1, 'phase': 'paths', 'error': 'Invalid path metadata contract. Reload the current release.'})
 
     def test_graph_growth_preserves_wide_exponents_and_exact_degree_sums(self):
         resource = self.assets / 'path-graph.json.gz'
@@ -351,15 +271,6 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         open_details()
         expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
-
-    def test_graph_rejects_unknown_scene_category_before_rendering(self):
-        resource = self.assets / 'graph-scene.json.gz'
-        scene = json.loads(gzip.decompress(resource.read_bytes()))
-        scene['nodes'][0]['category'] = 'unregistered-category'
-        resource.write_bytes(gzip.compress(json.dumps(scene).encode(), mtime=0))
-        self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results')).to_contain_text('Cannot load graph', timeout=1000)
-        expect(self.page.locator('svg.graph-scene')).to_have_count(0)
 
     def test_graph_scene_failure_releases_worker_and_reload_recovers(self):
         resource = self.assets / 'graph-scene.json.gz'

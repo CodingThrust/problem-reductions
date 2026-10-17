@@ -2,14 +2,12 @@
 
 export type PathRequestEnvelope =
   | {
-      schema_version: 1;
       kind: "search";
       source: number;
       target: number;
       limit: number;
     }
   | {
-      schema_version: 1;
       kind: "compare";
       source: number;
       target: number;

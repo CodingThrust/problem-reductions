@@ -5,7 +5,6 @@ export interface WasmPathResult {
    * @maxItems 999
    */
   paths: Route[];
-  schema_version: 1;
   truncated: boolean;
 }
 export interface Route {

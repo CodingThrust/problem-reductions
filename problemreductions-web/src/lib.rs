@@ -137,7 +137,6 @@ pub fn find_paths(input: &str) -> Result<String, JsError> {
         })
         .collect();
     Ok(serde_json::to_string(&WasmPathResult {
-        schema_version: 1,
         paths: routes,
         truncated,
     })?)
@@ -176,8 +175,6 @@ struct Route {
 #[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields,
     extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-paths")))]
 struct WasmPathResult {
-    #[cfg_attr(feature = "schema-export", schemars(extend("const" = 1)))]
-    schema_version: u8,
     #[cfg_attr(feature = "schema-export", schemars(length(max = 999)))]
     paths: Vec<Route>,
     truncated: bool,
@@ -191,7 +188,7 @@ pub fn path_response_schema() -> schemars::Schema {
     )
 }
 
-/// Generate the version-5 comparison response contract.
+/// Generate the comparison response contract.
 #[cfg(feature = "schema-export")]
 pub fn comparison_response_schema() -> schemars::Schema {
     wire_schema::<WasmComparisonResult>(
@@ -238,8 +235,6 @@ fn wire_schema<T: schemars::JsonSchema>(
 #[cfg_attr(feature = "schema-export", schemars(deny_unknown_fields,
     extend("$id" = "https://codingthrust.github.io/problem-reductions/contracts/wasm-comparison")))]
 struct WasmComparisonResult {
-    #[cfg_attr(feature = "schema-export", schemars(extend("const" = 5)))]
-    schema_version: u8,
     profiles: Vec<ComparisonProfile>,
     #[cfg_attr(
         feature = "schema-export",
@@ -477,7 +472,6 @@ pub fn summarize_paths(input: &str) -> Result<String, JsError> {
         })
         .collect();
     Ok(serde_json::to_string(&WasmComparisonResult {
-        schema_version: 5,
         profiles,
         front: result.front.into_iter().map(|index| index + 1).collect(),
         counts: result.counts.into(),

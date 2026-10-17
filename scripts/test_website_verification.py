@@ -15,11 +15,8 @@ import unittest
 from urllib.request import build_opener, ProxyHandler
 from urllib.parse import urlsplit
 
-from playwright.sync_api import sync_playwright
-
 from check_website import prepare_output, serve_website, write_provenance
 import check_website
-from test_website import require_open_questions
 
 
 class WebsiteVerificationTests(unittest.TestCase):
@@ -78,7 +75,7 @@ class WebsiteVerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)
             with self.assertRaises(FileNotFoundError):
-                check_website.check(site, build=False, open_questions=None, required=False)
+                check_website.check(site, build=False, open_questions=None)
             report = json.loads((site / "verification.json").read_text())
             self.assertEqual(report["verification"]["status"], "failed")
             self.assertEqual(report["verification"]["mode"], "existing_artifact")
@@ -173,22 +170,6 @@ class WebsiteVerificationTests(unittest.TestCase):
             (site / "verification.json").write_text(json.dumps(report))
             with self.assertRaises(ValueError):
                 check_website.verified_artifact(site)
-
-    def test_absent_question_board_skips_only_in_optional_mode(self):
-        with tempfile.TemporaryDirectory() as directory, sync_playwright() as p:
-            request = p.request.new_context()
-            try:
-                with serve_website(Path(directory)) as base:
-                    with self.assertRaises(unittest.SkipTest):
-                        require_open_questions(request, base, required=False)
-                    with self.assertRaises(AssertionError):
-                        require_open_questions(request, base, required=True)
-                    board = Path(directory) / "open-questions"
-                    board.mkdir()
-                    (board / "registry.json").write_text('{"questions": []}')
-                    require_open_questions(request, base, required=True)
-            finally:
-                request.dispose()
 
     def test_nested_checkout_is_recorded_without_hashing_a_directory(self):
         root = Path(__file__).resolve().parents[1]

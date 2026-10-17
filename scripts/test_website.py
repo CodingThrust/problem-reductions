@@ -15,14 +15,6 @@ from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright, expect
 
 
-def require_open_questions(request, base, *, required):
-    response = request.get(urljoin(base, 'open-questions/registry.json'))
-    if response.status == 404 and not required:
-        raise unittest.SkipTest('Open Question Board absent; include its build with --open-questions')
-    if response.status != 200:
-        raise AssertionError(f'Open Question Board registry is required (HTTP {response.status})')
-
-
 class WebsiteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -252,29 +244,6 @@ class WebsiteTests(unittest.TestCase):
         home.click()
         expect(home).to_have_attribute('aria-current', 'page')
         expect(self.page.locator('main .hero')).to_be_visible()
-
-    def test_home_navigation_opens_question_board(self):
-        require_open_questions(self.page.request, self.base,
-                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
-        self.visit()
-        tab = self.page.get_by_role('navigation', name='Main navigation').get_by_role('link', name='Open questions', exact=True)
-        tab.click()
-        expect(self.page).to_have_url(self.base + 'open-questions/')
-        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
-        self.page.get_by_role('link', name='All questions', exact=False).click()
-        self.page.get_by_role('searchbox', name='Search the collection').fill('Q001')
-        expect(self.page.locator('.question-item:visible')).to_have_count(1)
-        expect(self.page.locator('.question-item:visible .question-id')).to_have_text('Q001')
-        self.page.locator('.question-item:visible .question-link').click()
-        self.page.get_by_role('link', name='Submit a solution', exact=True).click()
-        expect(self.page.get_by_label('Registry entry', exact=True)).to_have_value('Q001')
-        registry = self.page.request.get(self.base + 'open-questions/registry.json').json()
-        question = next(entry for entry in registry['questions'] if entry['id'] == 'Q001')
-        prompt = self.page.get_by_role('textbox', name='Agent prompt').input_value()
-        self.assertIn(f"registry/{question['slug']}.json", prompt)
-        self.assertIn('https://github.com/GiggleLiu/autoresearch-gadgets', prompt)
-        self.page.get_by_role('button', name='Copy prompt', exact=True).click()
-        self.assertEqual(self.read_clipboard(), prompt)
 
     def test_home_formulas_load_as_typeset_vectors(self):
         self.visit()
@@ -524,20 +493,6 @@ class WebsiteTests(unittest.TestCase):
         self.page.wait_for_url(self.base + 'graph.html')
         expect(self.page.locator("#cy svg.graph-scene").first).to_be_visible()
 
-    def test_legacy_question_board_url_redirects(self):
-        require_open_questions(self.page.request, self.base,
-                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
-        self.page.goto(self.base + 'open-problems.html')
-        self.page.wait_for_url(self.base + 'open-questions/')
-        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
-
-    def test_legacy_open_questions_hash_opens_question_board(self):
-        require_open_questions(self.page.request, self.base,
-                               required=bool(os.environ.get('CI')) or os.environ.get('WEBSITE_REQUIRE_OPEN_QUESTIONS') == '1')
-        self.visit('open-questions')
-        expect(self.page).to_have_url(self.base + 'open-questions/')
-        expect(self.page.get_by_role('heading', name='Open Question Zoo', exact=True)).to_be_visible()
-
     def test_docs_sidebar_drag_resizes_content(self):
         self.page.goto(self.base + 'introduction.html')
         sidebar = self.page.locator('.sidebar')
@@ -724,7 +679,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_touch_pinch_keeps_center_and_route(self):
         if self.browser.browser_type.name != 'chromium':
-            self.skipTest('Native multipoint injection requires Chromium CDP; physical mobile pinch acceptance remains required')
+            self.skipTest('Automated multipoint touch injection requires Chromium CDP')
         self.page.goto(self.base + 'graph.html')
         route = self.copy_route()
         matrix = lambda: self.page.locator('svg.graph-scene > g').evaluate('e => {const m=e.getCTM(); return {z:m.a,x:m.e,y:m.f}}')

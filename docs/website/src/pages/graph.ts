@@ -30,7 +30,7 @@ const phone = matchMedia("(max-width: 760px)");
 // Keep the minimum supported 320px graph viewport beside the 392px and 456px side-panel areas.
 const modalDetails = matchMedia("(max-width: 1167px)");
 
-// Scene references and route indices below rely on the validated boundary contracts.
+// The build validates scene references; the engine owns path correctness.
 /* ---------- Registry model ---------- */
 const display = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
 const families = new Map<string, Family>();
@@ -389,9 +389,9 @@ function compute(source: number, target: number, limit: number, onPaths: (result
     if (cached.polynomial_comparison || !cached.paths.length) return Promise.resolve(cached);
   }
   const request: PathRequest = cached
-    ? {schema_version: 1, kind: 'compare', source, target, limit,
-      cached: {schema_version: cached.schema_version, paths: cached.paths, truncated: cached.truncated}}
-    : {schema_version: 1, kind: 'search', source, target, limit};
+    ? {kind: 'compare', source, target, limit,
+      cached: {paths: cached.paths, truncated: cached.truncated}}
+    : {kind: 'search', source, target, limit};
   return new Promise<PathResult>((resolve, reject) => {
     try { worker ||= new Worker(new URL('../workers/path-worker.ts', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
     const engine = worker;
@@ -400,7 +400,7 @@ function compute(source: number, target: number, limit: number, onPaths: (result
       if (worker !== engine) return;
       try {
         const started = performance.now();
-        const reply = validatePathReply(data, D, request, result);
+        const reply = validatePathReply(data, request, result);
         performance.measure(`graph:${reply.phase}-validation`, {start: started});
         performance.mark(`graph:${reply.phase}-received`);
         if ('error' in reply) { stopWorker(); reject(new Error(reply.error)); return; }

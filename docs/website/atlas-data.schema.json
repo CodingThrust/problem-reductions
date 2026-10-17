@@ -375,17 +375,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version",
         "kind",
         "nodes",
         "edges",
         "schemas"
       ],
       "properties": {
-        "schema_version": {
-          "type": "integer",
-          "const": 1
-        },
         "kind": {
           "type": "string",
           "const": "summary"
@@ -417,17 +412,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schema_version",
         "kind",
         "nodes",
         "edges",
         "schemas"
       ],
       "properties": {
-        "schema_version": {
-          "type": "integer",
-          "const": 1
-        },
         "kind": {
           "type": "string",
           "const": "record"

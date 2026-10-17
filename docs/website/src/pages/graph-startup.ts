@@ -1,4 +1,3 @@
-import { validateGraphSceneData } from '../lib/graph-scene-data.mts';
 import type { GraphSceneData } from '../generated/graph-scene.validator.mjs';
 
 // Start independent downloads before the renderer finishes loading.
@@ -7,10 +6,8 @@ export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | nul
     if (!response.ok || !response.body) throw new Error(`Cannot load graph (${response.status})`);
     const text = await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text();
     performance.mark('graph:scene-decoded');
-    const value: unknown = JSON.parse(text);
+    const scene = JSON.parse(text) as GraphSceneData;
     performance.mark('graph:scene-json-parsed');
-    const scene = validateGraphSceneData(value);
-    performance.mark('graph:scene-validated');
     return scene;
   }),
   worker: null,

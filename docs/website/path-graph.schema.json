@@ -4,9 +4,8 @@
   "title": "PathGraphData",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "nodes", "edges"],
+  "required": ["nodes", "edges"],
   "properties": {
-    "schema_version": {"type": "integer", "const": 1},
     "nodes": {
       "type": "array", "minItems": 1,
       "items": {

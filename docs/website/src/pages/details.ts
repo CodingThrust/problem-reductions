@@ -1,10 +1,11 @@
-import { validateDetailsIndexData } from '../lib/graph-details-data.mts';
+import { validateDetailURL } from '../lib/graph-details-data.mts';
 import type { GraphDetailsIndex } from '../generated/graph-details.validator.mjs';
 
 let detailsIndex: GraphDetailsIndex | undefined;
 const detailCache = new Map<string, Promise<string>>();
 let manifest: Promise<GraphDetailsIndex> | null = null;
 let renderRequest = 0;
+const indexURL = new URL('./assets/graph-details.json', window.location.href);
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -17,15 +18,15 @@ function normalizeReferenceRoles(container: Element) {
 }
 export function loadDetailsIndex() {
   if (detailsIndex) return Promise.resolve(detailsIndex);
-  const indexURL = new URL('./assets/graph-details.json', window.location.href);
   manifest ||= fetch(indexURL).then(response => {
     if (!response.ok) throw new Error('Cannot load documentation index. Reload the page to get the current release.');
     return response.json();
-  }).then((value: unknown) => {
+  }).then((value: GraphDetailsIndex) => {
     performance.mark('details:index-json-parsed');
-    const index = validateDetailsIndexData(value, new URL(window.location.href), new URL('./details/', indexURL));
-    performance.mark('details:index-validated');
-    return detailsIndex = index;
+    for (const url of Object.values(value.entries)) {
+      validateDetailURL(url, new URL(window.location.href), new URL('./details/', indexURL));
+    }
+    return detailsIndex = value;
   }).catch(error => {
     manifest = null;
     throw error;

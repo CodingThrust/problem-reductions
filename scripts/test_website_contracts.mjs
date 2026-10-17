@@ -39,9 +39,7 @@ test('production build rejects JavaScript over the delivery budget', () => {
 });
 
 function scene() {
-  return {
-    schema_version: 2,
-    nodes: [
+  return { nodes: [
       { name: 'Alpha', category: 'graph', variant: { weight: 'One' }, default: true },
       { name: 'Alpha', category: 'graph', variant: { weight: 'i64' }, default: false },
       { name: 'Beta', category: 'misc', variant: {}, default: true },
@@ -57,10 +55,8 @@ test('scene validation preserves variants, edge ordering and fractional layout',
   assert.deepEqual(validateGraphSceneData(input), input);
 });
 
-test('scene validation rejects malformed shapes, versions and unsafe indices', () => {
+test('scene validation rejects malformed shapes and unsafe indices', () => {
   for (const mutate of [
-    value => { delete value.schema_version; },
-    value => { value.schema_version = 1; },
     value => { delete value.edges[0].witness; },
     value => { value.edges[0].turing = null; },
     value => { value.nodes[0].category = 'unknown'; },
@@ -110,9 +106,7 @@ test('producer validation accepts valid data and fails on an invalid scene', () 
 const page = new URL('https://example.test/research/reductions/index.html');
 const articles = new URL('./releases/current/assets/details/', page);
 function details() {
-  return {
-    schema_version: 1,
-    entries: { 'problem:Alpha': './releases/current/assets/details/problem/Alpha.html',
+  return { entries: { 'problem:Alpha': './releases/current/assets/details/problem/Alpha.html',
       'rule:Alpha->Beta': './releases/current/assets/details/rule/Alpha-%3EBeta.html' },
     anchors: { 'def:Alpha': 'problem:Alpha' },
   };
@@ -129,8 +123,6 @@ test('documentation index preserves encoded filenames and anchor targets', () =>
 
 test('documentation index rejects invalid shapes and dangling anchors', () => {
   for (const mutate of [
-    value => { delete value.schema_version; },
-    value => { value.schema_version = 2; },
     value => { value.entries = []; },
     value => { value.entries = {}; },
     value => { value.entries.unexpected = './releases/current/assets/details/Alpha.html'; },
@@ -167,7 +159,7 @@ function pathResult() {
   const source = { name: 'Source', variant: {} };
   const middle = { name: 'Middle', variant: { graph: 'SimpleGraph', weight: 'One' } };
   const target = { name: 'Target', variant: { weight: 'i64' } };
-  return { schema_version: 1, truncated: false, paths: [
+  return { truncated: false, paths: [
     { steps: 2, path: [{ from: source, to: middle },
       { from: { name: 'Middle', variant: { weight: 'One', graph: 'SimpleGraph' } }, to: target }] },
     { steps: 1, path: [{ from: source, to: target }] },
@@ -177,14 +169,12 @@ function pathResult() {
 test('WASM path validation preserves route ordering and variant key semantics', () => {
   const result = pathResult();
   assert.deepEqual(parseWasmPathResult(JSON.stringify(result)), result);
-  assert.deepEqual(parseWasmPathResult('{"paths":[],"truncated":false,"schema_version":1}'),
-    { schema_version: 1, paths: [], truncated: false });
+  assert.deepEqual(parseWasmPathResult('{"paths":[],"truncated":false}'),
+    { paths: [], truncated: false });
 });
 
-test('WASM path validation rejects invalid versions, shapes and integer domains', () => {
+test('WASM path validation rejects invalid shapes and integer domains', () => {
   for (const mutate of [
-    value => { delete value.schema_version; },
-    value => { value.schema_version = 2; },
     value => { value.truncated = 'false'; },
     value => { value.paths[0].steps = 0.5; },
     value => { value.paths[0].steps = -1; },
@@ -217,7 +207,7 @@ test('WASM path validation rejects incorrect step counts and discontinuous varia
 });
 
 function pathGraph() {
-  return { schema_version: 1, nodes: [
+  return { nodes: [
     { name: 'Source', variant: { graph: 'SimpleGraph', weight: 'One' }, default: true, parameter_names: ['m', 'n'] },
     { name: 'Target', variant: {}, default: true, parameter_names: ['size'] },
   ], edges: [{ source: 0, target: 1, witness: true, turing: false, parameter_contract_error: null,
@@ -241,18 +231,16 @@ test('path metadata preserves exact formulas, ordering and explicit nulls', () =
   invalidContract.edges[0].parameter_contract_error = 'Missing native parameter contract';
   invalidContract.edges[0].parameters = [];
   assert.deepEqual(validatePathGraphData(invalidContract), invalidContract);
-  assert.deepEqual(validatePathGraphData({ schema_version: 1, nodes: value.nodes, edges: [] }),
-    { schema_version: 1, nodes: value.nodes, edges: [] });
+  assert.deepEqual(validatePathGraphData({ nodes: value.nodes, edges: [] }),
+    { nodes: value.nodes, edges: [] });
   const unparameterized = structuredClone(value);
   unparameterized.nodes[1].parameter_names = [];
   unparameterized.edges[0].parameters = [];
   assert.deepEqual(validatePathGraphData(unparameterized), unparameterized);
 });
 
-test('path metadata rejects malformed versions, shapes, flags and unsafe indices', () => {
+test('path metadata rejects malformed shapes, flags and unsafe indices', () => {
   for (const mutate of [
-    value => { delete value.schema_version; },
-    value => { value.schema_version = 2; },
     value => { value.nodes = []; },
     value => { value.nodes[0].name = ''; },
     value => { value.nodes[0].default = 1; },
@@ -326,103 +314,64 @@ function protocolGraph() {
 function protocolPaths() {
   const graph = protocolGraph();
   const endpoint = i => ({ name: graph.nodes[i].name, variant: graph.nodes[i].variant });
-  return { schema_version: 1, truncated: false, paths: [[0, 1], [0, 2, 1]].map(indices => ({
+  return { truncated: false, paths: [[0, 1], [0, 2, 1]].map(indices => ({
     steps: indices.length - 1, path: indices.slice(1).map((to, i) => ({ from: endpoint(indices[i]), to: endpoint(to) })),
   })) };
 }
 function protocolRequest(cached = false) {
-  return { schema_version: 1, kind: cached ? 'compare' : 'search', source: 0, target: 1, limit: 2,
+  return { kind: cached ? 'compare' : 'search', source: 0, target: 1, limit: 2,
     ...(cached ? { cached: protocolPaths() } : {}) };
 }
 
-test('worker request contracts preserve search and cached comparison inputs', () => {
-  for (const cached of [false, true]) {
-    const request = protocolRequest(cached);
-    assert.deepEqual(validatePathRequest(request, protocolGraph()), request);
+test('worker replies consume engine results without a second graph registry', () => {
+  const request = protocolRequest(), paths = protocolPaths();
+  const first = { phase: 'paths', result: paths };
+  assert.deepEqual(validatePathReply(first, request), first);
+  const last = { phase: 'comparison', result: comparison() };
+  assert.deepEqual(validatePathReply(last, request, paths), last);
+  for (const phase of ['paths', 'comparison']) {
+    const error = { phase, error: 'Cannot complete the query' };
+    assert.deepEqual(validatePathReply(error, request, paths), error);
   }
-  const graph = protocolGraph();
-  graph.edges = graph.edges.map(({ source, target, witness, turing }) => ({ source, target, witness, turing }));
-  assert.deepEqual(validatePathRequest(protocolRequest(true), graph), protocolRequest(true));
+  assert.throws(() => validatePathReply(last, request));
+  assert.throws(() => validatePathReply(first, request, paths));
+  assert.throws(() => validatePathReply(first, protocolRequest(true), paths));
+  const empty = { truncated: false, paths: [] };
+  assert.throws(() => validatePathReply(last, request, empty));
+  assert.deepEqual(validatePathReply({ ...first, result: empty }, request), { ...first, result: empty });
 });
 
-test('worker requests reject unsupported versions, malformed unions and invalid limits', () => {
+test('worker request envelopes preserve search and cached comparison inputs', () => {
+  for (const cached of [false, true]) {
+    const request = protocolRequest(cached);
+    assert.deepEqual(validatePathRequest(request), request);
+  }
+});
+
+test('worker requests reject malformed envelopes and invalid numeric inputs', () => {
   for (const mutate of [
-    value => { delete value.schema_version; }, value => { value.schema_version = 2; },
     value => { value.kind = 'other'; }, value => { value.limit = 0; }, value => { value.limit = 1000; },
-    value => { value.limit = 1.5; }, value => { value.source = -1; }, value => { value.target = 3; },
+    value => { value.limit = 1.5; }, value => { value.source = -1; },
     value => { value.source = 9007199254740992; }, value => { value.cached = protocolPaths(); },
     value => { value.kind = 'compare'; }, value => { value.extra = true; },
   ]) {
     const request = protocolRequest(); mutate(request);
-    assert.throws(() => validatePathRequest(request, protocolGraph()));
+    assert.throws(() => validatePathRequest(request));
   }
-  for (const value of [null, [], 'request']) assert.throws(() => validatePathRequest(value, protocolGraph()));
+  for (const value of [null, [], 'request']) assert.throws(() => validatePathRequest(value));
 });
 
-test('cached worker routes must match the query, limit and registered simple paths', () => {
-  for (const mutate of [
-    value => { value.cached = null; }, value => { value.cached.paths = []; },
-    value => { value.cached.paths[0].steps = 2; }, value => { value.cached.paths[0].path[0].from.name = 'Missing'; },
-    value => { value.cached.paths[0].path[0].to.variant = { weight: 'i64' }; },
-    value => { value.source = 2; }, value => { value.target = 2; }, value => { value.limit = 1; },
-    value => { value.cached.paths[1] = structuredClone(value.cached.paths[0]); },
-    value => { value.cached.paths.pop(); value.cached.truncated = true; },
-  ]) {
-    const request = protocolRequest(true); mutate(request);
-    assert.throws(() => validatePathRequest(request, protocolGraph()));
-  }
-  for (const mutate of [
-    graph => { graph.edges.shift(); }, graph => { graph.edges[0].witness = false; },
-    graph => { graph.edges[0].turing = true; },
-  ]) {
-    const graph = protocolGraph(); mutate(graph);
-    assert.throws(() => validatePathRequest(protocolRequest(true), graph));
-  }
-  const graph = protocolGraph(), request = protocolRequest(true);
-  graph.edges.push({ ...structuredClone(graph.edges[0]), source: 2, target: 0 });
-  const back = { from: request.cached.paths[1].path[0].to, to: request.cached.paths[0].path[0].from };
-  request.cached.paths[0] = { steps: 3, path: [request.cached.paths[1].path[0], back, request.cached.paths[0].path[0]] };
-  assert.throws(() => validatePathRequest(request, graph));
-});
-
-test('worker replies validate payloads and require paths before comparison', () => {
-  const graph = protocolGraph(), request = protocolRequest(), paths = protocolPaths();
-  const first = { schema_version: 1, phase: 'paths', result: paths };
-  assert.deepEqual(validatePathReply(first, graph, request), first);
-  const last = { schema_version: 1, phase: 'comparison', result: comparison() };
-  assert.deepEqual(validatePathReply(last, graph, request, paths), last);
-  for (const phase of ['paths', 'comparison']) {
-    const error = { schema_version: 1, phase, error: 'Cannot complete the query' };
-    assert.deepEqual(validatePathReply(error, graph, request, paths), error);
-  }
-  assert.throws(() => validatePathReply(last, graph, request));
-  assert.throws(() => validatePathReply(first, graph, request, paths));
-  assert.throws(() => validatePathReply(first, graph, protocolRequest(true), paths));
-  const empty = { schema_version: 1, truncated: false, paths: [] };
-  assert.throws(() => validatePathReply(last, graph, request, empty));
-  assert.deepEqual(validatePathReply({ ...first, result: empty }, graph, request), { ...first, result: empty });
-});
-
-test('worker replies reject malformed envelopes, results and inconsistent comparison counts', () => {
-  const graph = protocolGraph(), request = protocolRequest(), paths = protocolPaths();
-  for (const mutate of [
-    value => { value.schema_version = 2; }, value => { value.phase = 'ready'; }, value => { delete value.result; },
-    value => { value.error = 'Both results and errors are forbidden'; }, value => { value.result = null; },
-    value => { value.result.paths[0].steps = 0; }, value => { value.result.paths[0].path[0].to.name = 'Missing'; },
-  ]) {
-    const value = { schema_version: 1, phase: 'paths', result: structuredClone(paths) }; mutate(value);
-    assert.throws(() => validatePathReply(value, graph, request));
-  }
-  for (const value of [null, [], { schema_version: 1, phase: 'paths', error: '' },
-    { schema_version: 1, phase: 'comparison', result: { ...comparison(), profiles: [] } },
-    { schema_version: 1, phase: 'comparison', result: { ...comparison(), pairs: [] } }]) {
-    assert.throws(() => validatePathReply(value, graph, request, paths));
+test('worker replies reject malformed envelopes', () => {
+  const request = protocolRequest();
+  for (const value of [null, [], { phase: 'ready', result: protocolPaths() },
+    { phase: 'paths' }, { phase: 'paths', error: '' },
+    { phase: 'paths', result: protocolPaths(), error: 'Cannot return both' }]) {
+    assert.throws(() => validatePathReply(value, request));
   }
 });
 
 function comparison() {
-  return { schema_version: 5,
-    counts: { Dominated: 1, Equivalent: 0, Incomparable: 0, Unknown: 0 }, front: [2],
+  return { counts: { Dominated: 1, Equivalent: 0, Incomparable: 0, Unknown: 0 }, front: [2],
     profiles: ['n^2', 'n'].map(certificate => ({ source_coordinates: ['m', 'n'],
       fields: { n: { certificate, accuracy: { kind: 'exact' } } } })),
   };
@@ -451,9 +400,8 @@ test('comparison results retain source coordinates and target fields from the se
   }
 });
 
-test('comparison validation rejects malformed shapes, versions and unsafe numeric counts', () => {
+test('comparison validation rejects malformed shapes and unsafe numeric counts', () => {
   for (const mutate of [
-    value => { value.schema_version = 4; },
     value => { value.mode = 'other'; },
     value => { value.counts.Unknown = 0.5; },
     value => { value.counts.Unknown = -1; },
@@ -514,7 +462,7 @@ test('comparison validation accepts nondominated verdicts and all declared unava
 });
 
 test('comparison validation covers empty batches and rejects unsafe path counts', () => {
-  const value = { schema_version: 5, profiles: [], front: [],
+  const value = { profiles: [], front: [],
     counts: { Dominated: 0, Equivalent: 0, Incomparable: 0, Unknown: 0 } };
   assert.deepEqual(parseWasmComparison(JSON.stringify(value), 0), value);
   for (const count of [-1, NaN, 9007199254740992]) {
@@ -523,13 +471,13 @@ test('comparison validation covers empty batches and rejects unsafe path counts'
 });
 
 function atlasSummary() {
-  return {schema_version: 1, kind: 'summary',
+  return { kind: 'summary',
     nodes: [{name: 'Alpha', variant: {weight: 'One'}, category: 'graph'}, {name: 'Beta', variant: {}, category: 'misc'}],
     edges: [{source: 0, target: 1}], schemas: [{name: 'Alpha', description: 'First problem'}, {name: 'Beta', description: 'Second problem'}]};
 }
 function atlasRecord() {
   const summary = atlasSummary(), mathml = '<math xmlns="http://www.w3.org/1998/Math/MathML" aria-label="n"><mi mathvariant="normal">n</mi></math>';
-  return {schema_version: 1, kind: 'record',
+  return { kind: 'record',
     nodes: summary.nodes.map(node => ({...node, default: true, parameter_names: ['n'], complexity: 'n', complexity_mathml: mathml,
       doc_path: `models/graph/struct.${node.name}.html`, api_path: `models/graph/struct.${node.name}.html`})),
     edges: [{source: 0, target: 1, witness: true, aggregate: false, turing: false, parameter_contract_error: null,
@@ -556,8 +504,6 @@ test('Atlas contracts reject malformed data and unsafe embedded markup or links'
     value => { value.edges[0].parameters[0].mathml = '<math><script>alert(1)</script></math>'; },
     value => { value.nodes[0].api_path = '../index.html'; }, value => { value.schemas[0].aliases = null; },
   ]) { const record = atlasRecord(); mutate(record); assert.throws(() => validateAtlasRecord(record)); }
-  const summary = atlasSummary(); summary.schema_version = 2;
-  assert.throws(() => validateAtlasSummary(summary));
   assert.throws(() => validateAtlasSummary(atlasRecord()));
   assert.throws(() => validateAtlasRecord(atlasSummary()));
 });

@@ -15,7 +15,6 @@ export type Parameter =
     };
 
 export interface PathGraphData {
-  schema_version: 1;
   /**
    * @minItems 1
    */

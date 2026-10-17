@@ -35,7 +35,7 @@ fn paths_arrive_without_composing_or_comparing_parameter_formulas() {
     .unwrap();
     assert_eq!(
         result,
-        json!({"schema_version":1, "truncated":true, "paths":[{
+        json!({"truncated":true, "paths":[{
             "steps":1, "path":[{"from":{"name":"Source", "variant":{}},
                 "to":{"name":"Target", "variant":{"weight":"i64"}}}]
         }]})
@@ -101,7 +101,7 @@ fn browser_summary_keeps_profiles_counts_and_front_without_pair_payloads() {
     .unwrap();
     let input = json!({"graph": graph, "paths": routes["paths"]}).to_string();
     let summary: Value = serde_json::from_str(&summarize_paths(&input).unwrap()).unwrap();
-    assert_eq!(summary["schema_version"], 5);
+    assert!(summary.get("schema_version").is_none());
     assert!(summary.get("mode").is_none());
     assert_eq!(
         summary["counts"],
@@ -231,9 +231,6 @@ fn unreachable_and_identical_endpoints_have_no_routes() {
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(
-            result,
-            json!({"schema_version":1,"paths":[],"truncated":false})
-        );
+        assert_eq!(result, json!({"paths":[],"truncated":false}));
     }
 }

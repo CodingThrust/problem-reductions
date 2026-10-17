@@ -42,8 +42,6 @@ pub mod rules;
 pub mod solvers;
 pub mod topology;
 pub mod traits;
-#[allow(dead_code)]
-pub(crate) mod truth_table;
 pub mod types;
 pub mod variant;
 
