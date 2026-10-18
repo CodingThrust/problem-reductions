@@ -12983,6 +12983,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ If the sentinel $s = 0$, return the first $n$ variables. If $s = 1$, return the complement of the first $n$ variables.
 ]
 
+#reduction-rule("NAESatisfiability", "Satisfiability")[
+  A not-all-equal clause holds exactly when it has a true literal and a false literal @schaefer1978. Each NAE clause therefore becomes two CNF clauses over the same variables, one forbidding the all-false assignment and one forbidding the all-true assignment.
+][
+  _Construction._ Given an NAE-SAT instance with $n$ variables and $m$ clauses, keep the same $n$ variables. For each clause $C_j = (ell_1, dots, ell_r)$ with $r >= 2$, emit the CNF clauses $(ell_1 or dots or ell_r)$ and $(not ell_1 or dots or not ell_r)$. The target has $n$ variables, $2m$ clauses, and $2L$ literal occurrences, where $L$ is the number of source literal occurrences. Repeated and complementary literals are copied unchanged.
+
+  _Correctness._ For any assignment, the first clause is false exactly when every $ell_i$ is false, and the second is false exactly when every $ell_i$ is true. Both hold exactly when $C_j$ contains a true and a false literal, which is the NAE condition. Hence an assignment satisfies the target iff it satisfies the source.
+
+  _Solution extraction._ Return the target assignment unchanged.
+]
+
 #let cs_sat = load-example("CircuitSAT", "Satisfiability")
 #let cs_sat_sol = cs_sat.solutions.at(0)
 #reduction-rule("CircuitSAT", "Satisfiability",
