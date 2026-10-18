@@ -35,6 +35,7 @@ test('scope selects edges by the capability alone and the limit keeps provable c
   assert.deepEqual(activeRules(rules, { scope: 'witness', limit: 'linear' }), [0]);
   assert.deepEqual(activeRules(rules, { scope: 'aggregate', limit: 'unknown' }), [0]);
   assert.deepEqual(activeRules(rules, { scope: 'turing', limit: 'unknown' }), [3]);
+  assert.deepEqual(activeRules(rules, { scope: ['witness', 'turing'], limit: 'unknown' }), [0, 1, 2, 3]);
   assert.deepEqual(activeRules(rules, { scope: 'witness', limit: 'unknown', skip: new Set([1]) }), [0, 2]);
 });
 

@@ -300,7 +300,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
     const outgoing = edge.source === currentIndex;
     const other = outgoing ? target : source;
     const variant = Object.keys(other.variant).length ? variantLabel(other) : "";
-    return `<a class="relation-link" href="${ruleHref(edge, data.nodes)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability">Turing reduction</span>' : ""}</a>`;
+    return `<a class="relation-link" href="${ruleHref(edge, data.nodes)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability" title="Solved by binary search on the bound: several calls to the yes/no version">Turing reduction</span>' : ""}</a>`;
   }
 
   function codePanel(command: string) {
@@ -442,7 +442,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
           <section id="reference-detail" class="reading-section reference-detail"></section>
         </div>
         <aside class="reading-aside">
-          ${edge.turing ? '<p class="rule-kind">Turing reduction</p>' : ""}
+          ${edge.turing ? '<p class="rule-kind" title="Solved by binary search on the bound: several calls to the yes/no version">Turing reduction</p>' : ""}
           <a href="${sourceHref(edge)}">Open implementation <i class="arrow ne" aria-hidden="true"></i></a
           ><a href="${escape(apiHref(edge.api_path))}"
             >Open API reference <i class="arrow ne" aria-hidden="true"></i></a

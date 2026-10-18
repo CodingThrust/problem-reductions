@@ -46,10 +46,10 @@ export function edgeGrowth(edge: RuleEdge): EdgeGrowth {
   return out;
 }
 
-/* Indices of the rules in scope whose class is at most `limit`. `skip` lists rules excluded by other filters. */
-export function activeRules(rules: readonly RuleEdge[], { scope, limit, skip }: { scope: Scope; limit: ClassId; skip?: Set<number> }) {
-  const max = order.get(limit)!;
-  return rules.flatMap((rule, i) => rule[scope] && !skip?.has(i) && order.get(edgeGrowth(rule).cls)! <= max ? [i] : []);
+/* Indices of the rules in any listed scope whose class is at most `limit`. `skip` lists rules excluded by other filters. */
+export function activeRules(rules: readonly RuleEdge[], { scope, limit, skip }: { scope: Scope | readonly Scope[]; limit: ClassId; skip?: Set<number> }) {
+  const max = order.get(limit)!, scopes = [scope].flat();
+  return rules.flatMap((rule, i) => scopes.some(s => rule[s]) && !skip?.has(i) && order.get(edgeGrowth(rule).cls)! <= max ? [i] : []);
 }
 
 /* Strongly connected components (iterative Tarjan); `comp[v]` indexes `groups`. */

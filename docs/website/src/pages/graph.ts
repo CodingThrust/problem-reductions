@@ -2,7 +2,7 @@ import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
 import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
-import { CLASSES, growthClass, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge, type Scope } from '../lib/graph-structure.mts';
+import { CLASSES, growthClass, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
@@ -654,30 +654,28 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 const rules = D.edges as RuleEdge[];
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach; dir?: "out" | "in" } | { kind: "rules"; key: string; from?: number; index?: number } | null;
-interface Explore { scope: Scope; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
-const ex: Explore = { scope: "witness", limit: "unknown", tab: "problems", query: "", sel: null, all: false };
+interface Explore { turing: boolean; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
+const ex: Explore = { turing: false, limit: "unknown", tab: "problems", query: "", sel: null, all: false };
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
-const SCOPES: readonly { id: Scope; name: string; hint: string }[] = [
-  { id: "witness", name: "Witness", hint: "Rules that map solutions back to the source. Directions searches this scope." },
-  { id: "aggregate", name: "Value", hint: "Rules that also map completed values: optimum, count or decision." },
-  { id: "turing", name: "Turing", hint: "Multi-query rules, such as binary search over a decision bound." },
-];
-const CLEAN = "dim ghost route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
+const CLEAN = "turing dim ghost route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
 const vtext = (i: number) => Object.entries(D.nodes[i]!.variant).map(([k, v]) => k + ": " + v).join("  ") || "default";
 const badge = (cls: ClassId) => {
   const c = CLASSES.find(x => x.id === cls)!, b = el("span", "gc g-" + cls, c.label);
   b.title = c.name; return b;
 };
 const famText = (name: string) => [display(name), name, ...(aliasMap[name] ?? [])].map(t => t.toLowerCase());
+const TURING_HINT = "Turing reduction: solves an optimization problem by asking its yes/no version (is there a solution of value at least k?) several times, with binary search on k. Routes skip these because they need many solver calls.";
 const matchesQuery = (name: string) => { const q = ex.query.trim().toLowerCase(); return !q || famText(name).some(t => t.includes(q)); };
 const pluralize = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function buildModel() {
-  const active = activeRules(rules, { scope: ex.scope, limit: ex.limit }), links = active.map(i => rules[i]!);
+  /* Solution-mapping rules always; Turing rules only when asked for. */
+  const inView = (limit: ClassId) => activeRules(rules, { scope: ex.turing ? ["witness", "turing"] : "witness", limit });
+  const active = inView(ex.limit), links = active.map(i => rules[i]!);
   const fam = familyRules(D.nodes, rules, active), groups = components(D.nodes.length, links);
   const counts = new Map<ClassId, number>();
-  activeRules(rules, { scope: ex.scope, limit: "unknown" }).forEach(i => { const c = edgeGrowth(rules[i]!).cls; counts.set(c, (counts.get(c) ?? 0) + 1); });
+  inView("unknown").forEach(i => { const c = edgeGrowth(rules[i]!).cls; counts.set(c, (counts.get(c) ?? 0) + 1); });
   const out = new Map<number, number[]>(), inn = new Map<number, number[]>();
   active.forEach(i => {
     const r = rules[i]!;
@@ -728,7 +726,7 @@ function paintExplore() {
   scene.edges.forEach(edge => {
     const f = model.fam.get(edge.id);
     if (!f) { scene.classes([edge], "", "off"); return; }
-    scene.classes([edge], "", "e-" + f.cls);
+    scene.classes([edge], "", "e-" + f.cls + (f.rules.every(i => rules[i]!.turing) ? " turing" : ""));
     if (litRules) scene.classes([edge], "", f.rules.some(i => litRules.has(i)) ? "lit" : "dim");
     else if (litNodes) scene.classes([edge], "", litNodes.has(f.source) && litNodes.has(f.target) ? "lit" : "dim");
     else if (edge.source.id === "ILP" || edge.target.id === "ILP") scene.classes([edge], "", "hub");
@@ -761,7 +759,7 @@ function selectRules(key: string, from?: number, index?: number) {
   paintExplore(); renderExplore(); focusLit();
 }
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
-function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderMapbar(); renderLegend(); }
+function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderLegend(); }
 
 function segment(box: HTMLElement, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
   box.replaceChildren(...items.map(item => {
@@ -770,13 +768,12 @@ function segment(box: HTMLElement, items: { id: string; text: string; title?: st
     b.addEventListener("click", () => pick(item.id)); return b;
   }));
 }
-function renderMapbar() {
-  segment($("#scope-seg"), SCOPES.map(x => ({ id: x.id, text: x.name, title: x.hint })), ex.scope, id => {
-    ex.scope = id as Scope; ex.sel = null; refreshExplore();
-  });
-}
+$("#turing-toggle").title = TURING_HINT;
+$("#turing-toggle").addEventListener("click", () => { ex.turing = !ex.turing; ex.sel = null; refreshExplore(); });
 function renderLegend() {
   const box = $("#growth-legend"), at = classOrder.indexOf(ex.limit);
+  const turing = $("#turing-toggle");
+  turing.classList.toggle("on", ex.turing); turing.setAttribute("aria-checked", String(ex.turing));
   box.replaceChildren(...CLASSES.flatMap((c, i) => {
     const n = model.counts.get(c.id) ?? 0;
     if (!n) return [];
@@ -866,13 +863,14 @@ function reductionRow(i: number, side: "source" | "target", sel: Extract<Selecti
   const main = el("span", "red-main"), top = el("span", "red-top");
   top.append(el("span", "red-dir", side === "target" ? "→" : "←"), el("span", "red-name", display(D.nodes[other]!.name)));
   main.append(top); const tokens = variantTokens(other); if (tokens.childElementCount) main.append(tokens);
+  if (r.turing) { const k = el("span", "red-kind", "Turing"); k.title = TURING_HINT; main.append(k); }
   row.append(main, ruleOverhead(i));
   row.addEventListener("click", () => selectRules(D.nodes[r.source]!.name + "→" + D.nodes[r.target]!.name, sel.variant, i));
   return row;
 }
 function reductions(body: HTMLElement, sel: Extract<Selection, { kind: "problem" }>) {
   const v = sel.variant, outs = model.out.get(v) ?? [], ins = model.inn.get(v) ?? [];
-  if (!outs.length && !ins.length) { body.append(el("p", "empty", "No reductions in this scope")); return; }
+  if (!outs.length && !ins.length) { body.append(el("p", "empty", "No reductions at this growth limit")); return; }
   const which = dir(sel), indexes = which === "out" ? outs : ins, side = which === "out" ? "target" : "source", reachId = which === "out" ? "down" : "up";
   const tabs = el("div", "tabs inline"); tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Reductions");
   ([["out", "Reduces to", outs.length], ["in", "Reduced from", ins.length]] as const).forEach(([id, text, n]) => {
@@ -1019,7 +1017,6 @@ new ResizeObserver(() => {
 }).observe($(".site-header"));
 
 /* ---------- Start on a real example ---------- */
-renderMapbar();
 if (location.hash === "#directions") {
   exploring = false; $("#view-explore").hidden = true; $("#view-directions").hidden = false; document.body.classList.remove("explore");
   state.source = defaults.Satisfiability!; state.target = defaults.QUBO!;
