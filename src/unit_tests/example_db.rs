@@ -938,6 +938,21 @@ fn test_find_rule_example_satisfiability_to_naesatisfiability() {
     assert_eq!(example.target.problem, "NAESatisfiability");
 }
 
+#[test]
+fn test_find_rule_example_naesatisfiability_to_satisfiability() {
+    let source = ProblemRef {
+        name: "NAESatisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "Satisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "NAESatisfiability");
+    assert_eq!(example.target.problem, "Satisfiability");
+}
+
 // PR #779 rules
 
 #[test]
