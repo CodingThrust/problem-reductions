@@ -612,7 +612,7 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     seen.add(k); return true;
   });
   const onFront = new Set(c?.front);
-  const front = shown.filter((n) => !c || onFront.has(n)), slower = shown.filter((n) => !front.includes(n));
+  const front = c ? shown.filter((n) => onFront.has(n)) : shown, slower = c ? shown.filter((n) => !onFront.has(n)) : [];
   const s = el("div", "summary"), left = el("span");
   if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
@@ -628,9 +628,9 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
   front.forEach((n) => box.append(pathRow(n, false)));
   if (slower.length && !front.length) slower.forEach((n) => box.append(pathRow(n, true)));
   else if (slower.length) {
-    const open = state.showSlower || slower.includes(state.selected!);
+    const selectedSlower = !onFront.has(state.selected!), open = state.showSlower || selectedSlower;
     const t = el("button", "link more", open ? "Hide slower routes" : `Show ${slower.length} slower routes`); t.type = "button";
-    t.addEventListener("click", () => { state.showSlower = !open; if (!state.showSlower && slower.includes(state.selected!)) { select(front[0]!); return; } renderResults(); });
+    t.addEventListener("click", () => { state.showSlower = !open; if (!state.showSlower && selectedSlower) { select(front[0]!); return; } renderResults(); });
     box.append(t);
     if (open) slower.forEach((n) => box.append(pathRow(n, true)));
   }
