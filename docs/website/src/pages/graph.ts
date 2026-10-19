@@ -13,7 +13,7 @@ type Side = 'source' | 'target';
 interface Family { name: string; category: GraphSceneData['nodes'][number]['category']; variants: number[]; nbrs: Set<string> }
 type PathResult = WasmPathResult & { polynomial_comparison?: WasmComparisonResult; order?: number[] };
 interface State { source: number | null; target: number | null; limit: number; result: PathResult | null;
-  selected: number | null; picked: boolean; showSlower: boolean; busy: boolean; objective: "overhead" | "steps" }
+  selected: number | null; picked: boolean; showSlower: boolean; busy: boolean }
 
 type Bounds = ReturnType<GraphScene['labelBox']>;
 
@@ -127,7 +127,7 @@ scene.onHover = (n, over) => {
 
 /* ---------- State ---------- */
 let exploring = true;
-const state: State = { source: null, target: null, limit: 20, result: null, selected: null, picked: false, showSlower: false, busy: false, objective: "overhead" };
+const state: State = { source: null, target: null, limit: 20, result: null, selected: null, picked: false, showSlower: false, busy: false };
 
 /* Variant options: one row of pills per variant key. Picking a value keeps the other keys when such a variant exists. */
 function focusedVariantGroup(root: HTMLElement) {
@@ -436,27 +436,16 @@ function compute(source: number, target: number, limit: number, onPaths: (result
 function orderPaths(result: PathResult) {
   const c = result.polynomial_comparison;
   const degrees = c?.profiles.map(pathDegree), front = new Set(c?.front);
-  const steps = (n: number) => result.paths[n - 1]!.steps;
   result.order = result.paths.map((_, i) => i + 1).sort((a, b) =>
-    (state.objective === "steps" ? steps(a) - steps(b) : 0) ||
     (c ? (Number(front.has(b)) - Number(front.has(a))) || compareDegrees(degrees![a - 1], degrees![b - 1]) : 0) ||
     result.paths[a - 1]!.steps - result.paths[b - 1]!.steps || a - b);
-}
-function renderObjective() {
-  const box = $("#objective");
-  box.hidden = !state.result;
-  segment(box, [{ id: "overhead", text: "Smallest overhead", title: "Routes whose reduced instance grows slowest" }, { id: "steps", text: "Fewest steps", title: "Routes with the fewest reductions" }], state.objective, id => {
-    state.objective = id as State["objective"];
-    if (state.result) { orderPaths(state.result); state.picked = false; select(state.result.order![0]!); }
-    renderObjective();
-  });
 }
 async function run() {
   const id = ++reqId;
   if (state.busy) stopWorker();
   clearInterval(clock);
   state.result = null; state.selected = null; state.picked = false; state.showSlower = false; state.busy = true;
-  paintGraph(); renderResults(); renderObjective();
+  paintGraph(); renderResults();
   frame([scene.byId.get(D.nodes[state.source!]!.name)!, scene.byId.get(D.nodes[state.target!]!.name)!], 1.1);
   if (state.source === state.target) { state.busy = false; renderResults("same"); return; }
   const started = Date.now();
@@ -464,7 +453,7 @@ async function run() {
   try {
     const result = await compute(state.source!, state.target!, state.limit, (paths) => {
       if (id !== reqId || !paths.paths.length) return;
-      orderPaths(paths); state.result = paths; renderObjective();
+      orderPaths(paths); state.result = paths;
       select(paths.order![0]!);
       performance.mark("graph:routes-rendered");
     });
@@ -622,11 +611,10 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     if (seen.has(k) || (k === selectedChain && n !== state.selected)) return false;
     seen.add(k); return true;
   });
-  const fewest = Math.min(...shown.map((n) => state.result!.paths[n - 1]!.steps));
-  const onFront = new Set(state.objective === "steps" ? shown.filter((n) => state.result!.paths[n - 1]!.steps === fewest) : c?.front);
-  const front = shown.filter((n) => (!c && state.objective === "overhead") || onFront.has(n)), slower = shown.filter((n) => !front.includes(n));
+  const onFront = new Set(c?.front);
+  const front = shown.filter((n) => !c || onFront.has(n)), slower = shown.filter((n) => !front.includes(n));
   const s = el("div", "summary"), left = el("span");
-  if (c || state.objective === "steps") left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
+  if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
   s.append(left);
   if (state.busy) {
@@ -761,13 +749,6 @@ function selectRules(key: string, from?: number, index?: number) {
 function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
 function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderLegend(); }
 
-function segment(box: HTMLElement, items: { id: string; text: string; title?: string }[], current: string, pick: (id: string) => void) {
-  box.replaceChildren(...items.map(item => {
-    const b = el("button", "", item.text); b.type = "button"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(item.id === current));
-    if (item.title) b.title = item.title;
-    b.addEventListener("click", () => pick(item.id)); return b;
-  }));
-}
 $("#turing-toggle").title = TURING_HINT;
 $("#turing-toggle").addEventListener("click", () => { ex.turing = !ex.turing; ex.sel = null; refreshExplore(); });
 function renderLegend() {

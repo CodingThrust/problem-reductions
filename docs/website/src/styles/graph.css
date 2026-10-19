@@ -274,8 +274,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .growth-legend { display: flex; gap: 2px; }
 
 
-.objective { margin: 4px 16px 6px; }
-.objective[hidden] { display: none; }
 
 /* ---- Explorer panel ---- */
 .search-row { padding: 16px 20px 12px; }

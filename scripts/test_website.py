@@ -195,14 +195,6 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.get_by_role('tab', name='Reduced from')).to_have_attribute('aria-selected', 'true')
         self.assertGreater(self.page.locator('.red').count(), 0)
 
-    def test_graph_directions_objective_reranks_routes(self):
-        self.page.goto(self.base + 'graph.html#directions')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
-        expect(self.page.locator('#objective')).to_be_visible()
-        self.page.get_by_role('radio', name='Fewest steps').click()
-        expect(self.page.get_by_role('radio', name='Fewest steps')).to_have_attribute('aria-checked', 'true')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
-
     def test_graph_directions_has_its_own_entry_and_returns_to_explore(self):
         self.page.goto(self.base + 'graph.html')
         self.page.locator('#find').fill('Maximum Independent Set')
