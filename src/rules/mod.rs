@@ -331,6 +331,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
+    specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
+    specs.extend(maximumlikelihoodranking_qubo::canonical_rule_example_specs());
+    specs.extend(minimumtardinesssequencing_qubo::canonical_rule_example_specs());
+    specs.extend(quadraticassignment_qubo::canonical_rule_example_specs());
+    specs.extend(sumofsquarespartition_qubo::canonical_rule_example_specs());
+    specs.extend(optimallineararrangement_qubo::canonical_rule_example_specs());
+    specs.extend(sequencingwithinintervals_qubo::canonical_rule_example_specs());
+    specs.extend(timetabledesign_qubo::canonical_rule_example_specs());
+
     specs.extend(exactcoverby3sets_algebraicequationsovergf2::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_boundeddiameterspanningtree::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumfaultdetectiontestset::canonical_rule_example_specs());
@@ -681,3 +690,17 @@ macro_rules! impl_variant_reduction {
         }
     };
 }
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/direct_qubo.rs"]
+mod direct_qubo_tests;
+
+pub(crate) mod maximumlikelihoodranking_qubo;
+pub(crate) mod minimumtardinesssequencing_qubo;
+pub(crate) mod optimallineararrangement_qubo;
+pub(crate) mod quadraticassignment_qubo;
+mod qubo_helpers;
+pub(crate) mod sequencingtominimizeweightedcompletiontime_qubo;
+pub(crate) mod sequencingwithinintervals_qubo;
+pub(crate) mod sumofsquarespartition_qubo;
+pub(crate) mod timetabledesign_qubo;
