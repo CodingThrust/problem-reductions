@@ -84,3 +84,14 @@ export function forceLayout(input: LayoutInput): Map<string, Point> {
   return sim.positions();
 }
 export const settled = (sim: Simulation) => sim.alpha <= ALPHA_MIN && sim.alphaTarget === 0;
+
+// Let input and painting run between short batches; canceled views must not apply stale positions.
+export async function settleSimulation(sim: Simulation, signal: AbortSignal): Promise<boolean> {
+  while (!settled(sim)) {
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    if (signal.aborted) return false;
+    const until = performance.now() + 4;
+    do { sim.tick(); } while (!settled(sim) && performance.now() < until);
+  }
+  return !signal.aborted;
+}
