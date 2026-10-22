@@ -13,7 +13,7 @@ use crate::types::One;
 use crate::types::{Min, Or};
 use crate::{BruteForce, Problem};
 
-fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionResult> {
+pub(super) fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionResult> {
     let entry = reduction_entries()
         .into_iter()
         .find(|entry| {
@@ -26,7 +26,7 @@ fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionR
     entry.reduce_fn.unwrap()(source).unwrap()
 }
 
-fn optimum<S: Problem<Value = Min<i64>> + 'static>(source: S, expected: i64, bits: usize)
+pub(super) fn optimum<S: Problem<Value = Min<i64>> + 'static>(source: S, expected: i64, bits: usize)
 where
     S::Solution: 'static,
 {
@@ -90,7 +90,7 @@ where
         .is_err());
 }
 
-fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
+pub(super) fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
 where
     S::Solution: 'static,
 {

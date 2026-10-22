@@ -12141,6 +12141,192 @@ A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ r
   _Extraction and size._ Fill a false craftsman-task-period tensor and insert the eligible selected bits. The target has exactly $A$ variables and at most $A(A-1)/2$ couplings, where $A$ is the eligible-assignment count, including the impossible-demand branch.
 ]
 
+
+== Further direct integer QUBO constructions
+
+The following rules use the checked penalty and aggregate-recovery conventions above. Their constructions adapt the quadratic penalty method @glover2019; each proof states the exact source semantics.
+
+#reduction-rule("SchedulingWithIndividualDeadlines", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SchedulingWithIndividualDeadlines", "DecisionQUBO")],
+)[
+ Unit-task scheduling with individual deadlines reduces to a decision QUBO with deadline-valid starts and exact processor capacities.
+][
+ _Construction._ For $n$ tasks and processor capacity $m$, allocate row bits $x_(i t)$ for $0 <= t < h_i = min(d_i,n)$. Add $(sum_t x_(i t)-1)^2$ for each task. At time $t$ let $k_t$ be the number of available task bits. If $m < k_t$, introduce $b= floor(log_2(m))+1$ slack bits with weights $1,2,dots,2^(b-1)$ (no slack bits for $m=0$), and add $(sum_i x_(i t)+s_t-m)^2$. Omit automatically satisfied capacities. For each precedence $(i,j)$ add $x_(i t)x_(j u)$ for every $t>=u$, including repeated indices for self precedences. Use unit penalties and bound $-C$.
+
+_Correctness._ $arrow.r.double$: compress the occupied slots of a source schedule to consecutive integers starting at zero. There are at most $n$ occupied slots; this preserves strict precedences and capacity and only decreases completion times. Choose these starts and the representable slack $m-sum_i x_(i t)$, obtaining zero penalty. $arrow.l.double$: zero penalty selects exactly one deadline-valid start per task, respects every capacity, and has no forbidden precedence pair. Empty rows and cyclic or self precedences remain infeasible.
+
+_Solution extraction and bounds._ Decode the unique start in each row. Completed `Or` values map identically. The actual variable count is $sum_i h_i + sum_(t: m<k_t) "bit_length"(m)$, at most $2 n H$ for $H=max_i d_i$; every coupling is a pair of these variables. The concrete horizon is capped by $n$, so this unit-task construction is polynomial even for large binary-encoded deadlines. Construction uses at most quadratic assignment interactions plus $O(p n^2)$ precedence products. Source start-plus-one arithmetic is bounded by the validated deadlines.
+
+ *Example.* #let ex = load-example("SchedulingWithIndividualDeadlines", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("PrecedenceConstrainedScheduling", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("PrecedenceConstrainedScheduling", "DecisionQUBO")],
+)[
+ Common-deadline unit-task precedence scheduling has a direct decision QUBO with exact processor capacities.
+][
+ _Construction._ Apply the preceding unit-task construction with every deadline equal to $D$, using $h=min(D,n)$ starts per task. Retain binary capacity slack only where capacity is nontrivial; encode strict precedence by forbidden start-pair products. The bound is the negative sum of the squared-equation constants.
+
+_Correctness._ $arrow.r.double$: occupied-slot compression maps any source schedule into the capped horizon without increasing any finish time. Its start bits and residual-capacity slack make every penalty zero. $arrow.l.double$: vanishing row squares give one start per task, capacity squares enforce load at most $m$, and forbidden products enforce every strict precedence. In particular a cyclic precedence system has no satisfying target configuration. The empty instance is feasible with no bits.
+
+_Solution extraction and bounds._ Read the unique start per task and discard capacity slack. Aggregate recovery is identity on `Or`. There are $n h$ start bits and at most $n h$ slack bits, hence the registered bounds $N<=2 n D$ and $E<=(2 n D)^2$. The cap makes the actual size polynomial in task count; the uncapped metadata bound deliberately retains the declared deadline parameter.
+
+ *Example.* #let ex = load-example("PrecedenceConstrainedScheduling", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("CyclicOrdering", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("CyclicOrdering", "DecisionQUBO")],
+)[
+ Cyclic ordering reduces to $n(n-1)/2$ tournament bits without rank or inequality-slack variables.
+][
+ _Construction._ Let $r_(i j)$ mean $i$ precedes $j$, using $r_(j i)=1-r_(i j)$ for reverse indices. Add the unit triangle penalties from the direct sequencing rule. For every prescribed ordered triple $(a,b,c)$ add $(r_(a b)+r_(b c)+r_(c a)-2)^2$. All affine expressions are expanded exactly; use decision bound $-C$.
+
+_Correctness._ $arrow.r.double$: the source permutation gives a transitive tournament. Its prescribed cyclic triples have two forward comparisons around the cycle, so all squares vanish. $arrow.l.double$: no directed triangle implies a total order. On a total order the orientation count is two precisely for the three allowed cyclic arrangements, and one for their reversals. Thus zero penalty is exactly the source predicate, including duplicate constraints and contradictory triples.
+
+_Solution extraction and bounds._ Return predecessor counts as element ranks. The aggregate is identity on `Or`; the number of variables is exactly $N=n(n-1)/2$, and at most $N^2$ nonzero couplings suffice. Construction uses $O(n^3+c)$ additions for $c$ prescribed triples.
+
+ *Example.* #let ex = load-example("CyclicOrdering", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("GroupingBySwapping", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("GroupingBySwapping", "DecisionQUBO")],
+)[
+ Grouping equal symbols by adjacent swaps reduces to a tournament on alphabet symbols, with an inversion-budget threshold.
+][
+ _Construction._ For each pair $i<j$ let $A_(i j)$ count original occurrences of $j$ before $i$, and $B_(i j)$ count $i$ before $j$. On alphabet-order bits define $f=sum_(i<j)(A_(i j) r_(i j)+B_(i j)(1-r_(i j)))$. For string length $l$, set $M=l(l-1)/2$ and weight triangle penalties by $M+1$. Use decision threshold $min(K,M)-C$, where $K$ is the source swap budget.
+
+_Correctness._ $arrow.r.double$: the final grouped string of a successful program defines a block order, extended arbitrarily to unused symbols. Every unequal-symbol inversion relative to this order needs a crossing; an adjacent swap can remove at most one. Therefore $f<=K$. $arrow.l.double$: any directed triangle would contribute more than the threshold, so a satisfying target gives a total block order. Stable insertion sorting the original string by that order performs exactly $f$ adjacent swaps, yields contiguous blocks, and stays within budget. No assumption about all alphabet symbols being used is needed.
+
+_Solution extraction and bounds._ Emit the insertion-sort swap positions and pad to exactly $K$ with the source no-op position $l-1$; the legal empty-string case returns the empty program. Aggregate recovery is identity. There are exactly $a(a-1)/2$ bits for alphabet size $a$, at most $3 binom(a,3)$ couplings, $O(l^2+a^3)$ construction additions, and $O(l^2+K)$ extraction cost. The output-length dependence on the numeric budget is explicit.
+
+ *Example.* #let ex = load-example("GroupingBySwapping", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("MinimumFeedbackArcSet", "QUBO", example: true,
+ extra: [#direct-qubo-commands("MinimumFeedbackArcSet", "QUBO")],
+)[
+ Signed-weight feedback arc set on the source directed multigraph reduces directly to a total-order QUBO.
+][
+ _Construction._ Pre-remove all negative-weight arcs and all self-loops, adding each weight once to the fixed objective. For every other arc $u -> v$ add $w_(u v)(1-r_(u v))$ using the tournament convention. Parallel arcs remain separate source indices; their coefficients add. Apply the shared objective interval and triangle penalty $P=U-L+1$. Before cancellation, check the sums of all negative and all positive source weights, bounding every selected-prefix sum.
+
+_Correctness._ $arrow.r.double$: augment any feasible removal set with every negative arc, without increasing cost. Topologically order its retained graph. All backward arcs were removed; discarding any additionally removed forward nonnegative arcs cannot increase the objective. This produces a canonical order with no greater cost. $arrow.l.double$: removing negative arcs, loops and all backward arcs leaves only forward arcs and hence a DAG, whose removal cost equals the quadratic objective. These inequalities prove equal optima; the shared penalty separates every cyclic target tournament. This argument covers signed, zero, loop and parallel-arc semantics.
+
+_Solution extraction and bounds._ Remove each indexed arc exactly when its weight is negative, it is a loop, or its endpoints are backward in the decoded order. Add the omitted constant for aggregate recovery inside the certified interval. With $v$ vertices, exactly $v(v-1)/2$ bits and at most $3 binom(v,3)$ couplings suffice; construction takes $O(m+v^3)$ additions. Empty graphs have objective zero. Every source has the all-arcs-removed feasible witness.
+
+ *Example.* #let ex = load-example("MinimumFeedbackArcSet", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("Partition", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("Partition", "DecisionQUBO")],
+)[
+ Partition reduces to one selection bit per element by squaring the difference between subset totals @lucas2014.
+][
+ _Construction._ For positive sizes $s_i$ with validated total $S$, set $H=(2 sum_i s_i x_i-S)^2$ and remove $C=S^2$. Use bound $-C$.
+
+_Correctness._ $arrow.r.double$: equal subset totals make the residual zero. $arrow.l.double$: every square is nonnegative, so satisfying the energy threshold forces the selected sum to equal its complement. Odd totals therefore remain NO instances without a special branch.
+
+_Solution extraction and bounds._ Copy the selection bits; aggregate `Or` recovery is identity. Exactly $n$ variables and at most $n^2$ couplings are registered; expansion takes $O(n^2)$ arithmetic operations. Every source subtotal lies between zero and the checked total. Target coefficients, constant and energy sums are independently checked: a representable source need not yield a representable squared penalty.
+
+ *Example.* #let ex = load-example("Partition", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("SubsetSum", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SubsetSum", "DecisionQUBO")],
+)[
+ Arbitrary-precision SubsetSum reduces to a checked integer decision QUBO with one bit per element.
+][
+ _Construction._ Expand $H=(sum_i s_i x_i-T)^2$ using arbitrary-precision signed integers. Only then convert the coefficients and $C=T^2$ into the target integer representation. Check positive and negative coefficient sums and use bound $-C$.
+
+_Correctness._ $arrow.r.double$: a subset of sum $T$ gives zero residual. $arrow.l.double$: satisfying the threshold forces the integer square to vanish and hence exactly the source equality. Empty selections and target zero follow the same equations. Arbitrary-precision input arithmetic is preserved; no input-size restriction is silently assumed.
+
+_Solution extraction and bounds._ Copy the bits and use identity `Or` recovery. Exactly $n$ variables and at most $n^2$ couplings suffice. Expansion takes $O(n^2)$ big-integer operations, whose bit cost depends on input magnitudes. Unrepresentable derived constants or coefficients return a typed numeric error. Expanding before conversion matters: a size $2^32$ and target $2^31$ produce a zero diagonal coefficient despite the intermediate size square exceeding `i64`.
+
+ *Example.* #let ex = load-example("SubsetSum", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ExactCoverBy3Sets", "DecisionQUBO")],
+)[
+ Exact cover by 3-sets reduces to a decision QUBO with one bit per indexed subset @lucas2014.
+][
+ _Construction._ For universe $U$ and subset-selection bits $x_j$, set $H=sum_(u in U)(sum_(j: u in S_j)x_j-1)^2$. The omitted constant is $C=|U|$; use bound $-C$. Duplicate subsets retain distinct bits.
+
+_Correctness._ $arrow.r.double$: an exact cover selects each element exactly once and makes every equation vanish. $arrow.l.double$: zero penalty means every element is covered once, so selected triples are disjoint and cover the whole universe. Summing incidences gives exactly $|U|/3$ selected triples, matching the source's cardinality check. Uncovered elements contribute unavoidable constants; the empty universe gives the empty cover.
+
+_Solution extraction and bounds._ Copy the subset bits; aggregate recovery is identity. Exactly $m$ bits and at most $m^2$ couplings suffice. The implementation scans incidences in $O(|U|m)$ time and expands only intersecting rows, with at most three contributions per pair of triples. Diagonals are $-3$ and pair coefficients twice the intersection cardinality.
+
+ *Example.* #let ex = load-example("ExactCoverBy3Sets", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ThreePartition", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ThreePartition", "DecisionQUBO")],
+)[
+ ThreePartition reduces to item-group assignment bits with exact cardinality and weighted-sum squares.
+][
+ _Construction._ For $n=3k$ items use $x_(i g)$ and
+$ H=sum_i (sum_g x_(i g)-1)^2 + sum_g (sum_i x_(i g)-3)^2 + sum_g (sum_i s_i x_(i g)-B)^2. $
+All penalties have unit weight; use bound $-C$ with $C=n+9k+k B^2$.
+
+_Correctness._ $arrow.r.double$: a source partition has one group per item, three items per group, and group sum $B$, so every square vanishes. $arrow.l.double$: zero squares enforce exactly those three source requirements. Thus no inequality slack or objective domination weight is required. The constructor's classical range and total-sum constraints are retained, including rejection of empty inputs.
+
+_Solution extraction and bounds._ Read the unique group in each item row; aggregate recovery is identity. Exactly $n k$ variables and at most $(n k)^2$ couplings suffice, constructed in $O(n k^2+k n^2)$ operations. Positive source group subtotals are bounded by the validated total; all target squares and coefficient sums are checked separately.
+
+ *Example.* #let ex = load-example("ThreePartition", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ThreeDimensionalMatching", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ThreeDimensionalMatching", "DecisionQUBO")],
+)[
+ Perfect three-dimensional matching reduces to one selection bit per indexed triple.
+][
+ _Construction._ For each of the three axes and each coordinate $u$ add $(sum_(j: t_(j,"axis")=u)x_j-1)^2$. Remove constant $C=3q$ and use bound $-C$, where each axis has $q$ coordinates.
+
+_Correctness._ $arrow.r.double$: a perfect matching covers each coordinate once, so all equations vanish. $arrow.l.double$: zero penalty forces every coordinate on each axis to appear exactly once. Summing any axis gives exactly $q$ selected triples, and zero duplicate incidences proves pairwise coordinate disjointness. Indexed duplicate triples and the empty matching are covered by the same reasoning.
+
+_Solution extraction and bounds._ Copy the triple bits and recover `Or` identically. Exactly $m$ variables and at most $m^2$ couplings suffice. The incidence scans cost $O(q m)$ and expansion has at most three contributions per triple pair. This preserves perfect matching, rather than weakening it to arbitrary disjoint triples.
+
+ *Example.* #let ex = load-example("ThreeDimensionalMatching", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("StackerCrane", "QUBO", example: true,
+ extra: [#direct-qubo-commands("StackerCrane", "QUBO")],
+)[
+ StackerCrane reduces to a cyclic required-arc assignment QUBO using the source's exact connector evaluation contract.
+][
+ _Construction._ Let $n$ be the number of required directed arcs and $B$ their total length. Precompute $d_(i j)$ from the head of arc $i$ to the tail of arc $j$ by reusing the source Dijkstra routine on required directed arcs and optional undirected edges. This preserves its adjacency order, equal-distance tie order, maximum-integer sentinel, and overflow-to-unavailable behavior. For $n^2$ arc-position bits use $f=B+sum_(i,j,p) d_(i j)x_(i p)x_(j,(p+1) mod n)$ over available connectors, omitting $i=j$ when $n>1$. Add row and column one-hot squares and forbidden-transition products for unavailable connectors, with the shared penalty $P$. For $n=1$ include its diagonal connector once; for $n=0$ use zero objective.
+
+_Correctness._ $arrow.r.double$: a feasible source arc order selects a permutation matrix and available connectors, giving exactly its closed-walk cost. $arrow.l.double$: a certified target has a unique arc in each position and every required connector available, hence its decoded order evaluates to the same cost. Required arcs may be traversed again inside connectors, as allowed by the source. Disconnected sources have no unpenalized permutation. Before construction check $B+n max_(i,j: d_(i j) " available") d_(i j)$ for representability, independently of all target bounds, so every nonnegative route prefix is safe.
+
+_Solution extraction and bounds._ Invert the selected positions to the source-native arc-order witness. The source expands it into the closed walk using those same connector queries; no vertex-route witness is substituted. Recover the objective by adding the constant in the certified interval, and `Min(None)` outside it. Exactly $n^2$ bits and at most $n^4$ couplings suffice. There are $n^2$ shortest-path queries, each bounded by $O((v+e+n) log(v+e+n+1))$ for the lazy heap with parallel edges; polynomial expansion uses $O(n^4)$ additions and storage.
+
+ *Example.* #let ex = load-example("StackerCrane", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ShortestCommonSuperstring", "QUBO", example: true,
+ extra: [#direct-qubo-commands("ShortestCommonSuperstring", "QUBO")],
+)[
+ ShortestCommonSuperstring reduces to an overlap-path assignment QUBO after exact containment preprocessing.
+][
+ _Construction._ Remove empty strings, duplicate strings (retain the first), and proper contained strings. For the retained $k$ strings let $o_(i j)$ be maximal suffix-prefix overlap. Use $k^2$ string-position bits and objective $f=sum_i |s_i|-sum_(p=0)^(k-2) sum_(i != j) o_(i j)x_(i p)x_(j,p+1)$, with row and column assignment penalties from the shared objective lemma. The source constructor accepts input symbols outside its declared alphabet; add an unconditional penalty for these infeasible instances, rather than producing an invalid reconstructed witness.
+
+_Correctness._ $arrow.r.double$: order retained strings by their occurrence starts in a shortest source superstring. With containment removed, their ends have the same strict order. Consecutive start distances are at least the preceding length minus maximal overlap, so the path objective is no greater than the source length. $arrow.l.double$: concatenate any path using its maximal overlaps. The current word ends with the previous string, so every retained string remains contained and the length is exactly $f$. Removed duplicates, substrings and empty strings are also contained. These two inequalities prove equality of optima. All-empty inputs give the empty word; an invalid alphabet symbol gives an infeasible source and no certified target value.
+
+_Solution extraction and bounds._ Decode a string permutation, concatenate with the recorded overlaps, and pad with `None` to the sum of original input lengths. Aggregate recovery uses the shared constant and interval. Actual variables are $k^2<=n^2$ and couplings at most $n^4$. Naive containment and overlap preprocessing is bounded by $O(n^2 L^2)$ for original total length $L$, with $O(k^4)$ polynomial expansion. Check source length conversion and target arithmetic independently.
+
+ *Example.* #let ex = load-example("ShortestCommonSuperstring", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
 #let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
 #reduction-rule("KColoring", "DecisionQUBO",

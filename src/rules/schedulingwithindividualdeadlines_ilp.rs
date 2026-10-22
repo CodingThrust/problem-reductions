@@ -81,7 +81,7 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
         let num_vars = n * max_d;
 
         let var = |j: usize, t: usize| j * max_d + t;
-        let processor_count = Self::exact_i64(
+        let processor_count = <Self as ReduceTo<ILP<bool>>>::exact_i64(
             self.num_processors().min(n),
             "encoding the processor capacity",
         )?;
@@ -134,17 +134,23 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
             })?;
             let mut terms: Vec<(usize, i64)> = Vec::new();
             for t in 0..dj {
-                terms.push((var(j, t), Self::exact_i64(t, "encoding a time slot")?));
+                terms.push((
+                    var(j, t),
+                    <Self as ReduceTo<ILP<bool>>>::exact_i64(t, "encoding a time slot")?,
+                ));
             }
             for t in 0..di {
-                terms.push((var(i, t), -Self::exact_i64(t, "encoding a time slot")?));
+                terms.push((
+                    var(i, t),
+                    -<Self as ReduceTo<ILP<bool>>>::exact_i64(t, "encoding a time slot")?,
+                ));
             }
             constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         Ok(ReductionSWIDToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             num_tasks: n,
             max_deadline: max_d,
         })
