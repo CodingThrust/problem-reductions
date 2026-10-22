@@ -332,6 +332,18 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
+    specs.extend(schedulingwithindividualdeadlines_qubo::canonical_rule_example_specs());
+    specs.extend(precedenceconstrainedscheduling_qubo::canonical_rule_example_specs());
+    specs.extend(cyclicordering_qubo::canonical_rule_example_specs());
+    specs.extend(groupingbyswapping_qubo::canonical_rule_example_specs());
+    specs.extend(partition_qubo::canonical_rule_example_specs());
+    specs.extend(subsetsum_qubo::canonical_rule_example_specs());
+    specs.extend(exactcoverby3sets_qubo::canonical_rule_example_specs());
+    specs.extend(threepartition_qubo::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_qubo::canonical_rule_example_specs());
+    specs.extend(minimumfeedbackarcset_qubo::canonical_rule_example_specs());
+    specs.extend(stackercrane_qubo::canonical_rule_example_specs());
+    specs.extend(shortestcommonsuperstring_qubo::canonical_rule_example_specs());
     specs.extend(maximumlikelihoodranking_qubo::canonical_rule_example_specs());
     specs.extend(minimumtardinesssequencing_qubo::canonical_rule_example_specs());
     specs.extend(quadraticassignment_qubo::canonical_rule_example_specs());
@@ -704,3 +716,21 @@ pub(crate) mod sequencingtominimizeweightedcompletiontime_qubo;
 pub(crate) mod sequencingwithinintervals_qubo;
 pub(crate) mod sumofsquarespartition_qubo;
 pub(crate) mod timetabledesign_qubo;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/direct_qubo_followups.rs"]
+mod direct_qubo_followup_tests;
+
+pub(crate) mod cyclicordering_qubo;
+pub(crate) mod exactcoverby3sets_qubo;
+pub(crate) mod groupingbyswapping_qubo;
+pub(crate) mod minimumfeedbackarcset_qubo;
+pub(crate) mod partition_qubo;
+pub(crate) mod precedenceconstrainedscheduling_qubo;
+pub(crate) mod schedulingwithindividualdeadlines_qubo;
+pub(crate) mod shortestcommonsuperstring_qubo;
+pub(crate) mod stackercrane_qubo;
+pub(crate) mod subsetsum_qubo;
+pub(crate) mod threedimensionalmatching_qubo;
+pub(crate) mod threepartition_qubo;
+mod unit_schedule_qubo;
