@@ -111,6 +111,8 @@ function frame(eles: SceneItem[], maxZoom = 1.3, animate = !reduced.matches) {
 
 /* Labels keep a constant screen size; important labels are placed first and any label that would collide is skipped. */
 const SIDES: LabelSide[] = ["below", "above", "right", "left"];
+// Labels along a straightened route sit across the chain, never on its own edges.
+let routeSides = SIDES;
 let labelRaf = 0;
 const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = requestAnimationFrame(placeLabels); };
 function placeLabels() {
@@ -126,7 +128,7 @@ function placeLabels() {
   const clear = (n: SceneNode, b: Bounds) => !hit(b) && !discs.some(o => o.n !== n && overlaps(b, o.b));
   // The first side that is clear; an important label falls back to below.
   const box = (n: SceneNode) => {
-    for (const side of SIDES) { const b = scene.labelBox(n, side); if (clear(n, b)) return b; }
+    for (const side of scene.has(n, "route") ? routeSides : SIDES) { const b = scene.labelBox(n, side); if (clear(n, b)) return b; }
     return scene.labelBox(n);
   };
   const fits = (b: Bounds) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
@@ -520,13 +522,16 @@ function routeEls(n: number) {
 }
 function paintGraph() {
   if (exploring) return;
-  scene.classes(scene.elements, "dim ghost route start end nbr");
+  scene.classes(scene.elements, "dim route start end nbr " + classOrder.map(c => "e-" + c).join(" "));
   scene.nodes.forEach(n => { n.routeLabel = display(n.id); });
   if (state.result && state.selected) {
     scene.classes(scene.elements, "", "dim");
-    (state.result!.polynomial_comparison?.front || []).forEach(n => scene.classes(routeEls(n), "dim", "ghost"));
     const selected = routeEls(state.selected);
-    scene.classes(selected, "dim ghost", "route");
+    scene.classes(selected, "dim", "route");
+    // Each route edge takes the growth colour of the step it carries, matching the timeline badges.
+    state.result!.paths[state.selected - 1]!.path.forEach(step => {
+      if (step.from.name !== step.to.name) scene.classes([scene.byId.get(step.from.name + "→" + step.to.name)!], "", "e-" + stepGrowth(step).cls);
+    });
     // Selected paths stay above the rest of the scene for reliable edge hit testing.
     selected.filter(n => !n.label).forEach(n => scene.world.insertBefore(n.shape, scene.nodes[0]!.shape));
     const labelled = new Set();
@@ -540,6 +545,7 @@ function paintGraph() {
   } else if (state.source != null && state.target != null) scene.classes(scene.elements, "", "dim");
   for (const side of ["source", "target"] as const) if (state[side] != null)
     scene.classes([scene.byId.get(D.nodes[state[side]]!.name)!], "dim", side === "source" ? "start" : "end");
+  arrangeRoute(state.result && state.selected ? familyChain(state.result.paths[state.selected - 1]!) : []);
   scene.nodes.forEach(node => node.shape.setAttribute('aria-label', scene.describe(node)));
   scheduleLabels();
 }
@@ -581,21 +587,32 @@ function pathDetail(n: number) {
   const route = state.result!.paths[n - 1]!, profile = state.result!.polynomial_comparison?.profiles[n - 1]!;
   const d = el("div", "detail");
   const ol = el("ol", "steps");
-  // Consecutive steps inside one family are variant conversions: show the family once with each variant it passes through.
-  const groups: {name: string; variants: Endpoint['variant'][]}[] = [];
-  endpoints(route).forEach((e) => { if (groups.at(-1)?.name === e.name) groups.at(-1)!.variants.push(e.variant); else groups.push({ name: e.name, variants: [e.variant] }); });
-  groups.forEach((e, i) => {
+  // Consecutive points of one family are variant conversions: show the family once with each variant it passes through.
+  // Every step, conversions included, carries its rule's growth on the line of the point it leaves.
+  const points = endpoints(route), groups: {name: string; points: number[]}[] = [];
+  points.forEach((e, k) => { if (groups.at(-1)?.name === e.name) groups.at(-1)!.points.push(k); else groups.push({ name: e.name, points: [k] }); });
+  const stepLink = (k: number) => {
+    const step = route.path[k]!, g = stepGrowth(step), badge = overhead(g.cls, g.accuracy), rule = el("button", "rule-link"); rule.type = "button";
+    const what = step.from.name === step.to.name ? `${display(step.from.name)} variant change` : `${display(step.from.name)} to ${display(step.to.name)}`;
+    rule.title = `Reduction rule: ${what}. ${badge.title}`;
+    rule.onclick = () => showRule(step);
+    rule.append(el("span", "sr-only", `Rule ${what}, `), badge);
+    return rule;
+  };
+  const last = points.length - 1;
+  groups.forEach((g) => {
     const li = el("li"), btn = el("button"); btn.type = "button";
-    btn.append(el("span", "name", display(e.name)));
-    if (multi(e.name)) e.variants.forEach((v) => btn.append(kvNode(v)));
-    btn.addEventListener("click", () => { showProblem({name: e.name, variant: e.variants[0]!}); pulseAndFrame(e.name); });
-    li.append(el("span", "dot"), btn); ol.append(li);
-    if (i < groups.length - 1) {
-      const next = groups[i + 1]!, rule = el("button", "rule-link", "rule"); rule.type = "button";
-      rule.title = `Reduction rule: ${display(e.name)} to ${display(next.name)}`;
-      rule.onclick = () => showRule({from: {name: e.name, variant: e.variants.at(-1)!}, to: {name: next.name, variant: next.variants[0]!}});
-      li.append(rule);
-    }
+    btn.append(el("span", "name", display(g.name)));
+    btn.addEventListener("click", () => { showProblem(points[g.points[0]!]!); pulseAndFrame(g.name); });
+    li.append(el("span", "dot"), btn);
+    if (!multi(g.name)) { if (g.points.at(-1)! < last) li.append(stepLink(g.points.at(-1)!)); }
+    else g.points.forEach((k) => {
+      const line = el("button", "variant-line"); line.type = "button"; line.append(kvNode(points[k]!.variant));
+      line.addEventListener("click", () => { showProblem(points[k]!); pulseAndFrame(g.name); });
+      li.append(line);
+      if (k < last) li.append(stepLink(k));
+    });
+    ol.append(li);
   });
   const dl = el("dl", "growth");
   Object.entries(profile?.fields || {}).forEach(([name, f]) => dl.append(el("dt", "", prettyField(name)), el("dd", "", growth(f).lead)));
@@ -678,6 +695,12 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 /* ---------- Explore ---------- */
 /* Analysis runs on concrete variants. A family link only groups the exact variant rules behind it. */
 const rules = D.edges as RuleEdge[];
+// Routes follow solution-mapping rules; a registry has at most one per exact variant pair.
+const stepRule = new Map(rules.flatMap((r, i) => r.witness ? [[r.source + ">" + r.target, i] as const] : []));
+const stepGrowth = (step: Step) => {
+  const r = stepRule.get(indexOf.get(keyOf(step.from)) + ">" + indexOf.get(keyOf(step.to)));
+  return r == null ? { cls: "unknown" as ClassId, accuracy: "exact" as const } : edgeGrowth(rules[r]!);
+};
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach; dir?: "out" | "in" } | { kind: "rules"; key: string; from?: number; index?: number } | null;
 /* `open`: the browse lists are showing; `view`: which problems the map lays out. */
@@ -694,7 +717,7 @@ const inView = (name: string) => VIEWS[ex.view].keep(name);
 const collapsed = () => exploring && !ex.open && !ex.sel && !ex.query.trim();
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
-const CLEAN = "turing dim ghost route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
+const CLEAN = "turing dim route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
 const vtext = (i: number) => Object.entries(D.nodes[i]!.variant).map(([k, v]) => k + ": " + v).join("  ") || "default";
 const badge = (cls: ClassId) => {
   const c = CLASSES.find(x => x.id === cls)!, b = el("span", "gc g-" + cls, c.label);
@@ -842,6 +865,35 @@ function stepPhysics() {
   scene.nodes.forEach(n => { const p = at.get(n.id); if (p) { n.x = p.x; n.y = p.y; } });
   scene.updatePositions(); scheduleLabels(); placePop();
   if (settled(physics)) physics = null; else kick();
+}
+/* ---------- Straightened routes ---------- */
+/* The selected route is drawn as an evenly spaced chain from its start toward its end, so its own edges never cross.
+   The rest of the map relaxes around the pinned chain from the published layout; a gentle start keeps its shape. */
+const ROUTE_GAP = 48;
+let arranged = "";
+function routeLayout(names: string[]) {
+  const a = published.get(names[0]!)!, b = published.get(names.at(-1)!)!;
+  const d = Math.hypot(b.x - a.x, b.y - a.y), ux = d ? (b.x - a.x) / d : 1, uy = d ? (b.y - a.y) / d : 0;
+  // Discs keep a clear gap between them; a long route keeps its ends where they are and spreads the stops between.
+  const radius = (id: string) => nodeSize(families.get(id)!.nbrs.size) / 2, at = [0];
+  names.slice(1).forEach((id, i) => at.push(at[i]! + radius(names[i]!) + radius(id) + ROUTE_GAP));
+  const len = at.at(-1)!, scale = Math.max(1, d / len), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const sim = createSimulation(physicsInput(published));
+  names.forEach((id, i) => { const t = (at[i]! - len / 2) * scale; sim.pin(id, { x: mx + ux * t, y: my + uy * t }); });
+  sim.alpha = 0.3;
+  while (!settled(sim)) sim.tick();
+  // A label below a stop clears the chain only when it runs nearly level; otherwise it goes beside the stop.
+  return { positions: sim.positions(), sides: Math.abs(uy) > 0.4 * Math.abs(ux) ? ["right", "left", "below", "above"] as LabelSide[] : SIDES };
+}
+function arrangeRoute(names: string[]) {
+  const key = names.join(">");
+  if (key === arranged) return;
+  arranged = key; physics = null;
+  const before = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
+  const { positions, sides } = names.length > 1 ? routeLayout(names) : { positions: published, sides: SIDES };
+  routeSides = sides;
+  scene.nodes.forEach(n => Object.assign(n, positions.get(n.id) ?? before.get(n.id)));
+  if (reduced.matches) scene.updatePositions(); else scene.morph(n => before.get(n.id)!);
 }
 /* Dragging starts from the drawing as it is, so only the neighbourhood of the dragged problem reacts. */
 function grab(node: SceneNode) {
@@ -1106,6 +1158,7 @@ function setMode(mode: "explore" | "directions") {
   document.body.classList.toggle("explore", exploring);
   closePop();
   if (exploring) {
+    arrangeRoute([]);
     refreshExplore(); frameAll();
     history.replaceState(null, "", location.pathname + location.search);
   } else {

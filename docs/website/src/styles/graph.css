@@ -58,7 +58,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .scene-edge { stroke: var(--ink); stroke-width: .7; opacity: .09; pointer-events: none; }
 .scene-edge.dim { opacity: .025; }
 .scene-edge.nbr { stroke: var(--ink-2); opacity: .45; }
-.scene-edge.ghost { stroke: var(--accent); stroke-width: 1.5; opacity: .22; }
 .scene-edge.route { stroke: var(--accent); stroke-width: 1.8; opacity: 1; marker-end: url(#route-arrow); pointer-events: stroke; cursor: pointer; }
 .scene-node { cursor: pointer; }
 .node-disc { stroke: var(--bg); stroke-width: 2; }
@@ -67,7 +66,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   paint-order: stroke; stroke-linejoin: round; visibility: hidden; pointer-events: none; }
 .scene-node.named .node-label, .scene-node:is(.route,.start,.end,.hover,.focused,.reach) .node-label { visibility: visible; }
 .scene-node.dim { opacity: .16; }
-.scene-node.ghost { opacity: .75; }
 .scene-node:is(.route,.start,.end,.hover,.focused) { opacity: 1; }
 .scene-node:is(.route,.start,.end,.hover,.focused,.reach) .node-label { fill: var(--ink); }
 .scene-node.route .node-disc { stroke: var(--accent); }
@@ -125,7 +123,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 
 .detail { padding: 2px 12px 14px; background: color-mix(in oklab, var(--accent) 8%, transparent); border-radius: 0 0 12px 12px; }
 .steps { list-style: none; margin: 0 0 12px; padding: 0; }
-.steps li { position: relative; display: grid; grid-template-columns: 18px 1fr auto; gap: 6px; padding: 5px 0; }
+.steps li { position: relative; display: grid; grid-template-columns: 18px 1fr auto; gap: 2px 6px; padding: 5px 0; }
+.steps li > button:not(.rule-link) { grid-column: 2; }
 .steps li::before { content: ""; position: absolute; left: 4px; top: 19px; bottom: -7px; width: 2px; background: rgba(237,242,232,.18); }
 .steps li:last-child::before { display: none; }
 .steps .dot { margin-top: 6px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ink-3); background: var(--bg); }
@@ -136,7 +135,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .steps button:hover .name { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
 .kv { display: block; position: relative; font: 12px var(--mono); color: var(--ink); }
 .kv i { font-style: normal; color: var(--ink-2); }
-.kv + .kv::before { content: "↓ "; position: absolute; left: -14px; color: var(--ink-3); }
+.steps .variant-line ~ .variant-line .kv::before { content: "↓ "; position: absolute; left: -14px; color: var(--ink-3); }
+.steps .variant-line:hover .kv { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--ink-3); }
 .growth-title { margin: 0 0 6px; font-size: 12px; color: var(--ink-3); }
 .growth { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 13px; }
 .growth dt { color: var(--ink-2); }
@@ -181,8 +181,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .pop-details { display: block; width: 100%; margin-top: 6px; padding: 7px 0; color: var(--ink-2); font-size: 13px; }
 .pop-details:hover { color: var(--ink); }
 .size.pending { width: 34px; height: 21px; background: linear-gradient(90deg, rgba(237,242,232,.04), rgba(237,242,232,.12), rgba(237,242,232,.04)) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; }
-.steps .rule-link { grid-column: 3; grid-row: 1; align-self: start; padding: 2px 0; background: none; color: var(--ink-3); font: 12px var(--mono); }
-.steps .rule-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.steps .rule-link { grid-column: 3; align-self: start; padding: 0; background: none; border-radius: 999px; }
+.steps .rule-link:hover .oh { background: color-mix(in oklab, currentColor 26%, transparent); }
 #details-drawer { position: fixed; z-index: 5; top: calc(var(--header-height) + 16px); right: 16px; bottom: 16px; width: 440px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.45); backdrop-filter: blur(16px) saturate(1.1); -webkit-backdrop-filter: blur(16px) saturate(1.1); }
 .drawer-head { display: flex; justify-content: space-between; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
 .drawer-head > div { min-width: 0; }
@@ -248,6 +248,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .scene-edge.e-higher { stroke: var(--g-higher); stroke-width: 2.3; stroke-dasharray: 6 3; marker-end: url(#arrow-higher); }
 .scene-edge.e-unknown { stroke: var(--g-unknown); stroke-dasharray: 2 3; marker-end: url(#arrow-unknown); }
 .scene-edge.turing { stroke-dasharray: 9 3 2 3; }
+/* A route edge keeps its growth colour but stays heavier than any class width. */
+.scene-edge.route { stroke-width: 2.4; }
 .explore .scene-node.reach { opacity: 1; }
 .scene-node.sel .node-disc { stroke: var(--accent); stroke-width: 3; }
 .scene-node.sel .node-halo { fill: var(--accent); opacity: .25; }

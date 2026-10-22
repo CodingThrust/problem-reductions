@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Browser checks against a built, served website (see docs/website/README.md)."""
 
+import math
 import os
 import re
 import json
@@ -184,6 +185,34 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('[data-node="Satisfiability"]')).to_have_attribute('transform', before, timeout=4000)
         self.page.locator('[data-node="QUBO"]').click()
         expect(self.page.locator('.place-meta .status')).to_have_text('Solver hub')
+
+    def test_graph_selected_route_is_a_straight_chain_and_explore_restores_the_map(self):
+        self.page.goto(self.base + 'graph.html')
+        world = lambda name: tuple(map(float, re.fullmatch(r'translate\((\S+) (\S+)\)',
+            self.page.locator(f'[data-node="{name}"]').get_attribute('transform')).groups()))
+        published = {name: world(name) for name in ['Satisfiability', 'QUBO', 'ILP', 'MaximumClique']}
+        self.page.get_by_role('button', name='Directions').click()
+        self.choose_endpoint('source', 'Satisfiability')
+        self.choose_endpoint('target', 'QUBO')
+        expect(self.page.locator('.path[aria-expanded="true"]')).to_be_visible()
+        route = self.copy_route()
+        points = [route['path'][0]['from']['name']] + [step['to']['name'] for step in route['path']]
+        names = [n for i, n in enumerate(points) if not i or n != points[i - 1]]
+        self.assertGreater(len(names), 2)
+        # Stops lie on one line from start to end, in route order and clear of each other.
+        at = [world(n) for n in names]
+        (x0, y0), (x1, y1) = at[0], at[-1]
+        length = math.hypot(x1 - x0, y1 - y0)
+        along = [((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) / length for x, y in at]
+        for (x, y) in at:
+            self.assertLess(abs((x - x0) * (y1 - y0) - (y - y0) * (x1 - x0)) / length, 0.01)
+        self.assertTrue(all(b - a > 40 for a, b in zip(along, along[1:])), along)
+        # Only the selected route is drawn; the other best routes leave no trace on the map.
+        self.assertEqual(self.page.locator('.scene-edge.route').count(), len(names) - 1)
+        self.assertEqual(self.page.locator('.ghost').count(), 0)
+        self.page.get_by_role('button', name='Back to explore').click()
+        for name, p in published.items():
+            self.assertEqual(world(name), p, name)
 
     def test_graph_dragging_a_problem_pulls_its_neighbours(self):
         self.page.emulate_media(reduced_motion='no-preference')
@@ -969,7 +998,19 @@ class WebsiteTests(unittest.TestCase):
                 if len([n for n in nodes if n['name'] == name]) > 1:
                     expected = ['   '.join(f'{k}: {v}' for k, v in variant.items()) for variant in variants]
                     self.assertEqual(group.locator('.kv').all_text_contents(), expected)
-            expect(self.page.get_by_role('button', name='rule', exact=True)).to_have_count(len(groups) - 1)
+            # Every step has its growth, including variant changes inside one family.
+            links = self.page.locator('.steps .rule-link')
+            expect(links).to_have_count(len(route['path']))
+            for step, link in zip(route['path'], links.all()):
+                change = 'variant change' if step['from']['name'] == step['to']['name'] else 'to .+'
+                self.assertRegex(link.text_content(), r'^Rule .+ ' + change + r', (≤ )?(1|n|n²|n³|n⁴⁺|\?)$')
+                self.assertRegex(link.get_attribute('title'), r'^Reduction rule: .+ ' + change + r'\. \w[\w ]* growth')
+                if step['from']['name'] != step['to']['name']:
+                    # The map edge carries the same growth colour as the step's badge.
+                    cls = {'1': 'constant', 'n': 'linear', 'n²': 'quadratic', 'n³': 'cubic', 'n⁴⁺': 'higher', '?': 'unknown'}[
+                        link.locator('.oh').inner_text().removeprefix('≤ ')]
+                    edge = self.page.locator(f'.scene-edge[data-edge="{step["from"]["name"]}→{step["to"]["name"]}"]')
+                    self.assertTrue({'route', 'e-' + cls} <= set(edge.get_attribute('class').split()))
             self.assertEqual(self.page.locator('.path[aria-expanded="true"]').get_attribute('data-path'), str(n))
         count = len(self.page.evaluate('pathMessages'))
         self.choose_endpoint('source', 'MIS')
@@ -987,7 +1028,8 @@ class WebsiteTests(unittest.TestCase):
         route = self.copy_route()
         expect(self.page.locator('.steps li')).to_have_count(1)
         expect(self.page.locator('.steps .kv')).to_have_count(2)
-        expect(self.page.get_by_role('button', name='rule', exact=True)).to_have_count(0)
+        expect(self.page.locator('.steps .rule-link')).to_have_count(1)
+        expect(self.page.locator('.steps .rule-link')).to_have_text(re.compile(r'^Rule Maximum Independent Set variant change, '))
         self.assertEqual(route, {'steps': 1, 'path': [{
             'from': {'name': 'MaximumIndependentSet', 'variant': {'graph': 'SimpleGraph', 'weight': 'One'}},
             'to': {'name': 'MaximumIndependentSet', 'variant': {'graph': 'SimpleGraph', 'weight': 'i64'}}}]})
@@ -1093,8 +1135,8 @@ class WebsiteTests(unittest.TestCase):
     def test_graph_drawer_opens_exact_cross_family_rule_from_connector_and_canvas(self):
         self.page.goto(self.base + 'graph.html#directions')
         route = self.copy_route()
-        rule = next(step for step in route['path'] if step['from']['name'] != step['to']['name'])
-        self.page.get_by_role('button', name='rule', exact=True).first.click()
+        k, rule = next((k, step) for k, step in enumerate(route['path']) if step['from']['name'] != step['to']['name'])
+        self.page.locator('.steps .rule-link').nth(k).click()
         expect(self.page.locator('#drawer-body article')).to_contain_text('Proof')
         href = self.page.locator('#drawer-atlas').get_attribute('href')
         from urllib.parse import parse_qs, urlparse
