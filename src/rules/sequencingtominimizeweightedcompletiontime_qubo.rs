@@ -48,6 +48,31 @@ impl ReduceTo<QUBO<i64>> for SequencingToMinimizeWeightedCompletionTime {
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
         type Builder = QuboBuilder<SequencingToMinimizeWeightedCompletionTime, QUBO<i64>>;
         let n = self.num_tasks();
+        // Expansion must not hide overflow in source completion times or costs.
+        let (mut earliest, mut latest) = (0i64, 0i64);
+        for &length in self.lengths() {
+            earliest = earliest
+                .checked_add(length.min(0))
+                .ok_or_else(Builder::overflow)?;
+            latest = latest
+                .checked_add(length.max(0))
+                .ok_or_else(Builder::overflow)?;
+        }
+        let (mut negative, mut positive) = (0i64, 0i64);
+        for (&length, &weight) in self.lengths().iter().zip(self.weights()) {
+            let a = (earliest + length.max(0))
+                .checked_mul(weight)
+                .ok_or_else(Builder::overflow)?;
+            let b = (latest + length.min(0))
+                .checked_mul(weight)
+                .ok_or_else(Builder::overflow)?;
+            negative = negative
+                .checked_add(a.min(b).min(0))
+                .ok_or_else(Builder::overflow)?;
+            positive = positive
+                .checked_add(a.max(b).max(0))
+                .ok_or_else(Builder::overflow)?;
+        }
         let count = Builder::dimension(n, n.saturating_sub(1))? / 2;
         let mut q = Builder::new(count);
         for i in 0..n {

@@ -12064,6 +12064,8 @@ A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ r
 
   _Correctness._ A legal order gives no directed triangles and satisfies every precedence. Each task contributes its own processing time times its weight, and each earlier task contributes its processing time times the later task's weight, yielding $f$. Conversely, a tournament with no directed triangle is transitive: a shortest longer directed cycle has a chord producing a shorter directed cycle. Its unique order satisfies all zero-penalty precedences. The shared penalty bound separates all invalid bitstrings, including cyclic precedence instances.
 
+  _Source arithmetic._ Before expansion, bound every elapsed-time prefix by the sums of negative and positive processing times. For each task, include its own duration in the completion-time bounds, multiply both endpoints by its weight, then bound all partial objective sums by the sums of negative minima and positive maxima. Reject bounds outside `i64`; algebraic cancellation must not hide source evaluation overflow.
+
   _Extraction and size._ Count incoming arcs to obtain each task's rank and invert these ranks to an ordered task list. There are exactly $n(n-1)/2$ bits and at most $3 binom(n,3)$ couplings: each triple supplies three pairs of comparison bits, while precedences are linear. The canonical example orders the highest-weight unit jobs first; its source and target witnesses are shown below.
 ]
 
@@ -12095,6 +12097,7 @@ A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ r
 ][
   _Construction._ Let $x_(i p)$ assign facility $i$ to location $p$. Penalize each row by $(1-sum_p x_(i p))^2$ and each column by $sum_(i<j)x_(i p)x_(j p)$. Use $f=sum_(i!=j) sum_(p,q) A_(i j) D_(p q) x_(i p)x_(j q)$ for cost matrix $A$ and distance matrix $D$. Ordered pairs are retained for asymmetric signed matrices; facility diagonal entries are excluded, as in the source objective.
   _Correctness._ Every injection satisfies all penalties and gives its exact assignment cost. Conversely, zero row penalties choose one location per facility and zero column penalties make these locations distinct. Substitution yields the same cost. The integer objective-range bound applies to signed coefficients and separates assignments that would exploit negative costs by selecting extra bits.
+  _Source arithmetic._ Check each directed cost-distance product in `i64`. For each directed facility pair, bound its product over all location pairs, then sum the negative minima and positive maxima. These conservative bounds ensure every source accumulation prefix fits before opposite directed coefficients are combined.
   _Extraction and size._ Return the selected location in each facility row. There are exactly $n m$ bits and at most $n m(n m-1)/2$ couplings. All accepted source instances have an injection, including rectangular matrices and empty facility sets.
 ]
 

@@ -30,6 +30,11 @@ fn optimum<S: Problem<Value = Min<i64>> + 'static>(source: S, expected: i64, bit
 where
     S::Solution: 'static,
 {
+    let source_witness = BruteForce::new().solve(&source).unwrap().unwrap();
+    assert_eq!(
+        source.evaluate(&source_witness).unwrap(),
+        Min(Some(expected))
+    );
     let reduction = direct::<S, QUBO<i64>>(&source);
     let target = reduction
         .target_problem_any()
@@ -89,6 +94,10 @@ fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: u
 where
     S::Solution: 'static,
 {
+    assert_eq!(
+        BruteForce::new().solve(&source).unwrap().is_some(),
+        expected
+    );
     let reduction = direct::<S, Decision<QUBO<i64>>>(&source);
     let target = reduction
         .target_problem_any()
@@ -125,6 +134,12 @@ fn test_weighted_completion_to_qubo_closed_loop() {
         SequencingToMinimizeWeightedCompletionTime::new(vec![1; 3], vec![1, 2, 3], vec![]),
         10,
         3,
+    );
+    // Five jobs exercise overlapping triangle penalties: 5 + 8 + 9 + 8 + 5.
+    optimum(
+        SequencingToMinimizeWeightedCompletionTime::new(vec![1; 5], vec![1, 2, 3, 4, 5], vec![]),
+        35,
+        10,
     );
     optimum(
         SequencingToMinimizeWeightedCompletionTime::new(
@@ -330,6 +345,7 @@ fn test_direct_qubo_signed_and_degenerate_inputs() {
 }
 
 fn infeasible_objective<S: Problem<Value = Min<i64>> + 'static>(source: S) {
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
     let reduction = direct::<S, QUBO<i64>>(&source);
     let target = reduction
         .target_problem_any()
@@ -406,4 +422,66 @@ fn test_direct_qubo_rejects_unrepresentable_coefficients() {
         vec![vec![0, 2], vec![2, 0]],
     ));
     overflow(SumOfSquaresPartition::new(vec![i64::MAX], 1));
+}
+
+#[test]
+fn test_weighted_completion_rejects_overflow_hidden_by_zero_weights() {
+    use crate::rules::{ReduceTo, ReductionError};
+    for lengths in [vec![i64::MAX, 1], vec![i64::MIN, -1], vec![i64::MAX, 1, -1]] {
+        let n = lengths.len();
+        let source = SequencingToMinimizeWeightedCompletionTime::new(lengths, vec![0; n], vec![]);
+        assert!(source.evaluate(&(0..n).collect()).is_err());
+        assert!(matches!(
+            <_ as ReduceTo<QUBO<i64>>>::reduce_to(&source),
+            Err(ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_quadratic_assignment_rejects_overflow_hidden_by_cancellation() {
+    use crate::rules::{ReduceTo, ReductionError};
+    let a = 6_000_000_000_000_000_000;
+    let source = QuadraticAssignment::new(
+        vec![vec![0, a, a], vec![-a, 0, a], vec![-a, -a, 0]],
+        vec![vec![1; 3]; 3],
+    );
+    // The mathematical sum is zero, but the first two directed costs overflow.
+    assert!(source.evaluate(&vec![0, 1, 2]).is_err());
+    assert!(matches!(
+        <_ as ReduceTo<QUBO<i64>>>::reduce_to(&source),
+        Err(ReductionError::IntegerOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_weighted_completion_rejects_overflow_hidden_by_expansion() {
+    use crate::rules::{ReduceTo, ReductionError};
+    for (lengths, weights, scale, order) in [
+        // Task 2 completes at time 10: its weighted cost overflows.
+        (
+            vec![-6, 2, 8],
+            vec![5, -2, -7],
+            i64::MAX / 60,
+            vec![1, 2, 0],
+        ),
+        // Each product fits, but the task-index partial sum -129 * scale does not.
+        (
+            vec![9, 4, -6],
+            vec![-9, -3, 3],
+            i64::MAX / 120,
+            vec![1, 0, 2],
+        ),
+    ] {
+        let source = SequencingToMinimizeWeightedCompletionTime::new(
+            lengths,
+            weights.into_iter().map(|w| w * scale).collect(),
+            vec![],
+        );
+        assert!(source.evaluate(&order).is_err());
+        assert!(matches!(
+            <_ as ReduceTo<QUBO<i64>>>::reduce_to(&source),
+            Err(ReductionError::IntegerOverflow { .. })
+        ));
+    }
 }

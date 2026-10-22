@@ -47,19 +47,24 @@ impl ReduceTo<QUBO<i64>> for QuadraticAssignment {
         let n = self.num_facilities();
         let m = self.num_locations();
         let mut q = Builder::new(Builder::dimension(n, m)?);
+        let (mut negative, mut positive) = (0i64, 0i64);
         for i in 0..n {
             for j in 0..n {
                 if i != j {
+                    let (mut low, mut high) = (0i64, 0i64);
                     for p in 0..m {
                         for s in 0..m {
-                            q.add(
-                                i * m + p,
-                                j * m + s,
-                                i128::from(self.cost_matrix()[i][j])
-                                    * i128::from(self.distance_matrix()[p][s]),
-                            )?;
+                            let cost = self.cost_matrix()[i][j]
+                                .checked_mul(self.distance_matrix()[p][s])
+                                .ok_or_else(Builder::overflow)?;
+                            low = low.min(cost);
+                            high = high.max(cost);
+                            q.add(i * m + p, j * m + s, i128::from(cost))?;
                         }
                     }
+                    // Directed source costs are summed before opposite terms can cancel.
+                    negative = negative.checked_add(low).ok_or_else(Builder::overflow)?;
+                    positive = positive.checked_add(high).ok_or_else(Builder::overflow)?;
                 }
             }
         }
