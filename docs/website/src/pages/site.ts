@@ -1,4 +1,5 @@
 import { loadDetailsIndex, renderDetails } from './details.ts';
+import { mountHeroGraph, type HeroGraph } from './hero-graph.ts';
 import type { AtlasSummary, AtlasRecord, RecordEdge, SummaryEdge, Variant } from '../generated/atlas-data.mjs';
 
 declare global { interface Window { REDUCTIONS: unknown } }
@@ -107,60 +108,40 @@ declare global { interface Window { REDUCTIONS: unknown } }
     toastTimer = setTimeout(() => toast.classList.remove("visible"), 2800);
   }
 
-  function graphArt() {
-    const width = 630,
-      height = 430;
-    const highlights: Record<string, [number, number, string]> = {
-      MaximumIndependentSet: [310, 242, "Independent Set"],
-      MinimumVertexCover: [452, 155, "Vertex Cover"],
-      Satisfiability: [145, 162, "Satisfiability"],
-      KSatisfiability: [220, 74, "k-SAT"],
-      MaximumSetPacking: [449, 314, "Set Packing"],
-      QUBO: [158, 335, "QUBO"],
-      ILP: [330, 370, "ILP"],
-      Coloring: [92, 249, "Coloring"],
+  function heroGraph(): HeroGraph {
+    const labels: Record<string, string> = {
+      MaximumIndependentSet: "Independent Set",
+      MinimumVertexCover: "Vertex Cover",
+      Satisfiability: "Satisfiability",
+      KSatisfiability: "k-SAT",
+      MaximumSetPacking: "Set Packing",
+      QUBO: "QUBO",
+      ILP: "ILP",
+      KColoring: "Coloring",
     };
-    const positions: Record<string, [number, number, string?]> = {};
-    families.forEach((name, i) => {
-      const angle = i * 2.39996323;
-      const radius = Math.sqrt((i + 1) / families.length);
-      positions[name] = highlights[name] || [
-        315 + Math.cos(angle) * radius * 287,
-        218 + Math.sin(angle) * radius * 191,
-      ];
-    });
+    const featured: [string, string] = ["MinimumVertexCover", "MaximumIndependentSet"];
+    // Solver hubs are held near fixed points so the rules into them fan out as rings.
+    const anchors: Record<string, [number, number]> = { ILP: [250, 250], QUBO: [470, 300] };
     const seen = new Set<string>();
-    const lines = summary.edges
-      .map((e) => {
-        const from = summary.nodes[e.source]!.name,
-          to = summary.nodes[e.target]!.name;
-        if (from === to) return "";
-        const key = [from, to].sort().join("/");
-        if (seen.has(key)) return "";
-        seen.add(key);
-        const [x1, y1] = positions[from]!,
-          [x2, y2] = positions[to]!;
-        const featured =
-          [from, to].includes("MinimumVertexCover") &&
-          [from, to].includes("MaximumIndependentSet");
-        return `<line class="network-edge ${featured ? "featured-edge" : ""}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-      })
-      .join("");
-    const nodes = [...families]
-      .sort((a, b) => Number(!!highlights[a]) - Number(!!highlights[b]))
-      .map((name) => {
-        const [x, y] = positions[name]!;
-        const isFocus = [
-          "MaximumIndependentSet",
-          "MinimumVertexCover",
-        ].includes(name);
-        const label = highlights[name]?.[2];
-        if (!label)
-          return `<circle cx="${x}" cy="${y}" r="2.8" fill="var(--graph-node)" stroke="var(--paper)" stroke-width="1" aria-hidden="true"/>`;
-        return `<a class="network-node ${label ? "major" : ""} ${isFocus ? "focus" : ""}" href="${problemHref(name)}" aria-label="Explore ${escape(nameOf(name))}"><title>${escape(nameOf(name))}</title><circle cx="${x}" cy="${y}" r="${isFocus ? 8 : label ? 5.5 : 3}"/>${label ? `<text x="${x}" y="${y + (isFocus ? 28 : 21)}" text-anchor="middle">${escape(label)}</text>` : ""}</a>`;
-      })
-      .join("");
-    return `<svg viewBox="0 0 ${width} ${height}" aria-label="Problem-level overview; connections can involve different variants"><g aria-hidden="true">${lines}</g>${nodes}</svg>`;
+    const links: [string, string][] = [];
+    for (const e of summary.edges) {
+      const from = summary.nodes[e.source]!.name, to = summary.nodes[e.target]!.name;
+      const key = [from, to].sort().join("/");
+      if (from === to || seen.has(key)) continue;
+      seen.add(key);
+      links.push([from, to]);
+    }
+    return {
+      nodes: families.map(name => ({
+        id: name,
+        title: nameOf(name),
+        href: problemHref(name),
+        ...(labels[name] ? { label: labels[name] } : {}),
+        ...(anchors[name] ? { anchor: anchors[name] } : {}),
+      })),
+      links,
+      featured,
+    };
   }
 
   const cyclePoints = [
@@ -196,7 +177,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
   }
 
   function hydrateHome() {
-    $("#hero-graph").innerHTML = graphArt();
+    mountHeroGraph($("#hero-graph"), heroGraph());
     $("#problem-showcase").innerHTML = [
       "MaximumIndependentSet",
       "Satisfiability",
@@ -300,7 +281,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
     const outgoing = edge.source === currentIndex;
     const other = outgoing ? target : source;
     const variant = Object.keys(other.variant).length ? variantLabel(other) : "";
-    return `<a class="relation-link" href="${ruleHref(edge, data.nodes)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability">Turing reduction</span>' : ""}</a>`;
+    return `<a class="relation-link" href="${ruleHref(edge, data.nodes)}"><div class="relation-main"><div class="relation-title"><span>${outgoing ? "→ " : ""}${escape(nameOf(other.name))}${outgoing ? "" : " →"}</span></div>${variant ? `<p>${escape(variant)}</p>` : ""}</div>${edge.turing ? '<span class="capability" title="Solved by binary search on the bound: several calls to the yes/no version">Turing reduction</span>' : ""}</a>`;
   }
 
   function codePanel(command: string) {
@@ -442,7 +423,7 @@ declare global { interface Window { REDUCTIONS: unknown } }
           <section id="reference-detail" class="reading-section reference-detail"></section>
         </div>
         <aside class="reading-aside">
-          ${edge.turing ? '<p class="rule-kind">Turing reduction</p>' : ""}
+          ${edge.turing ? '<p class="rule-kind" title="Solved by binary search on the bound: several calls to the yes/no version">Turing reduction</p>' : ""}
           <a href="${sourceHref(edge)}">Open implementation <i class="arrow ne" aria-hidden="true"></i></a
           ><a href="${escape(apiHref(edge.api_path))}"
             >Open API reference <i class="arrow ne" aria-hidden="true"></i></a

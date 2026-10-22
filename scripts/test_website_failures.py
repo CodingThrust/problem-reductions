@@ -88,7 +88,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
             resource.unlink()
         else:
             resource.write_bytes(damaged)
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('#results')).to_contain_text('Cannot load the path engine', timeout=1000)
         expect(self.page.locator('.skeleton, .path')).to_have_count(0)
         expect(self.page.get_by_role('button', name='Cancel', exact=True)).to_have_count(0)
@@ -138,7 +138,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def test_graph_rejects_out_of_order_worker_reply_and_recovers(self):
         self.observe_path_worker()
         self.engine_release.clear()
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         self.page.wait_for_function('() => pathWorkers[0]?.onmessage && document.querySelector("#results .skeleton")')
         self.page.evaluate('''() => pathWorkers[0].dispatchEvent(new MessageEvent('message', {
             data: structuredClone({phase: 'comparison', result: {}})
@@ -158,7 +158,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         for edge in graph['edges']:
             edge['parameter_contract_error'] = 'Native parameter contract is unavailable'
         resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('#results')).to_contain_text('Cannot load the path engine', timeout=1000)
         self.assertEqual(self.page.evaluate('pathMessages.map(message => message.phase)'), ['paths', 'comparison'])
         resource.write_bytes(original)
@@ -185,7 +185,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
             parameter['contract'] = 'exact'
         graph['edges'] = [edge]
         resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         self.choose_endpoint('source', 'Graph Partitioning')
         expect(self.page.locator('#results .summary strong')).to_contain_text('1 best route')
         expect(self.page.locator('.path .size')).to_have_text('n⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³', timeout=1000)
@@ -203,7 +203,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def cancel_pending_engine(self):
         # Hold the real HTTP response so cancellation deterministically precedes path results.
         self.engine_release.clear()
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         self.assertTrue(self.engine_requested.wait(timeout=1), 'The real WASM request never started')
         expect(self.page.locator('.path')).to_have_count(0)
         self.page.get_by_role('button', name='Cancel', exact=True).click()
@@ -230,10 +230,10 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def assert_detail_recovery(self, resource, message):
         original = resource.read_bytes()
         resource.unlink()
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
         def open_details():
-            self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').click()
+            self.open_problem_popover('MaximumIndependentSet')
             self.page.locator('#pop .pop-details').click()
         open_details()
         expect(self.page.locator('#drawer-body [role="alert"]')).to_contain_text(message)
@@ -259,7 +259,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         manifest = json.loads(original)
         manifest['entries']['problem:MaximumIndependentSet'] = './index.html'
         resource.write_text(json.dumps(manifest))
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
         def open_details():
             self.open_problem_popover('MaximumIndependentSet')
@@ -278,7 +278,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         resource.unlink()
         # Let the eager worker start before delivering the scene's real 404 response.
         self.scene_release.clear()
-        self.page.goto(self.base + 'graph.html')
+        self.page.goto(self.base + 'graph.html#directions')
         self.assertTrue(self.engine_requested.wait(timeout=1), 'The eager engine never requested its WASM')
         self.scene_release.set()
         expect(self.page.locator('#results')).to_contain_text('Cannot load graph', timeout=1000)

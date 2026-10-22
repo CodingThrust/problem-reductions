@@ -13,7 +13,7 @@ export const graphStartup: {scene: Promise<GraphSceneData>; worker: Worker | nul
   worker: null,
 };
 graphStartup.scene.catch(() => {});
-try {
+if (location.hash === '#directions') try {
   const worker = graphStartup.worker = new Worker(new URL('../workers/path-worker.ts', import.meta.url), {type: 'module'});
   performance.mark('graph:worker-started');
   worker.addEventListener('error', (event) => {

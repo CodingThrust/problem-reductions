@@ -27,7 +27,8 @@ function scene() {
       { name: 'Alpha', category: 'graph', variant: { weight: 'i64' }, default: false },
       { name: 'Beta', category: 'misc', variant: {}, default: true },
     ],
-    edges: [{ source: 1, target: 2, witness: true, turing: false }, { source: 0, target: 2, witness: false, turing: true }],
+    edges: [{ source: 1, target: 2, witness: true, aggregate: false, turing: false, fields: { n: { certificate: 'num_vertices^2', accuracy: { kind: 'exact' } } } },
+      { source: 0, target: 2, witness: false, aggregate: false, turing: true, fields: {} }],
     aliases: { Alpha: ['ALPHA'], Beta: [] },
     layout: { Alpha: { x: -0.5, y: 2 }, Beta: { x: 3.25, y: -1 } },
   };

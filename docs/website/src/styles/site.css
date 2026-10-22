@@ -289,11 +289,6 @@ p {
   stroke-width: 0.85;
   opacity: 0.47;
 }
-.network-edge.featured-edge {
-  stroke: #c2de9b;
-  stroke-width: 2.4;
-  opacity: 1;
-}
 .network-node {
   transition: opacity 0.2s;
 }
@@ -310,7 +305,8 @@ p {
   fill: #d7edbd;
   r: 8;
 }
-.network-node text {
+.network-node text,
+.hero-force-label {
   font-size: 13px;
   font-family: var(--sans);
   fill: var(--diagram-label);
@@ -323,18 +319,32 @@ p {
 .network-node.major circle {
   fill: #b3d191;
 }
-.network-node.major text {
-  font-size: 13px;
-  fill: var(--diagram-label);
-}
 .network-node.focus circle {
   fill: #d4eab6;
   stroke: #446239;
   stroke-width: 7;
 }
-.network-node.focus text {
-  font-weight: 600;
-  fill: #d4eab6;
+.network-node.hub circle {
+  filter: drop-shadow(0 0 6px rgba(207, 232, 160, 0.45));
+}
+.hero-force {
+  touch-action: pan-y;
+}
+.hero-force.is-focused .hero-node:not(.is-near) {
+  opacity: 0.22;
+}
+.hero-force.is-focused .network-edge {
+  opacity: 0.08;
+}
+.hero-force.is-focused .network-edge.is-near {
+  stroke: #c2de9b;
+  opacity: 0.9;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-node,
+  .hero-force .network-edge {
+    transition: opacity 0.2s;
+  }
 }
 .stats-bar {
   display: grid;
