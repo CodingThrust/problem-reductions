@@ -13016,19 +13016,6 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
 
 These constructions use the checked sparse penalty and extraction contracts above. Their logical-size advantages are instance-dependent. Every decoder includes target validation, costing $O(N+E)$ in addition to decoding, for $N$ variables and $E$ nonzero terms. Construction costs count arithmetic operations; coefficient bit lengths and sparse-map accumulation also contribute. The scheduling conflict construction follows the time-indexed penalty pattern of #link("https://arxiv.org/abs/1506.08479")[Venturelli et al.].
 
-#reduction-rule("SequencingToMinimizeWeightedTardiness", "DecisionQUBO", example: true,
- extra: [#direct-qubo-commands("SequencingToMinimizeWeightedTardiness", "DecisionQUBO")],
-)[
-  The bounded weighted-tardiness feasibility model reduces to DecisionQUBO using nonnegative-duration start choices.
-][
-  _Construction._ Set $H=sum_i p_i$, give task $i$ choices $t=0,dots,H-p_i$, and charge $w_i max(0,t+p_i-d_i)$. Enforce one-hot rows and disjunctive interval nonoverlap. A zero-duration job strictly inside a positive interval conflicts; equal-time zero jobs do not. If $U$ is the sum of all choice costs, use $P=U+1$, drop constant $C$, and set decision bound $min(K,U)-C$ for source budget $K$. Check $sum_i w_i max(0,H-d_i)$ before expansion to bound every source product and objective prefix.
-  _Correctness._ ($arrow.r.double$) A source permutation supplies prefix starts and identical cost at most $K$. ($arrow.l.double$) Any accepted target has zero penalties. The positive intervals fill $[0,H]$; zero tasks lie at boundaries. Sorting by start, duration and task index puts zero tasks first at ties and yields exactly the selected completion costs. Thus the returned permutation meets $K$. This is a feasibility endpoint, not weighted-tardiness optimization.
-  _Extraction and size._ Validate once, decode the start rows and sort; completed `Or` maps identically. There are $S=sum_i(H-p_i+1)<=n(n 2^h+1)$ variables and at most $S(S-1)/2$ couplings, with magnitude parameter $h$. The registry reports unavailable size transforms because its expression contract permits only constant integer exponents. Grid construction is pseudopolynomial and enumerates $O(S^2)$ conflict candidates. Empty inputs and zero lengths/weights are retained.
-
- *Example.* #let ex = load-example("SequencingToMinimizeWeightedTardiness", "DecisionQUBO")
- The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
-]
-
 #reduction-rule("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO", example: true,
  extra: [#direct-qubo-commands("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO")],
 )[
@@ -13055,19 +13042,6 @@ These constructions use the checked sparse penalty and extraction contracts abov
  The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
 ]
 
-#reduction-rule("FeasibleRegisterAssignment", "DecisionQUBO", example: true,
- extra: [#direct-qubo-commands("FeasibleRegisterAssignment", "DecisionQUBO")],
-)[
-  Feasibility of an evaluation order with a fixed register assignment reduces to a tournament DecisionQUBO.
-][
-  _Construction._ Use the comparison bits and unit triangle penalties defined above. Let $b(i,j)$ denote the comparison literal meaning $i$ precedes $j$. For every dependency arc $(v,u)$, add $1-b(u,v)$. For every other vertex $w$ sharing $u$'s fixed register, with $w!=u,v$, add $b(u,w)b(w,v)$. Products of two literals are quadratic and need no auxiliary bits. The threshold is the negative expanded constant.
-  _Correctness._ ($arrow.r.double$) A feasible evaluation order is transitive, respects dependencies, and cannot overwrite $u$ at $w$ while consumer $v$ is still pending. Every penalty vanishes. ($arrow.l.double$) A zero-penalty tournament defines distinct ranks satisfying dependencies. If an old value were live at an overwrite, a consumer other than that overwriter would follow it, producing one of the forbidden products. Consumption during the overwrite itself remains allowed. Duplicate arcs, dependency cycles and empty graphs retain their source meaning; registers are never reassigned.
-  _Extraction and size._ Validate once and return ranks per vertex, with identity completed-feasibility mapping. Exactly $n(n-1)/2$ bits, no auxiliaries, at most the square of that count in couplings. Construction enumerates $O(n^3+n m)$ terms for $m$ dependency arcs; coefficients reflect accumulated duplicate penalties. Sparse-register instances can favor the existing rank ILP.
-
- *Example.* #let ex = load-example("FeasibleRegisterAssignment", "DecisionQUBO")
- The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
-]
-
 #reduction-rule("ShortestCommonSupersequence", "QUBO", example: true,
  extra: [#direct-qubo-commands("ShortestCommonSupersequence", "QUBO")],
 )[
@@ -13079,19 +13053,6 @@ These constructions use the checked sparse penalty and extraction contracts abov
 
  *Example.* #let ex = load-example("ShortestCommonSupersequence", "QUBO")
  The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.num_vars variables; the exact source and target configurations are shown below.
-]
-
-#reduction-rule("Betweenness", "DecisionQUBO", example: true,
- extra: [#direct-qubo-commands("Betweenness", "DecisionQUBO")],
-)[
-  Betweenness reduces to a tournament DecisionQUBO without local auxiliary variables.
-][
-  _Construction._ Use unit triangle penalties and comparison literals $b(i,j)$ as above. For each ordered triple $(a,b,c)$ add $(b(a,b)-b(b,c))^2$. Boolean idempotence makes this quadratic. Drop constant $C$ and use decision threshold $-C$.
-  _Correctness._ ($arrow.r.double$) A satisfying position permutation gives no directed triangles and both comparisons of each triple agree. ($arrow.l.double$) Every penalty is nonnegative, so an accepted target is a transitive tournament and each square vanishes. Equality of the comparisons means either $a<b<c$ or $c<b<a$, precisely source betweenness. Duplicate triples only repeat a penalty. Contradictory middle-element requirements produce NO.
-  _Extraction and size._ Validate once and return predecessor counts as element positions; completed `Or` maps identically. Exactly $N=n(n-1)/2$ variables, zero auxiliaries, at most $N^2$ couplings and $O(n^3+q)$ construction blocks for $q$ triples. Triangle and local terms are expanded with checked integer coefficients, including reversed-index literals.
-
- *Example.* #let ex = load-example("Betweenness", "DecisionQUBO")
- The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
 ]
 
 == Non-Trivial Reductions

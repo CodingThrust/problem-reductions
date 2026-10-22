@@ -62,15 +62,11 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for FeasibleRegisterAssignment {
                 "counting register assignment variables",
             )
         })?;
-        let big_m = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
-            n,
-            "encoding the schedule order",
-        )?;
+        let big_m = Self::exact_i64(n, "encoding the schedule order")?;
         let last_position = big_m.saturating_sub(1).max(0);
         let mut variables = vec![
-            IntegerVariable::new(Some(0), Some(last_position)).map_err(
-                <Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction
-            )?;
+            IntegerVariable::new(Some(0), Some(last_position))
+                .map_err(Self::target_construction)?;
             n
         ];
         variables.resize(num_vars, IntegerVariable::binary());
@@ -106,7 +102,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for FeasibleRegisterAssignment {
             }
         }
         let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
-            .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
+            .map_err(Self::target_construction)?;
         crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
 
         Ok(ReductionFeasibleRegisterAssignmentToILP {

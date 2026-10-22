@@ -3,6 +3,26 @@ use crate::models::{algebraic::QUBO, misc::*};
 use crate::BruteForce;
 
 #[test]
+fn test_deferred_ordering_rules_retain_ilp_without_direct_qubo_edges() {
+    let entries = crate::rules::registry::reduction_entries();
+    for source in [
+        "SequencingToMinimizeWeightedTardiness",
+        "FeasibleRegisterAssignment",
+        "Betweenness",
+    ] {
+        assert!(entries
+            .iter()
+            .any(|e| e.source_name == source && e.target_name == "ILP"));
+        assert!(
+            !entries.iter().any(
+                |e| e.source_name == source && matches!(e.target_name, "QUBO" | "DecisionQUBO")
+            ),
+            "{source} must use its existing ILP route"
+        );
+    }
+}
+
+#[test]
 fn test_arbitrary_length_tardiness_to_qubo_closed_loop() {
     optimum(
         MinimumTardinessSequencing::with_lengths(vec![1, 1, 2], vec![1, 2, 3], vec![]),
@@ -27,30 +47,6 @@ fn test_arbitrary_length_tardiness_to_qubo_closed_loop() {
     for bits in BruteForce::new().find_all_witnesses(q).unwrap() {
         assert!(r.extract_solution_dyn(&bits).is_err());
     }
-}
-
-#[test]
-fn test_weighted_tardiness_to_decision_qubo_closed_loop() {
-    feasible(
-        SequencingToMinimizeWeightedTardiness::new(vec![1, 0, 1], vec![1, 2, 1], vec![0, 0, 1], 2),
-        true,
-        7,
-    );
-    feasible(
-        SequencingToMinimizeWeightedTardiness::new(vec![1, 0, 1], vec![1, 2, 1], vec![0, 0, 1], 0),
-        false,
-        7,
-    );
-    feasible(
-        SequencingToMinimizeWeightedTardiness::new(vec![0, 0], vec![0, 1], vec![0, 0], i64::MAX),
-        true,
-        2,
-    );
-    feasible(
-        SequencingToMinimizeWeightedTardiness::new(vec![], vec![], vec![], 0),
-        true,
-        0,
-    );
 }
 
 #[test]
@@ -103,30 +99,6 @@ fn test_dynamic_storage_to_decision_qubo_closed_loop() {
 }
 
 #[test]
-fn test_fixed_register_order_to_decision_qubo_closed_loop() {
-    feasible(
-        FeasibleRegisterAssignment::new(3, vec![(1, 0), (2, 1)], 1, vec![0; 3]),
-        true,
-        3,
-    );
-    feasible(
-        FeasibleRegisterAssignment::new(3, vec![(1, 0), (2, 0)], 1, vec![0; 3]),
-        false,
-        3,
-    );
-    feasible(
-        FeasibleRegisterAssignment::new(2, vec![(0, 1), (1, 0)], 2, vec![0, 1]),
-        false,
-        1,
-    );
-    feasible(
-        FeasibleRegisterAssignment::new(0, vec![], 0, vec![]),
-        true,
-        0,
-    );
-}
-
-#[test]
 fn test_supersequence_to_qubo_closed_loop() {
     optimum(
         ShortestCommonSupersequence::new(2, vec![vec![0], vec![1]]),
@@ -159,25 +131,12 @@ fn test_supersequence_to_qubo_closed_loop() {
 }
 
 #[test]
-fn test_betweenness_to_decision_qubo_closed_loop() {
-    feasible(Betweenness::new(3, vec![(0, 1, 2)]), true, 3);
-    feasible(Betweenness::new(3, vec![(0, 1, 2), (0, 2, 1)]), false, 3);
-    feasible(Betweenness::new(3, vec![(2, 1, 0), (2, 1, 0)]), true, 3);
-    feasible(Betweenness::new(1, vec![]), true, 0);
-}
-
-#[test]
 fn test_start_encodings_check_source_arithmetic_and_extreme_windows() {
     use crate::models::decision::Decision;
     use crate::rules::{ReduceTo, ReductionError};
     let elapsed = MinimumTardinessSequencing::with_lengths(vec![i64::MAX, 1], vec![0, 0], vec![]);
     assert!(matches!(
         ReduceTo::<QUBO<i64>>::reduce_to(&elapsed),
-        Err(ReductionError::IntegerOverflow { .. })
-    ));
-    let product = SequencingToMinimizeWeightedTardiness::new(vec![2], vec![i64::MAX], vec![0], 0);
-    assert!(matches!(
-        ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&product),
         Err(ReductionError::IntegerOverflow { .. })
     ));
     // A huge numeric duration can still have only one admissible start.
@@ -205,9 +164,8 @@ fn test_start_encodings_check_source_arithmetic_and_extreme_windows() {
 
 #[test]
 fn test_conditional_encodings_preserve_completed_no_values() {
-    use crate::models::decision::Decision;
     use crate::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
-    use crate::types::{Min, Or};
+    use crate::types::Min;
     use crate::Problem;
     let source = MinimumTardinessSequencing::with_lengths(vec![1], vec![1], vec![(0, 0)]);
     let r = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
@@ -225,9 +183,6 @@ fn test_conditional_encodings_preserve_completed_no_values() {
         r.extract_value(target.evaluate(&optimum).unwrap()),
         Min(None)
     );
-    let source = Betweenness::new(3, vec![(0, 1, 2), (0, 2, 1)]);
-    let r = ReduceTo::<Decision<QUBO<i64>>>::reduce_to(&source).unwrap();
-    assert_eq!(r.extract_value(Or(false)), Or(false));
 }
 
 #[test]
