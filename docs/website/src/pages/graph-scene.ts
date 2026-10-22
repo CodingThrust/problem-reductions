@@ -1,4 +1,6 @@
 // The scene is small and already laid out at build time; SVG owns hit testing and painting.
+import { make } from './svg.ts';
+
 export interface Point { x: number; y: number }
 export interface SceneNodeInput extends Point {
   id: string; label: string; size: number; color: string; deg: number;
@@ -14,12 +16,14 @@ export interface SceneEdge {
 export type SceneItem = SceneNode | SceneEdge;
 interface Rectangle extends Point { w: number; h: number }
 interface Bounds { x1: number; x2: number; y1: number; y2: number }
+export type LabelSide = 'below' | 'above' | 'right' | 'left';
 interface Gesture { item: SceneItem | undefined; moved: boolean; start: Point }
 
 export class GraphScene {
   zoom: number;
   pan: Point;
   animation: number;
+  intro: number;
   svg: SVGSVGElement;
   world: SVGGElement;
   nodes: SceneNode[];
@@ -34,15 +38,11 @@ export class GraphScene {
   onBackgroundTap?: () => void;
   onChange?: () => void;
   onDrag?: (node: SceneNode) => void;
+  onDragEnd?: (node: SceneNode) => void;
   onHover?: (node: SceneNode, over: boolean) => void;
 
   constructor(container: HTMLElement, nodes: SceneNodeInput[], edges: { s: string; t: string }[]) {
-    const make = <Tag extends keyof SVGElementTagNameMap>(tag: Tag, attrs: Record<string, string | number> = {}) => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
-      return node;
-    };
-    this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0;
+    this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0; this.intro = 0;
     this.svg = make('svg', {class: 'graph-scene', role: 'group',
       'aria-label': 'Problem families and directed reductions. Arrows move between spatial neighbours. Page Up and Page Down visit every problem. Home and End jump to the first and last problem. Enter or Space opens controls.'});
     this.world = make('g');
@@ -123,6 +123,7 @@ export class GraphScene {
     const release = (e: PointerEvent) => {
       if (!pointers.has(e.pointerId) || !gesture) return;
       pointers.delete(e.pointerId);
+      if (gesture.moved && gesture.item?.label) this.onDragEnd?.(gesture.item);
       if (e.type === 'pointerup' && !gesture.moved) {
         if (gesture.item?.label) this.onNodeTap?.(gesture.item);
         else if (gesture.item) this.onEdgeTap?.(gesture.item);
@@ -238,18 +239,20 @@ export class GraphScene {
       for (const name of added) if (!this.has(item, name)) item.shape.classList.add(name);
     }
   }
-  updatePositions() {
-    for (const node of this.nodes) node.shape.setAttribute('transform', `translate(${node.x} ${node.y})`);
+  /* Draws nodes at `at(node)`, the laid-out position by default. The intro draws transient positions
+     and skips the invisible hit lines; the layout itself never moves. */
+  updatePositions(at: (node: SceneNode) => Point = node => node, hits = true) {
+    for (const node of this.nodes) { const p = at(node); node.shape.setAttribute('transform', `translate(${p.x} ${p.y})`); }
     for (const edge of this.edges) {
-      const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 4;
-      for (const line of [edge.shape, edge.hit]) {
+      const a = at(edge.source), b = at(edge.target), d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = edge.target.size/2 + 4;
+      for (const line of hits ? [edge.shape, edge.hit] : [edge.shape]) {
         line.setAttribute('x1', String(a.x)); line.setAttribute('y1', String(a.y));
         line.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); line.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
       }
     }
   }
   moveNode(node: SceneNode, dx: number, dy: number) {
-    this.stop();
+    this.stop(); this.settle();
     node.x += dx / this.zoom; node.y += dy / this.zoom;
     this.updatePositions(); this.onDrag?.(node); this.onChange?.();
   }
@@ -273,11 +276,47 @@ export class GraphScene {
     this.onChange?.();
   }
   zoomAt(zoom: number, p: Point) {
-    zoom = Math.max(.1, Math.min(3, zoom));
+    zoom = Math.max(.1, Math.min(4, zoom));
     const scale = zoom / this.zoom;
     this.setViewport(zoom, {x: p.x-(p.x-this.pan.x)*scale, y: p.y-(p.y-this.pan.y)*scale});
   }
   stop() { cancelAnimationFrame(this.animation); this.animation = 0; }
+  /* Animates every node from `from(node)` to its laid-out position along an underdamped spring, each released
+     after `delay(node)` seconds. The closed-form spring keeps each frame O(n), and the layout itself never moves. */
+  morph(from: (node: SceneNode) => Point, delay: (node: SceneNode) => number = () => 0) {
+    this.settle();
+    const nodes = this.nodes, starts = nodes.map(from), delays = nodes.map(delay);
+    const zeta = .55, omega = 9, damped = omega * Math.sqrt(1 - zeta * zeta), settled = 1 + Math.max(0, ...delays);
+    const begin = performance.now();
+    this.svg.classList.add('unfolding');
+    const step = (now: number) => {
+      const elapsed = (now - begin) / 1000;
+      if (elapsed >= settled) { this.settle(); return; }
+      const shown = new Map(nodes.map((b, i) => {
+        const t = Math.max(0, elapsed - delays[i]!), a = starts[i]!;
+        const k = Math.exp(-zeta * omega * t) * (Math.cos(damped * t) + zeta * omega / damped * Math.sin(damped * t));
+        return [b, {x: b.x + (a.x - b.x) * k, y: b.y + (a.y - b.y) * k}] as const;
+      }));
+      this.updatePositions(node => shown.get(node)!, false);
+      this.intro = requestAnimationFrame(step);
+    };
+    step(begin);
+  }
+  /* Intro: every node starts in a cloud at the centre and is released in a ripple from the centre outwards. */
+  unfold() {
+    const nodes = this.nodes;
+    const cx = nodes.reduce((s, p) => s + p.x, 0) / nodes.length, cy = nodes.reduce((s, p) => s + p.y, 0) / nodes.length;
+    const far = Math.max(1, ...nodes.map(p => Math.hypot(p.x - cx, p.y - cy)));
+    this.morph(p => ({x: cx + (p.x - cx) * .06 + (Math.random() - .5) * 24, y: cy + (p.y - cy) * .06 + (Math.random() - .5) * 24}),
+      p => .35 * Math.hypot(p.x - cx, p.y - cy) / far);
+  }
+  // Ends a morph at once; dragging a node needs the drawing to match the layout.
+  settle() {
+    if (!this.svg.classList.contains('unfolding')) return;
+    cancelAnimationFrame(this.intro); this.intro = 0;
+    this.svg.classList.remove('unfolding');
+    this.updatePositions(); this.onChange?.();
+  }
   frame(zoom: number, pan: Point, animate: boolean) {
     this.stop();
     if (!animate) { this.setViewport(zoom, pan); performance.mark('graph:camera-settled'); return; }
@@ -290,7 +329,8 @@ export class GraphScene {
     };
     this.animation = requestAnimationFrame(step);
   }
-  labelBox(node: SceneNode): Bounds {
+  /* Measures the label and places it on one side of its node, returning its screen box. */
+  labelBox(node: SceneNode, side: LabelSide = 'below'): Bounds {
     const important = ['route', 'start', 'end', 'hover', 'focused', 'reach'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
     const key = size + ':' + text;
@@ -315,8 +355,16 @@ export class GraphScene {
       }));
       node.label.setAttribute('font-size', String(size));
     }
-    node.label.setAttribute('transform', `translate(0 ${node.size/2}) scale(${1/this.zoom})`);
-    const p = this.position(node), top = p.y + node.size/2*this.zoom + 5;
-    return {x1:p.x-node.width/2-3, x2:p.x+node.width/2+3, y1:top-3, y2:top+node.height+3};
+    // The text block spans [5, 5 + height] below its origin; each side moves that origin in screen pixels.
+    const r = node.size/2, w = node.width, h = node.height;
+    const [ox, oy, dx, dy, anchor] = {
+      below: [0, r, 0, 0, 'middle'], above: [0, -r, 0, -h - 10, 'middle'],
+      right: [r, 0, 6, -5 - h/2, 'start'], left: [-r, 0, -6, -5 - h/2, 'end'],
+    }[side] as [number, number, number, number, string];
+    node.label.setAttribute('text-anchor', anchor);
+    node.label.setAttribute('transform', `translate(${ox} ${oy}) scale(${1/this.zoom}) translate(${dx} ${dy})`);
+    const p = this.position(node), x = p.x + ox*this.zoom + dx, top = p.y + oy*this.zoom + dy + 5;
+    const x1 = anchor === 'middle' ? x - w/2 : anchor === 'start' ? x : x - w;
+    return {x1: x1-3, x2: x1+w+3, y1: top-3, y2: top+h+3};
   }
 }

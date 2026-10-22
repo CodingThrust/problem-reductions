@@ -151,11 +151,58 @@ class WebsiteTests(unittest.TestCase):
 
     def test_accessibility_graph_explore(self):
         self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.panel')).to_have_class(re.compile(r'\bcollapsed\b'))
+        self.assert_accessible('graph-explore-idle')
+        self.page.locator('#find').focus()
         expect(self.page.locator('#explore-body .row').first).to_be_visible()
         self.assert_accessible('graph-explore')
 
+    def test_graph_explore_panel_folds_to_search_bar_when_idle(self):
+        self.page.goto(self.base + 'graph.html')
+        panel = self.page.locator('.panel')
+        expect(panel).to_have_class(re.compile(r'\bcollapsed\b'))
+        expect(self.page.locator('#explore-body')).to_be_hidden()
+        self.page.locator('#find').focus()
+        expect(panel).not_to_have_class(re.compile(r'\bcollapsed\b'))
+        self.page.locator('#find').press('Escape')
+        expect(panel).to_have_class(re.compile(r'\bcollapsed\b'))
+        self.page.locator('[data-node="QUBO"]').click()
+        expect(self.page.locator('.place-name')).to_have_text('QUBO')
+        self.page.keyboard.press('Escape')
+        expect(panel).to_have_class(re.compile(r'\bcollapsed\b'))
+
+    def test_graph_views_relayout_without_hubs_and_restore(self):
+        self.page.goto(self.base + 'graph.html')
+        ilp = self.page.locator('[data-node="ILP"]')
+        before = self.page.locator('[data-node="Satisfiability"]').get_attribute('transform')
+        self.page.get_by_role('button', name='Without ILP & QUBO').click()
+        expect(ilp).to_have_class(re.compile(r'\boff\b'))
+        expect(self.page.locator('[data-node="Satisfiability"]')).not_to_have_attribute('transform', before)
+        self.page.get_by_role('button', name='NP-hard only').click()
+        expect(ilp).not_to_have_class(re.compile(r'\boff\b'))
+        self.page.get_by_role('button', name='All rules').click()
+        expect(self.page.locator('[data-node="Satisfiability"]')).to_have_attribute('transform', before, timeout=4000)
+        self.page.locator('[data-node="QUBO"]').click()
+        expect(self.page.locator('.place-meta .status')).to_have_text('Solver hub')
+
+    def test_graph_dragging_a_problem_pulls_its_neighbours(self):
+        self.page.emulate_media(reduced_motion='no-preference')
+        self.page.goto(self.base + 'graph.html')
+        self.page.wait_for_function("() => !document.querySelector('.graph-scene.unfolding')")
+        neighbour = self.page.locator('[data-node="MaximumClique"]')
+        before = neighbour.get_attribute('transform')
+        box = self.page.locator('[data-node="MaximumIndependentSet"] .node-disc').bounding_box()
+        x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+        self.page.mouse.move(x, y)
+        self.page.mouse.down()
+        self.page.mouse.move(x + 150, y - 120, steps=15)
+        expect(neighbour).not_to_have_attribute('transform', before)
+        self.page.mouse.up()
+        expect(self.page.locator('.place-name')).to_have_count(0)
+
     def test_accessibility_graph_place_card(self):
         self.page.goto(self.base + 'graph.html')
+        self.page.locator('#find').focus()
         self.page.locator('#explore-body .row', has_text='Satisfiability').first.click()
         expect(self.page.locator('.place-name')).to_be_visible()
         self.assert_accessible('graph-place-card')
@@ -182,6 +229,9 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.flow .end-node')).to_have_count(2)
         self.assertGreater(self.page.locator('.field').count(), 0)
         expect(self.page.locator('.flow-link .oh')).to_be_visible()
+        for text in self.page.locator('.formula').all_inner_texts():
+            self.assertNotIn('+ -', text)
+            self.assertNotIn('*', text)
         self.assert_accessible('graph-reduction-view')
         self.page.get_by_role('button', name='Satisfiability', exact=True).first.click()
         expect(self.page.locator('.place-name')).to_be_visible()

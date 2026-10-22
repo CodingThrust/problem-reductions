@@ -52,6 +52,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   radial-gradient(circle at 1px 1px, rgba(237,242,232,.045) 1px, transparent 0) 0 0 / 24px 24px; }
 #cy { position: absolute; inset: 0; }
 .graph-scene { width: 100%; height: 100%; touch-action: none; user-select: none; }
+.graph-scene.unfolding .scene-node .node-label { visibility: hidden; }
+@media (prefers-reduced-motion: no-preference) { .graph-scene:not(.unfolding) .node-label { animation: label-in .35s ease-out; } }
+@keyframes label-in { from { opacity: 0; } }
 .scene-edge { stroke: var(--ink); stroke-width: .7; opacity: .09; pointer-events: none; }
 .scene-edge.dim { opacity: .025; }
 .scene-edge.nbr { stroke: var(--ink-2); opacity: .45; }
@@ -206,7 +209,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .searchbox input::placeholder { color: var(--ink-3); }
 .searchbox input::-webkit-search-cancel-button { filter: invert(.7); }
 .dir-btn, .back-btn { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; }
-.dir-btn { background: var(--accent); color: var(--accent-ink); }
+.dir-btn { display: flex; gap: 7px; width: auto; padding: 0 14px 0 12px; background: var(--accent); color: var(--accent-ink); font-size: 13.5px; font-weight: 500; }
 .dir-btn:hover { filter: brightness(1.08); }
 .back-btn { width: 32px; height: 32px; border-radius: 50%; color: var(--ink-2); }
 .back-btn:hover { background: var(--hover); color: var(--ink); }
@@ -266,7 +269,14 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 /* One toolbar over the canvas: growth filter, Turing toggle */
 .mapbar { position: fixed; z-index: 2; top: calc(var(--header-height) + 16px); left: 392px; right: 72px; display: none; align-items: center; gap: 4px; width: max-content; max-width: calc(100vw - 464px); padding: 4px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .explore .mapbar { display: flex; }
-.mapbar .growth-legend, .mapbar .turing-toggle { margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--line); }
+.mapbar { flex-wrap: wrap; row-gap: 2px; }
+.legend-group { display: flex; align-items: center; gap: 2px; }
+.mapbar .turing-toggle, .mapbar .legend-group { margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--line); }
+.seg { display: flex; gap: 2px; }
+.seg button { padding: 5px 10px; border-radius: 9px; font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.seg button:hover { color: var(--ink); background: var(--hover); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.legend-label { padding: 0 6px 0 8px; font: 500 11px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 .growth-legend { display: flex; gap: 2px; }
 
 /* ---- Explorer panel ---- */
@@ -288,7 +298,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .row { display: flex; align-items: center; gap: 12px; width: calc(100% + 16px); margin: 0 -8px; padding: 9px 8px; border-radius: 10px; text-align: left; font-size: 14.5px; }
 .row:hover { background: var(--hover); }
 .row.rule { padding: 8px; }
-.dot-cat { flex: none; width: 7px; height: 7px; border-radius: 50%; }
 .row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-stack { flex: 1; min-width: 0; display: grid; gap: 1px; }
 .row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--ink-2); }
@@ -303,7 +312,6 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .identity { padding: 6px 0 4px; }
 .place-name { margin: 0; font: 600 24px/1.2 var(--sans); letter-spacing: -.015em; text-wrap: balance; }
 .place-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
-.place-meta .dot-cat { margin-right: -4px; }
 .place-meta code { padding: 1px 7px; border-radius: 6px; background: rgba(237,242,232,.07); font: 12px var(--mono); color: var(--ink); }
 .acts { display: flex; gap: 8px; margin: 18px 0 0; }
 .act { padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); font-size: 13.5px; color: var(--ink); }
@@ -367,3 +375,46 @@ h2.eyebrow { margin: 0 0 10px; }
 .foot { margin: 12px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
 .sec + .acts { margin-top: 22px; }
 @media (prefers-reduced-motion: reduce) { .explore-body.enter > * { animation: none; } }
+
+/* Idle: the panel folds to its search bar and the map takes the page. */
+.panel.collapsed { bottom: auto; }
+.panel.collapsed :is(.tabs, .explore-body) { display: none; }
+.panel.collapsed .search-row { padding-bottom: 16px; }
+
+@media (max-width: 760px) {
+  /* One compact header row on the graph page; the links scroll sideways instead of wrapping. */
+  .site-header .header-inner { flex-wrap: nowrap; min-height: 0; height: 56px; padding-block: 0; width: calc(100% - 24px); gap: 12px; }
+  .site-header .wordmark .project-logo { width: 132px; }
+  .site-header nav { order: 0; width: auto; flex-wrap: nowrap; justify-content: flex-start; gap: 16px; font-size: 13px;
+    overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .site-header nav::-webkit-scrollbar { display: none; }
+  .site-header nav a { white-space: nowrap; }
+  .panel.collapsed { height: auto; top: auto; bottom: 0; }
+  .panel.collapsed .search-row { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .panel.collapsed ~ .dock { bottom: calc(88px + env(safe-area-inset-bottom)); }
+  .mapbar { left: 12px; right: 12px; max-width: none; width: auto; top: calc(var(--header-height) + 10px); overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .mapbar::-webkit-scrollbar { display: none; }
+}
+
+/* Node colour is the problem's status; the legend sits in the free corner of the map. */
+.status-legend { position: fixed; z-index: 2; left: 392px; bottom: 16px; display: none; flex-wrap: wrap; gap: 6px 16px; max-width: calc(100vw - 470px);
+  padding: 9px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.explore .status-legend { display: flex; }
+.explore .panel.collapsed ~ .status-legend { left: 16px; }
+.status-item { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.status-item i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.status-item b { font: 500 11.5px var(--mono); color: var(--ink-3); }
+.place-meta .status { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+.place-meta .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.scene-node.hub-node .node-disc { filter: drop-shadow(0 0 7px rgba(232, 213, 107, .55)); }
+.scene-node.off { display: none; }
+/* Rules stay neutral until one is in focus; then its growth colour and arrow show. */
+.explore .scene-edge:not(.lit) { stroke: var(--ink-2); stroke-dasharray: none; }
+/* Directions colour only the route and its ends, so status colours step back. */
+body:not(.explore) .node-disc { fill: #8a9a8c; }
+@media (max-width: 760px) {
+  .status-legend { left: 12px; right: 12px; max-width: none; bottom: calc(56dvh + 60px); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .explore .panel.collapsed ~ .status-legend { left: 12px; bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .explore .panel.collapsed ~ .dock { bottom: calc(128px + env(safe-area-inset-bottom)); }
+}

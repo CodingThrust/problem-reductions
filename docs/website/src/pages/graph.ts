@@ -1,16 +1,16 @@
 import { graphStartup } from './graph-startup.ts';
 import { renderDetails } from './details.ts';
-import { GraphScene, type SceneNode, type SceneItem, type SceneEdge } from "./graph-scene.ts";
+import { GraphScene, type SceneNode, type SceneItem, type SceneEdge, type LabelSide } from "./graph-scene.ts";
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
 import { CLASSES, growthClass, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
+import { createSimulation, forceLayout, settled, type Point, type Simulation } from '../lib/force-layout.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
 import type { WasmComparisonResult } from '../generated/wasm-comparison.mjs';
-import type { GraphSceneData } from '../generated/graph-scene.mjs';
 
 type Side = 'source' | 'target';
-interface Family { name: string; category: GraphSceneData['nodes'][number]['category']; variants: number[]; nbrs: Set<string> }
+interface Family { name: string; variants: number[]; nbrs: Set<string> }
 type PathResult = WasmPathResult & { polynomial_comparison?: WasmComparisonResult; order?: number[] };
 interface State { source: number | null; target: number | null; limit: number; result: PathResult | null;
   selected: number | null; picked: boolean; showSlower: boolean; busy: boolean }
@@ -36,7 +36,7 @@ const modalDetails = matchMedia("(max-width: 1167px)");
 const display = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");
 const families = new Map<string, Family>();
 D.nodes.forEach((n, i) => {
-  if (!families.has(n.name)) families.set(n.name, { name: n.name, category: n.category, variants: [], nbrs: new Set() });
+  if (!families.has(n.name)) families.set(n.name, { name: n.name, variants: [], nbrs: new Set() });
   families.get(n.name)!.variants.push(i);
 });
 const famEdges = new Map<string, {s: string; t: string}>();
@@ -47,6 +47,28 @@ D.edges.forEach((e) => {
   families.get(s)!.nbrs.add(t); families.get(t)!.nbrs.add(s);
 });
 const multi = (name: string) => families.get(name)!.variants.length > 1;
+
+/* What the library knows about each problem, over solution-mapping rules: proven NP-hard when a chain reaches it
+   from SAT, solvable when a chain carries it to ILP. Colour carries this status, never a filter-dependent view. */
+type Status = "both" | "solver" | "hard" | "none";
+const HUBS = new Set(["ILP", "QUBO"]);
+const STATUS: Record<Status, { color: string; label: string; detail: string }> = {
+  both: { color: "#6aa64f", label: "NP-hard, reaches ILP", detail: "Proven NP-hard and solvable through ILP" },
+  solver: { color: "#4c93cf", label: "Reaches ILP", detail: "Solvable through ILP; no hardness chain from SAT yet" },
+  hard: { color: "#d4688a", label: "NP-hard, no solver route", detail: "Proven NP-hard; no rule chain to ILP yet" },
+  none: { color: "#5b665e", label: "Neither yet", detail: "No hardness chain from SAT and no route to ILP yet" },
+};
+const HUB_COLOR = "#e8d56b";
+const statusOf = (() => {
+  const names = [...families.keys()], links = new Map<string, {source: string; target: string}>();
+  D.edges.forEach(e => {
+    const source = D.nodes[e.source]!.name, target = D.nodes[e.target]!.name;
+    if (e.witness && source !== target) links.set(source + "→" + target, { source, target });
+  });
+  const hard = depthsFrom(names, [...links.values()], ["Satisfiability", "KSatisfiability"]);
+  const solver = depthsFrom(names, [...links.values()].map(l => ({ source: l.target, target: l.source })), ["ILP"]);
+  return new Map(names.map(n => [n, (hard.get(n) != null ? solver.get(n) != null ? "both" : "hard" : solver.get(n) != null ? "solver" : "none") as Status]));
+})();
 const keyOf = (node: Endpoint) => node.name + "|" + Object.entries(node.variant).sort().map(([k, v]) => k + "=" + v).join(",");
 const indexOf = new Map(D.nodes.map((n, i) => [keyOf(n), i]));
 
@@ -63,17 +85,20 @@ const prettyField = (f: string) => f.replace(/^num_/, "").replaceAll("_", " ");
 const nodeSize = (deg: number) => Math.max(6, Math.min(22, 6 + 2.4 * Math.sqrt(deg)));
 const pos = new Map<string, {x: number; y: number}>();
 for (const f of families.values()) pos.set(f.name, { x: D.layout[f.name]!.x * 1.6, y: D.layout[f.name]!.y * 1.6 });
-const cat = { graph: "#a9d68a", formula: "#8cc4c7", set: "#e0a988", algebraic: "#e2cf73", misc: "#c39bd3" };
 const scene = new GraphScene($("#cy"), [...families.values()].map(f => ({id: f.name, label: display(f.name),
-  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: cat[f.category] || cat.misc, ...pos.get(f.name)!})), [...famEdges.values()]);
+  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: HUBS.has(f.name) ? HUB_COLOR : STATUS[statusOf.get(f.name)!].color, ...pos.get(f.name)!})), [...famEdges.values()]);
+scene.classes(scene.nodes.filter(n => HUBS.has(n.id)), "", "hub-node");
 performance.mark("graph:renderer-created");
 performance.mark("graph:constructed");
 
 function freeRect() {
   const W = innerWidth, H = innerHeight, top = $(".site-header").getBoundingClientRect().bottom;
-  if (phone.matches) return { x: 0, y: top, w: W, h: Math.max(1, $(".panel").getBoundingClientRect().top - top) };
+  const panel = $(".panel").getBoundingClientRect();
+  if (phone.matches) return { x: 0, y: top, w: W, h: Math.max(1, panel.top - top) };
   const right = $("#details-drawer").hidden || modalDetails.matches ? W : $("#details-drawer").getBoundingClientRect().left - 16;
-  return { x: 392, y: top, w: Math.max(1, right - 392), h: H - top };
+  // A collapsed panel is only its search bar, so the canvas runs under it to the left edge.
+  const left = collapsed() ? 0 : 392, below = collapsed() ? panel.bottom : top;
+  return { x: left, y: below, w: Math.max(1, right - left), h: H - below };
 }
 scene.visibleRect = freeRect;
 function frame(eles: SceneItem[], maxZoom = 1.3, animate = !reduced.matches) {
@@ -85,27 +110,40 @@ function frame(eles: SceneItem[], maxZoom = 1.3, animate = !reduced.matches) {
 }
 
 /* Labels keep a constant screen size; important labels are placed first and any label that would collide is skipped. */
+const SIDES: LabelSide[] = ["below", "above", "right", "left"];
 let labelRaf = 0;
 const scheduleLabels = () => { cancelAnimationFrame(labelRaf); labelRaf = requestAnimationFrame(placeLabels); };
 function placeLabels() {
   const r = freeRect(), boxes: Bounds[] = [];
-  const box = (n: SceneNode) => scene.labelBox(n);
   const important = (n: SceneNode) => ["route", "start", "end", "hover", "focused", "reach"].some(c => scene.has(n, c));
+  const overlaps = (b: Bounds, o: Bounds) => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4;
+  const hit = (b: Bounds) => boxes.some(o => overlaps(b, o));
+  // Discs of the problems in focus are obstacles too, so their labels never cover each other's nodes.
+  const discs = scene.nodes.filter(important).map(n => {
+    const p = scene.position(n), d = n.size / 2 * scene.zoom;
+    return { n, b: { x1: p.x - d, x2: p.x + d, y1: p.y - d, y2: p.y + d } };
+  });
+  const clear = (n: SceneNode, b: Bounds) => !hit(b) && !discs.some(o => o.n !== n && overlaps(b, o.b));
+  // The first side that is clear; an important label falls back to below.
+  const box = (n: SceneNode) => {
+    for (const side of SIDES) { const b = scene.labelBox(n, side); if (clear(n, b)) return b; }
+    return scene.labelBox(n);
+  };
   const fits = (b: Bounds) => b.x1 > r.x + 4 && b.x2 < r.x + r.w - 4 && b.y1 > r.y + 4 && b.y2 < r.y + r.h - 4;
-  const hit = (b: Bounds) => boxes.some(o => b.x1 < o.x2 + 6 && b.x2 > o.x1 - 6 && b.y1 < o.y2 + 4 && b.y2 > o.y1 - 4);
   scene.classes(scene.nodes, "named");
   scene.nodes.filter(important).forEach(n => boxes.push(box(n)));
   const named: SceneNode[] = [];
-  const cap = exploring && !ex.sel && !ex.query ? 12 : Infinity;
-  scene.nodes.filter(n => !important(n) && !scene.has(n, "dim")).sort((a,b) => b.deg-a.deg).forEach(n => {
+  const cap = exploring && !ex.sel && !ex.query ? (phone.matches ? 6 : 12) : Infinity;
+  scene.nodes.filter(n => !important(n) && !scene.has(n, "dim") && !scene.has(n, "off")).sort((a,b) => b.deg-a.deg).forEach(n => {
     const b = box(n);
-    if (named.length < cap && fits(b) && !hit(b)) { boxes.push(b); named.push(n); }
+    if (named.length < cap && fits(b) && clear(n, b)) { boxes.push(b); named.push(n); }
   });
   scene.classes(named, "", "named");
   placePop();
 }
 scene.onChange = scheduleLabels;
-scene.onDrag = () => { scheduleLabels(); placePop(); };
+scene.onDrag = node => { scheduleLabels(); placePop(); if (!reduced.matches) grab(node); };
+scene.onDragEnd = node => { if (physics) { physics.pin(node.id, null); physics.alphaTarget = 0; } };
 scene.onHover = (n, over) => {
   scene.classes([n], over ? "" : "hover", over ? "hover" : "");
   if (exploring && !ex.sel && !ex.query) {
@@ -299,9 +337,9 @@ function closePop(restoreFocus = false) {
   if (restoreFocus) opener?.focus({preventScroll: true});
 }
 scene.onNodeTap = (node, options) => exploring ? selectProblem(defaults[node.id]!) : openPop(node, options);
-scene.onBackgroundTap = () => { closePop(); if (exploring && ex.sel) clearSelection(); };
+scene.onBackgroundTap = () => { closePop(); if (exploring) collapse(); };
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") { closePop(true); closeDetails(); if (exploring && ex.sel && !document.activeElement!.matches("input")) clearSelection(); }
+  if (e.key === "Escape") { closePop(true); closeDetails(); if (exploring && !document.activeElement!.matches("input")) collapse(); }
   if (e.key === "/" && (!modalDetails.matches || $("#details-drawer").hidden) && !document.activeElement!.matches("input, textarea, [contenteditable]")) { e.preventDefault(); $(state.source == null ? "#source" : "#target").focus(); }
 });
 
@@ -334,7 +372,7 @@ function showDetails(title: string, key: string, parentKey: string) {
   // The drawer narrows the free canvas; reframe only when it would cover part of the selected route.
   if (opening && !modalDetails.matches && state.result && state.selected) {
     const r = freeRect(), b = scene.bounds(routeEls(state.selected), true);
-    if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 1.3);
+    if (b.x1 < r.x || b.x2 > r.x + r.w || b.y1 < r.y || b.y2 > r.y + r.h) frame(routeEls(state.selected), 2.4);
   }
   $("#details-title").textContent = title; body.scrollTop = 0;
   const endpoint = (value: string) => value.split("/").map(encodeURIComponent);
@@ -510,7 +548,7 @@ function select(n: number) {
   paintGraph(); renderResults();
   const focused = scene.nodeOf(document.activeElement);
   if (focused) scene.reveal(focused);
-  else frame(routeEls(n), 1.3);
+  else frame(routeEls(n), 2.4);
 }
 
 /* Problem families along a route; consecutive variants of one family are a single stop. */
@@ -642,8 +680,18 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
 const rules = D.edges as RuleEdge[];
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach; dir?: "out" | "in" } | { kind: "rules"; key: string; from?: number; index?: number } | null;
-interface Explore { turing: boolean; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean }
-const ex: Explore = { turing: false, limit: "unknown", tab: "problems", query: "", sel: null, all: false };
+/* `open`: the browse lists are showing; `view`: which problems the map lays out. */
+type View = "all" | "nohub" | "hard";
+interface Explore { turing: boolean; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean; open: boolean; view: View }
+const ex: Explore = { turing: false, limit: "unknown", tab: "problems", query: "", sel: null, all: false, open: false, view: "all" };
+const VIEWS: Record<View, { label: string; keep: (name: string) => boolean }> = {
+  all: { label: "All rules", keep: () => true },
+  nohub: { label: "Without ILP & QUBO", keep: name => !HUBS.has(name) },
+  hard: { label: "NP-hard only", keep: name => ["both", "hard"].includes(statusOf.get(name)!) },
+};
+const inView = (name: string) => VIEWS[ex.view].keep(name);
+/* With nothing to show, the panel folds to its search bar and the graph takes the page. */
+const collapsed = () => exploring && !ex.open && !ex.sel && !ex.query.trim();
 const classOrder = CLASSES.map(c => c.id);
 const roots = ["Satisfiability", "KSatisfiability"];
 const CLEAN = "turing dim ghost route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
@@ -683,11 +731,11 @@ const ruleStep = (i: number): Step => ({ from: endpoint(rules[i]!.source), to: e
 const reachOf = (v: number, dir: "down" | "up") => reach(D.nodes.length, model.links, v, dir);
 
 /* Frame the dense middle; a few far-flung isolated problems should not shrink everything else. */
-function frameAll() {
-  const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1);
+function frameAll(animate = !reduced.matches) {
+  const linked = scene.nodes.filter(n => families.get(n.id)!.nbrs.size > 1 && inView(n.id));
   const cx = linked.reduce((a, n) => a + n.x, 0) / linked.length, cy = linked.reduce((a, n) => a + n.y, 0) / linked.length;
   const near = linked.map(n => [Math.hypot(n.x - cx, n.y - cy), n] as const).sort((a, b) => a[0] - b[0]);
-  frame(near.slice(0, Math.ceil(near.length * .85)).map(([, n]) => n), 1.6);
+  frame(near.slice(0, Math.ceil(near.length * (phone.matches ? .5 : .85))).map(([, n]) => n), 1.6, animate);
 }
 
 /* Canvas state follows the selection; with none, rules are faint and ILP's are fainter still. */
@@ -713,15 +761,16 @@ function paintExplore() {
   } else if (q) litNodes = new Set([...families.keys()].filter(matchesQuery));
   scene.edges.forEach(edge => {
     const f = model.fam.get(edge.id);
-    if (!f) { scene.classes([edge], "", "off"); return; }
+    if (!f || !inView(f.source) || !inView(f.target)) { scene.classes([edge], "", "off"); return; }
     scene.classes([edge], "", "e-" + f.cls + (f.rules.every(i => rules[i]!.turing) ? " turing" : ""));
     if (litRules) scene.classes([edge], "", f.rules.some(i => litRules.has(i)) ? "lit" : "dim");
     else if (litNodes) scene.classes([edge], "", litNodes.has(f.source) && litNodes.has(f.target) ? "lit" : "dim");
-    else if (edge.source.id === "ILP" || edge.target.id === "ILP") scene.classes([edge], "", "hub");
+    else if (HUBS.has(edge.source.id) || HUBS.has(edge.target.id)) scene.classes([edge], "", "hub");
     else if (!(model.core.has(f.source) && model.core.has(f.target))) scene.classes([edge], "", "quiet");
   });
   scene.nodes.forEach(node => {
-    if (litNodes) scene.classes([node], "", litNodes.has(node.id) ? "reach" : "dim");
+    if (!inView(node.id)) scene.classes([node], "", "off");
+    else if (litNodes) scene.classes([node], "", litNodes.has(node.id) ? "reach" : "dim");
     else if (!model.degree.has(node.id)) scene.classes([node], "", "dim");
     if (node.id === selected) scene.classes([node], "", "sel");
     node.shape.setAttribute("aria-label", scene.describe(node));
@@ -729,7 +778,8 @@ function paintExplore() {
   scheduleLabels();
 }
 
-function focusLit() { frame(scene.nodes.filter(n => scene.has(n, "reach")), 1.4); }
+// Force-layout neighbourhoods are compact, so a selection may zoom in further than the whole map.
+function focusLit() { frame(scene.nodes.filter(n => scene.has(n, "reach")), 2.4); }
 /* The active rules between two problems. Variant rules inside one family have no graph edge, so they are found by name. */
 function ruleGroup(key: string) {
   const f = model.fam.get(key);
@@ -738,6 +788,7 @@ function ruleGroup(key: string) {
   return group.length ? { source: source!, target: target!, rules: group } : undefined;
 }
 function selectProblem(variant: number, reach: Reach = "direct", focus = true) {
+  if (!inView(D.nodes[variant]!.name)) setView("all");
   ex.sel = { kind: "problem", variant, reach }; ex.all = false; closeDetails();
   paintExplore(); renderExplore();
   if (focus) focusLit();
@@ -746,12 +797,76 @@ function selectRules(key: string, from?: number, index?: number) {
   ex.sel = { kind: "rules", key, ...(from == null ? {} : { from }), ...(index == null ? {} : { index }) };
   paintExplore(); renderExplore(); focusLit();
 }
-function clearSelection() { ex.sel = null; paintExplore(); renderExplore(); }
+/* Leaving a card goes back to the lists it was reached from. */
+function clearSelection() { ex.sel = null; ex.open = true; paintExplore(); renderExplore(); }
+/* Back to the bare map: no selection, no lists. A typed query stays, since the list is its answer. */
+function collapse() {
+  if (!ex.sel && !ex.open) return;
+  ex.sel = null; ex.open = false; closeDetails(); paintExplore(); renderExplore();
+}
 function refreshExplore() { model = buildModel(); paintExplore(); renderExplore(); renderLegend(); }
 
 $("#turing-toggle").title = TURING_HINT;
 $("#turing-toggle").addEventListener("click", () => { ex.turing = !ex.turing; ex.sel = null; refreshExplore(); });
+/* Each view keeps a subset and lays it out with the same force model as the published map, so taking the hubs
+   away shows the structure they hide. */
+const published = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
+function setView(view: View) {
+  if (view === ex.view) return;
+  const before = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
+  ex.view = view; ex.sel = null; physics = null;
+  // The full map keeps its published positions. Any other view is the model run from the current drawing;
+  // the run is deterministic, so the camera can frame its resting place before it plays out live.
+  const target = view === "all" ? published : forceLayout(physicsInput(before));
+  scene.nodes.forEach(n => Object.assign(n, target.get(n.id) ?? before.get(n.id)));
+  paintExplore(); renderExplore(); renderLegend();
+  frameAll();
+  if (reduced.matches) { scene.updatePositions(); return; }
+  if (view === "all") { scene.morph(n => before.get(n.id)!); return; }
+  scene.nodes.forEach(n => Object.assign(n, before.get(n.id)));
+  physics = createSimulation(physicsInput(before));
+  kick();
+}
+/* ---------- Live physics ---------- */
+/* While something moves, the visible problems follow the same force model as the map: a dragged problem pulls
+   its neighbours along, and a new view settles in front of the reader. The loop stops once the model is at rest. */
+let physics: Simulation | null = null, physicsFrame = 0;
+const physicsInput = (start: ReadonlyMap<string, Point>) => ({ ids: scene.nodes.filter(n => inView(n.id)).map(n => n.id), hubs: HUBS,
+  links: scene.edges.map(e => [e.source.id, e.target.id] as const), radius: (id: string) => nodeSize(families.get(id)!.nbrs.size) / 2, start });
+function kick() { if (!physicsFrame) physicsFrame = requestAnimationFrame(stepPhysics); }
+function stepPhysics() {
+  physicsFrame = 0;
+  if (!physics) return;
+  physics.tick();
+  const at = physics.positions();
+  scene.nodes.forEach(n => { const p = at.get(n.id); if (p) { n.x = p.x; n.y = p.y; } });
+  scene.updatePositions(); scheduleLabels(); placePop();
+  if (settled(physics)) physics = null; else kick();
+}
+/* Dragging starts from the drawing as it is, so only the neighbourhood of the dragged problem reacts. */
+function grab(node: SceneNode) {
+  if (!physics) { physics = createSimulation(physicsInput(new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}])))); physics.alpha = 0; }
+  physics.alphaTarget = 0.3;
+  physics.pin(node.id, { x: node.x, y: node.y });
+  kick();
+}
+function renderViews() {
+  $("#views").replaceChildren(...(Object.keys(VIEWS) as View[]).map(id => {
+    const b = el("button", "", VIEWS[id].label); b.type = "button"; b.setAttribute("aria-pressed", String(ex.view === id));
+    b.addEventListener("click", () => setView(id)); return b;
+  }));
+  const counts = new Map<Status, number>();
+  statusOf.forEach((st, name) => { if (!HUBS.has(name)) counts.set(st, (counts.get(st) ?? 0) + 1); });
+  const swatch = (color: string, label: string, n: number | null, title: string) => {
+    const item = el("span", "status-item"); item.title = title; item.style.setProperty("--c", color);
+    item.append(el("i"), label); if (n != null) item.append(el("b", "", String(n))); return item;
+  };
+  $("#status-legend").replaceChildren(
+    ...(Object.keys(STATUS) as Status[]).map(st => swatch(STATUS[st].color, STATUS[st].label, counts.get(st) ?? 0, STATUS[st].detail)),
+    swatch(HUB_COLOR, "Solver hub", null, "ILP and QUBO, the targets most rules reduce to"));
+}
 function renderLegend() {
+  renderViews();
   const box = $("#growth-legend"), at = classOrder.indexOf(ex.limit);
   const turing = $("#turing-toggle");
   turing.classList.toggle("on", ex.turing); turing.setAttribute("aria-checked", String(ex.turing));
@@ -772,7 +887,9 @@ function renderLegend() {
 function renderExplore(enter = true) {
   const body = $("#explore-body"), tabs = $("#tabs"), keep = body.scrollTop;
   body.replaceChildren();
+  $(".panel").classList.toggle("collapsed", collapsed());
   tabs.hidden = !!ex.sel;
+  if (collapsed()) { scheduleLabels(); return; }
   if (ex.sel?.kind === "problem") placeCard(body, ex.sel);
   else if (ex.sel) ruleCard(body, ex.sel);
   else { renderTabs(tabs); list(body); }
@@ -808,9 +925,8 @@ function topbar(body: HTMLElement, text: string, action: () => void) {
 
 /* Lists: one row per thing, grouped by initial so a long list has landmarks. */
 function problemRow(name: string) {
-  const f = families.get(name)!, row = el("button", "row"); row.type = "button"; row.dataset.name = name;
-  const dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
-  row.append(dot, el("span", "row-name", display(name)));
+  const row = el("button", "row"); row.type = "button"; row.dataset.name = name;
+  row.append(el("span", "row-name", display(name)));
   const alias = (aliasMap[name] ?? [])[0]; if (alias) row.append(el("small", "row-alias", alias));
   row.addEventListener("click", () => selectProblem(defaults[name]!));
   return row;
@@ -874,13 +990,15 @@ function reductions(body: HTMLElement, sel: Extract<Selection, { kind: "problem"
   }
 }
 function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" }>) {
-  const v = sel.variant, name = D.nodes[v]!.name, f = families.get(name)!;
+  const v = sel.variant, name = D.nodes[v]!.name;
   topbar(body, ex.tab === "problems" ? "Problems" : "Reductions", clearSelection);
   const head = el("header", "identity");
   head.append(el("h1", "place-name", display(name)));
-  const depth = model.depth.get(name), meta = el("p", "place-meta"), dot = el("span", "dot-cat"); dot.style.background = cat[f.category] || cat.misc;
-  meta.append(dot, f.category[0]!.toUpperCase() + f.category.slice(1));
+  const depth = model.depth.get(name), meta = el("p", "place-meta");
   const alias = (aliasMap[name] ?? [])[0]; if (alias) meta.append(el("code", "", alias));
+  const st = statusOf.get(name)!, badge = el("span", "status", HUBS.has(name) ? "Solver hub" : STATUS[st].label);
+  badge.style.setProperty("--c", HUBS.has(name) ? HUB_COLOR : STATUS[st].color); badge.title = STATUS[st].detail;
+  meta.prepend(badge);
   if (depth !== undefined) meta.append(depth === null ? "Not reachable from SAT" : depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`);
   head.append(meta);
   const acts = el("div", "acts");
@@ -905,7 +1023,18 @@ function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" 
 
 /* One reduction: its two ends, how large the result grows, and every variant it covers. */
 const sup = (d: string) => [...d].map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(c)]).join("");
-const formula = (text: string | null) => text === null ? "unavailable" : text.replaceAll("num_", "").replaceAll("*", "·").replace(/\^(\d+)/g, (_, d: string) => sup(d));
+/* Certificates are sums of `coef * var^k` terms; show them highest degree first, with real minus signs and no unit coefficients. */
+function formula(text: string | null) {
+  if (text === null) return "unavailable";
+  const terms = text.split(" + ").map(term => {
+    const factors = term.split(" * "), lead = /^-?[\d./]+$/.test(factors[0]!) ? factors.shift()! : "1";
+    const negative = lead.startsWith("-"), coef = negative ? lead.slice(1) : lead;
+    const degree = factors.reduce((sum, f) => sum + Number(f.split("^")[1] ?? 1), 0);
+    const vars = factors.map(f => f.replace(/^num_/, "").replace(/\^(\d+)$/, (_, d: string) => sup(d))).join("·");
+    return { negative, degree, body: !vars ? coef : coef === "1" ? vars : coef + "·" + vars };
+  }).sort((a, b) => b.degree - a.degree);
+  return terms.map((t, i) => (i ? (t.negative ? " − " : " + ") : t.negative ? "−" : "") + t.body).join("");
+}
 function ruleCard(body: HTMLElement, sel: Extract<Selection, { kind: "rules" }>) {
   const f = ruleGroup(sel.key);
   const origin = sel.from != null ? display(D.nodes[sel.from]!.name) : ex.tab === "problems" ? "Problems" : "Reductions";
@@ -959,12 +1088,15 @@ function variantPair(a: number, b: number) {
   });
   return box;
 }
+$("#find").addEventListener("focus", () => { if (!ex.open && !ex.sel) { ex.open = true; renderExplore(); } });
 $("#find").addEventListener("input", (e) => {
   ex.query = (e.target as HTMLInputElement).value; ex.sel = null; paintExplore(); renderExplore();
 });
 $("#find").addEventListener("keydown", (e) => {
   if (e.key === "Enter") $<HTMLButtonElement>("#explore-body .row")?.click();
-  if (e.key === "Escape" && ex.query) { ex.query = ""; ($("#find") as HTMLInputElement).value = ""; paintExplore(); renderExplore(); }
+  if (e.key !== "Escape") return;
+  if (ex.query) { ex.query = ""; ($("#find") as HTMLInputElement).value = ""; paintExplore(); renderExplore(); }
+  else { ($("#find") as HTMLInputElement).blur(); collapse(); }
 });
 
 /* ---------- Modes: explore the graph, or ask for directions ---------- */
@@ -977,6 +1109,7 @@ function setMode(mode: "explore" | "directions") {
     refreshExplore(); frameAll();
     history.replaceState(null, "", location.pathname + location.search);
   } else {
+    setView("all");
     scene.classes(scene.elements, CLEAN);
     syncEnds(); renderResults(); paintGraph();
     history.replaceState(null, "", "#directions");
@@ -1004,7 +1137,9 @@ if (location.hash === "#directions") {
   syncEnds(); frame(scene.elements, 1, false); run();
 } else {
   document.body.classList.add("explore");
-  refreshExplore(); frameAll();
+  // The camera starts framed; the graph itself unfolds into place.
+  refreshExplore(); frameAll(false);
+  if (!reduced.matches) scene.unfold();
 }
 performance.mark("graph:interactive");
 document.fonts?.ready.then(() => {
