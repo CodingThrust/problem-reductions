@@ -329,6 +329,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         .extend(decisionminimumdominatingset_minimumsummulticenter::canonical_rule_example_specs());
     specs.extend(decisionminimumvertexcover_hamiltoniancircuit::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
+    specs.extend(staffscheduling_qubo::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
@@ -742,6 +743,12 @@ mod unit_schedule_qubo;
 #[cfg(test)]
 #[path = "../unit_tests/rules/direct_qubo_conditional.rs"]
 mod direct_qubo_conditional_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/staffscheduling_qubo.rs"]
+mod staffscheduling_qubo_tests;
+
+pub(crate) mod staffscheduling_qubo;
 
 pub(crate) mod dynamicstorageallocation_qubo;
 pub(crate) mod minimumtardinesssequencingweighted_qubo;

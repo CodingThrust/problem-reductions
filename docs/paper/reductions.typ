@@ -12280,6 +12280,23 @@ _Solution extraction and bounds._ Copy the subset bits; aggregate recovery is id
  The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
 ]
 
+#reduction-rule("StaffScheduling", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("StaffScheduling", "DecisionQUBO")],
+)[
+ Integer worker multiplicities reduce to bounded binary budget and coverage residuals, using the squared-equality construction of @lucas2014.
+][
+ _Construction._ Let $s$ be the number of indexed schedule patterns, $p$ the number of periods, $W >= 0$ the worker budget, $a_(j t)$ the pattern incidence, and $r_t$ the signed requirement. Encode each count $c_j$ and unused budget $z$ in $[0,W]$ with bounded binary weights: successive powers of two and a final remainder, whose sum is exactly the upper bound. This represents every integer in the interval and no others. For each $r_t>0$, encode surplus $h_t$ in $[0,W-r_t]$. A requirement above $W$ instead emits the constant NO decision with no variables and bound $-1$. Otherwise expand
+ $ H=(sum_j c_j+z-W)^2 + sum_(t:r_t>0)(sum_j a_(j t)c_j-h_t-r_t)^2. $
+ Remove $C=W^2+sum_(t:r_t>0)r_t^2$ and use decision bound $-C$. Nonpositive requirements need no row, including the minimum signed integer; empty and duplicate patterns retain their source meaning.
+
+ _Correctness._ $arrow.r.double$: a feasible staffing vector has unused budget $z=W-sum_j c_j$ and nonnegative coverage surplus at most $W-r_t$, so all squares vanish. $arrow.l.double$: a target witness meeting the bound has $H<=0$. Every square is nonnegative, so the budget and coverage equations hold exactly. All decoded counts are nonnegative, their sum is at most $W$, and every positive requirement is met. Nonpositive requirements hold automatically. Unit penalties suffice because this endpoint is feasibility, with no competing objective.
+
+ _Solution extraction and bounds._ Validate target feasibility, then sum each schedule's weighted bits. Aggregate `Or` recovery is identity, including NO results and the existing ExactCoverBy3Sets incoming route. With $b(B)=ceil(log_2(B+1))$, the exact variable count outside the early NO case is $(s+1)b(W)+sum_(t:r_t>0)b(W-r_t)$. For `i64` budgets this is at most $N=63(s+p+1)$, with at most $N^2$ registered couplings and $O(s+p+(p+1)N^2)$ coefficient updates and row bookkeeping (ordered-map updates add a logarithmic factor). Bit counts grow logarithmically with the budget. Before expansion, check $s W$ to protect the source's count and coverage folds. Dimension arithmetic, expanded coefficients, omitted constant, and separate positive and negative coefficient sums are checked independently; an unrepresentable construction returns a typed overflow error. The conservative guard can reject representable special cases.
+
+ *Example.* #let ex = load-example("StaffScheduling", "DecisionQUBO")
+ The canonical source assigns #repr(ex.solutions.at(0).source_config) workers across its #ex.source.instance.schedules.len() patterns, with budget #ex.source.instance.num_workers. The required coverages are #repr(ex.source.instance.requirements). The count blocks, unused-budget block and coverage-surplus blocks produce the displayed target; its canonical bits make every residual zero.
+]
+
 #reduction-rule("ThreePartition", "DecisionQUBO", example: true,
  extra: [#direct-qubo-commands("ThreePartition", "DecisionQUBO")],
 )[
