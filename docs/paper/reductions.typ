@@ -12035,6 +12035,112 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
+== Direct Ordering, Scheduling, and Assignment QUBOs
+
+The following constructions apply the integer penalty method @glover2019 @lucas2014 directly, without an intermediate ILP. Write the expanded source objective as $f(x) = c + sum_(a <= b) q_(a b) x_a x_b$, after combining coefficients. Set $L = c + sum_(a <= b) min(0, q_(a b))$, $U = c + sum_(a <= b) max(0, q_(a b))$, and $P = U - L + 1$. For the nonnegative integer violation sum $g$ defined in each rule, expand $F = f + P g$ and store its nonconstant terms as QUBO energy $E = F - C$.
+
+A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ recovers its objective. Conversely, any invalid assignment has $g >= 1$, hence $F >= L+P > U$. Thus every target minimum in the interval decodes to a source optimum; a minimum outside it maps to `Min(None)`. This also handles infeasible precedence systems. For feasibility rules use $f = 0$, $P = 1$, and DecisionQUBO bound $-C$; completed `Or` values map identically. Every decoder first validates the target witness and its energy certificate. Coefficients, constants, and energy bounds use checked integer arithmetic; unrepresentable encodings return an overflow error.
+
+#let direct-qubo-commands(source, target) = {
+  let data = load-example(source, target)
+  let solution = data.solutions.at(0)
+  pred-commands(
+    "pred create --example " + rule-spec(data) + " -o source.json",
+    "pred path " + problem-spec(data.source) + " " + problem-spec(data.target) + " --limit all --quiet --json | jq ' .paths[] | select(.steps == 1)' > route.json",
+    "pred reduce source.json --via route.json -o bundle.json",
+    "pred solve bundle.json",
+    "pred evaluate source.json --config " + cli-config(solution.source_config),
+  )
+}
+
+#reduction-rule("SequencingToMinimizeWeightedCompletionTime", "QUBO", example: true,
+  extra: [#direct-qubo-commands("SequencingToMinimizeWeightedCompletionTime", "QUBO")],
+)[
+  Weighted completion sequencing has a direct QUBO on $n(n-1)/2$ comparison bits, including signed processing times and weights.
+][
+  _Construction._ For $i<j$, let $x_(i j)=1$ mean task $i$ precedes task $j$. With processing times $p_i$ and weights $w_i$, use
+  $ f = sum_i p_i w_i + sum_(i<j) (p_j w_i + (p_i w_j-p_j w_i)x_(i j)). $
+  For each $i<j<k$, add $x_(i k)+x_(i j)x_(j k)-x_(i j)x_(i k)-x_(j k)x_(i k)$ to $g$. It is one for either directed triangle and zero otherwise. A precedence $(a,b)$ adds $1-x_(a b)$ when $a<b$, $x_(b a)$ when $a>b$, and one when $a=b$.
+
+  _Correctness._ A legal order gives no directed triangles and satisfies every precedence. Each task contributes its own processing time times its weight, and each earlier task contributes its processing time times the later task's weight, yielding $f$. Conversely, a tournament with no directed triangle is transitive: a shortest longer directed cycle has a chord producing a shorter directed cycle. Its unique order satisfies all zero-penalty precedences. The shared penalty bound separates all invalid bitstrings, including cyclic precedence instances.
+
+  _Source arithmetic._ Before expansion, bound every elapsed-time prefix by the sums of negative and positive processing times. For each task, include its own duration in the completion-time bounds, multiply both endpoints by its weight, then bound all partial objective sums by the sums of negative minima and positive maxima. Reject bounds outside `i64`; algebraic cancellation must not hide source evaluation overflow.
+
+  _Extraction and size._ Count incoming arcs to obtain each task's rank and invert these ranks to an ordered task list. There are exactly $n(n-1)/2$ bits and at most $3 binom(n,3)$ couplings: each triple supplies three pairs of comparison bits, while precedences are linear. The canonical example orders the highest-weight unit jobs first; its source and target witnesses are shown below.
+]
+
+#reduction-rule("MaximumLikelihoodRanking", "QUBO", example: true,
+  extra: [#direct-qubo-commands("MaximumLikelihoodRanking", "QUBO")],
+)[
+  Maximum likelihood ranking reduces directly to a comparison-bit QUBO with $n(n-1)/2$ variables.
+][
+  _Construction._ Use the preceding tournament bits and triangle penalties, with no precedence penalties. For comparison matrix $M$, set
+  $ f = sum_(i<j) (M_(i j)+(M_(j i)-M_(i j))x_(i j)). $
+  _Correctness._ A ranking defines an acyclic tournament, and each unordered pair contributes the matrix entry from the later-ranked item to the earlier-ranked item. Conversely, zero triangle penalties yield a total order, and substituting its comparisons into $f$ gives exactly the ranking cost. The shared penalty lemma applies even to negative matrix entries.
+  _Extraction and size._ Return each item's incoming-arc count as its rank, without inverting the vector. There are exactly $n(n-1)/2$ bits and at most $3 binom(n,3)$ couplings. Every source instance has a ranking; cyclic target tournaments are rejected by the certificate.
+]
+
+#reduction-rule("MinimumTardinessSequencing", "QUBO", example: true,
+  extra: [#direct-qubo-commands("MinimumTardinessSequencing", "QUBO")],
+)[
+  The unit-processing-time (`One`) variant has a direct QUBO on $n^2$ task-position bits.
+][
+  _Construction._ Let $x_(i p)$ select position $p$ for task $i$, with zero-based positions. Add squared one-hot penalties for every row and every column. For each precedence $(a,b)$ add every product $x_(a p)x_(b q)$ with $p>=q$, reducing squared bits to linear terms even for self precedences. The objective is $f = sum_(i,p: p+1>d_i) x_(i p)$, where $d_i$ is the task deadline.
+  _Correctness._ A valid schedule activates a permutation matrix, violates no precedence, and contributes one precisely for each late job. Conversely, zero row and column penalties yield a permutation; zero precedence products force the required strict ordering. Its objective is the number of late jobs. The penalty bound detects cycles and self precedences as infeasible sources.
+  _Extraction and size._ Read each task's selected position and invert to the ordered task list. Exactly $n^2$ bits are used, with at most $n^2(n^2-1)/2$ off-diagonal terms. The canonical schedule meets all deadlines.
+]
+
+#reduction-rule("QuadraticAssignment", "QUBO", example: true,
+  extra: [#direct-qubo-commands("QuadraticAssignment", "QUBO")],
+)[
+  Quadratic assignment with $n<=m$ facilities and locations reduces directly to $n m$ bits.
+][
+  _Construction._ Let $x_(i p)$ assign facility $i$ to location $p$. Penalize each row by $(1-sum_p x_(i p))^2$ and each column by $sum_(i<j)x_(i p)x_(j p)$. Use $f=sum_(i!=j) sum_(p,q) A_(i j) D_(p q) x_(i p)x_(j q)$ for cost matrix $A$ and distance matrix $D$. Ordered pairs are retained for asymmetric signed matrices; facility diagonal entries are excluded, as in the source objective.
+  _Correctness._ Every injection satisfies all penalties and gives its exact assignment cost. Conversely, zero row penalties choose one location per facility and zero column penalties make these locations distinct. Substitution yields the same cost. The integer objective-range bound applies to signed coefficients and separates assignments that would exploit negative costs by selecting extra bits.
+  _Source arithmetic._ Check each directed cost-distance product in `i64`. For each directed facility pair, bound its product over all location pairs, then sum the negative minima and positive maxima. These conservative bounds ensure every source accumulation prefix fits before opposite directed coefficients are combined.
+  _Extraction and size._ Return the selected location in each facility row. There are exactly $n m$ bits and at most $n m(n m-1)/2$ couplings. All accepted source instances have an injection, including rectangular matrices and empty facility sets.
+]
+
+#reduction-rule("SumOfSquaresPartition", "QUBO", example: true,
+  extra: [#direct-qubo-commands("SumOfSquaresPartition", "QUBO")],
+)[
+  Partitioning $n$ positive item sizes into $k$ groups has a direct QUBO on $n k$ bits.
+][
+  _Construction._ Let $x_(i g)$ assign item $i$ to group $g$. Use $f=sum_g (sum_i s_i x_(i g))^2$ and $g(x)=sum_i (1-sum_g x_(i g))^2$, with sizes $s_i>0$. Empty groups are allowed by the source definition.
+  _Correctness._ Each partition activates exactly one bit per item and its objective is the sum of squared group totals. Conversely, zero row penalties assign each item once; substitution gives those same group totals and objective. The shared penalty lemma excludes dropped or multiply assigned items.
+  _Extraction and size._ Return each item's selected group. There are exactly $n k$ bits and at most $n k(k-1)/2+k n(n-1)/2$ couplings: same-item pairs from the constraints and same-group pairs from the objective. These two pair families are disjoint. The example splits the total size equally between its two groups.
+]
+
+#reduction-rule("OptimalLinearArrangement", "QUBO", example: true,
+  extra: [#direct-qubo-commands("OptimalLinearArrangement", "QUBO")],
+)[
+  Optimal linear arrangement on `SimpleGraph` reduces directly to $n^2$ vertex-position bits.
+][
+  _Construction._ Use $x_(v p)$ for vertex positions, with squared one-hot penalties on every row and column. For each source edge $(u,v)$ include $sum_(p,q) abs(p-q)x_(u p)x_(v q)$ in $f$.
+  _Correctness._ A linear arrangement defines a permutation matrix with zero penalties, and each edge contributes its endpoint distance. Conversely, zero penalties define a bijection between vertices and positions, so the quadratic objective equals the source edge-length sum. The penalty lemma excludes nonpermutation bitstrings.
+  _Extraction and size._ Return the selected position for each vertex. Exactly $n^2$ bits and at most $n^2(n^2-1)/2$ couplings suffice, including graphs without edges or vertices. The canonical path has consecutive vertex positions and unit edge lengths.
+]
+
+#reduction-rule("SequencingWithinIntervals", "DecisionQUBO", example: true,
+  extra: [#direct-qubo-commands("SequencingWithinIntervals", "DecisionQUBO")],
+)[
+  Interval-constrained sequencing has a direct decision QUBO using one bit for each allowed integer start slot.
+][
+  _Construction._ Task $i$ has release $r_i$, deadline $d_i$, and duration $l_i$. Allocate $s_i=max(0,d_i-r_i-l_i+1)$ bits for starts $r_i+t$, $0<=t<s_i$. Add $(1-sum_t x_(i t))^2$ for every task and one product for each pair of different-task slots for which neither execution finishes before the other starts. Keep this precise overlap predicate also for zero-length tasks. Set the DecisionQUBO bound to $-n$, removing the constant $n$.
+  _Correctness._ A schedule selects one slot per task and no conflict, attaining energy $-n$. Conversely, an energy at most $-n$ forces every nonnegative penalty to vanish, yielding one valid start per task with no overlap. An empty task domain contributes a constant violation, so impossible windows remain infeasible.
+  _Extraction and size._ Return each task's selected offset from its release. With $S=sum_i s_i$, there are exactly $S$ bits and at most $S(S-1)/2$ couplings. This is a time-indexed, potentially pseudopolynomial construction in the encoded time horizon; it introduces no slack bits.
+]
+
+#reduction-rule("TimetableDesign", "DecisionQUBO", example: true,
+  extra: [#direct-qubo-commands("TimetableDesign", "DecisionQUBO")],
+)[
+  Timetable design reduces directly to one bit per eligible craftsman-task-period assignment.
+][
+  _Construction._ Allocate $x_(c t h)$ only when demand $R_(c t)>0$ and both resources are available in period $h$. Add $(sum_h x_(c t h)-R_(c t))^2$ for every demand and one product for each pair sharing a period and either resource. Remove $C=sum_(c,t)R_(c t)^2$ and use decision bound $-C$. If a demand is negative or exceeds its eligible-period count, use the zero polynomial on the same variable set with bound $-1$ instead.
+  _Correctness._ A feasible timetable meets every demand and has no resource conflict, so all penalties vanish. Conversely, zero demand squares enforce exact assignment counts and zero conflict products enforce exclusivity. Unavailable or zero-demand cells are false by construction. The special target is unsatisfiable precisely in the immediately impossible-demand branch: a sum of eligible boolean cells cannot equal such a demand.
+  _Extraction and size._ Fill a false craftsman-task-period tensor and insert the eligible selected bits. The target has exactly $A$ variables and at most $A(A-1)/2$ couplings, where $A$ is the eligible-assignment count, including the impossible-demand branch.
+]
+
 #let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
 #reduction-rule("KColoring", "DecisionQUBO",
