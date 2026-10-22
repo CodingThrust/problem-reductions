@@ -12041,8 +12041,8 @@ The following constructions apply the integer penalty method @glover2019 @lucas2
 
 A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ recovers its objective. Conversely, any invalid assignment has $g >= 1$, hence $F >= L+P > U$. Thus every target minimum in the interval decodes to a source optimum; a minimum outside it maps to `Min(None)`. This also handles infeasible precedence systems. For feasibility rules use $f = 0$, $P = 1$, and DecisionQUBO bound $-C$; completed `Or` values map identically. Every decoder first validates the target witness and its energy certificate. Coefficients, constants, and energy bounds use checked integer arithmetic; unrepresentable encodings return an overflow error.
 
-#let direct-qubo-commands(source, target) = {
-  let data = load-example(source, target)
+#let direct-qubo-commands(source, target, source-variant: none) = {
+  let data = load-example(source, target, source-variant: source-variant)
   let solution = data.solutions.at(0)
   pred-commands(
     "pred create --example " + rule-spec(data) + " -o source.json",
@@ -12081,13 +12081,27 @@ A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ r
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "QUBO", example: true,
-  extra: [#direct-qubo-commands("MinimumTardinessSequencing", "QUBO")],
+  example-source-variant: (weight: "One"),
+  extra: [
+    #direct-qubo-commands("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "One"))
+    #direct-qubo-commands("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "i64"))
+  ],
 )[
   The unit-processing-time (`One`) variant has a direct QUBO on $n^2$ task-position bits.
 ][
   _Construction._ Let $x_(i p)$ select position $p$ for task $i$, with zero-based positions. Add squared one-hot penalties for every row and every column. For each precedence $(a,b)$ add every product $x_(a p)x_(b q)$ with $p>=q$, reducing squared bits to linear terms even for self precedences. The objective is $f = sum_(i,p: p+1>d_i) x_(i p)$, where $d_i$ is the task deadline.
   _Correctness._ A valid schedule activates a permutation matrix, violates no precedence, and contributes one precisely for each late job. Conversely, zero row and column penalties yield a permutation; zero precedence products force the required strict ordering. Its objective is the number of late jobs. The penalty bound detects cycles and self precedences as infeasible sources.
   _Extraction and size._ Read each task's selected position and invert to the ordered task list. Exactly $n^2$ bits are used, with at most $n^2(n^2-1)/2$ off-diagonal terms. The canonical schedule meets all deadlines.
+
+  _Positive integer lengths._ The `i64` constructor requires strictly positive lengths, but accepts signed deadlines. Set $H=sum_i p_i$ and use choices $t=0,dots,H-p_i$ per task. Add one-hot row squares and conflicts between overlapping selected intervals, plus every precedence pair whose starts satisfy $t>=u$ (a self precedence penalizes every selected row bit). The objective charges one exactly when $t+p_i>d_i$. With $U$ the sum of all choice costs, use $P=U+1$.
+
+  _Correctness for integer lengths._ ($arrow.r.double$) Prefix starts of any legal permutation fit the horizon, have zero penalties, and give its exact late-task count. ($arrow.l.double$) A zero-penalty selection consists of nonoverlapping intervals of total duration $H$ inside $[0,H]$, so they fill the horizon without gaps. Sorting starts reconstructs the exact source completion times and respects all precedences. Invalid selections cost more than $U$; an infeasible source therefore recovers `Min(None)`. Source elapsed-time prefixes fit the checked positive total $H$.
+
+  _Integer extraction and size._ Validate the energy interval, decode starts and sort to an order. Exactly $S=sum_i(H-p_i+1)$ bits and at most $S(S-1)/2$ couplings are used. For processing magnitude bits $h$, $S<=n^2 2^h$. The registry reports unavailable size transforms because its expression contract permits only constant integer exponents. This is pseudopolynomial in processing times; it can exceed binary-time alternatives. A simple construction enumerates $O((1+q)S^2)$ conflict candidates for $q$ precedences, plus sparse accumulation costs.
+
+  *Integer example.* #let weighted = load-example("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "i64"))
+  Lengths #repr(weighted.source.instance.lengths), deadlines #repr(weighted.source.instance.deadlines), and order #repr(weighted.solutions.at(0).source_config) give completions 1, 2, 4 and one late task. The target has #weighted.target.instance.num_vars variables.
+
 ]
 
 #reduction-rule("QuadraticAssignment", "QUBO", example: true,
@@ -12996,6 +13010,88 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
   _Solution extraction._ Validate the target assignment once and reject it if the ILP evaluation is infeasible. Otherwise read all named source variables in their original order. Since the objective is zero, every feasible ILP assignment is an admissible witness.
 
   _Overhead._ For $v$ named variables, $t$ expression nodes and $o$ named outputs, the target has at most $v+2t$ variables and $5t+o$ constraints. Non-XOR outputs and empty XOR outputs contribute at most $t$ auxiliaries. Binary XOR steps contribute at most the number of expression-tree edges, hence at most $t$. Base gate rows contribute at most $t$, while input inequalities and binary XOR rows contribute at most four times the number of tree edges. Output equalities add at most $o$ rows. This accounts for arbitrarily many constant inputs: three constants under one XOR use five auxiliaries, exceeding the former one-auxiliary-per-node bound of four.
+]
+
+== Conditional Direct QUBO Constructions
+
+These constructions use the checked sparse penalty and extraction contracts above. Their logical-size advantages are instance-dependent. Every decoder includes target validation, costing $O(N+E)$ in addition to decoding, for $N$ variables and $E$ nonzero terms. Construction costs count arithmetic operations; coefficient bit lengths and sparse-map accumulation also contribute. The scheduling conflict construction follows the time-indexed penalty pattern of #link("https://arxiv.org/abs/1506.08479")[Venturelli et al.].
+
+#reduction-rule("SequencingToMinimizeWeightedTardiness", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SequencingToMinimizeWeightedTardiness", "DecisionQUBO")],
+)[
+  The bounded weighted-tardiness feasibility model reduces to DecisionQUBO using nonnegative-duration start choices.
+][
+  _Construction._ Set $H=sum_i p_i$, give task $i$ choices $t=0,dots,H-p_i$, and charge $w_i max(0,t+p_i-d_i)$. Enforce one-hot rows and disjunctive interval nonoverlap. A zero-duration job strictly inside a positive interval conflicts; equal-time zero jobs do not. If $U$ is the sum of all choice costs, use $P=U+1$, drop constant $C$, and set decision bound $min(K,U)-C$ for source budget $K$. Check $sum_i w_i max(0,H-d_i)$ before expansion to bound every source product and objective prefix.
+  _Correctness._ ($arrow.r.double$) A source permutation supplies prefix starts and identical cost at most $K$. ($arrow.l.double$) Any accepted target has zero penalties. The positive intervals fill $[0,H]$; zero tasks lie at boundaries. Sorting by start, duration and task index puts zero tasks first at ties and yields exactly the selected completion costs. Thus the returned permutation meets $K$. This is a feasibility endpoint, not weighted-tardiness optimization.
+  _Extraction and size._ Validate once, decode the start rows and sort; completed `Or` maps identically. There are $S=sum_i(H-p_i+1)<=n(n 2^h+1)$ variables and at most $S(S-1)/2$ couplings, with magnitude parameter $h$. The registry reports unavailable size transforms because its expression contract permits only constant integer exponents. Grid construction is pseudopolynomial and enumerates $O(S^2)$ conflict candidates. Empty inputs and zero lengths/weights are retained.
+
+ *Example.* #let ex = load-example("SequencingToMinimizeWeightedTardiness", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO")],
+)[
+  Release-time/deadline sequencing reduces to DecisionQUBO on admissible starts, including zero-duration tasks.
+][
+  _Construction._ First check that $max_i r_i+sum_i p_i$ fits the source integer type, bounding finish additions for every source order. Task $i$ chooses $t=r_i,dots,d_i-p_i$. An impossible window gives an empty row. Add squared one-hot rows and a unit pair penalty whenever neither selected task finishes before the other starts. Store the nonconstant energy with bound equal to the negative omitted constant.
+  _Correctness._ ($arrow.r.double$) Earliest execution of a feasible source order gives valid choices without conflicts. ($arrow.l.double$) Zero-penalty choices are sorted by start, duration and index, placing zero-duration tasks first at a shared start. Inductively, earliest execution of that order starts no later than each selected start and finishes by its deadline. Source finish additions on recovered witnesses are bounded by these deadlines. Empty rows enforce NO and touching intervals are allowed.
+  _Extraction and size._ Decode and sort after target validation; completed feasibility maps identically. For $T=max_i d_i$, $S=sum_i max(0,d_i-p_i-r_i+1)<=n(T+1)$, with at most $S(S-1)/2$ couplings and $O(S^2)$ candidate pairs. This grid is pseudopolynomial in $T$, and can be much larger than the existing bounded-start route.
+
+ *Example.* #let ex = load-example("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("DynamicStorageAllocation", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("DynamicStorageAllocation", "DecisionQUBO")],
+)[
+  Dynamic storage allocation gains a direct address-choice DecisionQUBO formulation.
+][
+  _Construction._ Item $i$, size $s_i$, chooses one address $a=0,dots,D-s_i$ using a squared one-hot row. For items with strictly overlapping lifetimes, penalize each pair of selected address intervals that strictly overlap. All penalties have unit weight; the decision threshold restores the omitted constant to zero.
+  _Correctness._ ($arrow.r.double$) Every valid allocation selects one address per item and has no conflict. ($arrow.l.double$) A target at the threshold has exactly one address per row, each fitting within memory, and no overlapping addresses for simultaneously live items. Lifetimes or addresses that merely touch incur no conflict. Selected endpoints never exceed $D$, so source address addition is representable.
+  _Extraction and size._ Validate once and return selected addresses. Completed `Or` maps identically, including NO. Exactly $S=sum_i(D-s_i+1)<=n D$ bits and at most $S(S-1)/2$ couplings; construction enumerates $O(S^2)$ pairs. This is pseudopolynomial in numeric memory capacity, not polynomial in its bit length.
+
+ *Example.* #let ex = load-example("DynamicStorageAllocation", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("FeasibleRegisterAssignment", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("FeasibleRegisterAssignment", "DecisionQUBO")],
+)[
+  Feasibility of an evaluation order with a fixed register assignment reduces to a tournament DecisionQUBO.
+][
+  _Construction._ Use the comparison bits and unit triangle penalties defined above. Let $b(i,j)$ denote the comparison literal meaning $i$ precedes $j$. For every dependency arc $(v,u)$, add $1-b(u,v)$. For every other vertex $w$ sharing $u$'s fixed register, with $w!=u,v$, add $b(u,w)b(w,v)$. Products of two literals are quadratic and need no auxiliary bits. The threshold is the negative expanded constant.
+  _Correctness._ ($arrow.r.double$) A feasible evaluation order is transitive, respects dependencies, and cannot overwrite $u$ at $w$ while consumer $v$ is still pending. Every penalty vanishes. ($arrow.l.double$) A zero-penalty tournament defines distinct ranks satisfying dependencies. If an old value were live at an overwrite, a consumer other than that overwriter would follow it, producing one of the forbidden products. Consumption during the overwrite itself remains allowed. Duplicate arcs, dependency cycles and empty graphs retain their source meaning; registers are never reassigned.
+  _Extraction and size._ Validate once and return ranks per vertex, with identity completed-feasibility mapping. Exactly $n(n-1)/2$ bits, no auxiliaries, at most the square of that count in couplings. Construction enumerates $O(n^3+n m)$ terms for $m$ dependency arcs; coefficients reflect accumulated duplicate penalties. Sparse-register instances can favor the existing rank ILP.
+
+ *Example.* #let ex = load-example("FeasibleRegisterAssignment", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("ShortestCommonSupersequence", "QUBO", example: true,
+ extra: [#direct-qubo-commands("ShortestCommonSupersequence", "QUBO")],
+)[
+  Shortest common supersequence reduces to QUBO with explicit symbol and increasing-embedding choices.
+][
+  _Construction._ Let $L$ be total input length and $a$ the alphabet size. Use $x_(p,s)$ for each output position $p<L$ and symbol $s<=a$, with $a$ denoting padding. For every input character $g$ use embedding bits $y_(g,p)$. One-hot squares enforce all symbol and embedding rows. Charge $F=L-sum_p x_(p,a)$, and choose $P=L+1$. Penalize $y_(g,p)(1-x_(p,s_g))$ for consistency, $y_(g,p)y_(g+1,q)$ when $p>=q$ for consecutive characters in one input string, and $x_(p,a)(1-x_(p+1,a))$ for contiguous padding. A constructor-accepted invalid symbol instead penalizes every selected embedding bit. Drop constant $C$ and use the objective recovery interval $[-C,L-C]$.
+  _Correctness._ ($arrow.r.double$) A source supersequence has increasing embeddings of every input, so it gives zero penalties and its exact length. ($arrow.l.double$) Even on malformed bitstrings $0<=F<=L$, so any positive penalty costs more than $L$. Accepted targets have one output symbol per position, a contiguous padding suffix, and strictly increasing consistent embeddings proving all inputs are subsequences. Invalid alphabet symbols force infeasibility. Empty strings, duplicates and contained inputs keep separate exact embedding rows; no overlap-order heuristic is used.
+  _Extraction and size._ Validate once, decode symbol rows and map padding to `None`, returning exactly $L$ entries. Restore the constant for completed minima, or `Min(None)` outside the interval. All-empty inputs have zero variables and optimum zero. Exactly $N=L(a+1)+L^2$ bits and at most $N^2$ couplings. Construction costs $O(L(a+1)^2+L^3)$ sparse updates; alphabet magnitude remains explicit. The checked $L$ bounds source length conversion.
+
+ *Example.* #let ex = load-example("ShortestCommonSupersequence", "QUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("Betweenness", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("Betweenness", "DecisionQUBO")],
+)[
+  Betweenness reduces to a tournament DecisionQUBO without local auxiliary variables.
+][
+  _Construction._ Use unit triangle penalties and comparison literals $b(i,j)$ as above. For each ordered triple $(a,b,c)$ add $(b(a,b)-b(b,c))^2$. Boolean idempotence makes this quadratic. Drop constant $C$ and use decision threshold $-C$.
+  _Correctness._ ($arrow.r.double$) A satisfying position permutation gives no directed triangles and both comparisons of each triple agree. ($arrow.l.double$) Every penalty is nonnegative, so an accepted target is a transitive tournament and each square vanishes. Equality of the comparisons means either $a<b<c$ or $c<b<a$, precisely source betweenness. Duplicate triples only repeat a penalty. Contradictory middle-element requirements produce NO.
+  _Extraction and size._ Validate once and return predecessor counts as element positions; completed `Or` maps identically. Exactly $N=n(n-1)/2$ variables, zero auxiliaries, at most $N^2$ couplings and $O(n^3+q)$ construction blocks for $q$ triples. Triangle and local terms are expanded with checked integer coefficients, including reversed-index literals.
+
+ *Example.* #let ex = load-example("Betweenness", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
 ]
 
 == Non-Trivial Reductions

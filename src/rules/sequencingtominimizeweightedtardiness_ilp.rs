@@ -157,12 +157,14 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedTardiness 
 
         // Left-justify the job order: completion and tardiness are <= horizon, with no increase in cost.
         let mut variables = vec![IntegerVariable::binary(); num_vars];
-        variables[num_order_vars..]
-            .fill(IntegerVariable::new(Some(0), Some(horizon)).map_err(Self::target_construction)?);
+        variables[num_order_vars..].fill(
+            IntegerVariable::new(Some(0), Some(horizon))
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
+        );
 
         Ok(ReductionSTMWTToILP {
             target: ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
             num_tasks: n,
             num_order_vars,
         })
