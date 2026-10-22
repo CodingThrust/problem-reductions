@@ -345,6 +345,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(stackercrane_qubo::canonical_rule_example_specs());
     specs.extend(shortestcommonsuperstring_qubo::canonical_rule_example_specs());
     specs.extend(maximumlikelihoodranking_qubo::canonical_rule_example_specs());
+    specs.extend(minimumtardinesssequencingweighted_qubo::canonical_rule_example_specs());
+    specs.extend(sequencingwithreleasetimesanddeadlines_qubo::canonical_rule_example_specs());
+    specs.extend(dynamicstorageallocation_qubo::canonical_rule_example_specs());
+    specs.extend(shortestcommonsupersequence_qubo::canonical_rule_example_specs());
     specs.extend(minimumtardinesssequencing_qubo::canonical_rule_example_specs());
     specs.extend(quadraticassignment_qubo::canonical_rule_example_specs());
     specs.extend(sumofsquarespartition_qubo::canonical_rule_example_specs());
@@ -734,3 +738,13 @@ pub(crate) mod subsetsum_qubo;
 pub(crate) mod threedimensionalmatching_qubo;
 pub(crate) mod threepartition_qubo;
 mod unit_schedule_qubo;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/direct_qubo_conditional.rs"]
+mod direct_qubo_conditional_tests;
+
+pub(crate) mod dynamicstorageallocation_qubo;
+pub(crate) mod minimumtardinesssequencingweighted_qubo;
+pub(crate) mod sequencingwithreleasetimesanddeadlines_qubo;
+pub(crate) mod shortestcommonsupersequence_qubo;
+mod start_time_qubo;

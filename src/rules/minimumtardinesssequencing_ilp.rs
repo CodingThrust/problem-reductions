@@ -187,7 +187,12 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
         })?;
         let big_m = total_length;
         let positions = (0..n)
-            .map(|position| Self::exact_i64(position, "representing a task position in ILP rows"))
+            .map(|position| {
+                <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                    position,
+                    "representing a task position in ILP rows",
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
@@ -226,7 +231,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
 
         Ok(ReductionMTSWeightedToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             num_tasks: n,
         })
     }
