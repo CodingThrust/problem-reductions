@@ -403,6 +403,37 @@ class WebsiteTests(unittest.TestCase):
             self.assertIn('<path', svg.text())
             self.assertNotIn('<text', svg.text())
 
+    def test_home_graph_connections_and_names_have_uniform_emphasis(self):
+        self.visit()
+        graph = self.page.locator('#hero-graph svg')
+        expect(graph).to_be_visible()
+        for selector, properties in [('line', ['stroke', 'strokeWidth', 'opacity']),
+                                     ('a text', ['fill', 'fontWeight', 'fontSize'])]:
+            with self.subTest(elements=selector):
+                styles = graph.locator(selector).evaluate_all('''(nodes, properties) => nodes.map(node => {
+                    const style = getComputedStyle(node);
+                    return properties.map(property => style[property]);
+                })''', properties)
+                self.assertGreater(len(styles), 1)
+                self.assertEqual(len({tuple(style) for style in styles}), 1)
+
+    def test_explore_defers_path_engine_until_directions(self):
+        requests = []
+        self.context.on('request', lambda request: requests.append(request.url))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('[data-node="QUBO"]')).to_be_visible()
+        self.assertFalse(any('path-selection' in url or 'path-graph' in url or 'path-worker' in url for url in requests))
+        with self.context.expect_event('request', predicate=lambda request: request.url.endswith('/path-selection_bg.wasm.gz'), timeout=2000):
+            self.page.get_by_role('button', name='Directions', exact=True).click()
+        expect(self.page.locator('.path')).to_have_count(0)
+        self.choose_endpoint('source', 'SAT')
+        self.choose_endpoint('target', 'QUBO')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        route = self.copy_route()
+        self.assertEqual(route['path'][0]['from']['name'], 'Satisfiability')
+        self.assertEqual(route['path'][-1]['to']['name'], 'QUBO')
+        self.assertEqual(sum('path-selection_bg.wasm' in url for url in requests), 1)
+
     def test_large_resources_load_only_when_needed(self):
         requests = []
         self.page.on('request', lambda request: requests.append(request.url))
@@ -780,11 +811,18 @@ class WebsiteTests(unittest.TestCase):
         self.page = self.context.new_page()
         self.page.set_default_timeout(3000)
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
-        self.page.goto(self.base + 'graph.html#directions')
+        self.page.goto(self.base + 'graph.html')
+        self.page.get_by_role('button', name='Directions', exact=True).tap()
+        self.choose_endpoint('source', 'SAT')
+        self.choose_endpoint('target', 'QUBO')
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#source')).to_be_in_viewport()
+        expect(self.page.locator('#target')).to_be_in_viewport()
         controls = self.page.get_by_role('navigation', name='Graph navigation', exact=True)
         expect(controls).to_be_visible(timeout=500)
         panel = self.page.locator('.panel').bounding_box()
+        self.assertGreaterEqual(panel['y'], self.page.locator('.site-header').bounding_box()['height'])
+        self.assertLessEqual(panel['y'] + panel['height'], 640)
         bounds = controls.bounding_box()
         self.assertGreaterEqual(bounds['x'], 0)
         self.assertLessEqual(bounds['x'] + bounds['width'], 320)
@@ -898,16 +936,16 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('#results .summary strong')).to_contain_text('best route', timeout=3000)
         expect(self.page.locator('.path').first.locator('.size')).to_have_text('?', timeout=500)
 
-    def test_graph_engine_download_starts_before_graph_script_finishes(self):
+    def test_directions_preloads_engine_before_graph_initialization(self):
         self.page.goto(self.base + 'graph.html#directions')
         expect(self.page.locator('.path').first).to_be_visible()
         timings = self.page.evaluate('''() => {
             const resources = performance.getEntriesByType('resource');
             return {wasm:resources.find(r => r.name.includes('path-selection_bg.wasm'))?.startTime,
-                    graph:resources.find(r => r.name.includes('/graph.js'))?.responseEnd};
+                    graph:performance.getEntriesByName('graph:script')[0]?.startTime};
         }''')
         self.assertIsNotNone(timings['wasm'])
-        self.assertLess(timings['wasm'], timings['graph'])
+        self.assertLessEqual(timings['wasm'], timings['graph'])
 
     def test_graph_worker_starts_before_scene_initialization(self):
         if self.browser.browser_type.name == 'chromium':
@@ -1272,6 +1310,13 @@ class WebsiteTests(unittest.TestCase):
         self.page.keyboard.press('Escape')
         expect(self.page.locator('#pop')).to_be_hidden()
         expect(node).to_be_focused(timeout=500)
+        expect(node).to_have_css('outline-style', 'none', timeout=500)
+        ring = node.locator('.node-halo')
+        expect(ring).to_have_css('fill', 'none', timeout=500)
+        expect(ring).not_to_have_css('stroke', 'none', timeout=500)
+        expect(ring).to_have_css('opacity', '1', timeout=500)
+        expect(ring).to_have_css('stroke-width', '2px', timeout=500)
+        expect(ring).to_have_css('vector-effect', 'non-scaling-stroke', timeout=500)
 
     def test_graph_details_from_keyboard_popover_returns_to_visible_node(self):
         self.page.goto(self.base + 'graph.html#directions')

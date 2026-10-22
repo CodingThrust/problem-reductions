@@ -68,6 +68,27 @@ test('family rules keep every variant rule traceable and never join distinct var
 });
 
 import { depthsFrom } from '../docs/website/src/lib/graph-structure.mts';
+import * as force from '../docs/website/src/lib/force-layout.mts';
+
+test('browser layout yields to input and preserves the settled layout', async () => {
+  const input = { ids: ['A', 'B', 'C'], links: [['A', 'B'], ['B', 'C']], hubs: new Set(), radius: () => 5 };
+  const simulation = force.createSimulation(input);
+  let inputHandled = false;
+  setTimeout(() => { inputHandled = true; }, 0);
+  assert.equal(await force.settleSimulation(simulation, new AbortController().signal), true);
+  assert.equal(inputHandled, true, 'Layout must let pending input run before it finishes');
+  assert.deepEqual(simulation.positions(), force.forceLayout(input));
+});
+
+test('an interrupted layout stops before moving its nodes', async () => {
+  const simulation = force.createSimulation({ ids: ['A', 'B'], links: [['A', 'B']], hubs: new Set(), radius: () => 5 });
+  simulation.pin('A', { x: 100, y: 200 });
+  const before = simulation.positions(), controller = new AbortController();
+  const pending = force.settleSimulation(simulation, controller.signal);
+  controller.abort();
+  assert.equal(await pending, false);
+  assert.deepEqual(simulation.positions(), before);
+});
 
 const link = (source, target) => ({ source, target });
 

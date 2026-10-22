@@ -63,7 +63,7 @@ export function mountHeroGraph(container: HTMLElement, graph: HeroGraph) {
   const byId = new Map(nodes.map(n => [n.id, n]));
   const links: SimLink[] = graph.links.map(([a, b]) => {
     const s = byId.get(a)!, t = byId.get(b)!, hub = !!(s.anchor || t.anchor), featured = s.focus && t.focus;
-    const el = make("line", { class: `network-edge${featured ? " featured-edge" : ""}` });
+    const el = make("line", { class: "network-edge" });
     edgeLayer.append(el);
     return { s, t, hub, length: hub ? 80 : featured ? 64 : 24, el };
   });

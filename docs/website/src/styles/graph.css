@@ -75,6 +75,8 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .scene-node.start .node-halo { fill: var(--start); opacity: .22; }
 .scene-node.end .node-halo { fill: var(--end); opacity: .22; }
 .scene-node.pulse .node-halo { fill: var(--accent); opacity: .4; r: 20; }
+.scene-node:focus { outline: none; }
+.scene-node:focus-visible .node-halo { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 1; vector-effect: non-scaling-stroke; }
 
 /* Panel */
 .site-header { z-index: 4; }

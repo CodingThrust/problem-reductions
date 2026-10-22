@@ -8,8 +8,13 @@
   <title>Reduction Paths — Problem Reductions</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="./assets/graph-scene.json.gz" as="fetch" type="application/gzip" crossorigin>
-  <link rel="preload" href="./assets/path-graph.json.gz" as="fetch" type="application/gzip" crossorigin>
-  <link rel="preload" href="./assets/path-selection_bg.wasm.gz" as="fetch" type="application/gzip" crossorigin>
+  <script>
+    if (location.hash === '#directions') for (const name of ['path-graph.json.gz', 'path-selection_bg.wasm.gz']) {
+      const link = document.createElement('link');
+      Object.assign(link, {rel: 'preload', href: './assets/' + name, as: 'fetch', type: 'application/gzip', crossOrigin: ''});
+      document.head.append(link);
+    }
+  </script>
   <link rel="preload" href="./assets/fonts/dm-sans-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./src/styles/site.css">
   <link rel="stylesheet" href="./src/styles/details.css">

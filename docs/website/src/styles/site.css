@@ -289,11 +289,6 @@ p {
   stroke-width: 0.85;
   opacity: 0.47;
 }
-.network-edge.featured-edge {
-  stroke: #c2de9b;
-  stroke-width: 2.4;
-  opacity: 1;
-}
 .network-node {
   transition: opacity 0.2s;
 }
@@ -324,18 +319,10 @@ p {
 .network-node.major circle {
   fill: #b3d191;
 }
-.network-node.major text {
-  font-size: 13px;
-  fill: var(--diagram-label);
-}
 .network-node.focus circle {
   fill: #d4eab6;
   stroke: #446239;
   stroke-width: 7;
-}
-.network-node.focus text {
-  font-weight: 600;
-  fill: #d4eab6;
 }
 .network-node.hub circle {
   filter: drop-shadow(0 0 6px rgba(207, 232, 160, 0.45));

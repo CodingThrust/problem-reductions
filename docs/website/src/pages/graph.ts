@@ -4,7 +4,7 @@ import { GraphScene, type SceneNode, type SceneItem, type SceneEdge, type LabelS
 import { growth, pathDegree, sizeBadge, compareDegrees } from "../lib/graph-growth.mts";
 import { CLASSES, growthClass, edgeGrowth, activeRules, components, reach, familyRules, depthsFrom, type ClassId, type RuleEdge } from '../lib/graph-structure.mts';
 import { validatePathReply, type PathRequest, type PathReply } from '../lib/path-worker-data.mts';
-import { createSimulation, forceLayout, settled, type Point, type Simulation } from '../lib/force-layout.mts';
+import { createSimulation, settleSimulation, settled, type Point, type Simulation } from '../lib/force-layout.mts';
 
 import type { Endpoint, Route, Step, WasmPathResult } from '../generated/wasm-paths.mjs';
 import type { WasmComparisonResult } from '../generated/wasm-comparison.mjs';
@@ -144,7 +144,7 @@ function placeLabels() {
   placePop();
 }
 scene.onChange = scheduleLabels;
-scene.onDrag = node => { scheduleLabels(); placePop(); if (!reduced.matches) grab(node); };
+scene.onDrag = node => { cancelLayout(); scheduleLabels(); placePop(); if (!reduced.matches) grab(node); };
 scene.onDragEnd = node => { if (physics) { physics.pin(node.id, null); physics.alphaTarget = 0; } };
 scene.onHover = (n, over) => {
   scene.classes([n], over ? "" : "hover", over ? "hover" : "");
@@ -433,6 +433,16 @@ let worker = graphStartup.worker, reqId = 0, clock = 0;
 graphStartup.worker = null;
 const cache = new Map<string, PathResult>();
 function stopWorker() { worker?.terminate(); worker = null; }
+function startWorker(): Worker {
+  if (!worker) {
+    const engine = worker = new Worker(new URL('../workers/path-worker.ts', import.meta.url), { type: "module" });
+    engine.onerror = event => {
+      event.preventDefault();
+      if (worker === engine) stopWorker();
+    };
+  }
+  return worker;
+}
 function compute(source: number, target: number, limit: number, onPaths: (result: PathResult) => void): Promise<PathResult> {
   const key = `${source}-${target}-${limit}`, cached = cache.get(key);
   if (cached) {
@@ -445,10 +455,9 @@ function compute(source: number, target: number, limit: number, onPaths: (result
       cached: {paths: cached.paths, truncated: cached.truncated}}
     : {kind: 'search', source, target, limit};
   return new Promise<PathResult>((resolve, reject) => {
-    try { worker ||= new Worker(new URL('../workers/path-worker.ts', import.meta.url), { type: "module" }); } catch (err) { reject(err); return; }
-    const engine = worker;
+    const engine = startWorker();
     let result = cached;
-    worker.onmessage = ({ data }: MessageEvent<PathReply>) => {
+    engine.onmessage = ({ data }: MessageEvent<PathReply>) => {
       if (worker !== engine) return;
       try {
         const started = performance.now();
@@ -468,9 +477,9 @@ function compute(source: number, target: number, limit: number, onPaths: (result
         stopWorker(); reject(error);
       }
     };
-    worker.onerror = (ev) => { ev.preventDefault(); if (worker !== engine) return; stopWorker(); reject(new Error("engine")); };
+    engine.onerror = (ev) => { ev.preventDefault(); if (worker !== engine) return; stopWorker(); reject(new Error("engine")); };
     performance.mark("graph:request-posted");
-    worker.postMessage(request);
+    engine.postMessage(request);
   });
 }
 function orderPaths(result: PathResult) {
@@ -834,25 +843,33 @@ $("#turing-toggle").addEventListener("click", () => { ex.turing = !ex.turing; ex
 /* Each view keeps a subset and lays it out with the same force model as the published map, so taking the hubs
    away shows the structure they hide. */
 const published = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
+let layout: AbortController | null = null;
+function cancelLayout() { layout?.abort(); layout = null; }
+function finishLayout(sim: Simulation, apply: (positions: Map<string, Point>) => void) {
+  cancelLayout();
+  const pending = layout = new AbortController();
+  void settleSimulation(sim, pending.signal).then(done => {
+    if (!done) return;
+    layout = null;
+    apply(sim.positions());
+  });
+}
 function setView(view: View) {
   if (view === ex.view) return;
+  cancelLayout(); scene.settle();
   const before = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
   ex.view = view; ex.sel = null; physics = null;
-  // The full map keeps its published positions. Any other view is the model run from the current drawing;
-  // the run is deterministic, so the camera can frame its resting place before it plays out live.
-  const target = view === "all" ? published : forceLayout(physicsInput(before));
-  scene.nodes.forEach(n => Object.assign(n, target.get(n.id) ?? before.get(n.id)));
   paintExplore(); renderExplore(); renderLegend();
-  frameAll();
-  if (reduced.matches) { scene.updatePositions(); return; }
-  if (view === "all") { scene.morph(n => before.get(n.id)!); return; }
-  scene.nodes.forEach(n => Object.assign(n, before.get(n.id)));
-  physics = createSimulation(physicsInput(before));
-  kick();
+  const apply = (target: ReadonlyMap<string, Point>) => {
+    scene.nodes.forEach(n => Object.assign(n, target.get(n.id) ?? before.get(n.id)));
+    frameAll();
+    if (reduced.matches) scene.updatePositions(); else scene.morph(n => before.get(n.id)!);
+  };
+  if (view === "all") apply(published);
+  else finishLayout(createSimulation(physicsInput(before)), apply);
 }
 /* ---------- Live physics ---------- */
-/* While something moves, the visible problems follow the same force model as the map: a dragged problem pulls
-   its neighbours along, and a new view settles in front of the reader. The loop stops once the model is at rest. */
+/* A dragged problem pulls its neighbours along. The loop stops once the model is at rest. */
 let physics: Simulation | null = null, physicsFrame = 0;
 const physicsInput = (start: ReadonlyMap<string, Point>) => ({ ids: scene.nodes.filter(n => inView(n.id)).map(n => n.id), hubs: HUBS,
   links: scene.edges.map(e => [e.source.id, e.target.id] as const), radius: (id: string) => nodeSize(families.get(id)!.nbrs.size) / 2, start });
@@ -881,19 +898,29 @@ function routeLayout(names: string[]) {
   const sim = createSimulation(physicsInput(published));
   names.forEach((id, i) => { const t = (at[i]! - len / 2) * scale; sim.pin(id, { x: mx + ux * t, y: my + uy * t }); });
   sim.alpha = 0.3;
-  while (!settled(sim)) sim.tick();
+  sim.tick();
   // A label below a stop clears the chain only when it runs nearly level; otherwise it goes beside the stop.
-  return { positions: sim.positions(), sides: Math.abs(uy) > 0.4 * Math.abs(ux) ? ["right", "left", "below", "above"] as LabelSide[] : SIDES };
+  return { sim, sides: Math.abs(uy) > 0.4 * Math.abs(ux) ? ["right", "left", "below", "above"] as LabelSide[] : SIDES };
 }
 function arrangeRoute(names: string[]) {
   const key = names.join(">");
   if (key === arranged) return;
-  arranged = key; physics = null;
+  arranged = key; physics = null; cancelLayout();
   const before = new Map(scene.nodes.map(n => [n.id, {x: n.x, y: n.y}]));
-  const { positions, sides } = names.length > 1 ? routeLayout(names) : { positions: published, sides: SIDES };
+  const apply = (positions: ReadonlyMap<string, Point>) => {
+    scene.nodes.forEach(n => Object.assign(n, positions.get(n.id) ?? before.get(n.id)));
+    if (reduced.matches) scene.updatePositions(); else scene.morph(n => before.get(n.id)!);
+    scheduleLabels();
+  };
+  routeSides = SIDES;
+  if (names.length < 2) { apply(published); return; }
+  const { sim, sides } = routeLayout(names);
   routeSides = sides;
-  scene.nodes.forEach(n => Object.assign(n, positions.get(n.id) ?? before.get(n.id)));
-  if (reduced.matches) scene.updatePositions(); else scene.morph(n => before.get(n.id)!);
+  // Pin the route immediately so its camera and controls work while the surrounding map settles.
+  const pinned = sim.positions();
+  names.forEach(id => Object.assign(scene.byId.get(id)!, pinned.get(id)));
+  if (reduced.matches) scene.updatePositions();
+  finishLayout(sim, apply);
 }
 /* Dragging starts from the drawing as it is, so only the neighbourhood of the dragged problem reacts. */
 function grab(node: SceneNode) {
@@ -1154,6 +1181,7 @@ $("#find").addEventListener("keydown", (e) => {
 /* ---------- Modes: explore the graph, or ask for directions ---------- */
 function setMode(mode: "explore" | "directions") {
   exploring = mode === "explore";
+  $(".panel").classList.toggle("collapsed", collapsed());
   $("#view-explore").hidden = !exploring; $("#view-directions").hidden = exploring;
   document.body.classList.toggle("explore", exploring);
   closePop();
@@ -1162,6 +1190,7 @@ function setMode(mode: "explore" | "directions") {
     refreshExplore(); frameAll();
     history.replaceState(null, "", location.pathname + location.search);
   } else {
+    try { startWorker(); } catch { /* Search reports startup failures when requested. */ }
     setView("all");
     scene.classes(scene.elements, CLEAN);
     syncEnds(); renderResults(); paintGraph();
