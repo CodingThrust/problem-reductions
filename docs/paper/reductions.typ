@@ -5369,6 +5369,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Simultaneous Incongruences is an NP-complete problem @garey1979. It asks whether the complement of a system of congruences — a _covering system_ — can be simultaneously avoided. A _covering system_ is a finite collection of congruences $\{a_i space (op("mod") space b_i)\}$ that covers every integer; when the system is a covering system there is no valid $x$ and the instance is a "no" instance. The problem generalises checking whether a given set of congruences is a covering system, which has connections to Erdős's covering conjecture and sieve methods in analytic number theory.
 
+      Exhaustive search tests the $L = op("lcm")(b_1, dots, b_n)$ candidates in one full period, checking at most $n$ incongruences per candidate. With `lcm_bits` $= floor(log_2 L) + 1$, the catalog bound is $O((n+1) 2^"lcm_bits")$, counting fixed-width arithmetic operations. The period can be exponential in the binary input length, so this is not a polynomial-time algorithm.#footnote[The catalog records exhaustive search; a better general exact bound has not been independently verified from the literature.]
+
       *Example.* Let $n = #pairs.len()$ with pairs #pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "). The full period is $L = op("lcm")(#fmt-values(moduli)) = #lcm-val$. We test $x = #xval$:
 
       #pred-commands(
@@ -19025,6 +19027,8 @@ The following table shows concrete target-variable counts for example instances,
   _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 3$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
 
   _Size bound._ There are $sum_(i=1)^n (p_i-2)+m$ forbidden pairs, where $p_i$ is the $i$th odd prime. For the ordinary $k$th prime $q_k$, the standard estimate $q_k < k(ln k+ln ln k)$ for $k >= 6$ @axler2019, together with the first five primes, implies $q_k <= 2k^2$ for every $k >= 1$. Consequently $p_i=q_(i+1) <= 2(n+1)^2$ and $2n(n+1)^2+m$ bounds the pair count.
+
+  Every clause modulus divides $product_(i=1)^n p_i$, and every variable prime occurs as a modulus, so the target period is $L = product_(i=1)^n p_i$. Since $n+1 <= 2^n$, we have $p_i <= 2(n+1)^2 <= 2^(2n+1)$ and hence `lcm_bits` $<= n(2n+1)+1$. For $n=0$, the empty product is 1 and its bit length is 1. Thus the reduction has polynomial parameter growth while exhaustive target solving still has an exponential bound.
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment $tau$ defines residues $r_i in {1,2}$ per variable. By CRT, some integer $x$ has these residues. It avoids all variable-forbidden classes and all clause-forbidden classes (since at least one literal is true, the residue triple differs from the falsifying triple). ($arrow.l.double$) Any feasible $x$ has $x mod p_i in {1,2}$ for all $i$. Define $tau(x_i) = "TRUE"$ if residue 1, FALSE if 2. If a clause were false, $x$ would match its forbidden CRT class -- contradiction.
 

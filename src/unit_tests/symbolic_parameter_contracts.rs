@@ -892,7 +892,7 @@ fn closest_vector_size_bounds_cover_numeric_and_rank_variation() {
 }
 
 #[test]
-fn incongruence_pair_bounds_cover_prime_growth_and_repeated_literals() {
+fn incongruence_bounds_cover_prime_growth_and_repeated_literals() {
     use crate::models::{
         algebraic::SimultaneousIncongruences,
         formula::{CNFClause, KSatisfiability},
@@ -906,7 +906,7 @@ fn incongruence_pair_bounds_cover_prime_growth_and_repeated_literals() {
         };
         check_reduced_parameters::<_, SimultaneousIncongruences>(
             KSatisfiability::<K3>::new(variables, clauses),
-            &["num_pairs"],
+            &["num_pairs", "lcm_bits"],
             ParameterRelation::UpperBound,
         );
     }

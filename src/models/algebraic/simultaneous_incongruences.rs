@@ -110,6 +110,11 @@ impl SimultaneousIncongruences {
             (lcm / gcd(lcm, modulus)) * modulus
         })
     }
+
+    /// Number of bits needed to encode the full search period (one for empty input).
+    pub fn lcm_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.lcm_moduli()])
+    }
 }
 
 #[derive(Deserialize)]
@@ -132,7 +137,7 @@ impl Problem for SimultaneousIncongruences {
     type Solution = i64;
     type Value = Or;
 
-    crate::problem_parameters![("num_pairs", num_pairs),];
+    crate::problem_parameters![("num_pairs", num_pairs), ("lcm_bits", lcm_bits),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -154,7 +159,7 @@ impl crate::solvers::BruteForceProblem for SimultaneousIncongruences {
 }
 
 crate::declare_variants! {
-    default SimultaneousIncongruences => "num_pairs",
+    default SimultaneousIncongruences => "(num_pairs + 1) * 2^lcm_bits",
 }
 
 crate::register_brute_force! {
