@@ -207,7 +207,25 @@ fn test_linear_arrangement_to_qubo_closed_loop() {
     optimum(
         OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         2,
-        9,
+        3,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 3), (0, 1), (2, 3)])),
+        3,
+        6,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        )),
+        10,
+        6,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(1, vec![])),
+        0,
+        0,
     );
 }
 
@@ -309,7 +327,7 @@ fn test_direct_qubo_signed_and_degenerate_inputs() {
     optimum(
         OptimalLinearArrangement::new(SimpleGraph::new(3, vec![])),
         0,
-        9,
+        3,
     );
     feasible(
         SequencingWithinIntervals::new(vec![0, 0], vec![1, 1], vec![0, 1]).unwrap(),

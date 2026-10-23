@@ -32,7 +32,7 @@ impl ReductionResult for ReductionCyclicOrderingToQUBO {
 }
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionCyclicOrderingToQUBO {}
-#[crate::reduction(transform = { exact { num_vars = "num_elements * (num_elements - 1) / 2" }, upper_bound { num_quadratic_terms = "(num_elements * (num_elements - 1) / 2)^2" } })]
+#[crate::reduction(transform = { exact { num_vars = "num_elements * (num_elements - 1) / 2" }, upper_bound { num_quadratic_terms = "num_elements * (num_elements - 1) * (num_elements - 2) / 2" } })]
 impl ReduceTo<Decision<QUBO<i64>>> for CyclicOrdering {
     type Result = ReductionCyclicOrderingToQUBO;
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {

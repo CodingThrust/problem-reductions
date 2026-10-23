@@ -349,7 +349,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumtardinesssequencingweighted_qubo::canonical_rule_example_specs());
     specs.extend(sequencingwithreleasetimesanddeadlines_qubo::canonical_rule_example_specs());
     specs.extend(dynamicstorageallocation_qubo::canonical_rule_example_specs());
-    specs.extend(shortestcommonsupersequence_qubo::canonical_rule_example_specs());
     specs.extend(minimumtardinesssequencing_qubo::canonical_rule_example_specs());
     specs.extend(quadraticassignment_qubo::canonical_rule_example_specs());
     specs.extend(sumofsquarespartition_qubo::canonical_rule_example_specs());
@@ -753,5 +752,4 @@ pub(crate) mod staffscheduling_qubo;
 pub(crate) mod dynamicstorageallocation_qubo;
 pub(crate) mod minimumtardinesssequencingweighted_qubo;
 pub(crate) mod sequencingwithreleasetimesanddeadlines_qubo;
-pub(crate) mod shortestcommonsupersequence_qubo;
 mod start_time_qubo;
