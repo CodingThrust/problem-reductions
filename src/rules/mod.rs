@@ -1,5 +1,7 @@
 //! Reduction rules between NP-hard problems.
 
+pub(crate) mod decisionilp_sat;
+
 pub mod analysis;
 pub mod registry;
 pub use registry::{
@@ -495,6 +497,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::models::algebraic::quadratic_assignment::decision_canonical_rule_example_specs(),
     );
     specs.extend(crate::models::algebraic::qubo::decision_canonical_rule_example_specs());
+    specs.extend(decisionilp_sat::canonical_rule_example_specs());
     specs.extend(
         crate::models::formula::maximum_2_satisfiability::decision_canonical_rule_example_specs(),
     );
