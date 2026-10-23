@@ -411,3 +411,93 @@ fn simple_graph_create_contracts_propagate_edge_validation() {
     }
     assert_eq!(checked, names.into_iter().collect());
 }
+
+#[test]
+fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
+    use crate::models::algebraic::QUBO;
+    use crate::models::graph::OptimalLinearArrangement;
+    use crate::models::misc::{
+        CyclicOrdering, ShortestCommonSuperstring, StackerCrane, StaffScheduling, ThreePartition,
+    };
+    use crate::models::Decision;
+    use crate::rules::{ReduceTo, ReductionResult};
+    use crate::topology::SimpleGraph;
+    use crate::Problem;
+
+    fn check<S: Problem + ReduceTo<T> + 'static, T: Problem>(source: S, budget: u64) {
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| {
+                entry.source_name == S::NAME
+                    && entry.source_variant() == S::variant()
+                    && entry.target_name == T::NAME
+                    && entry.target_variant() == T::variant()
+            })
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let reduced = <S as ReduceTo<T>>::reduce_to(&source).unwrap();
+        let actual = reduced.target_problem().parameters();
+        assert!(
+            actual.get("num_quadratic_terms").unwrap()
+                <= predicted.get("num_quadratic_terms").unwrap()
+        );
+        assert!(
+            predicted.get("num_quadratic_terms").unwrap() <= budget,
+            "{}: sparse support budget exceeded",
+            S::NAME
+        );
+    }
+    // Budget clique plus separate per-period surplus blocks, at most 63 bits per integer.
+    check::<_, Decision<QUBO<i64>>>(
+        StaffScheduling::new(
+            2,
+            vec![
+                vec![true, true, false],
+                vec![false, true, true],
+                vec![true, false, true],
+            ],
+            vec![2, 2, 2],
+            3,
+        ),
+        73_206,
+    );
+    // Triangle terms, path/cycle transitions, and eligible value-triple multiplicities.
+    // Vanishing factors must remain nonnegative and valid on empty/singleton inputs.
+    for n in 1..=2 {
+        check::<_, Decision<QUBO<i64>>>(CyclicOrdering::new(n, vec![]), 0);
+    }
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(0, vec![])),
+        0,
+    );
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(1, vec![])),
+        0,
+    );
+    check::<_, QUBO<i64>>(ShortestCommonSuperstring::new(1, vec![vec![]]), 0);
+    check::<_, QUBO<i64>>(StackerCrane::new(0, vec![], vec![], vec![], vec![]), 0);
+    check::<_, QUBO<i64>>(
+        StackerCrane::new(1, vec![(0, 0)], vec![], vec![1], vec![]),
+        0,
+    );
+    check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 3], 6), 1);
+    check::<_, Decision<QUBO<i64>>>(CyclicOrdering::new(5, vec![(0, 1, 2)]), 30);
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(5, vec![(0, 1), (1, 2)])),
+        30,
+    );
+    check::<_, QUBO<i64>>(
+        ShortestCommonSuperstring::new(2, vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]]),
+        84,
+    );
+    check::<_, QUBO<i64>>(
+        StackerCrane::new(3, vec![(0, 1), (1, 2), (2, 0)], vec![], vec![1; 3], vec![]),
+        36,
+    );
+    check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 6], 6), 15);
+}

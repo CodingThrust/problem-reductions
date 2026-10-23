@@ -54,7 +54,7 @@ impl crate::rules::AggregateReductionResult for ReductionShortestCommonSuperstri
         self.encoding.value(value)
     }
 }
-#[crate::reduction(transform = upper_bound { num_vars = "num_strings^2", num_quadratic_terms = "num_strings^4" })]
+#[crate::reduction(transform = upper_bound { num_vars = "num_strings^2", num_quadratic_terms = "num_strings * (num_strings - 1) * (2 * num_strings - 1)" })]
 impl ReduceTo<QUBO<i64>> for ShortestCommonSuperstring {
     type Result = ReductionShortestCommonSuperstringToQUBO;
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
