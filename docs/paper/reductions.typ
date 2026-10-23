@@ -269,6 +269,7 @@
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
+  "DecisionILP": [Binary Decision Integer Linear Programming],
   "IntegerKnapsack": [Integer Knapsack],
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
@@ -5099,6 +5100,30 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ]
   ]
 }
+
+#problem-def("DecisionILP")[
+  Given a binary integer linear program with integer coefficients, a minimization
+  or maximization sense, and an integer bound $b$, find $x in {0,1}^n$ satisfying
+  all constraints and $c^top x <= b$ for minimization, or $c^top x >= b$ for maximization.
+][
+  This is the objective-threshold form of binary ILP. Binary adders translate its
+  pseudo-Boolean constraints to SAT @een2006. Exhaustive enumeration takes
+  $O^*(2^n)$ time; this is the registered reference bound, not a claim of a tight
+  best-known SAT solving bound. The registered SAT reduction answers a fixed
+  objective-threshold query; no reverse ILP-to-DecisionILP edge is registered.
+
+  *Example.* #let x = load-model-example("DecisionILP")
+  Select exactly one of #x.instance.inner.variables.len() variables and minimize
+  the objective with coefficients
+  #x.instance.inner.objective.map(t => str(t.at(1))).join(", ").
+  At bound #x.instance.bound, the witness
+  $(#fmt-values(x.optimal_config))$ has objective #x.instance.bound and meets the bound.
+  #pred-commands(
+    "pred create --example " + problem-spec(x) + " -o x.json",
+    "pred solve x.json",
+    "pred evaluate x.json --config " + cli-config(x.optimal_config),
+  )
+]
 
 #{
   let x = load-model-example("QuadraticAssignment")
@@ -12602,6 +12627,78 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
 }
 
 // Removed: SubsetSum → CapacityAssignment (unsound reduction, #1006)
+
+#let decision-ilp-sat = load-example("DecisionILP", "Satisfiability")
+#reduction-rule("DecisionILP", "Satisfiability", example: true,
+  example-caption: [Binary ILP threshold query encoded with adders and CNF gates.],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(decision-ilp-sat) + " -o x.json",
+      "pred path " + problem-spec(decision-ilp-sat.source) + " " + problem-spec(decision-ilp-sat.target) + " --limit 1 -o paths.json",
+      "jq '.paths[0]' paths.json > route.json",
+      "pred reduce x.json --via route.json -o bundle.json",
+      "pred solve bundle.json --solver ilp",
+    )
+    *Example.* The source selects exactly one of
+    #decision-ilp-sat.source.instance.inner.variables.len() variables, with objective
+    coefficients #decision-ilp-sat.source.instance.inner.objective.map(t => str(t.at(1))).join(", ")
+    and minimization bound #decision-ilp-sat.source.instance.bound.
+    The CNF has #decision-ilp-sat.target.instance.num_vars variables and
+    #decision-ilp-sat.target.instance.clauses.len() clauses. Its canonical witness
+    projects to $(#fmt-values(decision-ilp-sat.solutions.at(0).source_config))$;
+    both the selected-variable sum and the objective equal the bound.
+    Lowering the bound to zero makes the instance infeasible: exactly one variable
+    must be selected, and every objective coefficient is at least one.
+  ],
+)[
+  Binary decision ILP reduces to CNF satisfiability by binary addition and
+  Tseitin gate equivalences, following the adder-based pseudo-Boolean encoding
+  approach @een2006. The encoding preserves the objective threshold and both
+  optimization senses; it does not turn an arbitrary feasible assignment into an optimum.
+][
+  _Construction._ Let $n$ be the number of binary variables and $m$ the number of
+  constraints. Append the objective comparison as one additional row. Reserve
+  the first $n$ SAT variables for the source assignment and one false constant $f$.
+  For a row $sum_i a_i x_i diamond b$, replace each negative term by
+  $a_i x_i = (-a_i)(1-x_i)+a_i$. The normalized weights are $w_i=abs(a_i)$,
+  literals are $x_i$ or $not x_i$, and the threshold is
+  $B=b-sum_(i:a_i<0) a_i$. Set $T=sum_i w_i$.
+  Rows constant over $[0,T]$ emit either no clauses or an empty clause.
+
+  Otherwise, sum the weighted literals using $W$ bits, where $W$ is the binary
+  length of $T$. Starting from zero, add each weighted literal with ripple
+  full-adders: for input bits $a,b$ and carry $d$, compute
+  $p=a xor b$, output $p xor d$, and carry $(a and b) or (p and d)$.
+  Every partial sum is at most $T<2^W$, so the last carry can be discarded.
+  Use equivalence clauses for each AND, OR, and XOR gate; constants may be folded.
+  Equality asserts each sum bit. For a less-than-or-equal comparison, start
+  $q="true"$ and scan from least to most significant bit: set
+  $q=(not s_j or q)$ when $B_j=1$, and $q=(not s_j and q)$ when $B_j=0$.
+  Assert the final $q$. Greater-than-or-equal complements both $W$-bit operands
+  before applying the same comparator.
+
+  _Correctness._ ($arrow.r.double$) A feasible source assignment meeting the bound
+  satisfies every normalized comparison by the signed-term identity. Extend it
+  with the deterministic gate outputs. Induction over adders gives exact sums;
+  at each comparator bit, a more significant unequal bit decides the comparison,
+  while equal bits retain the previous result. Every asserted output is therefore true.
+  ($arrow.l.double$) A satisfying CNF assignment obeys every gate equivalence and
+  the false-constant clause, forcing the computed sums and comparisons. The output
+  assertions imply every source row and its objective bound after reversing normalization.
+
+  _Solution extraction._ Validate the full SAT witness, then convert its first
+  $n$ bits to integers zero or one. Completed Boolean values map identically.
+
+  _Arithmetic and overhead._ Before encoding, checked sums of positive and negative
+  coefficients must each fit signed 64-bit arithmetic, including the objective row.
+  Otherwise the reduction returns a typed overflow error: some binary assignments
+  would overflow the source evaluator. Normalization uses arbitrary-precision integers.
+  On the accepted domain $T<=2^64-1$, hence $W<=64$. Each row uses at most $5 n W$
+  adder gates, $W$ comparator gates, and $W+1$ assertion clauses; every gate uses
+  at most four clauses of at most three literals. Including the constant gives
+  $V<=n+1+64(m+1)(5n+1)$ variables,
+  $C<=1+(m+1)(1280n+321)$ clauses, and at most $3C$ literal occurrences.
+]
 
 #reduction-rule("ILP", "QUBO")[
   Binary ILP constraints are encoded by squared integer residuals with binary slack variables, following the penalty construction discussed by Lucas @lucas2014[Section 3]. The rule retains the omitted constant and uses a certified energy interval to recover the original objective direction or report infeasibility. No assumption that the ILP is feasible is needed.

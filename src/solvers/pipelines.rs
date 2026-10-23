@@ -991,3 +991,8 @@ register_ilp_pipeline! {
     ("BoundedDiameterSpanningTree", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
 }
+
+register_ilp_pipeline! {
+    ("DecisionILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+    ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
+}
