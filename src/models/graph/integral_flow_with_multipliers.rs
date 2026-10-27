@@ -5,7 +5,7 @@
 //! integral flow satisfying multiplier-scaled conservation.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +25,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "IntegralFlowWithMultipliersData")]
 pub struct IntegralFlowWithMultipliers {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     source: usize,
     sink: usize,
     multipliers: Vec<i64>,
@@ -35,7 +35,7 @@ pub struct IntegralFlowWithMultipliers {
 
 #[derive(Deserialize)]
 struct IntegralFlowWithMultipliersData {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
     source: usize,
     sink: usize,
     multipliers: Vec<i64>,
@@ -92,7 +92,7 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
             return Err("num_vertices is too small".into());
         }
         Self::try_new(
-            DirectedGraph::new(count, spec.arcs),
+            MultiDigraph::try_new(count, spec.arcs)?,
             spec.source,
             spec.sink,
             spec.multipliers,
@@ -104,7 +104,7 @@ impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipli
 
 impl IntegralFlowWithMultipliers {
     pub fn new(
-        graph: DirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         multipliers: Vec<i64>,
@@ -116,7 +116,7 @@ impl IntegralFlowWithMultipliers {
     }
 
     fn try_new(
-        graph: DirectedGraph,
+        graph: MultiDigraph,
         source: usize,
         sink: usize,
         multipliers: Vec<i64>,
@@ -182,7 +182,7 @@ impl IntegralFlowWithMultipliers {
         })
     }
 
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -241,8 +241,7 @@ impl IntegralFlowWithMultipliers {
 
         for (arc_index, ((u, v), &capacity)) in self
             .graph
-            .arcs()
-            .into_iter()
+            .iter_arcs()
             .zip(self.capacities.iter())
             .enumerate()
         {
@@ -345,7 +344,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integral_flow_with_multipliers",
         instance: Box::new(IntegralFlowWithMultipliers::new(
-            DirectedGraph::new(
+            MultiDigraph::new(
                 8,
                 vec![
                     (0, 1),

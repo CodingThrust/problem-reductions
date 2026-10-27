@@ -87,7 +87,7 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
         // x_{j,t} variable index
         let var = |j: usize, t: usize| j * d + t;
         // More processors than tasks cannot admit any additional schedules.
-        let processor_count = Self::exact_i64(
+        let processor_count = <Self as ReduceTo<ILP<bool>>>::exact_i64(
             self.num_processors().min(n),
             "encoding the processor capacity",
         )?;
@@ -111,7 +111,7 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
         for &(i, j) in self.precedences() {
             let mut terms: Vec<(usize, i64)> = Vec::new();
             for t in 0..d {
-                let t_i64 = Self::exact_i64(t, "encoding a time slot")?;
+                let t_i64 = <Self as ReduceTo<ILP<bool>>>::exact_i64(t, "encoding a time slot")?;
                 terms.push((var(j, t), t_i64));
                 terms.push((var(i, t), -t_i64));
             }
@@ -120,7 +120,7 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
 
         Ok(ReductionPCSToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             num_tasks: n,
             deadline: d,
         })

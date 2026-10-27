@@ -3,14 +3,14 @@ use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
     // 3 vertices, arcs (0,1),(1,2),(0,2), caps all 1, 2 paths, req 2
     let source = PathConstrainedNetworkFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1, 1, 1],
         0,
         2,
@@ -36,7 +36,7 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
 #[test]
 fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
     let source = PathConstrainedNetworkFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1, 1, 1],
         0,
         2,
@@ -52,7 +52,7 @@ fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
 fn test_flow_requirement_normalization_preserves_feasibility() {
     for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
         let source = PathConstrainedNetworkFlow::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            MultiDigraph::new(2, vec![(0, 1)]),
             vec![1],
             0,
             1,

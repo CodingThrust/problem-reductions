@@ -121,7 +121,10 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
                 let gc_next = char_offsets[s_idx] + j + 1;
                 let mut terms = Vec::new();
                 for p in 0..b {
-                    let p_i64 = Self::exact_i64(p, "encoding a sequence position")?;
+                    let p_i64 = <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                        p,
+                        "encoding a sequence position",
+                    )?;
                     terms.push((m_offset + gc_next * b + p, p_i64));
                     terms.push((m_offset + gc_j * b + p, -p_i64));
                 }
@@ -141,7 +144,7 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
         // Objective: minimize non-padding positions = maximize padding positions
         let objective: Vec<(usize, i64)> = (0..b).map(|p| (p * k + pad, 1)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionSCSToILP {
             target,
             max_length: b,

@@ -123,9 +123,7 @@ fn test_scheduling_with_individual_deadlines_evaluate_rejects_capacity_violation
 fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadline() {
     let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![i64::MAX], vec![]);
 
-    let result = std::panic::catch_unwind(|| problem.evaluate(&vec![0]).unwrap());
-
-    assert!(matches!(result, Ok(crate::types::Or(true))));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), crate::types::Or(true));
 }
 
 #[test]

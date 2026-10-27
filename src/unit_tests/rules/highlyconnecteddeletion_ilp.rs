@@ -101,31 +101,6 @@ fn pair_encoding_decodes_clusters_and_rejects_invalid_assignments() {
 }
 
 #[test]
-fn polynomial_encoding_preserves_parallel_edge_costs_and_self_loops() {
-    let source = HighlyConnectedDeletion::new(SimpleGraph::new(
-        4,
-        vec![
-            (0, 0),
-            (0, 1),
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (2, 3),
-            (2, 3),
-            (3, 3),
-        ],
-    ));
-    let reduction = source.reduce_to().unwrap();
-    let solution = ILPSolver::new().solve(reduction.target_problem()).unwrap();
-    let recovered = reduction.extract_solution(&solution).unwrap();
-    assert_eq!(
-        recovered,
-        vec![false, false, false, false, false, true, true, false]
-    );
-    assert_eq!(source.evaluate(&recovered).unwrap(), Min(Some(2)));
-}
-
-#[test]
 fn test_highlyconnecteddeletion_to_ilp_closed_loop() {
     let source = HighlyConnectedDeletion::new(SimpleGraph::new(
         6,

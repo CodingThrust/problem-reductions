@@ -203,20 +203,6 @@ fn bits_to_biguint(bits: &[usize]) -> BigUint {
         })
 }
 
-/// Convert an integer to a bit vector (little-endian).
-#[allow(dead_code)]
-fn int_to_bits(n: &BigUint, num_bits: usize) -> Vec<usize> {
-    (0..num_bits)
-        .map(|index| usize::from(n.bit(u64::try_from(index).expect("bit index fits u64"))))
-        .collect()
-}
-
-/// Check if the given factors correctly factorize the target.
-#[cfg(test)]
-pub(crate) fn is_factoring(target: &BigUint, a: &BigUint, b: &BigUint) -> bool {
-    a * b == *target
-}
-
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
     type Solution = (BigUint, BigUint);

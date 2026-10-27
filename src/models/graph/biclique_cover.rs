@@ -98,7 +98,7 @@ impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
             }
         }
 
-        let graph = BipartiteGraph::new(spec.left, spec.right, spec.biedges);
+        let graph = BipartiteGraph::try_new(spec.left, spec.right, spec.biedges)?;
         Ok(Self::new(graph, spec.k))
     }
 }

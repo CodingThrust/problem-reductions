@@ -21,7 +21,7 @@ fn test_minimum_edge_cost_flow_deserialization_rejects_invalid_fields() {
 }
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -31,7 +31,7 @@ use crate::types::Min;
 /// Optimal: route via v2 (1 unit) and v3 (2 units) → cost = 1 + 2 = 3
 fn issue_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
+        MultiDigraph::new(5, vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)]),
         vec![3, 1, 2, 0, 0, 0],
         vec![2, 2, 2, 2, 2, 2],
         0,
@@ -44,7 +44,7 @@ fn issue_instance() -> MinimumEdgeCostFlow {
 /// Arc (0,1) cap=1, (1,2) cap=1 — cannot route 2 units.
 fn infeasible_instance() -> MinimumEdgeCostFlow {
     MinimumEdgeCostFlow::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2)]),
         vec![1, 1],
         vec![1, 1],
         0,
@@ -156,7 +156,7 @@ fn test_minimum_edge_cost_flow_serialization() {
 
 #[test]
 fn test_minimum_edge_cost_flow_max_capacity_empty() {
-    let problem = MinimumEdgeCostFlow::new(DirectedGraph::new(2, vec![]), vec![], vec![], 0, 1, 0);
+    let problem = MinimumEdgeCostFlow::new(MultiDigraph::new(2, vec![]), vec![], vec![], 0, 1, 0);
     assert_eq!(problem.max_capacity(), 0);
 }
 

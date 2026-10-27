@@ -1,13 +1,13 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_directed_hamiltonian_path_creation() {
     // Simple directed path: 0->1->2->3
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_arcs(), 3);
@@ -18,7 +18,7 @@ fn test_directed_hamiltonian_path_creation() {
 #[test]
 fn test_directed_hamiltonian_path_evaluate_valid() {
     // Directed path: 0->1->2->3
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
 
     assert_eq!(
@@ -35,7 +35,7 @@ fn test_directed_hamiltonian_path_evaluate_valid() {
 #[test]
 fn test_directed_hamiltonian_path_evaluate_invalid_no_arc() {
     // Only arc 0->1 and 2->3, not 1->2
-    let graph = DirectedGraph::new(4, vec![(0, 1), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
     // No Hamiltonian path should be valid
     let solver = BruteForce::new();
@@ -45,7 +45,7 @@ fn test_directed_hamiltonian_path_evaluate_invalid_no_arc() {
 #[test]
 fn test_directed_hamiltonian_path_brute_force() {
     // Simple directed path graph
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let solver = BruteForce::new();
     let solution = solver
@@ -60,7 +60,7 @@ fn test_directed_hamiltonian_path_issue_example() {
     // 6-vertex example from issue #813
     // Arcs: [(0,1),(0,3),(1,3),(1,4),(2,0),(2,4),(3,2),(3,5),(4,5),(5,1)]
     // Hamiltonian path: [0, 1, 3, 2, 4, 5]
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         6,
         vec![
             (0, 1),
@@ -87,7 +87,7 @@ fn test_directed_hamiltonian_path_issue_example() {
 #[test]
 fn test_directed_hamiltonian_path_no_solution() {
     // Directed graph with no Hamiltonian path: 0->1, 0->2, no outgoing from 1 or 2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (0, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -95,7 +95,7 @@ fn test_directed_hamiltonian_path_no_solution() {
 
 #[test]
 fn test_directed_hamiltonian_path_single_vertex() {
-    let graph = DirectedGraph::new(1, vec![]);
+    let graph = SimpleDigraph::new(1, vec![]);
     let problem = DirectedHamiltonianPath::new(graph);
     // Single vertex: trivially Hamiltonian
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), crate::types::Or(true));
@@ -106,7 +106,7 @@ fn test_directed_hamiltonian_path_single_vertex() {
 
 #[test]
 fn test_directed_hamiltonian_path_serialization() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: DirectedHamiltonianPath = serde_json::from_value(json).unwrap();
@@ -116,7 +116,7 @@ fn test_directed_hamiltonian_path_serialization() {
 
 #[test]
 fn test_is_valid_solution() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     // Valid: path [0, 1, 2]
     assert!(problem.is_valid_solution(&[0, 1, 2]));
@@ -126,7 +126,7 @@ fn test_is_valid_solution() {
 
 #[test]
 fn test_parameter_getters() {
-    let graph = DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let graph = SimpleDigraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = DirectedHamiltonianPath::new(graph);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 4);
@@ -140,4 +140,18 @@ fn test_decode_lehmer_identity() {
     let code = vec![0usize; 5];
     let perm = decode_lehmer(&code);
     assert_eq!(perm, vec![0, 1, 2, 3, 4]);
+}
+
+#[test]
+fn simple_model_rejects_a_loop_in_construction_and_serde() {
+    assert!(std::panic::catch_unwind(|| {
+        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+        DirectedHamiltonianPath::new(graph)
+    })
+    .is_err());
+    let error = serde_json::from_value::<DirectedHamiltonianPath>(serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0,0]]},
+    }))
+    .unwrap_err();
+    assert!(error.to_string().contains("arc (0, 0)"), "{error}");
 }

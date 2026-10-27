@@ -1,0 +1,31 @@
+[package]
+name = "problemreductions-web"
+version = "0.6.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+test = false
+doctest = false
+
+[features]
+schema-export = ["dep:schemars"]
+
+[dependencies]
+problemreductions-expr = { path = "../problemreductions-expr" }
+num-bigint = "0.4.8"
+num-rational = "0.4.2"
+num-traits = "0.2.19"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.20"
+wasm-bindgen = "=0.2.129"
+schemars = { version = "=1.2.2", optional = true }
+
+[dev-dependencies]
+proptest = "1.11.0"
+
+[[example]]
+name = "export_frontend_schema"
+required-features = ["schema-export"]

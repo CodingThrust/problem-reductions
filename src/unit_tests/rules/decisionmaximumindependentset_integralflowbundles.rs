@@ -35,7 +35,9 @@ fn test_decision_ifb_all_small_graphs_thresholds_and_binary_flows() {
     // Conservation and the path bundles force every feasible arc flow to be
     // binary. Enumerate all binary vectors, including those violating conservation.
     for n in 0..=3 {
-        let pairs: Vec<_> = (0..n).flat_map(|u| (u..n).map(move |v| (u, v))).collect();
+        let pairs: Vec<_> = (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect();
         for mask in 0usize..1 << pairs.len() {
             let edges: Vec<_> = pairs
                 .iter()
@@ -86,8 +88,8 @@ fn test_decision_ifb_all_small_graphs_thresholds_and_binary_flows() {
 }
 
 #[test]
-fn test_decision_ifb_loops_parallel_edges_and_invalid_witnesses() {
-    let source = source(3, vec![(0, 0), (0, 1), (0, 1)], 2);
+fn test_decision_ifb_edge_bundles_and_invalid_witnesses() {
+    let source = source(3, vec![(0, 1)], 2);
     let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source).unwrap();
     let valid = vec![0, 0, 1, 1, 1, 1, 1, 1];
     assert_eq!(
@@ -99,7 +101,7 @@ fn test_decision_ifb_loops_parallel_edges_and_invalid_witnesses() {
         vec![usize::MAX; 8],
         vec![0; 8],
         vec![0, 0, 1, 0, 1, 1, 1, 1], // conservation
-        vec![1, 1, 0, 0, 1, 1, 1, 1], // self-loop
+        vec![1, 1, 1, 1, 0, 0, 1, 1], // edge bundle
         vec![0, 0, 2, 2, 1, 1, 1, 1], // path capacity
     ] {
         assert!(reduction.extract_solution(&flow).is_err());

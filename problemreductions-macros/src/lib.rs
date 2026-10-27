@@ -208,7 +208,7 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 ///
 /// ## Syntax
-/// ```ignore
+/// ```text
 /// #[reduction(transform = exact {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = num_edges,
@@ -1338,38 +1338,6 @@ mod tests {
         .err()
         .expect("duplicate create clause must fail");
         assert_eq!(error.to_string(), "duplicate `create` clause");
-    }
-
-    #[test]
-    fn declare_variants_generates_model_dispatch_without_solver_dispatch() {
-        let input: DeclareVariantsInput = syn::parse_quote! {
-            default Foo => "1",
-        };
-        let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(
-            tokens.contains("serialize_fn :"),
-            "expected serialize_fn field"
-        );
-        assert!(!tokens.contains("solve_typed_fn :"));
-        assert!(!tokens.contains("solve_fn :"));
-        assert!(
-            !tokens.contains("factory : None"),
-            "factory should not be None"
-        );
-        assert!(
-            !tokens.contains("serialize_fn : None"),
-            "serialize_fn should not be None"
-        );
-        assert!(!tokens.contains("find_cartesian"));
-        assert!(
-            !tokens.contains("find_best"),
-            "did not expect legacy find_best in tokens"
-        );
-        assert!(
-            !tokens.contains("SolutionSize :: Invalid"),
-            "did not expect legacy invalid fallback in tokens"
-        );
     }
 
     #[test]

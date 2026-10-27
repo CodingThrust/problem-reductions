@@ -1,12 +1,12 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_kernel_creation() {
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
@@ -22,7 +22,7 @@ fn test_kernel_evaluate_valid() {
     // Kernel: V' = {0, 3} → config [1,0,0,1,0]
     // Independence: no arc between 0 and 3 in either direction
     // Absorption: 1 has arc to 3 (selected), 2 has arc to 3 (selected), 4 has arc to 0 (selected)
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
@@ -38,7 +38,7 @@ fn test_kernel_evaluate_valid() {
 #[test]
 fn test_kernel_evaluate_not_independent() {
     // Select vertices 0 and 1, but there is arc (0,1), so not independent
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
@@ -59,7 +59,7 @@ fn test_kernel_evaluate_not_absorbing() {
     // successors of 3 = {4}, not selected
     // successors of 4 = {0, 1}, 0 is selected → ok for 4
     // But 1,2,3 cannot reach any selected vertex → not absorbing
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
@@ -74,7 +74,7 @@ fn test_kernel_evaluate_not_absorbing() {
 
 #[test]
 fn test_kernel_brute_force() {
-    let graph = DirectedGraph::new(
+    let graph = SimpleDigraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
@@ -95,7 +95,7 @@ fn test_kernel_no_solution() {
     // Wait, let's verify: {0}: successors of 1 = {2}, not selected. Not absorbing.
     // {0,1}: arc (0,1) exists. Not independent.
     // No kernel exists for odd cycles.
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -103,7 +103,7 @@ fn test_kernel_no_solution() {
 
 #[test]
 fn test_kernel_serialization() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = Kernel::new(graph);
     let json = serde_json::to_value(&problem).unwrap();
     let deserialized: Kernel = serde_json::from_value(json).unwrap();
@@ -116,7 +116,7 @@ fn test_kernel_empty_graph() {
     // A graph with no arcs: every vertex is independent; absorption requires
     // every unselected vertex to have an arc to a selected one, but no arcs exist.
     // So the only kernel is the full vertex set (all selected → no unselected vertices to check).
-    let graph = DirectedGraph::new(3, vec![]);
+    let graph = SimpleDigraph::new(3, vec![]);
     let problem = Kernel::new(graph);
     // All selected: independent (no arcs), absorbing (no unselected vertices)
     assert_eq!(
@@ -128,4 +128,18 @@ fn test_kernel_empty_graph() {
         problem.evaluate(&vec![true, false, false]).unwrap(),
         crate::types::Or(false)
     );
+}
+
+#[test]
+fn simple_model_rejects_a_loop_in_construction_and_serde() {
+    assert!(std::panic::catch_unwind(|| {
+        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+        Kernel::new(graph)
+    })
+    .is_err());
+    let error = serde_json::from_value::<Kernel>(serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0,0]]},
+    }))
+    .unwrap_err();
+    assert!(error.to_string().contains("arc (0, 0)"), "{error}");
 }

@@ -147,10 +147,9 @@ fn test_kclique_to_bcbs_bipartite_counterexample() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let bf = BruteForce::new();
-    let witness = bf.solve(target).unwrap();
+    let witness = crate::solvers::ILPSolver::new().solve(target);
     assert!(
-        witness.is_none(),
+        matches!(witness, Err(crate::solvers::ILPSolveError::Infeasible)),
         "K_{{3,3}} has no 3-clique, so target should be unsatisfiable"
     );
 }

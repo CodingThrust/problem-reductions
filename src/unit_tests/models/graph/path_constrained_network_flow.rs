@@ -16,11 +16,11 @@ fn create_spec_defaults_capacities_and_validates_paths() {
     assert_eq!(problem.capacities(), &[1, 1]);
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 fn yes_instance() -> PathConstrainedNetworkFlow {
-    let graph = DirectedGraph::new(
+    let graph = MultiDigraph::new(
         8,
         vec![
             (0, 1),
@@ -125,7 +125,7 @@ fn test_path_constrained_network_flow_serialization() {
 
 #[test]
 fn test_path_constrained_network_flow_rejects_non_contiguous_path() {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let result = std::panic::catch_unwind(|| {
         PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![0, 2]], 1)
     });
@@ -134,7 +134,7 @@ fn test_path_constrained_network_flow_rejects_non_contiguous_path() {
 
 #[test]
 fn test_path_constrained_network_flow_rejects_empty_path() {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let result = std::panic::catch_unwind(|| {
         PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![]], 1)
     });
@@ -143,7 +143,7 @@ fn test_path_constrained_network_flow_rejects_empty_path() {
 
 #[test]
 fn test_path_constrained_network_flow_rejects_path_not_ending_at_sink() {
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let result = std::panic::catch_unwind(|| {
         PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![0, 1]], 1)
     });
@@ -153,7 +153,7 @@ fn test_path_constrained_network_flow_rejects_path_not_ending_at_sink() {
 #[test]
 fn test_path_constrained_network_flow_rejects_path_with_repeated_vertex() {
     // Graph: 0->1, 1->2, 2->1, 1->3 (arcs 0,1,2,3)
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 1), (1, 3)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 2), (2, 1), (1, 3)]);
     let result = std::panic::catch_unwind(|| {
         // Path [0, 1, 2, 3]: 0->1->2->1->3 revisits vertex 1
         PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1, 1], 0, 3, vec![vec![0, 1, 2, 3]], 1)

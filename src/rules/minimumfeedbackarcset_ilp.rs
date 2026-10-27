@@ -78,7 +78,10 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
         // o_v = m + v     (integer: topological order of vertex v)
 
         let mut constraints = Vec::new();
-        let n_i64 = Self::exact_i64(n, "encoding the topological order")?;
+        let n_i64 = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            n,
+            "encoding the topological order",
+        )?;
 
         // Binary bounds: y_a <= 1 for a in 0..m
         for a in 0..m {
@@ -113,12 +116,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
         let mut variables = vec![IntegerVariable::binary(); num_vars];
         variables[m..].fill(
             IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
         );
 
         let target =
             ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
 
         Ok(ReductionFASToILP {
             target,
@@ -129,7 +132,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumfeedbackarcset_to_ilp",
@@ -138,7 +141,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 arcs, 3 vertices: 6 total variables
             // Remove arc 2 (2->0): source_config = [0, 0, 1]
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
-            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+            let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

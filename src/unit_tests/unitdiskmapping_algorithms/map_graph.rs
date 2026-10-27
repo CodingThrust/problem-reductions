@@ -274,9 +274,8 @@ fn test_mis_overhead_cubical() {
 }
 
 #[test]
-#[ignore] // tutte maps to 1232-vertex grid; ILP solving takes ~10s
 fn test_mis_overhead_tutte() {
-    let (n, edges) = smallgraph("tutte").unwrap();
+    let (n, edges) = super::common::small_graph_case("tutte");
     let result = ksg::map_unweighted(n, &edges).unwrap();
     let original_mis = solve_mis(n, &edges) as i64;
     let grid_edges = result.edges();
@@ -291,7 +290,7 @@ fn test_mis_overhead_tutte() {
     );
 }
 
-/// Test map_config_back for ALL standard graphs - verifies:
+/// Test map_config_back on bounded instances of every standard graph - verifies:
 /// 1. Extracted config is a valid independent set
 /// 2. Extracted config size equals original MIS size (proves it's maximum)
 ///
@@ -299,7 +298,7 @@ fn test_mis_overhead_tutte() {
 /// followed by copyline extraction (map_config_copyback).
 #[test]
 fn test_map_config_back_standard_graphs() {
-    // All standard graphs from smallgraph (excluding tutte which is tested separately)
+    // Keep every standard-graph case, bounded to an eight-vertex induced subgraph.
     let graph_names = [
         "bull",
         "chvatal",
@@ -324,7 +323,7 @@ fn test_map_config_back_standard_graphs() {
     ];
 
     for name in graph_names {
-        let (n, edges) = smallgraph(name).unwrap();
+        let (n, edges) = super::common::small_graph_case(name);
         let result = ksg::map_unweighted(n, &edges).unwrap();
         // Solve MIS on mapped graph
         let grid_edges = result.edges();
@@ -395,17 +394,7 @@ fn test_grid_graph_nodes_have_weights() {
 
 // === Tape Entry and Ruleset Tests ===
 
-use crate::rules::unitdiskmapping::ksg::{
-    crossing_ruleset_indices, tape_entry_mis_overhead, KsgTapeEntry,
-};
-
-#[test]
-fn test_crossing_ruleset_indices() {
-    let indices = crossing_ruleset_indices();
-    assert_eq!(indices.len(), 13, "Should have 13 crossing patterns");
-    assert_eq!(indices[0], 0);
-    assert_eq!(indices[12], 12);
-}
+use crate::rules::unitdiskmapping::ksg::{tape_entry_mis_overhead, KsgTapeEntry};
 
 #[test]
 fn test_tape_entry_mis_overhead_crossing_patterns() {

@@ -9,7 +9,7 @@ use crate::models::formula::KSatisfiability;
 use crate::models::graph::Kernel;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
@@ -115,7 +115,7 @@ impl ReduceTo<Kernel> for KSatisfiability<K3> {
         }
 
         Ok(Reduction3SatToKernel {
-            target: Kernel::new(DirectedGraph::new(num_vertices, arcs)),
+            target: Kernel::new(SimpleDigraph::new(num_vertices, arcs)),
             source_num_vars: self.num_vars(),
             source_variables,
         })

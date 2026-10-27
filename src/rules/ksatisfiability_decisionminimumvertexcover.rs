@@ -68,9 +68,9 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
 impl crate::rules::AggregateReductionResult for Reduction3SATToDecisionMVC {}
 
 #[reduction(
-    transform = exact {
-        num_vertices = "2 * num_vars + 3 * num_clauses",
-        num_edges = "num_vars + 6 * num_clauses",
+    transform = {
+        exact { num_vertices = "2 * num_vars + 3 * num_clauses" },
+        upper_bound { num_edges = "num_vars + 6 * num_clauses" },
     }
 )]
 impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiability<K3> {
@@ -101,9 +101,6 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
             // Communication edges: connect triangle vertex k to the literal vertex
             for k in 0..3 {
                 if clause.literals.is_empty() {
-                    // All three clause vertices must be selected, exceeding
-                    // the two-per-clause bound for an empty (false) clause.
-                    edges.push((base + k, base + k));
                     continue;
                 }
                 // Repeating a literal pads a short clause without changing it.
@@ -125,10 +122,18 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
         Ok(Reduction3SATToDecisionMVC {
             target: Decision::new(
                 target,
-                <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
-                    n + 2 * m,
-                    "computing the cover bound",
-                )?,
+                if self
+                    .clauses()
+                    .iter()
+                    .any(|clause| clause.literals.is_empty())
+                {
+                    -1 // No nonnegative vertex-cover size can satisfy an empty clause.
+                } else {
+                    <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
+                        n + 2 * m,
+                        "computing the cover bound",
+                    )?
+                },
             ),
             source_num_vars: n,
         })
