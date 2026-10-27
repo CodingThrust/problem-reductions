@@ -1,14 +1,14 @@
 //! Audit registered variant complexities against the reduction graph.
 //!
-//! For every simple path A -> ... -> B of 1-3 non-Turing hops, substitute the
+//! For every simple path A -> ... -> B of 1-3 witness hops, substitute the
 //! path's composed parameter transform into B's registered complexity. The
 //! result is an upper bound on solving A (plus the polynomial reduction cost).
 //! When that derived bound is strictly smaller in Big-O than A's registered
 //! complexity, either A's entry is stale or a transform along the path is
 //! wrong; the audit reports the shortest such witness for each variant.
 //!
-//! Findings where both bounds are polynomial are listed separately: the
-//! reduction's own running time is not modeled, so they are only suggestive.
+//! The reduction's own running time is not modeled, so a finding whose
+//! registered bound is polynomial is only suggestive.
 //!
 //! cargo run --release --example complexity_consistency_audit
 use problemreductions::expr::Expr;
@@ -25,12 +25,12 @@ struct Finding {
     registered: String,
     derived: String,
     target_complexity: String,
-    polynomial: bool,
 }
 
 #[derive(Default)]
 struct Totals {
     paths: usize,
+    no_complexity: usize,
     uncomposable: usize,
     unknown_growth: usize,
     incomparable: usize,
@@ -45,7 +45,9 @@ fn extend(graph: &ReductionGraph, path: &mut Vec<Node>, found: &mut Vec<Reductio
     }
     let (name, variant) = path.last().expect("non-empty path").clone();
     for edge in graph.outgoing_reductions(&name) {
-        if edge.source_variant != variant || edge.capabilities.turing {
+        // Aggregate-only edges bound a value, not a witness search.
+        if edge.source_variant != variant || edge.capabilities.turing || !edge.capabilities.witness
+        {
             continue;
         }
         let next = (edge.target_name.to_string(), edge.target_variant);
@@ -68,20 +70,15 @@ fn extend(graph: &ReductionGraph, path: &mut Vec<Node>, found: &mut Vec<Reductio
 }
 
 /// The target complexity rewritten in source parameters, if every step composes.
-/// Both exact and upper-bound fields are sound inputs: complexities are monotone.
+///
+/// Substituting upper-bound fields is sound only for a complexity that is
+/// monotone in its parameters. The growth domain analyzes exactly that class
+/// (subtraction widens to addition; anything else is reported unknown), so the
+/// caller skips targets whose own growth is unknown before substituting.
 fn derived_complexity(graph: &ReductionGraph, path: &ReductionPath, target: &str) -> Option<Expr> {
     let composed = graph.compose_path_parameter_transform(path).ok()??;
     let replacements: HashMap<&str, &Expr> = composed.expressions().collect();
     Expr::parse(target).substitute_complete(&replacements).ok()
-}
-
-/// Polynomial iff every exponent is a numeric literal.
-fn is_polynomial(expr: &Expr) -> bool {
-    expr.to_string().split('^').skip(1).all(|exponent| {
-        exponent
-            .trim_start()
-            .starts_with(|c: char| c.is_ascii_digit())
-    })
 }
 
 fn label(step: &ReductionStep) -> String {
@@ -114,9 +111,17 @@ fn main() {
             graph.variant_complexity(&first.name, &first.variant),
             graph.variant_complexity(&last.name, &last.variant),
         ) else {
-            totals.uncomposable += 1;
+            totals.no_complexity += 1;
             continue;
         };
+        if Growth::from_expr(&Expr::parse(target)).failures().is_some() {
+            totals.unknown_growth += 1;
+            *totals
+                .unknown_reasons
+                .entry("target complexity unsupported".into())
+                .or_default() += 1;
+            continue;
+        }
         let Some(derived) = derived_complexity(&graph, &path, target) else {
             totals.uncomposable += 1;
             continue;
@@ -147,7 +152,6 @@ fn main() {
                 totals.violations += 1;
                 let derived_big_o = derived_growth.to_big_o();
                 findings.entry(label(first)).or_default().push(Finding {
-                    polynomial: is_polynomial(&Expr::parse(registered)),
                     path,
                     registered: registered.to_string(),
                     derived: derived_big_o,
@@ -159,46 +163,36 @@ fn main() {
         }
     }
 
-    println!("Complexity consistency audit (paths of 1-{MAX_HOPS} non-Turing hops)");
+    println!("Complexity consistency audit (paths of 1-{MAX_HOPS} witness hops)");
     println!("paths examined:        {}", totals.paths);
     println!("  consistent:          {}", totals.consistent);
     println!("  derived is better:   {}", totals.violations);
     println!("  incomparable Big-O:  {}", totals.incomparable);
     println!("  unknown growth:      {}", totals.unknown_growth);
     println!("  uncomposable:        {}", totals.uncomposable);
+    println!("  no complexity:       {}", totals.no_complexity);
     for (reason, count) in &totals.unknown_reasons {
         println!("    unknown growth, {reason}: {count}");
     }
 
-    let (polynomial, exponential): (Vec<_>, Vec<_>) = findings
-        .iter()
-        .map(|(source, list)| {
-            let best = list
-                .iter()
-                .min_by_key(|f| f.path.steps.len())
-                .expect("non-empty finding list");
-            (source, list.len(), best)
-        })
-        .partition(|(_, _, best)| best.polynomial);
-
-    for (title, group) in [
-        (
-            "Exponential registered bound beaten by a derived bound",
-            exponential,
-        ),
-        (
-            "Polynomial registered bound beaten (reduction cost not modeled)",
-            polynomial,
-        ),
-    ] {
-        println!("\n## {title} ({} variants)", group.len());
-        for (source, count, best) in group {
-            let route: Vec<String> = best.path.steps.iter().map(label).collect();
-            println!("- {source}");
-            println!("    registered: {}", best.registered);
-            println!("    derived:    {}  ({count} witness paths)", best.derived);
-            println!("    via:        {}", route.join(" -> "));
-            println!("    target:     {}", best.target_complexity);
-        }
+    println!(
+        "\n## Registered bound beaten by a derived bound ({} variants)",
+        findings.len()
+    );
+    for (source, list) in &findings {
+        let best = list
+            .iter()
+            .min_by_key(|f| f.path.steps.len())
+            .expect("non-empty finding list");
+        let route: Vec<String> = best.path.steps.iter().map(label).collect();
+        println!("- {source}");
+        println!("    registered: {}", best.registered);
+        println!(
+            "    derived:    {}  ({} witness paths)",
+            best.derived,
+            list.len()
+        );
+        println!("    via:        {}", route.join(" -> "));
+        println!("    target:     {}", best.target_complexity);
     }
 }

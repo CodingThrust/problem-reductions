@@ -5702,7 +5702,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("NonTautology")[
       Given a Boolean formula in DNF $phi = or.big_(j=1)^m D_j$ with $m$ disjuncts over $n$ Boolean variables, where each disjunct $D_j$ is a conjunction of literals, find a truth assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 0$ (i.e., every disjunct is false).
     ][
-    The Non-Tautology problem asks whether a given DNF formula is _not_ a tautology, by finding a falsifying assignment. A disjunct $D_j = ell_1 and dots and ell_k$ is false when at least one of its literals evaluates to false; the formula is false when all disjuncts are false. The problem is coNP-complete in general and closely related to SAT through De Morgan duality: a DNF formula $phi$ is a tautology iff $not phi$ (a CNF formula) is unsatisfiable. Because disjunct width is unbounded, this duality makes it as hard as CNF-SAT, so the best known algorithm is $O^*(2^n)$ exhaustive search.
+    The Non-Tautology problem asks whether a given DNF formula is _not_ a tautology, by finding a falsifying assignment. A disjunct $D_j = ell_1 and dots and ell_k$ is false when at least one of its literals evaluates to false; the formula is false when all disjuncts are false. The problem is coNP-complete in general and closely related to SAT through De Morgan duality: a DNF formula $phi$ is a tautology iff $not phi$ (a CNF formula) is unsatisfiable. Because disjunct width is unbounded, this duality makes it as hard as CNF-SAT: no $O^*((2-epsilon)^n)$ algorithm is known (SETH), and we register $O^*(2^n)$.
 
     *Example.* Consider $phi = #disjuncts.map(fmt-disjunct).join($or$)$ with $n = #n$ variables and $m = #m$ disjuncts. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ falsifies the formula: #disjuncts.enumerate().map(((j, d)) => $D_#(j + 1)$+ " is " + if disjunct-true(d) { "true" } else { "false" }).join(", ").
 
@@ -10965,7 +10965,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Minimum Weight Decoding is a fundamental problem in coding theory. Given a linear code with parity-check matrix $H$, the task is to find the minimum-weight error pattern consistent with a received syndrome. The problem is equivalent to finding the closest codeword to a received word and is central to the hardness of decoding random linear codes.
 
-      Information set decoding achieves much smaller exponents on average over random codes, but these do not bound worst-case instances. In the worst case no algorithm is known beyond enumerating the solution coset $x_0 + ker H$, which takes $O^*(2^(m - "rank"(H))) subset.eq O^*(2^m)$ time.
+      Information set decoding achieves much smaller exponents on average over random codes, but these do not bound worst-case instances. For worst-case instances, let $r = "rank"(H)$. A consistent system has a solution supported on $r$ linearly independent columns, so the optimum has weight at most $r$. Taking the cheaper of enumerating the solution coset $x_0 + ker H$ in $O^*(2^(m - r))$ time and enumerating all $x$ of weight at most $r$ in $O^*(2^(m h(r slash m)))$ time, where $h$ is the binary entropy function, gives $O^*(2^(0.773 m))$ for every $r$; the two costs balance at $r slash m approx 0.2271$.
 
       *Example.* Let $H$ be the #(n)$times$#(m) binary matrix and $s = (#fmt-values(s))$. The optimal config $(#fmt-values(cfg))$ has Hamming weight $#wt$.
 
