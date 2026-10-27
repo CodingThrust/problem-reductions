@@ -241,3 +241,12 @@ fn json_rejects_invalid_instance() {
     )
     .is_err());
 }
+
+#[test]
+fn json_rejects_negative_bound() {
+    // A column count is nonnegative; a negative bound would break the u64 parameter.
+    assert!(serde_json::from_value::<ConsecutiveOnesSubmatrix>(
+        serde_json::json!({"matrix":[[true]],"bound":-1})
+    )
+    .is_err());
+}

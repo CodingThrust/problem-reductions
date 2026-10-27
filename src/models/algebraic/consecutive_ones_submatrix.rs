@@ -84,7 +84,7 @@ impl ConsecutiveOnesSubmatrix {
     ///
     /// # Panics
     ///
-    /// Panics if `bound > n`, or if rows have inconsistent lengths.
+    /// Panics if `bound` is negative or exceeds `n`, or if rows have inconsistent lengths.
     pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
         Self::try_new(matrix, bound).unwrap_or_else(|error| panic!("{error}"))
     }
@@ -97,8 +97,8 @@ impl ConsecutiveOnesSubmatrix {
         if matrix.iter().any(|row| row.len() != n) {
             return Err("all matrix rows must have the same length".into());
         }
-        if !(bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n)) {
-            return Err(format!("bound ({bound}) must be <= number of columns ({n})").into());
+        if !usize::try_from(bound).is_ok_and(|bound| bound <= n) {
+            return Err(format!("bound ({bound}) must be in 0..={n}, the number of columns").into());
         }
         Ok(Self { matrix, bound })
     }
