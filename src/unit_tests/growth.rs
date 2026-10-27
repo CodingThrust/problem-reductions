@@ -207,8 +207,19 @@ fn test_every_registered_complexity_uses_the_shared_analysis() {
         let expression = Expr::parse(entry.complexity);
         let growth = Growth::from_expr(&expression);
         if let Some(rendered) = growth.to_expr() {
+            let reparsed = Growth::from_expr(&rendered);
+            // A rendered upper bound may legitimately re-parse as exact, but an
+            // exact normal form must stay exact.
+            if growth.relation() == Some(ParameterRelation::Exact) {
+                assert_eq!(
+                    reparsed.relation(),
+                    growth.relation(),
+                    "{}",
+                    entry.complexity
+                );
+            }
             assert_eq!(
-                terms_of(&Growth::from_expr(&rendered)),
+                terms_of(&reparsed),
                 terms_of(&growth),
                 "{}: {}",
                 entry.name,
@@ -349,6 +360,33 @@ fn test_growth_relation() {
         );
     }
     assert_eq!(g("2^(2^n)").relation(), None);
+}
+
+/// `log` of a decaying term is large and negative; its growth must bound the
+/// magnitude, so it can neither be dropped from a sum nor vanish under a power.
+#[test]
+fn test_growth_log_of_decaying_term_bounds_magnitude() {
+    assert_eq!(terms_of(&g("log(exp(-n))")), terms_of(&g("n")));
+    assert_eq!(terms_of(&g("log(exp(-n))^2")), terms_of(&g("n^2")));
+    assert_eq!(terms_of(&g("log(2^n * 3^(-m))")), terms_of(&g("n + m")));
+    for source in [
+        "n + log(exp(-n)) + 1",
+        "n^2 + n*log(exp(-n))",
+        "log(n) + log(exp(-log(n)))",
+        "n^(1/2) + log(exp(-(n^(1/2))))",
+        "n + log(exp(-n))^2",
+    ] {
+        assert_eq!(
+            g(source).relation(),
+            Some(ParameterRelation::UpperBound),
+            "{source}"
+        );
+    }
+    // A dominated decaying logarithm still leaves the sum exact.
+    assert_eq!(
+        g("n^2 + log(exp(-n))").relation(),
+        Some(ParameterRelation::Exact)
+    );
 }
 
 /// Stirling: `n! ≍ n^(n+1/2)·e^(−n)`, strictly between `(n/e)^n` and `n^n`.
@@ -880,7 +918,16 @@ fn gen_expr(rng: &mut SplitMix64, depth: u32, config: GenConfig) -> Expr {
             gen_exponential_base(rng, exponential_bases),
             gen_linear(rng),
         ),
-        96..=97 => Expr::exp(gen_var(rng)),
+        96 => Expr::exp(gen_var(rng)),
+        // Signed shapes: a subtracted lower-order term (exact through the
+        // dominance rule) and the negative logarithm of a decaying term. The
+        // numeric harness cannot witness an undominated decaying logarithm —
+        // `exp(-x)` underflows f64 past `x ≈ 745` — so that case is pinned by
+        // `test_growth_log_of_decaying_term_bounds_magnitude`.
+        97 => match rng.below(2) {
+            0 => gen_var(rng) * gen_var(rng) - gen_var(rng),
+            _ => Expr::log(Expr::exp(Expr::integer(0) - gen_linear(rng))),
+        },
         98 => match rng.below(3) {
             0 => Expr::pow(
                 gen_exponential_base(rng, exponential_bases),

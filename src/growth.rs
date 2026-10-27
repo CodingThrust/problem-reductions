@@ -31,7 +31,9 @@
 //! asymptotic statements quantify over all variables growing together
 //! (`∃N: ∀ vars ≥ N`). Under these axioms `f + g ≍ max(f, g)` up to a constant
 //! factor, which licenses `add = antichain union + prune`. Every known growth is
-//! an **upper** bound; [`Growth::relation`] reports
+//! an **upper** bound on the expression's magnitude, including subexpressions
+//! that are negative (a subtracted summand, `log` of a decaying term);
+//! [`Growth::relation`] reports
 //! [`ParameterRelation::Exact`] when it is also a lower bound (`f = Θ(growth)`)
 //! and [`ParameterRelation::UpperBound`] when any step below widened it.
 //!
@@ -1140,8 +1142,8 @@ fn known(terms: Vec<GrowthTerm>, relation: ParameterRelation) -> Growth {
 }
 
 /// Antichain union (asymptotic `+ ≍ max`). The sum stays exact when every
-/// widened summand is strictly dominated by an exact one: a widened summand,
-/// even a subtracted one, is then `o` of the exact part.
+/// widened summand is strictly dominated by an exact one: growths bound
+/// magnitudes, so a widened summand, even a negative one, is `o` of the exact part.
 fn add(a: Growth, b: Growth) -> Growth {
     if a.failures().is_some() || b.failures().is_some() {
         return merge_unknown(a, b);
@@ -1229,18 +1231,17 @@ fn log_is_exact(t: &GrowthTerm) -> bool {
 }
 
 /// `log` of a single term, returned as its own (small) antichain of summands:
-/// `ln exp(Σ w · atom) = Σ w · atom`, so every atom with a possibly positive
-/// weight contributes the growth of the atom itself. None may be dropped (e.g.
+/// `|ln exp(Σ w · atom)| ≤ Σ |w| · atom`, so every atom contributes the growth
+/// of the atom itself, whatever its sign: a decaying term has a large negative
+/// logarithm (`log(exp(-n)) = -n`), and growths bound magnitudes so that sums
+/// and powers stay sound. Dominated summands are pruned. None may be dropped (e.g.
 /// `log(2^n·m)` is `n + log m`, not `n`); `prune` then collapses
 /// any dominated summands (so `log(2^n·n^2)` reduces back to `n`). `ln ln ln v`
 /// widens to `ln ln v`.
 fn log_term(t: &GrowthTerm) -> Vec<GrowthTerm> {
     let one = BigRational::one();
     let mut out = Vec::new();
-    for (atom, weight) in &t.atoms {
-        if matches!(weight_sign(weight), Sign::Negative | Sign::Zero) {
-            continue;
-        }
+    for atom in t.atoms.keys() {
         out.push(match atom {
             Atom::Mono(monomial) => GrowthTerm::from_atoms(monomial.iter().flat_map(
                 |(variable, (power, log_power))| {
