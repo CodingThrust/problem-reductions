@@ -1662,17 +1662,6 @@ fn apply_gadget_boxed(pattern: &dyn KsgPatternBoxed, grid: &mut MappingGrid, i: 
     }
 }
 
-/// Apply a boxed gadget pattern at position (i, j) with proper weights.
-#[allow(dead_code)]
-fn apply_weighted_gadget_boxed_fn(
-    pattern: &dyn KsgPatternBoxed,
-    grid: &mut MappingGrid,
-    i: usize,
-    j: usize,
-) {
-    pattern.apply_weighted_gadget_boxed(grid, i, j);
-}
-
 /// Trait for boxed pattern operations.
 pub trait KsgPatternBoxed {
     fn size_boxed(&self) -> (usize, usize);

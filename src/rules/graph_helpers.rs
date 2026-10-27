@@ -2,7 +2,7 @@
 
 use crate::topology::{Graph, SimpleGraph};
 
-/// Extract a Hamiltonian cycle vertex ordering from edge-selection configs on complete graphs.
+/// Extract a Hamiltonian cycle vertex ordering from edge-selection configurations.
 ///
 /// Given a graph and a binary `target_solution` over its edges (1 = selected),
 /// walks the selected edges to produce a vertex permutation representing the cycle.
@@ -78,6 +78,16 @@ pub(crate) fn edges_to_cycle_order<G: Graph>(
     }
 
     Ok(order)
+}
+
+pub(crate) fn unique_undirected_edges(
+    edges: impl IntoIterator<Item = (usize, usize)>,
+) -> Vec<(usize, usize)> {
+    let mut seen = std::collections::HashSet::new();
+    edges
+        .into_iter()
+        .filter(|&(u, v)| seen.insert((u.min(v), u.max(v))))
+        .collect()
 }
 
 /// Build the complement graph edges: edges between all non-adjacent vertex pairs.

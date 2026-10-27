@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/native-exports",
+  "title": "NativeExports",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "graph",
+    "schemas"
+  ],
+  "properties": {
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "edges",
+        "aliases"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "variant",
+              "default",
+              "parameter_names",
+              "category",
+              "doc_path",
+              "complexity"
+            ],
+            "properties": {
+              "name": {
+                "$ref": "#/$defs/Name"
+              },
+              "variant": {
+                "type": "object",
+                "propertyNames": {
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "default": {
+                "type": "boolean"
+              },
+              "parameter_names": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "category": {
+                "$ref": "#/$defs/Category"
+              },
+              "doc_path": {
+                "$ref": "#/$defs/DocPath"
+              },
+              "complexity": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "target",
+              "witness",
+              "turing",
+              "parameter_contract_error",
+              "parameters",
+              "aggregate",
+              "doc_path"
+            ],
+            "properties": {
+              "source": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "target": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "witness": {
+                "type": "boolean"
+              },
+              "turing": {
+                "type": "boolean"
+              },
+              "parameter_contract_error": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Parameter"
+                }
+              },
+              "aggregate": {
+                "type": "boolean"
+              },
+              "doc_path": {
+                "$ref": "#/$defs/DocPath"
+              }
+            }
+          }
+        },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "category",
+          "fields",
+          "module_path"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/Name"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "category": {
+            "$ref": "#/$defs/Category"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Field"
+            }
+          },
+          "module_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Name": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "Category": {
+      "type": "string",
+      "enum": [
+        "graph",
+        "formula",
+        "set",
+        "algebraic",
+        "misc"
+      ]
+    },
+    "Field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type_name",
+        "description"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "DocPath": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\\.html$"
+    },
+    "Parameter": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "contract",
+            "formula",
+            "reason"
+          ],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contract": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "upper_bound"
+              ]
+            },
+            "formula": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reason": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "contract",
+            "formula",
+            "reason"
+          ],
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contract": {
+              "type": "string",
+              "const": "unavailable"
+            },
+            "formula": {
+              "type": "null"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -75,11 +75,6 @@ impl TryFrom<MultipleCopyFileAllocationCreateSpec> for MultipleCopyFileAllocatio
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
-        for &(u, v) in &spec.graph {
-            if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed").into());
-            }
-        }
         let inferred = spec
             .graph
             .iter()
@@ -93,7 +88,7 @@ impl TryFrom<MultipleCopyFileAllocationCreateSpec> for MultipleCopyFileAllocatio
             return Err("num_vertices is too small for graph endpoints".into());
         }
         Self::try_new(
-            SimpleGraph::new(count, spec.graph),
+            SimpleGraph::try_new(count, spec.graph)?,
             spec.usage,
             spec.storage,
         )

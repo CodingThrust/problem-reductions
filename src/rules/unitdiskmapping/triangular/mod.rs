@@ -24,11 +24,5 @@ pub use gadgets::{
 };
 pub use mapping::{
     map_config_back, map_unit_weights, map_weighted, map_weighted_with_method,
-    map_weighted_with_order,
+    map_weighted_with_order, PADDING, SPACING,
 };
-
-/// Spacing between copy lines for triangular mapping.
-pub const SPACING: usize = 6;
-
-/// Padding around the grid for triangular mapping.
-pub const PADDING: usize = 2;

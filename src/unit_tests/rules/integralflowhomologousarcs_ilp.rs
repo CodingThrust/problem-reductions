@@ -3,14 +3,14 @@ use crate::models::algebraic::Bounded;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_integralflowhomologousarcs_to_ilp_closed_loop() {
     // 4 vertices, arcs (0,1),(0,2),(1,3),(2,3), caps all 2, req 2, pair (0,1)
     let source = IntegralFlowHomologousArcs::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
         vec![2, 2, 2, 2],
         0,
         3,
@@ -37,7 +37,7 @@ fn test_integralflowhomologousarcs_to_ilp_closed_loop() {
 #[test]
 fn test_integralflowhomologousarcs_to_ilp_bf_vs_ilp() {
     let source = IntegralFlowHomologousArcs::new(
-        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
         vec![2, 2, 2, 2],
         0,
         3,
@@ -53,7 +53,7 @@ fn test_integralflowhomologousarcs_to_ilp_bf_vs_ilp() {
 fn test_flow_requirement_normalization_preserves_feasibility() {
     for requirement in [i64::MIN, 0, 1, 2, i64::MAX] {
         let source = IntegralFlowHomologousArcs::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            MultiDigraph::new(2, vec![(0, 1)]),
             vec![1],
             0,
             1,

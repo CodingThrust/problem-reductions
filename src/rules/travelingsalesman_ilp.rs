@@ -36,47 +36,49 @@ impl ReductionResult for ReductionTSPToILP {
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        crate::rules::traits::validate_target_witness(
+            self.target_problem(),
+            target_solution,
+            |value| value.is_valid(),
+            "target ILP assignment is infeasible",
+        )?;
 
-        Ok({
-            let n = self.num_vertices;
+        let n = self.num_vertices;
 
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
+        let tour = one_hot_decode(target_solution, n, n, 0)?;
 
-            // Map tour to edge selection
-            let mut edge_selection = vec![false; self.source_edges.len()];
-            for k in 0..n {
-                let u = tour[k];
-                let v = tour[(k + 1) % n];
-                let edge = self
-                    .source_edges
-                    .iter()
-                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target tour uses absent source edge ({u}, {v})"
-                        ))
-                    })?;
-                edge_selection[edge] = true;
-            }
+        // Map tour to edge selection
+        let mut edge_selection = vec![false; self.source_edges.len()];
+        for k in 0..n {
+            let u = tour[k];
+            let v = tour[(k + 1) % n];
+            let edge = self
+                .source_edges
+                .iter()
+                .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
+                .ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(format!(
+                        "target tour uses absent source edge ({u}, {v})"
+                    ))
+                })?;
+            edge_selection[edge] = true;
+        }
 
-            edge_selection
-        })
+        Ok(edge_selection)
     }
 }
 
 // Assignment contributes 2n rows and 2n² coefficients. Absent ordered pairs
 // contribute at most n²(n-1) rows with two coefficients each. The 2nm products
-// each contribute three rows and at most seven normalized coefficients.
-// Edge occurrences cannot be subtracted from absent pairs: duplicates and
-// loops increase m without removing distinct non-loop pairs.
+// each contribute three rows and at most seven normalized coefficients. For
+// n < 3, one empty contradictory row replaces the tour constraints.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_constraints = "num_vertices^2 * (num_vertices - 1) + 2 * num_vertices + 6 * num_vertices * num_edges",
+        num_constraints = "num_vertices^2 * (num_vertices - 1) + 2 * num_vertices + 6 * num_vertices * num_edges + 1",
         num_nonzeros = "2 * num_vertices^3 + 14 * num_vertices * num_edges",
     },
 })]
@@ -84,15 +86,10 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTSPToILP;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let n = self.graph().num_vertices();
         let graph = self.graph();
-        let edges_with_weights = self.edges();
-        let source_edges: Vec<(usize, usize)> =
-            edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
-        let edge_weights: Vec<i64> = edges_with_weights
-            .iter()
-            .map(|&(_, _, weight)| weight)
-            .collect();
+        let n = graph.num_vertices();
+        let source_edges = graph.edges();
+        let edge_weights = self.weights();
         let m = source_edges.len();
 
         // Variable layout:
@@ -104,6 +101,21 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
         let num_x = n * n;
         let num_y = 2 * m * n;
         let num_vars = num_x + num_y;
+
+        if n < 3 {
+            let target = ILP::new(
+                num_vars,
+                vec![LinearConstraint::eq(vec![], 1)],
+                vec![],
+                ObjectiveSense::Minimize,
+            )
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
+            return Ok(ReductionTSPToILP {
+                target,
+                num_vertices: n,
+                source_edges,
+            });
+        }
 
         let x_idx = |v: usize, k: usize| -> usize { v * n + k };
         let y_idx =

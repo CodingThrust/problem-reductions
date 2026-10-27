@@ -269,6 +269,7 @@
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
+  "DecisionILP": [Binary Decision Integer Linear Programming],
   "IntegerKnapsack": [Integer Knapsack],
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
@@ -819,7 +820,7 @@ Turing reductions allow multiple adaptive queries, such as binary search over a 
 
 == Notation
 
-We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. A _clique_ in $G$ is a subset $K subset.eq V$ where every pair of distinct vertices is adjacent: $(u, v) in E$ for all distinct $u, v in K$. A _unit disk graph_ is a graph where vertices are points on a 2D lattice and $(u, v) in E$ iff $d(u, v) <= r$ for some radius $r$; a _King's subgraph_ uses the 8-connectivity square grid with $r approx 1.5$. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
+We use the following notation throughout. A _simple undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. Undirected inputs are simple unless a problem definition explicitly allows self-loops or parallel edges. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. A _clique_ in $G$ is a subset $K subset.eq V$ where every pair of distinct vertices is adjacent: $(u, v) in E$ for all distinct $u, v in K$. A _unit disk graph_ is a graph where vertices are points on a 2D lattice and $(u, v) in E$ iff $d(u, v) <= r$ for some radius $r$; a _King's subgraph_ uses the 8-connectivity square grid with $r approx 1.5$. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
 = Problem Definitions <sec:problems>
 
@@ -2209,7 +2210,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let path-arcs = range(path-order.len() - 1).map(i => (path-order.at(i), path-order.at(i + 1)))
   [
     #problem-def("DirectedHamiltonianPath")[
-      Given a directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
+      Given a simple directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
     ][
       A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39) @garey1979. The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes. Directed Hamiltonian paths arise naturally in genome assembly (finding Eulerian or Hamiltonian traversals of de Bruijn graphs), job sequencing with precedence constraints, and one-way street routing.
 
@@ -2271,7 +2272,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let in-kernel(k) = x.optimal_config.at(k)
   [
     #problem-def("Kernel")[
-      Given a directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
+      Given a simple directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
     ][
       A classical graph-theoretic concept introduced by von Neumann and Morgenstern @vonNeumannMorgenstern1944 in the context of game theory. Chvátal showed that deciding whether a directed graph has a kernel is NP-complete in general @chvatal1973, though Richardson proved that every DAG has a unique kernel @richardson1953. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem on list-chromatic index @galvin1995), and stable set problems on digraphs.
 
@@ -2574,7 +2575,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let p5 = (1, 4, 7, 9)
   [
     #problem-def("PathConstrainedNetworkFlow")[
-      Given a directed graph $G = (V, A)$, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$. Parallel arcs have separate capacities and identities in the prescribed paths; self-loops cannot occur in these simple paths and therefore carry no path flow.
     ][
       Path-Constrained Network Flow appears as problem ND34 in Garey \& Johnson @garey1979. Unlike ordinary single-commodity flow, the admissible routes are fixed in advance: every unit of flow must be assigned to one of the listed $s$-$t$ paths. This prescribed-path viewpoint is standard in line planning and unsplittable routing, and Büsing and Stiller give a modern published NP-completeness and inapproximability treatment for exactly this integral formulation @busingstiller2011.
 
@@ -3154,7 +3155,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("BottleneckTravelingSalesman")[
-      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
+      Given a simple undirected graph $G=(V,E)$, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
     ][
     This min-max variant models routing where the worst leg matters more than the total distance. Garey and Johnson list the threshold decision version as ND24 @garey1979: given a bound $B$, ask whether some Hamiltonian tour has every edge weight at most $B$. The optimization version implemented here subsumes that decision problem. The classical Held--Karp dynamic programming algorithm still yields an exact $O(n^2 dot 2^n)$-time algorithm @heldkarp1962, while Garey and Johnson note the polynomial-time special case of Gilmore and Gomory @gilmore1964.
 
@@ -3244,7 +3245,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   })
   [
     #problem-def("TravelingSalesman")[
-      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
+      Given a simple undirected graph $G=(V,E)$, with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
     ][
     One of the most intensely studied NP-hard problems, with applications in logistics, circuit board drilling, and DNA sequencing. The best known exact algorithm runs in $O^*(2^n)$ time and space via Held-Karp dynamic programming @heldkarp1962. No $O^*((2-epsilon)^n)$ algorithm is known, and improving the exponential space remains open.
 
@@ -3373,7 +3374,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("StrongConnectivityAugmentation")[
-      Given a directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
+      Given a simple directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected. Candidate arcs have distinct endpoints.
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
@@ -3770,7 +3771,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let blue = graph-colors.at(0)
   [
     #problem-def("MinimumDummyActivitiesPert")[
-      Given a precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+      Given a simple precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
     ][
     The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
 
@@ -3821,7 +3822,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
-      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG). A vertex with a self-loop must belong to $S$; parallel arcs do not change which vertex sets break every cycle.
     ][
     One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
 
@@ -5100,6 +5101,30 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 
+#problem-def("DecisionILP")[
+  Given a binary integer linear program with integer coefficients, a minimization
+  or maximization sense, and an integer bound $b$, find $x in {0,1}^n$ satisfying
+  all constraints and $c^top x <= b$ for minimization, or $c^top x >= b$ for maximization.
+][
+  This is the objective-threshold form of binary ILP. Binary adders translate its
+  pseudo-Boolean constraints to SAT @een2006. Exhaustive enumeration takes
+  $O^*(2^n)$ time; this is the registered reference bound, not a claim of a tight
+  best-known SAT solving bound. The registered SAT reduction answers a fixed
+  objective-threshold query; no reverse ILP-to-DecisionILP edge is registered.
+
+  *Example.* #let x = load-model-example("DecisionILP")
+  Select exactly one of #x.instance.inner.variables.len() variables and minimize
+  the objective with coefficients
+  #x.instance.inner.objective.map(t => str(t.at(1))).join(", ").
+  At bound #x.instance.bound, the witness
+  $(#fmt-values(x.optimal_config))$ has objective #x.instance.bound and meets the bound.
+  #pred-commands(
+    "pred create --example " + problem-spec(x) + " -o x.json",
+    "pred solve x.json",
+    "pred evaluate x.json --config " + cli-config(x.optimal_config),
+  )
+]
+
 #{
   let x = load-model-example("QuadraticAssignment")
   let C = x.instance.cost_matrix
@@ -5368,6 +5393,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       Given a list of pairs $(a_i, b_i)$ with $b_i > 0$ and $1 <= a_i <= b_i$ for $i = 1, dots, n$, determine whether there exists a non-negative integer $x$ such that $x equiv.not a_i space (mod space b_i)$ for all $i$.
     ][
       Simultaneous Incongruences is an NP-complete problem @garey1979. It asks whether the complement of a system of congruences — a _covering system_ — can be simultaneously avoided. A _covering system_ is a finite collection of congruences $\{a_i space (op("mod") space b_i)\}$ that covers every integer; when the system is a covering system there is no valid $x$ and the instance is a "no" instance. The problem generalises checking whether a given set of congruences is a covering system, which has connections to Erdős's covering conjecture and sieve methods in analytic number theory.
+
+      Exhaustive search tests the $L = op("lcm")(b_1, dots, b_n)$ candidates in one full period, checking at most $n$ incongruences per candidate. With `lcm_bits` $= floor(log_2 L) + 1$, the catalog bound is $O((n+1) 2^"lcm_bits")$, counting fixed-width arithmetic operations. The period can be exponential in the binary input length, so this is not a polynomial-time algorithm.#footnote[The catalog records exhaustive search; a better general exact bound has not been independently verified from the literature.]
 
       *Example.* Let $n = #pairs.len()$ with pairs #pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "). The full period is $L = op("lcm")(#fmt-values(moduli)) = #lcm-val$. We test $x = #xval$:
 
@@ -7159,7 +7186,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
+      Given a mixed graph $G = (V, A, E)$, possibly containing self-loops, parallel arcs, and parallel undirected edges, with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length. Each parallel arc or edge is a distinct traversal obligation; a self-loop must also be traversed and contributes its length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
@@ -8651,7 +8678,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let removed = range(na).filter(i => config.at(i))
   [
     #problem-def("MinimumFeedbackArcSet")[
-      Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$. Every self-loop must be deleted; parallel arcs are distinct deletion choices.
     ][
       Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
@@ -8732,7 +8759,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let chosen = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MultipleChoiceBranching")[
-      Given a directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
+      Given a simple directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
     ][
       Multiple Choice Branching is the directed-graph problem ND11 in Garey & Johnson @garey1979. The partition constraint turns the polynomial-time maximum branching setting into an NP-complete decision problem: Garey and Johnson note that the problem remains NP-complete even when the digraph is strongly connected and all weights are equal, while the special case in which every partition group has size 1 reduces to ordinary maximum branching and becomes polynomial-time solvable @garey1979.
 
@@ -8787,7 +8814,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cross-arcs = arcs.filter(a => config.at(a.at(0)) != config.at(a.at(1)))
   [
     #problem-def("AcyclicPartition")[
-      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
+      Given a simple directed graph $G = (V, A)$, with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
     ][
       Acyclic Partition is the directed partitioning problem ND15 in Garey & Johnson @garey1979. Unlike ordinary graph partitioning, the goal is not merely to minimize the cut: the partition must preserve a global topological order after every part is contracted to a super-node. This makes the model a natural abstraction for DAG-aware task clustering in compiler scheduling, parallel execution pipelines, and automatic differentiation systems where coarse-grained blocks must still communicate without creating cyclic dependencies.
 
@@ -10098,7 +10125,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let requirement = x.instance.requirement
   [
     #problem-def("IntegralFlowHomologousArcs")[
-      Given a directed graph $G = (V, A)$ with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$. Parallel arcs have separate capacities and identities in $H$; self-loop flow contributes zero net flow but remains subject to capacity and homologous-pair constraints.
     ][
       Integral Flow with Homologous Arcs is the single-commodity equality-constrained flow problem listed as ND35 in Garey & Johnson @garey1979. Their catalog records the NP-completeness result attributed to Sahni and notes that the unit-capacity restriction remains hard, while the corresponding non-integral relaxation is polynomial-time equivalent to linear programming @garey1979.
 
@@ -10215,7 +10242,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let c2-arcs = range(m).filter(i => f2.at(i) > 0)
   [
     #problem-def("DirectedTwoCommodityIntegralFlow")[
-      Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$. Parallel arcs have separate shared capacities; a self-loop contributes equally to inflow and outflow for each commodity.
     ][
       Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
 
@@ -10284,7 +10311,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cost = metric-value(x.optimal_value)
   [
     #problem-def("MinimumEdgeCostFlow")[
-      Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow. Parallel arcs have separate capacities and prices; a used self-loop contributes zero net flow but incurs its price.
     ][
       Minimum Edge-Cost Flow is an NP-hard network design problem that arises in telecommunications and logistics, where there is a fixed cost (price) for activating each link, independent of the actual traffic volume. Unlike the classical minimum-cost flow problem (where cost is proportional to flow), the edge-cost variant introduces a combinatorial selection aspect: choosing which arcs to activate. The problem is closely related to fixed-charge network flow problems @garey1979.
 
@@ -10367,7 +10394,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let flow = x.optimal_config
   [
     #problem-def("MinimumCostMaximumFlow")[
-      Given a directed graph $G = (V, A)$ with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$. Parallel arcs have separate capacities and costs; self-loop flow contributes zero net flow but incurs its arc cost.
     ][
       Minimum-Cost Maximum-Flow is the standard lexicographic combination underlying network design and routing applications. The continuous version is polynomial-time solvable via successive-shortest-paths or network-simplex algorithms (see, e.g., the MIT 6.854 lecture notes @mit6854MinCostFlow); when capacities and costs are integral, the totally-unimodular constraint matrix guarantees an integral optimum, so restricting $f$ to integers does not change the optimal value. This formulation is the optimization target adopted by the CellRouter pipeline for single-cell trajectory reconstruction @LummertzDaRocha2018CellRouter, where the lexicographic objective first commits maximum biological throughput between progenitor and target cell states and then chooses the cheapest realization of that throughput.
 
@@ -10421,7 +10448,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sink = x.instance.sink
   [
     #problem-def("IntegralFlowBundles")[
-      Given a directed graph $G = (V, A)$, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$. Parallel arcs are distinct members of bundles; flow on a self-loop consumes bundle capacity but contributes zero net flow.
     ][
       Integral Flow with Bundles is the shared-capacity single-commodity flow problem listed as ND36 in Garey \& Johnson @garey1979. Sahni introduced it as one of a family of computationally related network problems and showed that the bundled-capacity variant is NP-complete even in a very sparse unit-capacity regime @sahni1974.
 
@@ -10502,7 +10529,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let config = x.optimal_config
   [
     #problem-def("IntegralFlowWithMultipliers")[
-      Given a directed graph $G = (V, A)$, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+      Given a directed graph $G = (V, A)$, possibly containing self-loops and parallel arcs, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$. Parallel arcs have separate capacities; flow on a self-loop contributes to both the inflow and the outflow in the multiplier equation.
     ][
       Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
 
@@ -12033,6 +12060,333 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
+== Direct Ordering, Scheduling, and Assignment QUBOs
+
+The following constructions apply the integer penalty method @glover2019 @lucas2014 directly, without an intermediate ILP. Write the expanded source objective as $f(x) = c + sum_(a <= b) q_(a b) x_a x_b$, after combining coefficients. Set $L = c + sum_(a <= b) min(0, q_(a b))$, $U = c + sum_(a <= b) max(0, q_(a b))$, and $P = U - L + 1$. For the nonnegative integer violation sum $g$ defined in each rule, expand $F = f + P g$ and store its nonconstant terms as QUBO energy $E = F - C$.
+
+A source witness has $g = 0$, so its energy lies in $[L-C,U-C]$ and adding $C$ recovers its objective. Conversely, any invalid assignment has $g >= 1$, hence $F >= L+P > U$. Thus every target minimum in the interval decodes to a source optimum; a minimum outside it maps to `Min(None)`. This also handles infeasible precedence systems. For feasibility rules use $f = 0$, $P = 1$, and DecisionQUBO bound $-C$; completed `Or` values map identically. Every decoder first validates the target witness and its energy certificate. Coefficients, constants, and energy bounds use checked integer arithmetic; unrepresentable encodings return an overflow error.
+
+#let direct-qubo-commands(source, target, source-variant: none) = {
+  let data = load-example(source, target, source-variant: source-variant)
+  let solution = data.solutions.at(0)
+  pred-commands(
+    "pred create --example " + rule-spec(data) + " -o source.json",
+    "pred path " + problem-spec(data.source) + " " + problem-spec(data.target) + " --limit all --quiet --json | jq ' .paths[] | select(.steps == 1)' > route.json",
+    "pred reduce source.json --via route.json -o bundle.json",
+    "pred solve bundle.json",
+    "pred evaluate source.json --config " + cli-config(solution.source_config),
+  )
+}
+
+#reduction-rule("SequencingToMinimizeWeightedCompletionTime", "QUBO", example: true,
+  extra: [#direct-qubo-commands("SequencingToMinimizeWeightedCompletionTime", "QUBO")],
+)[
+  Weighted completion sequencing has a direct QUBO on $n(n-1)/2$ comparison bits, including signed processing times and weights.
+][
+  _Construction._ For $i<j$, let $x_(i j)=1$ mean task $i$ precedes task $j$. With processing times $p_i$ and weights $w_i$, use
+  $ f = sum_i p_i w_i + sum_(i<j) (p_j w_i + (p_i w_j-p_j w_i)x_(i j)). $
+  For each $i<j<k$, add $x_(i k)+x_(i j)x_(j k)-x_(i j)x_(i k)-x_(j k)x_(i k)$ to $g$. It is one for either directed triangle and zero otherwise. A precedence $(a,b)$ adds $1-x_(a b)$ when $a<b$, $x_(b a)$ when $a>b$, and one when $a=b$.
+
+  _Correctness._ A legal order gives no directed triangles and satisfies every precedence. Each task contributes its own processing time times its weight, and each earlier task contributes its processing time times the later task's weight, yielding $f$. Conversely, a tournament with no directed triangle is transitive: a shortest longer directed cycle has a chord producing a shorter directed cycle. Its unique order satisfies all zero-penalty precedences. The shared penalty bound separates all invalid bitstrings, including cyclic precedence instances.
+
+  _Source arithmetic._ Before expansion, bound every elapsed-time prefix by the sums of negative and positive processing times. For each task, include its own duration in the completion-time bounds, multiply both endpoints by its weight, then bound all partial objective sums by the sums of negative minima and positive maxima. Reject bounds outside `i64`; algebraic cancellation must not hide source evaluation overflow.
+
+  _Extraction and size._ Count incoming arcs to obtain each task's rank and invert these ranks to an ordered task list. There are exactly $n(n-1)/2$ bits and at most $3 binom(n,3)$ couplings: each triple supplies three pairs of comparison bits, while precedences are linear. The canonical example orders the highest-weight unit jobs first; its source and target witnesses are shown below.
+]
+
+#reduction-rule("MaximumLikelihoodRanking", "QUBO", example: true,
+  extra: [#direct-qubo-commands("MaximumLikelihoodRanking", "QUBO")],
+)[
+  Maximum likelihood ranking reduces directly to a comparison-bit QUBO with $n(n-1)/2$ variables.
+][
+  _Construction._ Use the preceding tournament bits and triangle penalties, with no precedence penalties. For comparison matrix $M$, set
+  $ f = sum_(i<j) (M_(i j)+(M_(j i)-M_(i j))x_(i j)). $
+  _Correctness._ A ranking defines an acyclic tournament, and each unordered pair contributes the matrix entry from the later-ranked item to the earlier-ranked item. Conversely, zero triangle penalties yield a total order, and substituting its comparisons into $f$ gives exactly the ranking cost. The shared penalty lemma applies even to negative matrix entries.
+  _Extraction and size._ Return each item's incoming-arc count as its rank, without inverting the vector. There are exactly $n(n-1)/2$ bits and at most $3 binom(n,3)$ couplings. Every source instance has a ranking; cyclic target tournaments are rejected by the certificate.
+]
+
+#reduction-rule("MinimumTardinessSequencing", "QUBO", example: true,
+  example-source-variant: (weight: "One"),
+  extra: [
+    #direct-qubo-commands("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "One"))
+    #direct-qubo-commands("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "i64"))
+  ],
+)[
+  The unit-processing-time (`One`) variant has a direct QUBO on $n^2$ task-position bits.
+][
+  _Construction._ Let $x_(i p)$ select position $p$ for task $i$, with zero-based positions. Add squared one-hot penalties for every row and every column. For each precedence $(a,b)$ add every product $x_(a p)x_(b q)$ with $p>=q$, reducing squared bits to linear terms even for self precedences. The objective is $f = sum_(i,p: p+1>d_i) x_(i p)$, where $d_i$ is the task deadline.
+  _Correctness._ A valid schedule activates a permutation matrix, violates no precedence, and contributes one precisely for each late job. Conversely, zero row and column penalties yield a permutation; zero precedence products force the required strict ordering. Its objective is the number of late jobs. The penalty bound detects cycles and self precedences as infeasible sources.
+  _Extraction and size._ Read each task's selected position and invert to the ordered task list. Exactly $n^2$ bits are used, with at most $n^2(n^2-1)/2$ off-diagonal terms. The canonical schedule meets all deadlines.
+
+  _Positive integer lengths._ The `i64` constructor requires strictly positive lengths, but accepts signed deadlines. Set $H=sum_i p_i$ and use choices $t=0,dots,H-p_i$ per task. Add one-hot row squares and conflicts between overlapping selected intervals, plus every precedence pair whose starts satisfy $t>=u$ (a self precedence penalizes every selected row bit). The objective charges one exactly when $t+p_i>d_i$. With $U$ the sum of all choice costs, use $P=U+1$.
+
+  _Correctness for integer lengths._ ($arrow.r.double$) Prefix starts of any legal permutation fit the horizon, have zero penalties, and give its exact late-task count. ($arrow.l.double$) A zero-penalty selection consists of nonoverlapping intervals of total duration $H$ inside $[0,H]$, so they fill the horizon without gaps. Sorting starts reconstructs the exact source completion times and respects all precedences. Invalid selections cost more than $U$; an infeasible source therefore recovers `Min(None)`. Source elapsed-time prefixes fit the checked positive total $H$.
+
+  _Integer extraction and size._ Validate the energy interval, decode starts and sort to an order. Exactly $S=sum_i(H-p_i+1)$ bits and at most $S(S-1)/2$ couplings are used. For processing magnitude bits $h$, $S<=n^2 2^h$. The registry reports unavailable size transforms because its expression contract permits only constant integer exponents. This is pseudopolynomial in processing times; it can exceed binary-time alternatives. A simple construction enumerates $O((1+q)S^2)$ conflict candidates for $q$ precedences, plus sparse accumulation costs.
+
+  *Integer example.* #let weighted = load-example("MinimumTardinessSequencing", "QUBO", source-variant: (weight: "i64"))
+  Lengths #repr(weighted.source.instance.lengths), deadlines #repr(weighted.source.instance.deadlines), and order #repr(weighted.solutions.at(0).source_config) give completions 1, 2, 4 and one late task. The target has #weighted.target.instance.num_vars variables.
+
+]
+
+#reduction-rule("QuadraticAssignment", "QUBO", example: true,
+  extra: [#direct-qubo-commands("QuadraticAssignment", "QUBO")],
+)[
+  Quadratic assignment with $n<=m$ facilities and locations reduces directly to $n m$ bits.
+][
+  _Construction._ Let $x_(i p)$ assign facility $i$ to location $p$. Penalize each row by $(1-sum_p x_(i p))^2$ and each column by $sum_(i<j)x_(i p)x_(j p)$. Use $f=sum_(i!=j) sum_(p,q) A_(i j) D_(p q) x_(i p)x_(j q)$ for cost matrix $A$ and distance matrix $D$. Ordered pairs are retained for asymmetric signed matrices; facility diagonal entries are excluded, as in the source objective.
+  _Correctness._ Every injection satisfies all penalties and gives its exact assignment cost. Conversely, zero row penalties choose one location per facility and zero column penalties make these locations distinct. Substitution yields the same cost. The integer objective-range bound applies to signed coefficients and separates assignments that would exploit negative costs by selecting extra bits.
+  _Source arithmetic._ Check each directed cost-distance product in `i64`. For each directed facility pair, bound its product over all location pairs, then sum the negative minima and positive maxima. These conservative bounds ensure every source accumulation prefix fits before opposite directed coefficients are combined.
+  _Extraction and size._ Return the selected location in each facility row. There are exactly $n m$ bits and at most $n m(n m-1)/2$ couplings. All accepted source instances have an injection, including rectangular matrices and empty facility sets.
+]
+
+#reduction-rule("SumOfSquaresPartition", "QUBO", example: true,
+  extra: [#direct-qubo-commands("SumOfSquaresPartition", "QUBO")],
+)[
+  Partitioning $n$ positive item sizes into $k$ groups has a direct QUBO on $n k$ bits.
+][
+  _Construction._ Let $x_(i g)$ assign item $i$ to group $g$. Use $f=sum_g (sum_i s_i x_(i g))^2$ and $g(x)=sum_i (1-sum_g x_(i g))^2$, with sizes $s_i>0$. Empty groups are allowed by the source definition.
+  _Correctness._ Each partition activates exactly one bit per item and its objective is the sum of squared group totals. Conversely, zero row penalties assign each item once; substitution gives those same group totals and objective. The shared penalty lemma excludes dropped or multiply assigned items.
+  _Extraction and size._ Return each item's selected group. There are exactly $n k$ bits and at most $n k(k-1)/2+k n(n-1)/2$ couplings: same-item pairs from the constraints and same-group pairs from the objective. These two pair families are disjoint. The example splits the total size equally between its two groups.
+]
+
+#reduction-rule("OptimalLinearArrangement", "QUBO", example: true,
+  extra: [#direct-qubo-commands("OptimalLinearArrangement", "QUBO")],
+)[
+  Optimal linear arrangement on `SimpleGraph` reduces to $n(n-1)/2$ tournament comparison bits.
+][
+  _Construction._ Let $r_(i j)$ mean that vertex $i$ precedes vertex $j$, with $r_(j i)=1-r_(i j)$. For $m$ source edges set
+  $ F=m+sum_((u,v) in E) sum_(w != u,v) (r_(u w)+r_(v w)-2r_(u w)r_(v w)). $
+  For $n>=2$ let $U=m(n-1)$; empty and singleton graphs have $U=0$. Add the tournament triangle penalties with weight $P=U+1$, remove the resulting constant $C$, and recover completed minima by adding $C$ inside $[0,U]$.
+  _Correctness._ A source ordering gives a transitive tournament. For each edge, the XOR of its endpoints' comparisons with $w$ equals one precisely when $w$ lies strictly between those endpoints. Thus its contribution is one plus the number of intermediate vertices, equal to the rank distance. Conversely, every XOR and triangle penalty is nonnegative on arbitrary bits. A positive triangle penalty costs more than $U$, so a target inside the recovery interval has no directed triangle and hence is a total order. Predecessor counts give its ranks, and the same between-vertex identity proves equality of the objective. Every graph has a feasible ordering, including the empty graph.
+  _Extraction and size._ Validate the target, reject cycles, and return predecessor counts. Exactly $n(n-1)/2$ bits and at most $3 binom(n,3)=n(n-1)(n-2)/2$ couplings suffice: objective terms and triangle penalties couple only comparisons sharing a vertex, and every such pair belongs to one index triple. The coupling bound is cubic even for dense graphs. Construction uses $O(n^3+m n)$ coefficient additions; ordered maps add a logarithmic factor. For the canonical three-vertex path, $U=4$, $P=5$, $C=2$, and the all-true comparison vector has target value zero, recovering source cost two.
+]
+
+#reduction-rule("SequencingWithinIntervals", "DecisionQUBO", example: true,
+  extra: [#direct-qubo-commands("SequencingWithinIntervals", "DecisionQUBO")],
+)[
+  Interval-constrained sequencing has a direct decision QUBO using one bit for each allowed integer start slot.
+][
+  _Construction._ Task $i$ has release $r_i$, deadline $d_i$, and duration $l_i$. Allocate $s_i=max(0,d_i-r_i-l_i+1)$ bits for starts $r_i+t$, $0<=t<s_i$. Add $(1-sum_t x_(i t))^2$ for every task and one product for each pair of different-task slots for which neither execution finishes before the other starts. Keep this precise overlap predicate also for zero-length tasks. Set the DecisionQUBO bound to $-n$, removing the constant $n$.
+  _Correctness._ A schedule selects one slot per task and no conflict, attaining energy $-n$. Conversely, an energy at most $-n$ forces every nonnegative penalty to vanish, yielding one valid start per task with no overlap. An empty task domain contributes a constant violation, so impossible windows remain infeasible.
+  _Extraction and size._ Return each task's selected offset from its release. With $S=sum_i s_i$, there are exactly $S$ bits and at most $S(S-1)/2$ couplings. This is a time-indexed, potentially pseudopolynomial construction in the encoded time horizon; it introduces no slack bits.
+]
+
+#reduction-rule("TimetableDesign", "DecisionQUBO", example: true,
+  extra: [#direct-qubo-commands("TimetableDesign", "DecisionQUBO")],
+)[
+  Timetable design reduces directly to one bit per eligible craftsman-task-period assignment.
+][
+  _Construction._ Allocate $x_(c t h)$ only when demand $R_(c t)>0$ and both resources are available in period $h$. Add $(sum_h x_(c t h)-R_(c t))^2$ for every demand and one product for each pair sharing a period and either resource. Remove $C=sum_(c,t)R_(c t)^2$ and use decision bound $-C$. If a demand is negative or exceeds its eligible-period count, use the zero polynomial on the same variable set with bound $-1$ instead.
+  _Correctness._ A feasible timetable meets every demand and has no resource conflict, so all penalties vanish. Conversely, zero demand squares enforce exact assignment counts and zero conflict products enforce exclusivity. Unavailable or zero-demand cells are false by construction. The special target is unsatisfiable precisely in the immediately impossible-demand branch: a sum of eligible boolean cells cannot equal such a demand.
+  _Extraction and size._ Fill a false craftsman-task-period tensor and insert the eligible selected bits. The target has exactly $A$ variables and at most $A(A-1)/2$ couplings, where $A$ is the eligible-assignment count, including the impossible-demand branch.
+]
+
+
+== Further direct integer QUBO constructions
+
+The following rules use the checked penalty and aggregate-recovery conventions above. Their constructions adapt the quadratic penalty method @glover2019; each proof states the exact source semantics.
+
+#reduction-rule("SchedulingWithIndividualDeadlines", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SchedulingWithIndividualDeadlines", "DecisionQUBO")],
+)[
+ Unit-task scheduling with individual deadlines reduces to a decision QUBO with deadline-valid starts and exact processor capacities.
+][
+ _Construction._ For $n$ tasks and processor capacity $m$, allocate row bits $x_(i t)$ for $0 <= t < h_i = min(d_i,n)$. Add $(sum_t x_(i t)-1)^2$ for each task. At time $t$ let $k_t$ be the number of available task bits. If $m < k_t$, introduce $b= floor(log_2(m))+1$ slack bits with weights $1,2,dots,2^(b-1)$ (no slack bits for $m=0$), and add $(sum_i x_(i t)+s_t-m)^2$. Omit automatically satisfied capacities. For each precedence $(i,j)$ add $x_(i t)x_(j u)$ for every $t>=u$, including repeated indices for self precedences. Use unit penalties and bound $-C$.
+
+_Correctness._ $arrow.r.double$: compress the occupied slots of a source schedule to consecutive integers starting at zero. There are at most $n$ occupied slots; this preserves strict precedences and capacity and only decreases completion times. Choose these starts and the representable slack $m-sum_i x_(i t)$, obtaining zero penalty. $arrow.l.double$: zero penalty selects exactly one deadline-valid start per task, respects every capacity, and has no forbidden precedence pair. Empty rows and cyclic or self precedences remain infeasible.
+
+_Solution extraction and bounds._ Decode the unique start in each row. Completed `Or` values map identically. The actual variable count is $sum_i h_i + sum_(t: m<k_t) "bit_length"(m)$, at most $2 n H$ for $H=max_i d_i$; every coupling is a pair of these variables. The concrete horizon is capped by $n$, so this unit-task construction is polynomial even for large binary-encoded deadlines. Construction uses at most quadratic assignment interactions plus $O(p n^2)$ precedence products. Source start-plus-one arithmetic is bounded by the validated deadlines.
+
+ *Example.* #let ex = load-example("SchedulingWithIndividualDeadlines", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("PrecedenceConstrainedScheduling", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("PrecedenceConstrainedScheduling", "DecisionQUBO")],
+)[
+ Common-deadline unit-task precedence scheduling has a direct decision QUBO with exact processor capacities.
+][
+ _Construction._ Apply the preceding unit-task construction with every deadline equal to $D$, using $h=min(D,n)$ starts per task. Retain binary capacity slack only where capacity is nontrivial; encode strict precedence by forbidden start-pair products. The bound is the negative sum of the squared-equation constants.
+
+_Correctness._ $arrow.r.double$: occupied-slot compression maps any source schedule into the capped horizon without increasing any finish time. Its start bits and residual-capacity slack make every penalty zero. $arrow.l.double$: vanishing row squares give one start per task, capacity squares enforce load at most $m$, and forbidden products enforce every strict precedence. In particular a cyclic precedence system has no satisfying target configuration. The empty instance is feasible with no bits.
+
+_Solution extraction and bounds._ Read the unique start per task and discard capacity slack. Aggregate recovery is identity on `Or`. There are $n h$ start bits and at most $n h$ slack bits, hence the registered bounds $N<=2 n D$ and $E<=(2 n D)^2$. The cap makes the actual size polynomial in task count; the uncapped metadata bound deliberately retains the declared deadline parameter.
+
+ *Example.* #let ex = load-example("PrecedenceConstrainedScheduling", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("CyclicOrdering", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("CyclicOrdering", "DecisionQUBO")],
+)[
+ Cyclic ordering reduces to $n(n-1)/2$ tournament bits without rank or inequality-slack variables.
+][
+ _Construction._ Let $r_(i j)$ mean $i$ precedes $j$, using $r_(j i)=1-r_(i j)$ for reverse indices. Add the unit triangle penalties from the direct sequencing rule. For every prescribed ordered triple $(a,b,c)$ add $(r_(a b)+r_(b c)+r_(c a)-2)^2$. All affine expressions are expanded exactly; use decision bound $-C$.
+
+_Correctness._ $arrow.r.double$: the source permutation gives a transitive tournament. Its prescribed cyclic triples have two forward comparisons around the cycle, so all squares vanish. $arrow.l.double$: no directed triangle implies a total order. On a total order the orientation count is two precisely for the three allowed cyclic arrangements, and one for their reversals. Thus zero penalty is exactly the source predicate, including duplicate constraints and contradictory triples.
+
+_Solution extraction and bounds._ Return predecessor counts as element ranks. The aggregate is identity on `Or`; the number of variables is exactly $N=n(n-1)/2$, and at most $3 binom(n,3)=n(n-1)(n-2)/2$ nonzero couplings suffice. Each tournament triangle couples its three comparison bits. A prescribed cyclic triple involves only those same three pairs, so it adds no new support, even with repeated constraints. This gives a cubic coupling bound. Construction uses $O(n^3+c)$ coefficient updates for $c$ prescribed triples; ordered-map updates add a logarithmic factor.
+
+ *Example.* #let ex = load-example("CyclicOrdering", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("GroupingBySwapping", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("GroupingBySwapping", "DecisionQUBO")],
+)[
+ Grouping equal symbols by adjacent swaps reduces to a tournament on alphabet symbols, with an inversion-budget threshold.
+][
+ _Construction._ For each pair $i<j$ let $A_(i j)$ count original occurrences of $j$ before $i$, and $B_(i j)$ count $i$ before $j$. On alphabet-order bits define $f=sum_(i<j)(A_(i j) r_(i j)+B_(i j)(1-r_(i j)))$. For string length $l$, set $M=l(l-1)/2$ and weight triangle penalties by $M+1$. Use decision threshold $min(K,M)-C$, where $K$ is the source swap budget.
+
+_Correctness._ $arrow.r.double$: the final grouped string of a successful program defines a block order, extended arbitrarily to unused symbols. Every unequal-symbol inversion relative to this order needs a crossing; an adjacent swap can remove at most one. Therefore $f<=K$. $arrow.l.double$: any directed triangle would contribute more than the threshold, so a satisfying target gives a total block order. Stable insertion sorting the original string by that order performs exactly $f$ adjacent swaps, yields contiguous blocks, and stays within budget. No assumption about all alphabet symbols being used is needed.
+
+_Solution extraction and bounds._ Emit the insertion-sort swap positions and pad to exactly $K$ with the source no-op position $l-1$; the legal empty-string case returns the empty program. Aggregate recovery is identity. There are exactly $a(a-1)/2$ bits for alphabet size $a$, at most $3 binom(a,3)$ couplings, $O(l^2+a^3)$ construction additions, and $O(l^2+K)$ extraction cost. The output-length dependence on the numeric budget is explicit.
+
+ *Example.* #let ex = load-example("GroupingBySwapping", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("MinimumFeedbackArcSet", "QUBO", example: true,
+ extra: [#direct-qubo-commands("MinimumFeedbackArcSet", "QUBO")],
+)[
+ Signed-weight feedback arc set on the source directed multigraph reduces directly to a total-order QUBO.
+][
+ _Construction._ Pre-remove all negative-weight arcs and all self-loops, adding each weight once to the fixed objective. For every other arc $u -> v$ add $w_(u v)(1-r_(u v))$ using the tournament convention. Parallel arcs remain separate source indices; their coefficients add. Apply the shared objective interval and triangle penalty $P=U-L+1$. Before cancellation, check the sums of all negative and all positive source weights, bounding every selected-prefix sum.
+
+_Correctness._ $arrow.r.double$: augment any feasible removal set with every negative arc, without increasing cost. Topologically order its retained graph. All backward arcs were removed; discarding any additionally removed forward nonnegative arcs cannot increase the objective. This produces a canonical order with no greater cost. $arrow.l.double$: removing negative arcs, loops and all backward arcs leaves only forward arcs and hence a DAG, whose removal cost equals the quadratic objective. These inequalities prove equal optima; the shared penalty separates every cyclic target tournament. This argument covers signed, zero, loop and parallel-arc semantics.
+
+_Solution extraction and bounds._ Remove each indexed arc exactly when its weight is negative, it is a loop, or its endpoints are backward in the decoded order. Add the omitted constant for aggregate recovery inside the certified interval. With $v$ vertices, exactly $v(v-1)/2$ bits and at most $3 binom(v,3)$ couplings suffice; construction takes $O(m+v^3)$ additions. Empty graphs have objective zero. Every source has the all-arcs-removed feasible witness.
+
+ *Example.* #let ex = load-example("MinimumFeedbackArcSet", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("Partition", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("Partition", "DecisionQUBO")],
+)[
+ Partition reduces to one selection bit per element by squaring the difference between subset totals @lucas2014.
+][
+ _Construction._ For positive sizes $s_i$ with validated total $S$, set $H=(2 sum_i s_i x_i-S)^2$ and remove $C=S^2$. Use bound $-C$.
+
+_Correctness._ $arrow.r.double$: equal subset totals make the residual zero. $arrow.l.double$: every square is nonnegative, so satisfying the energy threshold forces the selected sum to equal its complement. Odd totals therefore remain NO instances without a special branch.
+
+_Solution extraction and bounds._ Copy the selection bits; aggregate `Or` recovery is identity. Exactly $n$ variables and at most $n^2$ couplings are registered; expansion takes $O(n^2)$ arithmetic operations. Every source subtotal lies between zero and the checked total. Target coefficients, constant and energy sums are independently checked: a representable source need not yield a representable squared penalty.
+
+ *Example.* #let ex = load-example("Partition", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("SubsetSum", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SubsetSum", "DecisionQUBO")],
+)[
+ Arbitrary-precision SubsetSum reduces to a checked integer decision QUBO with one bit per element.
+][
+ _Construction._ Expand $H=(sum_i s_i x_i-T)^2$ using arbitrary-precision signed integers. Only then convert the coefficients and $C=T^2$ into the target integer representation. Check positive and negative coefficient sums and use bound $-C$.
+
+_Correctness._ $arrow.r.double$: a subset of sum $T$ gives zero residual. $arrow.l.double$: satisfying the threshold forces the integer square to vanish and hence exactly the source equality. Empty selections and target zero follow the same equations. Arbitrary-precision input arithmetic is preserved; no input-size restriction is silently assumed.
+
+_Solution extraction and bounds._ Copy the bits and use identity `Or` recovery. Exactly $n$ variables and at most $n^2$ couplings suffice. Expansion takes $O(n^2)$ big-integer operations, whose bit cost depends on input magnitudes. Unrepresentable derived constants or coefficients return a typed numeric error. Expanding before conversion matters: a size $2^32$ and target $2^31$ produce a zero diagonal coefficient despite the intermediate size square exceeding `i64`.
+
+ *Example.* #let ex = load-example("SubsetSum", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ExactCoverBy3Sets", "DecisionQUBO")],
+)[
+ Exact cover by 3-sets reduces to a decision QUBO with one bit per indexed subset @lucas2014.
+][
+ _Construction._ For universe $U$ and subset-selection bits $x_j$, set $H=sum_(u in U)(sum_(j: u in S_j)x_j-1)^2$. The omitted constant is $C=|U|$; use bound $-C$. Duplicate subsets retain distinct bits.
+
+_Correctness._ $arrow.r.double$: an exact cover selects each element exactly once and makes every equation vanish. $arrow.l.double$: zero penalty means every element is covered once, so selected triples are disjoint and cover the whole universe. Summing incidences gives exactly $|U|/3$ selected triples, matching the source's cardinality check. Uncovered elements contribute unavoidable constants; the empty universe gives the empty cover.
+
+_Solution extraction and bounds._ Copy the subset bits; aggregate recovery is identity. Exactly $m$ bits and at most $m^2$ couplings suffice. The implementation scans incidences in $O(|U|m)$ time and expands only intersecting rows, with at most three contributions per pair of triples. Diagonals are $-3$ and pair coefficients twice the intersection cardinality.
+
+ *Example.* #let ex = load-example("ExactCoverBy3Sets", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("StaffScheduling", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("StaffScheduling", "DecisionQUBO")],
+)[
+ Integer worker multiplicities reduce to bounded binary budget and coverage residuals, using the squared-equality construction of @lucas2014.
+][
+ _Construction._ Let $s$ be the number of indexed schedule patterns, $p$ the number of periods, $W >= 0$ the worker budget, $a_(j t)$ the pattern incidence, and $r_t$ the signed requirement. Encode each count $c_j$ and unused budget $z$ in $[0,W]$ with bounded binary weights: successive powers of two and a final remainder, whose sum is exactly the upper bound. This represents every integer in the interval and no others. For each $r_t>0$, encode surplus $h_t$ in $[0,W-r_t]$. A requirement above $W$ instead emits the constant NO decision with no variables and bound $-1$. Otherwise expand
+ $ H=(sum_j c_j+z-W)^2 + sum_(t:r_t>0)(sum_j a_(j t)c_j-h_t-r_t)^2. $
+ Remove $C=W^2+sum_(t:r_t>0)r_t^2$ and use decision bound $-C$. Nonpositive requirements need no row, including the minimum signed integer; empty and duplicate patterns retain their source meaning.
+
+ _Correctness._ $arrow.r.double$: a feasible staffing vector has unused budget $z=W-sum_j c_j$ and nonnegative coverage surplus at most $W-r_t$, so all squares vanish. $arrow.l.double$: a target witness meeting the bound has $H<=0$. Every square is nonnegative, so the budget and coverage equations hold exactly. All decoded counts are nonnegative, their sum is at most $W$, and every positive requirement is met. Nonpositive requirements hold automatically. Unit penalties suffice because this endpoint is feasibility, with no competing objective.
+
+ _Solution extraction and bounds._ Validate target feasibility, then sum each schedule's weighted bits. Aggregate `Or` recovery is identity, including NO results and the existing ExactCoverBy3Sets incoming route. With $b(B)=ceil(log_2(B+1))$, the exact variable count outside the early NO case is $(s+1)b(W)+sum_(t:r_t>0)b(W-r_t)$. For `i64` budgets this is at most $N=63(s+p+1)$, with at most $binom(63(s+1),2)+p(3969s+1953)$ registered couplings. The budget row already contains every count-count pair and every count-budget pair. Each period adds only count-surplus pairs (at most $63^2 s$) and within-surplus pairs (at most $binom(63,2)$); different periods' surplus blocks never interact. The coupling bound is therefore $O(s^2+s p+p)$, linear in periods for fixed schedule count. Construction performs $O((p+1)(s+1)^2+s+p)$ coefficient updates and row bookkeeping under the fixed 63-bit bound, since each coverage square may revisit count-count coefficients; ordered-map updates add a logarithmic factor. Bit counts grow logarithmically with the budget. Before expansion, check $s W$ to protect the source's count and coverage folds. Dimension arithmetic, expanded coefficients, omitted constant, and separate positive and negative coefficient sums are checked independently; an unrepresentable construction returns a typed overflow error. The conservative guard can reject representable special cases.
+
+ *Example.* #let ex = load-example("StaffScheduling", "DecisionQUBO")
+ The canonical source assigns #repr(ex.solutions.at(0).source_config) workers across its #ex.source.instance.schedules.len() patterns, with budget #ex.source.instance.num_workers. The required coverages are #repr(ex.source.instance.requirements). The count blocks, unused-budget block and coverage-surplus blocks produce the displayed target; its canonical bits make every residual zero.
+]
+
+#reduction-rule("ThreePartition", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ThreePartition", "DecisionQUBO")],
+)[
+ ThreePartition reduces to multiplicities of eligible value triples, without labeled-group assignment bits.
+][
+ _Construction._ For each distinct size $v$, let $c_v$ count its indexed items. Enumerate unordered value triples $t=(a,b,c)$ with $a+b+c=B$. Write $r_(v t)$ for the number of occurrences of $v$ in $t$, and discard triples needing unavailable copies. A triple multiplicity $z_t$ is bounded by $M_t=min_(v:r_(v t)>0) floor(c_v/r_(v t))$. Encode it with bounded binary weights whose sum is $M_t$, then expand
+ $ H=sum_v (sum_t r_(v t) z_t-c_v)^2. $
+ Remove $C=sum_v c_v^2$ and use decision bound $-C$. All penalties have unit weight. Pair enumeration and lookup of $B-a-b$ find the eligible triples.
+
+ _Correctness._ A source partition supplies representable triple multiplicities satisfying every count equation. Conversely, a target at the threshold makes every square zero. For each selected triple copy, consume the next unused original index of each required value and assign those three indices one group. The count equations guarantee that every item is used exactly once; each group has sum $B$, and their number is $n/3$. The original positive-size, range, and total-sum constraints remain in force. If no triple is eligible, the target has zero variables and a negative decision bound, certifying NO.
+
+ _Solution extraction and bounds._ Validate the target and perform the indexed assignment just described; completed `Or` values map identically. If $b_t$ is the bit count for $z_t$, bounded binary encoding gives $b_t<=M_t$. Charge three distinct indexed item pairs per unit of $M_t$. The multiplicity caps supply enough pairs even for repeated values. Different triple types cannot share a pair-value class because its missing value is uniquely $B-a-b$. Thus $3 sum_t M_t<=binom(n,2)$ and $N=sum_t b_t<=n(n-1)/6$.
+
+ For one count row $v$, its triple types correspond to complementary value pairs summing to $B-v$. Each value has only one complement. A distinct pair contributes at most half its combined item count in bits; an equal pair contributes at most half its item count. Hence the number $D_v$ of bits in that row is at most $n/2$. Each bit occurs in at most three rows, so $sum_v D_v<=3N$ and $E<=sum_v binom(D_v,2)<=3N(n-2)/4<=n(n-1)(n-2)/8$. These bounds reduce both the Boolean exponent and the cubic coupling coefficient of labeled-group assignment. With $d$ distinct values, construction uses $O(d^2 log d)$ triple lookup work and $O(n^3)$ coefficient additions, with sparse-map logarithmic factors. Target coefficients depend on item counts rather than squared size magnitudes; all arithmetic remains checked.
+
+ *Example.* #let ex = load-example("ThreePartition", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ThreeDimensionalMatching", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("ThreeDimensionalMatching", "DecisionQUBO")],
+)[
+ Perfect three-dimensional matching reduces to one selection bit per indexed triple.
+][
+ _Construction._ For each of the three axes and each coordinate $u$ add $(sum_(j: t_(j,"axis")=u)x_j-1)^2$. Remove constant $C=3q$ and use bound $-C$, where each axis has $q$ coordinates.
+
+_Correctness._ $arrow.r.double$: a perfect matching covers each coordinate once, so all equations vanish. $arrow.l.double$: zero penalty forces every coordinate on each axis to appear exactly once. Summing any axis gives exactly $q$ selected triples, and zero duplicate incidences proves pairwise coordinate disjointness. Indexed duplicate triples and the empty matching are covered by the same reasoning.
+
+_Solution extraction and bounds._ Copy the triple bits and recover `Or` identically. Exactly $m$ variables and at most $m^2$ couplings suffice. The incidence scans cost $O(q m)$ and expansion has at most three contributions per triple pair. This preserves perfect matching, rather than weakening it to arbitrary disjoint triples.
+
+ *Example.* #let ex = load-example("ThreeDimensionalMatching", "DecisionQUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("StackerCrane", "QUBO", example: true,
+ extra: [#direct-qubo-commands("StackerCrane", "QUBO")],
+)[
+ StackerCrane reduces to a cyclic required-arc assignment QUBO using the source's exact connector evaluation contract.
+][
+ _Construction._ Let $n$ be the number of required directed arcs and $B$ their total length. Precompute $d_(i j)$ from the head of arc $i$ to the tail of arc $j$ by reusing the source Dijkstra routine on required directed arcs and optional undirected edges. This preserves its adjacency order, equal-distance tie order, maximum-integer sentinel, and overflow-to-unavailable behavior. For $n^2$ arc-position bits use $f=B+sum_(i,j,p) d_(i j)x_(i p)x_(j,(p+1) mod n)$ over available connectors, omitting $i=j$ when $n>1$. Add row and column one-hot squares and forbidden-transition products for unavailable connectors, with the shared penalty $P$. For $n=1$ include its diagonal connector once; for $n=0$ use zero objective.
+
+_Correctness._ $arrow.r.double$: a feasible source arc order selects a permutation matrix and available connectors, giving exactly its closed-walk cost. $arrow.l.double$: a certified target has a unique arc in each position and every required connector available, hence its decoded order evaluates to the same cost. Required arcs may be traversed again inside connectors, as allowed by the source. Disconnected sources have no unpenalized permutation. Before construction check $B+n max_(i,j: d_(i j) " available") d_(i j)$ for representability, independently of all target bounds, so every nonnegative route prefix is safe.
+
+_Solution extraction and bounds._ Invert the selected positions to the source-native arc-order witness. The source expands it into the closed walk using those same connector queries; no vertex-route witness is substituted. Recover the objective by adding the constant in the certified interval, and `Min(None)` outside it. Exactly $n^2$ bits suffice. Row and column penalties contribute $n^2(n-1)$ pairs, and cyclic transitions contribute at most another $n^2(n-1)$ pairs. Thus at most $2n^2(n-1)$ couplings suffice. For $n=1$ the connector is diagonal, and for $n=2$ reversed cyclic transitions may coincide; both satisfy the bound. There are $n^2$ shortest-path queries, each bounded by $O((v+e+n) log(v+e+n+1))$ for the lazy heap with parallel edges. Polynomial expansion uses $O(n^3)$ coefficient updates and storage; ordered-map updates add a logarithmic factor to time.
+
+ *Example.* #let ex = load-example("StackerCrane", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
+
+#reduction-rule("ShortestCommonSuperstring", "QUBO", example: true,
+ extra: [#direct-qubo-commands("ShortestCommonSuperstring", "QUBO")],
+)[
+ ShortestCommonSuperstring reduces to an overlap-path assignment QUBO after exact containment preprocessing.
+][
+ _Construction._ Remove empty strings, duplicate strings (retain the first), and proper contained strings. For the retained $k$ strings let $o_(i j)$ be maximal suffix-prefix overlap. Use $k^2$ string-position bits and objective $f=sum_i |s_i|-sum_(p=0)^(k-2) sum_(i != j) o_(i j)x_(i p)x_(j,p+1)$, with row and column assignment penalties from the shared objective lemma. The source constructor accepts input symbols outside its declared alphabet; add an unconditional penalty for these infeasible instances, rather than producing an invalid reconstructed witness.
+
+_Correctness._ $arrow.r.double$: order retained strings by their occurrence starts in a shortest source superstring. With containment removed, their ends have the same strict order. Consecutive start distances are at least the preceding length minus maximal overlap, so the path objective is no greater than the source length. $arrow.l.double$: concatenate any path using its maximal overlaps. The current word ends with the previous string, so every retained string remains contained and the length is exactly $f$. Removed duplicates, substrings and empty strings are also contained. These two inequalities prove equality of optima. All-empty inputs give the empty word; an invalid alphabet symbol gives an infeasible source and no certified target value.
+
+_Solution extraction and bounds._ Decode a string permutation, concatenate with the recorded overlaps, and pad with `None` to the sum of original input lengths. Aggregate recovery uses the shared constant and interval. Actual variables are $k^2<=n^2$. Row and column penalties contribute $k^2(k-1)$ pairs. Each of the $k(k-1)$ directed string transitions has $k-1$ adjacent-position pairs, contributing at most $k(k-1)^2$ further pairs. Hence the coupling count is at most $k(k-1)(2k-1)<=n(n-1)(2n-1)$, cubic in the number of strings. The bound also covers $k=0$ and $k=1$. Naive containment and overlap preprocessing is bounded by $O(n^2 L^2)$ for original total length $L$, with $O(k^3)$ polynomial coefficient updates. Ordered-map updates add a logarithmic factor. Check source length conversion and target arithmetic independently.
+
+ *Example.* #let ex = load-example("ShortestCommonSuperstring", "QUBO")
+ The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
+]
 #let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
 #reduction-rule("KColoring", "DecisionQUBO",
@@ -12273,6 +12627,78 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 }
 
 // Removed: SubsetSum → CapacityAssignment (unsound reduction, #1006)
+
+#let decision-ilp-sat = load-example("DecisionILP", "Satisfiability")
+#reduction-rule("DecisionILP", "Satisfiability", example: true,
+  example-caption: [Binary ILP threshold query encoded with adders and CNF gates.],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(decision-ilp-sat) + " -o x.json",
+      "pred path " + problem-spec(decision-ilp-sat.source) + " " + problem-spec(decision-ilp-sat.target) + " --limit 1 -o paths.json",
+      "jq '.paths[0]' paths.json > route.json",
+      "pred reduce x.json --via route.json -o bundle.json",
+      "pred solve bundle.json --solver ilp",
+    )
+    *Example.* The source selects exactly one of
+    #decision-ilp-sat.source.instance.inner.variables.len() variables, with objective
+    coefficients #decision-ilp-sat.source.instance.inner.objective.map(t => str(t.at(1))).join(", ")
+    and minimization bound #decision-ilp-sat.source.instance.bound.
+    The CNF has #decision-ilp-sat.target.instance.num_vars variables and
+    #decision-ilp-sat.target.instance.clauses.len() clauses. Its canonical witness
+    projects to $(#fmt-values(decision-ilp-sat.solutions.at(0).source_config))$;
+    both the selected-variable sum and the objective equal the bound.
+    Lowering the bound to zero makes the instance infeasible: exactly one variable
+    must be selected, and every objective coefficient is at least one.
+  ],
+)[
+  Binary decision ILP reduces to CNF satisfiability by binary addition and
+  Tseitin gate equivalences, following the adder-based pseudo-Boolean encoding
+  approach @een2006. The encoding preserves the objective threshold and both
+  optimization senses; it does not turn an arbitrary feasible assignment into an optimum.
+][
+  _Construction._ Let $n$ be the number of binary variables and $m$ the number of
+  constraints. Append the objective comparison as one additional row. Reserve
+  the first $n$ SAT variables for the source assignment and one false constant $f$.
+  For a row $sum_i a_i x_i diamond b$, replace each negative term by
+  $a_i x_i = (-a_i)(1-x_i)+a_i$. The normalized weights are $w_i=abs(a_i)$,
+  literals are $x_i$ or $not x_i$, and the threshold is
+  $B=b-sum_(i:a_i<0) a_i$. Set $T=sum_i w_i$.
+  Rows constant over $[0,T]$ emit either no clauses or an empty clause.
+
+  Otherwise, sum the weighted literals using $W$ bits, where $W$ is the binary
+  length of $T$. Starting from zero, add each weighted literal with ripple
+  full-adders: for input bits $a,b$ and carry $d$, compute
+  $p=a xor b$, output $p xor d$, and carry $(a and b) or (p and d)$.
+  Every partial sum is at most $T<2^W$, so the last carry can be discarded.
+  Use equivalence clauses for each AND, OR, and XOR gate; constants may be folded.
+  Equality asserts each sum bit. For a less-than-or-equal comparison, start
+  $q="true"$ and scan from least to most significant bit: set
+  $q=(not s_j or q)$ when $B_j=1$, and $q=(not s_j and q)$ when $B_j=0$.
+  Assert the final $q$. Greater-than-or-equal complements both $W$-bit operands
+  before applying the same comparator.
+
+  _Correctness._ ($arrow.r.double$) A feasible source assignment meeting the bound
+  satisfies every normalized comparison by the signed-term identity. Extend it
+  with the deterministic gate outputs. Induction over adders gives exact sums;
+  at each comparator bit, a more significant unequal bit decides the comparison,
+  while equal bits retain the previous result. Every asserted output is therefore true.
+  ($arrow.l.double$) A satisfying CNF assignment obeys every gate equivalence and
+  the false-constant clause, forcing the computed sums and comparisons. The output
+  assertions imply every source row and its objective bound after reversing normalization.
+
+  _Solution extraction._ Validate the full SAT witness, then convert its first
+  $n$ bits to integers zero or one. Completed Boolean values map identically.
+
+  _Arithmetic and overhead._ Before encoding, checked sums of positive and negative
+  coefficients must each fit signed 64-bit arithmetic, including the objective row.
+  Otherwise the reduction returns a typed overflow error: some binary assignments
+  would overflow the source evaluator. Normalization uses arbitrary-precision integers.
+  On the accepted domain $T<=2^64-1$, hence $W<=64$. Each row uses at most $5 n W$
+  adder gates, $W$ comparator gates, and $W+1$ assertion clauses; every gate uses
+  at most four clauses of at most three literals. Including the constant gives
+  $V<=n+1+64(m+1)(5n+1)$ variables,
+  $C<=1+(m+1)(1280n+321)$ clauses, and at most $3C$ literal occurrences.
+]
 
 #reduction-rule("ILP", "QUBO")[
   Binary ILP constraints are encoded by squared integer residuals with binary slack variables, following the penalty construction discussed by Lucas @lucas2014[Section 3]. The rule retains the omitted constant and uses a certified energy interval to recover the original objective direction or report infeasibility. No assumption that the ILP is feasible is needed.
@@ -12704,6 +13130,36 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Overhead._ For $v$ named variables, $t$ expression nodes and $o$ named outputs, the target has at most $v+2t$ variables and $5t+o$ constraints. Non-XOR outputs and empty XOR outputs contribute at most $t$ auxiliaries. Binary XOR steps contribute at most the number of expression-tree edges, hence at most $t$. Base gate rows contribute at most $t$, while input inequalities and binary XOR rows contribute at most four times the number of tree edges. Output equalities add at most $o$ rows. This accounts for arbitrarily many constant inputs: three constants under one XOR use five auxiliaries, exceeding the former one-auxiliary-per-node bound of four.
 ]
 
+== Conditional Direct QUBO Constructions
+
+These constructions use the checked sparse penalty and extraction contracts above. Their logical-size advantages are instance-dependent. Every decoder includes target validation, costing $O(N+E)$ in addition to decoding, for $N$ variables and $E$ nonzero terms. Construction costs count arithmetic operations; coefficient bit lengths and sparse-map accumulation also contribute. The scheduling conflict construction follows the time-indexed penalty pattern of #link("https://arxiv.org/abs/1506.08479")[Venturelli et al.].
+
+#reduction-rule("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO")],
+)[
+  Release-time/deadline sequencing reduces to DecisionQUBO on admissible starts, including zero-duration tasks.
+][
+  _Construction._ First check that $max_i r_i+sum_i p_i$ fits the source integer type, bounding finish additions for every source order. Task $i$ chooses $t=r_i,dots,d_i-p_i$. An impossible window gives an empty row. Add squared one-hot rows and a unit pair penalty whenever neither selected task finishes before the other starts. Store the nonconstant energy with bound equal to the negative omitted constant.
+  _Correctness._ ($arrow.r.double$) Earliest execution of a feasible source order gives valid choices without conflicts. ($arrow.l.double$) Zero-penalty choices are sorted by start, duration and index, placing zero-duration tasks first at a shared start. Inductively, earliest execution of that order starts no later than each selected start and finishes by its deadline. Source finish additions on recovered witnesses are bounded by these deadlines. Empty rows enforce NO and touching intervals are allowed.
+  _Extraction and size._ Decode and sort after target validation; completed feasibility maps identically. For $T=max_i d_i$, $S=sum_i max(0,d_i-p_i-r_i+1)<=n(T+1)$, with at most $S(S-1)/2$ couplings and $O(S^2)$ candidate pairs. This grid is pseudopolynomial in $T$, and can be much larger than the existing bounded-start route.
+
+ *Example.* #let ex = load-example("SequencingWithReleaseTimesAndDeadlines", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
+#reduction-rule("DynamicStorageAllocation", "DecisionQUBO", example: true,
+ extra: [#direct-qubo-commands("DynamicStorageAllocation", "DecisionQUBO")],
+)[
+  Dynamic storage allocation gains a direct address-choice DecisionQUBO formulation.
+][
+  _Construction._ Item $i$, size $s_i$, chooses one address $a=0,dots,D-s_i$ using a squared one-hot row. For items with strictly overlapping lifetimes, penalize each pair of selected address intervals that strictly overlap. All penalties have unit weight; the decision threshold restores the omitted constant to zero.
+  _Correctness._ ($arrow.r.double$) Every valid allocation selects one address per item and has no conflict. ($arrow.l.double$) A target at the threshold has exactly one address per row, each fitting within memory, and no overlapping addresses for simultaneously live items. Lifetimes or addresses that merely touch incur no conflict. Selected endpoints never exceed $D$, so source address addition is representable.
+  _Extraction and size._ Validate once and return selected addresses. Completed `Or` maps identically, including NO. Exactly $S=sum_i(D-s_i+1)<=n D$ bits and at most $S(S-1)/2$ couplings; construction enumerates $O(S^2)$ pairs. This is pseudopolynomial in numeric memory capacity, not polynomial in its bit length.
+
+ *Example.* #let ex = load-example("DynamicStorageAllocation", "DecisionQUBO")
+ The canonical source witness #repr(ex.solutions.at(0).source_config) maps to a target with #ex.target.instance.inner.num_vars variables; the exact source and target configurations are shown below.
+]
+
 == Non-Trivial Reductions
 
 #let sat_mis = load-example("Satisfiability", "DecisionMaximumIndependentSet")
@@ -12763,7 +13219,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A satisfying assignment colors $"pos"_i$ as TRUE when $x_i = 1$ and FALSE otherwise. Each clause has at least one TRUE literal, so the OR-chain output receives the TRUE color, which is compatible with edges to FALSE and AUX. ($arrow.l.double$) In any valid 3-coloring, the variable gadgets assign consistent truth values and the clause gadget connections to FALSE force each clause output to be TRUE-colored, meaning at least one literal per clause is TRUE.
 
-  _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
+  _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$. An empty clause adds one vertex adjacent to all three base vertices, yielding a simple $K_4$ NO gadget. All repeated unordered edge pairs are retained once.
 ]
 
 #let sat_ds = load-example("Satisfiability", "DecisionMinimumDominatingSet")
@@ -12791,7 +13247,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ Evaluate the target configuration once and require a finite value equal to $q$, using the same certificate as the aggregate map. Decode through the stored map from source indices to dense gadget indices. Invalid dominating configurations and values above $q$ provide no satisfying witness and are rejected. The empty formula has $q=m=0$ and an empty target; an empty clause creates an isolated clause vertex, forcing the optimum above $q$.
 
-  _Size and arithmetic._ For $n$ declared variables, $m$ clauses, and $L$ literal occurrences, the actual target has $3q+m <= 3n+m$ vertices and $3q+L <= 3n+L$ stored edges. Thus the registered formulas are upper bounds. Checked arithmetic computes the vertex count and verifies that every possible sum of unit weights fits #raw("i64"), including the all-selected configuration. Construction depends on occurring variables, so a large declared index alone does not allocate unused triangles. Producing the source assignment still requires its declared length.
+  _Size and arithmetic._ For $n$ declared variables, $m$ clauses, and $L$ literal occurrences, the actual target has $3q+m <= 3n+m$ vertices and at most $3q+L <= 3n+L$ stored edges, retaining repeated literal adjacencies only once. Thus the registered formulas are upper bounds. Checked arithmetic computes the vertex count and verifies that every possible sum of unit weights fits #raw("i64"), including the all-selected configuration. Construction depends on occurring variables, so a large declared index alone does not allocate unused triangles. Producing the source assignment still requires its declared length.
 ]
 
 #let sat_ifha = load-example("Satisfiability", "IntegralFlowHomologousArcs")
@@ -13044,11 +13500,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 )[
   Each gate contributes a Hamiltonian bounded below by a known constant. The circuit is satisfiable exactly when the target optimum attains the sum of those constants. A ground state above this threshold is not a satisfying witness. This uses the nonnegative-penalty principle described by @bian2010ising.
 ][
-  _Construction._ Boolean bits $x$ use spins $s=2x-1$. The repository energy convention is $H=sum_((i,j)) J_(i j)s_i s_j + sum_i h_i s_i$, including any diagonal terms created by identified inputs. Use the gadgets in @tab:gadgets; a new expression output is tied to each named assignment output by a coupling $-4 s_u s_v$ whenever the two spins differ. Constants use fields $+1$ for false and $-1$ for true. Multi-input gates are binary folds; a single input is unchanged. Empty AND is true, while empty OR and XOR are false, as in the source evaluator. No final output is implicitly forced true: the source asks that every named assignment equal its expression.
+  _Construction._ Boolean bits $x$ use spins $s=2x-1$. The repository energy convention is $H=sum_((i,j)) J_(i j)s_i s_j + sum_i h_i s_i$, after moving any constant diagonal terms from identified inputs into the decision bound. Use the gadgets in @tab:gadgets; a new expression output is tied to each named assignment output by a coupling $-4 s_u s_v$ whenever the two spins differ. Constants use fields $+1$ for false and $-1$ for true. Multi-input gates are binary folds; a single input is unchanged. Empty AND is true, while empty OR and XOR are false, as in the source evaluator. No final output is implicitly forced true: the source asks that every named assignment equal its expression.
 
   _Local bounds._ In bits $x,y$ with output $z$, the AND and OR energies are respectively $4(x y-2x z-2y z+3z)-3$ and $4(x+y+z+x y-2x z-2y z)-3$. Their minima are $-3$, attained exactly on valid truth-table rows. The XOR gadget with auxiliary bit $a$ has energy $2(x+y-z-2a)^2-4$, with minimum $-4$ exactly when $z=x " XOR " y$ and the auxiliary is consistent. NOT has energy $2(x+z-1)^2-1$, with minimum $-1$. Each constant has minimum $-1$; each equality coupling has minimum $-4$ exactly on equal spins.
 
-  Let $b$ be the sum of these local minima over the gadgets and equality constraints actually emitted. Store $b$ using checked signed integer arithmetic. Then $H-b$ is a sum of nonnegative local penalties, even when expressions share variables, inputs repeat, or named assignments form cycles.
+  Let $C$ be the sum of constant diagonal couplings created by identified inputs, and omit those terms from the stored simple graph. Set $b$ to the sum of the local minima over emitted gadgets and equality constraints, minus $C$. Both the Hamiltonian and its reference energy have lost the same constant, so their difference is unchanged. Store $b$ using checked signed integer arithmetic. Then $H-b$ is a sum of nonnegative local penalties, even when expressions share variables, inputs repeat, or named assignments form cycles.
 
   _Forward direction._ Given a satisfying source assignment, evaluate each finite expression tree under that assignment, set its fresh output spins accordingly, and choose each XOR auxiliary to satisfy $x+y=z+2a$. Every equality to a named output holds because the source assignment satisfies all constraints. Thus every local term attains its lower bound and $H=b$.
 
@@ -13190,15 +13646,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
-  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. A self-loop merges two endpoint terms, so this is an upper bound rather than an equality.
+  _Parameter bounds._ For $n$ vertices and $m$ stored edges, assignment rows contribute $n k$ nonzeros and edge rows at most $2 m k$. Thus the normalized ILP has at most $k(n+2m)$ nonzeros. The bound covers normalized sparse rows without assuming they are all retained.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
 #reduction-rule("KColoring", "TwoDimensionalConsecutiveSets")[
-  A fixed three-coloring problem reduces to the ordered-partition problem of @lipski1978consecutive (Problem 5). For a nonempty loopless graph with $n$ vertices and $m$ stored edges, use one vertex symbol and one private symbol per edge; every edge becomes a three-element subset. The construction and decoding below also cover empty graphs and native self-loops.
+  A fixed three-coloring problem reduces to the ordered-partition problem of @lipski1978consecutive (Problem 5). For a nonempty loopless graph with $n$ vertices and $m$ stored edges, use one vertex symbol and one private symbol per edge; every edge becomes a three-element subset. The construction and decoding below also cover empty graphs.
 ][
-  _Construction._ The source is `KColoring<K3, SimpleGraph>`: the fixed type requires exactly three available colors, and persisted `num_colors` must agree. If any source edge is a self-loop, return alphabet ${0,1,2}$ and subsets ${0,1},{1,2},{0,2}$. Otherwise label vertices $0,...,n-1$ and stored edges $e_0,...,e_(m-1)$. Use alphabet size $max(1,n+m)$ and, for $e_i={u,v}$, subset ${u,v,n+i}$. Construct through the target's fallible constructor. Repeated source edges receive distinct private symbols.
+  _Construction._ The source is `KColoring<K3, SimpleGraph>`: the fixed type requires exactly three available colors, and persisted `num_colors` must agree. Label vertices $0,...,n-1$ and stored edges $e_0,...,e_(m-1)$. Use alphabet size $max(1,n+m)$ and, for $e_i={u,v}$, subset ${u,v,n+i}$. Construct through the target's fallible constructor. Source edges are distinct unordered pairs.
 
   _Forward direction._ For a loopless graph, a proper coloring assigns adjacent vertices distinct colors from ${0,1,2}$. Assign each edge's private symbol the remaining third color. Each triple occupies all three consecutive nonempty color groups, one symbol per group. If there are no edges, all group assignments satisfy the empty family of constraints; in particular the empty source maps to one unconstrained symbol. A looped source has no proper coloring.
 
@@ -13920,13 +14376,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   A Hamiltonian tour is a permutation of vertices. Position-based encoding assigns each vertex a tour position via binary indicators, with permutation constraints ensuring a valid bijection. The tour cost involves products of position indicators for consecutive positions, which McCormick linearization converts to auxiliary variables with linear constraints.
 ][
-  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+  _Construction._ For a simple graph $G = (V, E)$ with $n = |V|$ and $m = |E|$, retain $n^2 + 2 n m$ binary variables. If $n < 3$, emit the contradictory equality $0 = 1$ and an empty objective: a simple graph on fewer than three vertices has no Hamiltonian cycle. Otherwise use the following formulation.
 
   _Variables:_ Binary $x_(v,k) in {0, 1}$ for each vertex $v in V$ and position $k in {0, ..., n-1}$. Interpretation: $x_(v,k) = 1$ iff vertex $v$ is at position $k$ in the tour.
 
   _Auxiliary variables:_ For each edge $(u,v) in E$ and position $k$, introduce $y_(u,v,k)$ and $y_(v,u,k)$ to linearize the products $x_(u,k) dot x_(v,(k+1) mod n)$ and $x_(v,k) dot x_(u,(k+1) mod n)$ respectively.
 
-  _Constraints:_ (1) Each vertex has exactly one position: $sum_(k=0)^(n-1) x_(v,k) = 1$ for all $v in V$. (2) Each position has exactly one vertex: $sum_(v in V) x_(v,k) = 1$ for all $k$. (3) Non-edge consecutive prohibition: if ${v,w} in.not E$, then $x_(v,k) + x_(w,(k+1) mod n) <= 1$ for all $k$. (4) McCormick: $y <= x_(v,k)$, $y <= x_(w,(k+1) mod n)$, $y >= x_(v,k) + x_(w,(k+1) mod n) - 1$.
+  _Constraints:_ (1) Each vertex has exactly one position: $sum_(k=0)^(n-1) x_(v,k) = 1$ for all $v in V$. (2) Each position has exactly one vertex: $sum_(v in V) x_(v,k) = 1$ for all $k$. (3) Non-edge consecutive prohibition: for distinct $v,w$ with ${v,w} in.not E$, impose $x_(v,k) + x_(w,(k+1) mod n) <= 1$ for all $k$, including $k = n - 1$. (4) For each orientation of each edge, impose all three McCormick rows: $y <= x_(v,k)$, $y <= x_(w,(k+1) mod n)$, $y >= x_(v,k) + x_(w,(k+1) mod n) - 1$.
 
   _Objective:_ Minimize $sum_((u,v) in E) w(u,v) dot sum_k (y_(u,v,k) + y_(v,u,k))$.
 
@@ -13942,9 +14398,11 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(v,k), y_(u,v,k) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
+  _Correctness._ ($arrow.r.double$) A valid tour has $n >= 3$ and defines a permutation matrix $(x_(v,k))$ satisfying (1)--(2). Set each auxiliary variable to its indicated product. Consecutive vertices are adjacent, including the last-to-first pair, so (3)--(4) hold. Each tour edge is traversed once, making the objective equal to its source weight. ($arrow.l.double$) Any feasible binary solution defines a permutation by (1)--(2). The single cyclic sequence of positions visits every vertex, so it cannot split into disconnected subtours. Constraint (3) ensures adjacency at every step, including the wrap. For binary operands, either zero operand forces $y = 0$ through its upper row; two unit operands force $y = 1$ through the lower row. Thus all three rows make the products exact independently of the sign of the objective coefficient, including zero. An undirected edge can be traversed twice only when its endpoints are each other's successor, which would require $n = 2$ and is excluded. Every feasible assignment therefore gives a valid tour of exactly the same weight, preserving optimality.
 
-  _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
+  _Solution extraction._ First reject an infeasible target assignment. For each position $k$, find vertex $v$ with $x_(v,k) = 1$; select the source edges between consecutive positions, including last-to-first.
+
+  _Overhead._ For $n >= 3$, the construction has $n^2 + 2 n m$ variables, $n^2(n - 1) + 2 n + 4 n m$ rows, and $2 n^3 + 10 n m$ normalized nonzeros. Across both branches, the declared bounds are $n^2(n - 1) + 2 n + 6 n m + 1$ rows and $2 n^3 + 14 n m$ nonzeros; the small-graph branch has one row and zero nonzeros.
 ]
 
 #let tsp_qubo = load-example("TravelingSalesman", "QUBO")
@@ -14021,17 +14479,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   Position-based QUBO encoding @lucas2014 maps a Hamiltonian tour to $n^2$ binary variables $x_(v,p)$, where $x_(v,p) = 1$ iff city $v$ is visited at position $p$. The QUBO Hamiltonian $H = H_A + H_B + H_C$ combines permutation constraints with the distance objective ($n^2$ variables indexed by $v dot n + p$).
 ][
-  _Construction._ For $n = |V| >= 3$, discard loops and retain the cheapest edge of each parallel class, recording its original index. Write $E'$ for these retained edges and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
+  _Construction._ For $n = |V| >= 3$, record each edge by its unordered endpoint pair and original index. Write $E' = E$ and set $s = min({0} union {w_e : e in E'})$, $c_e = w_e - s >= 0$, and $A = 1 + max(sum_(e in E') c_e, sum_(e in E') |w_e|)$. Every tour uses $n$ edges, so this shift changes every tour cost by the same amount $-n s$.
 
   _Variables:_ Binary $x_(v,p) in {0, 1}$ for vertex $v in V$ and position $p in {0, dots, n-1}$. QUBO variable index: $v dot n + p$.
 
   _QUBO matrix:_ (1) Row constraint $H_A = A sum_v (1 - sum_p x_(v,p))^2$: diagonal $Q[v n + p, v n + p] += -A$, off-diagonal $Q[v n + p, v n + p'] += 2A$ for $p < p'$. (2) Column constraint $H_B = A sum_p (1 - sum_v x_(v,p))^2$: symmetric to $H_A$. (3) Distance $H_C = sum_((u,v) in E') c_(u v) sum_p (x_(u,p) x_(v,(p+1) mod n) + x_(v,p) x_(u,(p+1) mod n))$. For non-edges, penalty $A$ replaces $c_(u v)$. The stored energy is $E = H_A + H_B + H_C - 2n A$.
 
-  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering. Choosing the cheapest parallel edge preserves the source optimum.
+  _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix with $H_A = H_B = 0$ and $H_C <= sum_e c_e < A$. ($arrow.l.double$) All objective terms are nonnegative before dropping the constant. A violated permutation constraint or a permutation using a missing edge costs at least $A$. Consequently, a source tour exists iff the target optimum satisfies $E < A - 2n A$. Below that bound, every optimum encodes a valid tour, and shifting costs preserves their ordering.
 
-  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded cheapest edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires both $2n A$ and the nonnegative offset $2n A + n s$ to fit `i64`.
+  _Solution extraction._ Require energy below $A - 2n A$. For each position $p$, find the unique vertex $v$ with $x^*_(v n + p) = 1$ and map consecutive pairs to the recorded edge indices. Aggregate recovery returns the source optimum $E + 2n A + n s$ below the bound, or infeasibility otherwise. Construction checks the coefficient arithmetic and requires both $2n A$ and the nonnegative offset $2n A + n s$ to fit `i64`.
 
-  _Small instances._ The source model uses a connected degree-two edge set: for one vertex, the optimum is its cheapest loop; for two vertices, it is the two cheapest parallel edges joining them. If those edges do not exist, or if there are no vertices, the source is infeasible. These cases map to a zero QUBO with $n^2$ variables and a constant solution/value mapping recording that exact answer.
+  _Small instances._ A simple graph with fewer than three vertices has no Hamiltonian cycle. These infeasible instances map to a zero QUBO with $n^2$ variables and a constant solution/value mapping reporting infeasibility.
 ]
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
@@ -14433,7 +14891,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   Encode independence and outgoing absorption with one binary variable per vertex.
   The elementary encoding below follows the two defining kernel conditions.
 ][
-  _Construction._ For each arc occurrence $(u,v)$ add $x_u+x_v<=1$.
+  _Construction._ For each arc $(u,v)$ add $x_u+x_v<=1$.
   For each vertex $u$ add $x_u+sum_(v in N^+(u))x_v>=1$, using the set of
   distinct outgoing neighbors. All variables are binary; the objective is zero.
 
@@ -14441,10 +14899,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   each unselected vertex has a selected outgoing neighbor, so absorption also
   holds. ($arrow.l.double$) Independence rows forbid two selected arc endpoints,
   while absorption rows ensure every unselected vertex reaches a selected one.
-  A self-loop gives $2x_u<=1$ and correctly forbids selecting its vertex.
-  Parallel arcs repeat independence rows without changing feasibility.
 
-  _Overhead._ With $n$ vertices and $m$ arc occurrences there are exactly $n$
+  _Overhead._ With $n$ vertices and $m$ arcs there are exactly $n$
   variables and $m+n$ rows. The independence rows contribute at most $2m$
   nonzeros and absorption at most $n+m$. Normalized coefficients have magnitude
   at most two, so two magnitude bits suffice.
@@ -15721,13 +16177,13 @@ The following reductions to Integer Linear Programming are straightforward formu
   $ s_v = sum_(u != v) y_(u v), quad d_v = sum_(u in N(v)) y_(u v), $
   where $N(v)$ contains distinct neighbors other than $v$. Impose
   $ s_v <= (n-1) a_v, quad 2 d_v >= s_v + 2 a_v. $
-  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, counting duplicate edges with multiplicity. Self-loops are always retained and contribute only a constant to the retained-edge count.
+  For $n = 0$, there are no variables or rows. Maximize $sum_({u,v} in E, u != v) y_(u v)$, each edge appearing once because the source graph is simple.
 
   _Degree characterization._ A simple graph on $k >= 2$ vertices is highly connected exactly when its minimum degree $delta$ exceeds $k/2$. Necessity follows from $lambda <= delta$. For sufficiency, consider any cut with smaller side of size $b <= k/2$. At least $b(delta-b+1)$ edges cross it. Since $(b-1)(delta-b) >= 0$, this is at least $delta > k/2$.
 
   _Correctness._ For a singleton, $s_v = d_v = 0$ and the constraints force $a_v = 0$. In a larger cluster of size $k = s_v+1$, the first inequality forces $a_v = 1$, and the second requires $2 d_v >= k+1$. Thus every non-singleton cluster is highly connected by the degree characterization; clusters of size two are excluded automatically. Conversely, every partition into allowed clusters satisfies the constraints with these membership and flag values. Any feasible source deletion can restore all edges internal to its components without decreasing their connectivity or increasing the deletion cost. Hence some source optimum keeps every internal edge, and maximizing the target objective preserves that optimum.
 
-  _Solution extraction._ Delete precisely the non-loop source edges whose membership variable is zero. Keep every self-loop. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
+  _Solution extraction._ Delete precisely the source edges whose membership variable is zero. The resulting components are the encoded clusters, and their connectivity follows from the constraints.
 
   _Size and running time._ The target has $n(n+1)/2$ binary variables, $3 binom(n,3)+2n$ constraints, and $O(n^3)$ nonzeros. Constraint coefficients have magnitude at most $max(n-1,2)$; objective coefficients count input edge multiplicities. Construction, encoding length, and extraction are polynomial in the source encoding size. All registered parameter bounds use only the source vertex count.
 
@@ -15777,7 +16233,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[
   Use cyclic positions, explicit edge-use choices, and a selected maximum-weight edge. The objective preserves signed edge weights without a big-$M$ constant.
 ][
-  _Construction._ Let $n$ be the vertex count and $m$ the number of stored edges, counting parallel edges separately. Binary $x_(v,p)$ assigns vertex $v$ to position $p$. Binary $z_(e,p,d)$ chooses source edge $e$ at cyclic step $p$ in direction $d in {0,1}$. Binary $q_e$ selects one used maximum-weight edge. Define $y_e = sum_(p,d) z_(e,p,d)$ as an expression, not another variable. All variables retain the nonnegative integer ILP variant, with explicit upper bounds of one.
+  _Construction._ Let $n$ be the vertex count and $m$ the number of edges. Binary $x_(v,p)$ assigns vertex $v$ to position $p$. Binary $z_(e,p,d)$ chooses source edge $e$ at cyclic step $p$ in direction $d in {0,1}$. Binary $q_e$ selects one used maximum-weight edge. Define $y_e = sum_(p,d) z_(e,p,d)$ as an expression, not another variable. All variables retain the nonnegative integer ILP variant, with explicit upper bounds of one.
 
   Each vertex and position has exactly one assignment. For edge $e=(u,v)$, impose $z_(e,p,0) <= x_(u,p)$ and $z_(e,p,0) <= x_(v,(p+1) mod n)$, with reversed endpoints for direction one. Then impose
   $
@@ -15790,12 +16246,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
   Minimize $sum_e w_e q_e$. The threshold principle selects among edge weights @larusic2010; the explicit maximum selector and stored-edge treatment here give a direct ILP construction.
 
-  _Correctness._ ($arrow.r.double$) A connected degree-two spanning edge selection supplies a cyclic vertex order and distinct edge uses. This includes a one-vertex self-loop or a two-vertex cycle with two parallel edges when present in the native graph. Choose a used maximum-weight edge for $q$. All constraints hold and the objective is the source bottleneck.
+  _Correctness._ ($arrow.r.double$) A connected degree-two spanning edge selection supplies a cyclic vertex order and distinct edge uses. Choose a used maximum-weight edge for $q$. All constraints hold and the objective is the source bottleneck.
   ($arrow.l.double$) The position equalities give a permutation. Exactly one edge connects each consecutive pair, and no stored edge is used twice, so the decoded selection is connected, spans all vertices, and has degree two. The selected $q$ edge is used and dominates every used edge. Thus every feasible target witness has exactly the source value, not merely an upper bound. An empty graph has no selector and is infeasible.
 
   _Numeric contract._ Constraints use only coefficients of magnitude one; weights are compared without subtraction or negation. Exactly one objective coefficient contributes, so even the minimum signed integer is preserved without overflowing an intermediate sum. Checked dimensions bound binary constraint accumulation. The target has $n^2+2 m n+m$ variables and $n^2+6 m n+4m+3n+1$ constraints. The default floating solver's transport range is a separate limitation.
 
-  _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one. Parallel edges keep their individual identities.
+  _Solution extraction._ Evaluate the target once, reject an infeasible assignment, and select precisely the stored edges whose edge-use block contains a one.
 ]
 
 #let hc_lc = load-example("HamiltonianCircuit", "DecisionLongestCircuit")
@@ -17480,7 +17936,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Use the classical 3-SAT to Vertex Cover gadget construction, then ask whether the resulting graph has a vertex cover of size at most $k = n + 2m$ @garey1979.
 ][
-  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$.
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$. For accepted short nonempty clauses, repeat their literals to fill three positions. For an empty clause, keep its triangle without communication edges and use threshold $-1$, making the decision instance infeasible. The vertex count stays exact; the edge count is at most $n+6m$.
 
   _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, choose one literal vertex per variable according to a satisfying assignment and choose two triangle vertices per clause, omitting a vertex whose literal is true. This gives a cover of size $n + 2m$, so the decision instance is yes. ($arrow.l.double$) If the decision instance is yes, any cover of size at most $n + 2m$ must use exactly one literal vertex per variable edge and exactly two vertices per clause triangle. The omitted triangle vertex in each clause has its communication edge covered only by a selected literal vertex, so the corresponding literal is true. These selected literal vertices define a satisfying assignment for $phi$.
 
@@ -17816,7 +18272,7 @@ The following table shows concrete target-variable counts for example instances,
 ][
   _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) max(w(v), 0)$.
 
-  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) If an FAS selects any crossing arc, replace all selected crossing arcs by all internal arcs. This still breaks every cycle, adds weight at most $sum_v max(w(v), 0)$, and removes weight at least $M$, strictly reducing cost. Thus an optimal FAS contains only internal arcs. Each source edge then forces at least one endpoint's internal arc into the FAS (also for a self-loop), yielding a cover of equal weight.
+  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) If an FAS selects any crossing arc, replace all selected crossing arcs by all internal arcs. This still breaks every cycle, adds weight at most $sum_v max(w(v), 0)$, and removes weight at least $M$, strictly reducing cost. Thus an optimal FAS contains only internal arcs. Each source edge then forces at least one endpoint's internal arc into the FAS, yielding a cover of equal weight.
 
   _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$. Reject a target candidate if these vertices leave any source edge uncovered; target feasibility alone does not guarantee that this mapping produces a cover.
 ]
@@ -18198,9 +18654,9 @@ The following table shows concrete target-variable counts for example instances,
 )[
   The unit-weight decision independent-set problem reduces to integral flow with bundles. Sahni's original construction @sahni1974[Theorem 2.2(b)(iv), p. 270] represents cardinality and recovers a maximum by repeated flow-threshold queries. The direct rule here preserves one explicit decision threshold; it does not claim that an arbitrary feasible flow solves weighted maximum independent set.
 ][
-  _Construction._ Let $G$ have $n$ vertices, $m$ edge records, and integer bound $k$. Set $q = min(max(k,0),n+1)$ and $R=q+1$. Introduce a source $s$, a sink $t$, and intermediate vertices $w_0, dots, w_n$. For each $i$, add arcs $a_i=(s,w_i)$ and $b_i=(w_i,t)$, and the capacity-2 bundle ${a_i,b_i}$. Paths $0, dots, n-1$ represent source vertices; path $n$ is auxiliary. For each edge record $(u,v)$ add the capacity-1 bundle ${a_u,b_v}$. There are $n+3$ vertices, $2n+2$ arcs, and $m+n+1$ bundles. Every arc belongs to a bundle, and both arcs of each bundle are distinct even for a source self-loop.
+  _Construction._ Let $G$ have $n$ vertices, $m$ edge records, and integer bound $k$. Set $q = min(max(k,0),n+1)$ and $R=q+1$. Introduce a source $s$, a sink $t$, and intermediate vertices $w_0, dots, w_n$. For each $i$, add arcs $a_i=(s,w_i)$ and $b_i=(w_i,t)$, and the capacity-2 bundle ${a_i,b_i}$. Paths $0, dots, n-1$ represent source vertices; path $n$ is auxiliary. For each edge record $(u,v)$ add the capacity-1 bundle ${a_u,b_v}$. There are $n+3$ vertices, $2n+2$ arcs, and $m+n+1$ bundles. Every arc belongs to a bundle, and both arcs of each bundle are distinct because one is incoming and the other outgoing.
 
-  _Backward direction._ Flow conservation and the path bundles imply that both arcs on path $i$ carry the same binary flow $x_i$. The edge bundles impose $x_u+x_v <= 1$, so $S={i<n:x_i=1}$ is independent. A self-loop imposes $2x_u <= 1$, forcing $x_u=0$ without a separate construction. The sink receives $|S|+x_n >= R$, hence $|S| >= q$. For $0<k<=n$ this is the required bound. Bounds $k<=0$ accept every independent set; bounds $k>n$ force $|S|>=n+1$ and make the target infeasible.
+  _Backward direction._ Flow conservation and the path bundles imply that both arcs on path $i$ carry the same binary flow $x_i$. The edge bundles impose $x_u+x_v <= 1$, so $S={i<n:x_i=1}$ is independent. The sink receives $|S|+x_n >= R$, hence $|S| >= q$. For $0<k<=n$ this is the required bound. Bounds $k<=0$ accept every independent set; bounds $k>n$ force $|S|>=n+1$ and make the target infeasible.
 
   _Forward direction._ Given any independent set $S$ meeting $k$, send one unit through each selected path and the auxiliary path, and zero through all others. Every capacity and conservation constraint holds, and the inflow $|S|+1$ meets $R$. Thus the source and target are equivalent for every integer bound. Even the empty graph produces one auxiliary path: it is feasible for $k<=0$ and infeasible for $k>0$.
 
@@ -18537,13 +18993,13 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("KColoring", "BicliqueCover")[
   A guard construction embeds coloring feasibility into the finite-feasibility of BicliqueCover. The target uses the classical sub-biclique semantics described by @chandran_et_al:LIPIcs.IPEC.2016.11; the construction and proof below are self-contained. The source value is #raw("Or"), and the target value is #raw("Min<i64>"): any feasible target cover suffices, regardless of its total membership cost.
 ][
-  _Construction._ Let the source be $(G=(V,E),q)$ with $n=|V|$, and set $q'=min(q,n)$. A coloring uses at most $n$ distinct labels, so relabeling used colors preserves feasibility with $q'$ colors, including $n=0$ and $q=0$. If $G$ has a self-loop, return a target with one vertex on each side, one edge, and rank zero. This is a fixed NO instance.
+  _Construction._ Let the source be $(G=(V,E),q)$ with $n=|V|$, and set $q'=min(q,n)$. A coloring uses at most $n$ distinct labels, so relabeling used colors preserves feasibility with $q'$ colors, including $n=0$ and $q=0$.
 
-  Otherwise introduce left vertices $a_v,g_v$ and right vertices $b_v,h_v$ for every $v in V$. Set rank $k=n+q'$. Include the diagonal edges $(a_v,b_v)$, the guard edges $(a_v,h_v),(g_v,h_v)$, and, for every ordered pair of distinct nonadjacent vertices $u,v$, both $(a_u,b_v)$ and $(g_u,b_v)$. Repeated and reversed source edges express the same adjacency constraint. With $d$ distinct source edges, the target has $2n$ vertices per side and $2n^2+n-4d$ edges. The empty source produces an empty target of rank zero, a YES instance. Uniform upper bounds, including the loop sentinel, are $2n+1$ vertices per side, $4n+2$ total vertices, $2n^2+n+1$ edges, and rank $2n$.
+  Otherwise introduce left vertices $a_v,g_v$ and right vertices $b_v,h_v$ for every $v in V$. Set rank $k=n+q'$. Include the diagonal edges $(a_v,b_v)$, the guard edges $(a_v,h_v),(g_v,h_v)$, and, for every ordered pair of distinct nonadjacent vertices $u,v$, both $(a_u,b_v)$ and $(g_u,b_v)$. Repeated and reversed source edges express the same adjacency constraint. With $d$ distinct source edges, the target has $2n$ vertices per side and $2n^2+n-4d$ edges. The empty source produces an empty target of rank zero, a YES instance. The registered upper bounds are $2n+1$ vertices per side, $4n+2$ total vertices, $2n^2+n+1$ edges, and rank $2n$.
 
   _Correctness._ ($arrow.r.double$) Relabel a proper source coloring to use at most $q'$ labels. For each vertex $v$, use the guard biclique with left side ${a_v,g_v}$ and right side ${h_v} union {b_w: w != v, {v,w} in.not E}$. For each used color class $C$, use the biclique with left side ${a_v:v in C}$ and right side ${b_v:v in C}$. Color classes are independent, so these are sub-bicliques. The guard bicliques cover both kinds of compatibility edges and all guard edges; the color bicliques cover every diagonal edge. Pad with empty rows to obtain exactly $k$ rows.
 
-  ($arrow.l.double$) Distinct guard-anchor edges $(g_v,h_v)$ cannot share a biclique, since $(g_u,h_v)$ is absent for $u != v$. A biclique containing an anchor cannot cover any diagonal $(a_u,b_u)$: when $u=v$, $(g_v,b_v)$ is absent; when $u != v$, $(a_u,h_v)$ is absent. Thus at least $n$ rows are occupied by anchors, leaving at most $q'$ rows covering diagonals. For each vertex choose the first row covering its diagonal, and compact these row identifiers into colors. Distinct source vertices assigned the same row require both cross edges in the target, hence are nonadjacent. This yields a proper coloring using at most $q'<=q$ colors. A self-loop makes the source infeasible for every $q$, agreeing with the fixed NO target.
+  ($arrow.l.double$) Distinct guard-anchor edges $(g_v,h_v)$ cannot share a biclique, since $(g_u,h_v)$ is absent for $u != v$. A biclique containing an anchor cannot cover any diagonal $(a_u,b_u)$: when $u=v$, $(g_v,b_v)$ is absent; when $u != v$, $(a_u,h_v)$ is absent. Thus at least $n$ rows are occupied by anchors, leaving at most $q'$ rows covering diagonals. For each vertex choose the first row covering its diagonal, and compact these row identifiers into colors. Distinct source vertices assigned the same row require both cross edges in the target, hence are nonadjacent. This yields a proper coloring using at most $q'<=q$ colors.
 
   _Solution extraction._ Validate the complete target configuration once and reject #raw("Min(None)") before decoding. Apply the diagonal-row mapping above to every feasible cover, including nonoptimal covers. The empty source yields an empty coloring.
 
@@ -18656,7 +19112,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 converts vertex clique partition to edge clique cover. It uses the actual distinct non-loop adjacency pairs, and includes a private vertex on each side so that the two forced side cliques also exist for an empty source. No source endpoint restriction is added.
 ][
-  _Construction._ Let $n$ be the source vertex count, $m$ its stored edge count, and $K$ its clique bound. Let $A = {(i,j) : i != j and {i,j} in E}$ and $q = |A|$. Source self-loops and repeated edges do not change $A$ or source clique feasibility; $q <= 2m$. Create copies $x_i,y_i$, gadget vertices $a_t,b_t$ for each pair $t=(i,j)$, anchors $z_L,z_R$, and private vertices $d_L,d_R$. Set $L={x_i} union {a_t} union {d_L}$ and $R={y_i} union {b_t} union {d_R}$. Make $L$ and $R$ cliques. Connect each anchor to its entire side. Add matching edges $x_i y_i$ and, for every $t=(i,j)$, the cross edges $x_i y_j$, $x_i b_t$, $a_t y_j$, and $a_t b_t$. The threshold is $B=min(K,n)+q+2$.
+  _Construction._ Let $n$ be the source vertex count, $m$ its stored edge count, and $K$ its clique bound. Let $A = {(i,j) : i != j and {i,j} in E}$ and $q = |A|$. The source graph is simple; $q = 2m$. Create copies $x_i,y_i$, gadget vertices $a_t,b_t$ for each pair $t=(i,j)$, anchors $z_L,z_R$, and private vertices $d_L,d_R$. Set $L={x_i} union {a_t} union {d_L}$ and $R={y_i} union {b_t} union {d_R}$. Make $L$ and $R$ cliques. Connect each anchor to its entire side. Add matching edges $x_i y_i$ and, for every $t=(i,j)$, the cross edges $x_i y_j$, $x_i b_t$, $a_t y_j$, and $a_t b_t$. The threshold is $B=min(K,n)+q+2$.
 
   _Correctness, forward._ Given a source partition into $c$ cliques $C$, cover the target with $D_C={x_i,y_i : i in C}$ for each block, $Q_t={x_i,a_t,b_t,y_j}$ for each pair $t=(i,j)$, and the two cliques $L union {z_L}$, $R union {z_R}$. Source adjacency supplies the cross edges in every $D_C$. This family covers every target edge using $c+q+2$ cliques, including when $n=0$.
 
@@ -19026,6 +19482,8 @@ The following table shows concrete target-variable counts for example instances,
 
   _Size bound._ There are $sum_(i=1)^n (p_i-2)+m$ forbidden pairs, where $p_i$ is the $i$th odd prime. For the ordinary $k$th prime $q_k$, the standard estimate $q_k < k(ln k+ln ln k)$ for $k >= 6$ @axler2019, together with the first five primes, implies $q_k <= 2k^2$ for every $k >= 1$. Consequently $p_i=q_(i+1) <= 2(n+1)^2$ and $2n(n+1)^2+m$ bounds the pair count.
 
+  Every clause modulus divides $product_(i=1)^n p_i$, and every variable prime occurs as a modulus, so the target period is $L = product_(i=1)^n p_i$. Since $n+1 <= 2^n$, we have $p_i <= 2(n+1)^2 <= 2^(2n+1)$ and hence `lcm_bits` $<= n(2n+1)+1$. For $n=0$, the empty product is 1 and its bit length is 1. Thus the reduction has polynomial parameter growth while exhaustive target solving still has an exponential bound.
+
   _Correctness._ ($arrow.r.double$) A satisfying assignment $tau$ defines residues $r_i in {1,2}$ per variable. By CRT, some integer $x$ has these residues. It avoids all variable-forbidden classes and all clause-forbidden classes (since at least one literal is true, the residue triple differs from the falsifying triple). ($arrow.l.double$) Any feasible $x$ has $x mod p_i in {1,2}$ for all $i$. Define $tau(x_i) = "TRUE"$ if residue 1, FALSE if 2. If a clause were false, $x$ would match its forbidden CRT class -- contradiction.
 
   _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
@@ -19212,7 +19670,7 @@ The following table shows concrete target-variable counts for example instances,
   $ "NAE"(a,b,R) equiv exists z: "NAE"(a,b,z) and "NAE"(not z,R). $
   If $a=b=c$ and the original clause is NAE-satisfied, $R$ contains a value different from $c$; choosing $z=not c$ satisfies both new clauses. If $a != b$, the first clause is satisfied for either $z$; if $R$ is constant $c$, choose $z=c$, and if $R$ is mixed either choice works. Conversely, if every original value were $c$, the first clause would force $z=not c$, making the second clause constant $c$. Repeated application proves both extension and restriction for the complete chain, including repeated and complementary literals (@jackson2025, Section 4, describes this chain).
 
-  _Cut construction._ Write $a = sum_j max(ell_j-3,0)$, $q=n+a$, $b=|{j:ell_j=2}|$, and $t=sum_(j:ell_j>=3)(ell_j-2)$. There are $q$ variables, $b$ binary clauses and $t$ ternary clauses after expansion. Set $M=m+1$. For each original or auxiliary variable, create positive and negative literal vertices joined by a weight-$M$ edge. A binary clause contributes one unit edge between its literal vertices; a ternary clause contributes all three unit edges between its literal occurrences. Preserve repeated edges and self-loops as supported by the graph representation. Define the certificate $K=q M+b+2t$.
+  _Cut construction._ Write $a = sum_j max(ell_j-3,0)$, $q=n+a$, $b=|{j:ell_j=2}|$, and $t=sum_(j:ell_j>=3)(ell_j-2)$. There are $q$ variables, $b$ binary clauses and $t$ ternary clauses after expansion. Set $M=m+1$. For each original or auxiliary variable, create positive and negative literal vertices joined by a weight-$M$ edge. A binary clause contributes one unit edge between its literal vertices; a ternary clause contributes all three unit edges between its literal occurrences. Combine repeated unordered pairs by summing their weights; omit self-loops, whose cut contribution is zero. Define the certificate $K=q M+b+2t$.
 
   _Forward correctness._ A satisfying original assignment extends to satisfy all expanded clauses by chain equivalence. Put each literal vertex on its literal's truth side. All $q$ variable edges cross, each binary edge crosses, and every ternary triangle has exactly two crossing occurrence-pairs. The cut therefore attains $K$.
 

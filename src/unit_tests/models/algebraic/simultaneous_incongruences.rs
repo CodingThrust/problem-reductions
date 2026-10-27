@@ -20,6 +20,40 @@ fn covering_system() -> SimultaneousIncongruences {
 }
 
 #[test]
+fn test_simultaneous_incongruences_lcm_bits() {
+    for (pairs, bits) in [
+        (vec![], 1),
+        (vec![(1, 1)], 1),
+        (vec![(1, 7)], 3),
+        (vec![(1, 8)], 4),
+        (vec![(1, 4), (1, 6)], 4),
+        (vec![(1, 5), (1, 7)], 6),
+        (vec![(1, i64::MAX)], 63),
+    ] {
+        let problem = SimultaneousIncongruences::new(pairs).unwrap();
+        assert_eq!(problem.parameters().get("lcm_bits"), Some(bits));
+    }
+}
+
+#[test]
+fn test_simultaneous_incongruences_complexity_covers_full_period() {
+    let entry = crate::registry::variant::variant_entries()
+        .into_iter()
+        .find(|entry| entry.name == SimultaneousIncongruences::NAME)
+        .unwrap();
+    // Equal pair counts with different periods must have different search costs.
+    for (pairs, expected) in [
+        (vec![], 2.0),
+        (vec![(1, 4), (1, 6)], 48.0),
+        (vec![(1, 5), (1, 7)], 192.0),
+    ] {
+        let problem = SimultaneousIncongruences::new(pairs).unwrap();
+        assert_eq!((entry.complexity_eval_fn)(&problem), expected);
+    }
+    assert!(!crate::Expr::parse(entry.complexity).is_polynomial());
+}
+
+#[test]
 fn test_simultaneous_incongruences_creation_and_accessors() {
     let p = example_problem();
     assert_eq!(p.num_pairs(), 4);

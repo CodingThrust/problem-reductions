@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codingthrust.github.io/problem-reductions/contracts/graph-details",
+  "title": "GraphDetailsIndex",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entries", "anchors"],
+  "properties": {
+    "entries": {
+      "type": "object", "minProperties": 1,
+      "propertyNames": {"pattern": "^(problem:.+|rule:.+|references|footnotes)$"},
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "anchors": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}}
+  }
+}

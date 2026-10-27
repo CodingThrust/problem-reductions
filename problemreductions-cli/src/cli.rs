@@ -185,6 +185,12 @@ Use `pred list` to see available problems.")]
         limit: usize,
         /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
         instance: Option<std::path::PathBuf>,
+        /// Compare chosen polynomial certificates in the batch-relative generic order.
+        #[arg(long, conflicts_with = "instance")]
+        compare: bool,
+        /// Show detailed pair verdicts, per-field proofs, and counterexample curves.
+        #[arg(long, requires = "compare")]
+        proofs: bool,
     },
 
     /// Export the reduction graph to JSON

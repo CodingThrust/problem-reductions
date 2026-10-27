@@ -11,6 +11,8 @@ pub mod ilp;
 
 #[doc(hidden)]
 pub use brute_force::BruteForceRegistration;
+#[cfg(test)]
+pub(crate) use brute_force::CartesianIndices;
 pub use brute_force::{BruteForce, BruteForceProblem};
 pub use registry::{
     brute_force_dimensions, solver_capabilities, CustomizedSolverCapability, ExactProblemKey,

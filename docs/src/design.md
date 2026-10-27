@@ -147,9 +147,26 @@ nodes in the reduction graph, and explicit reduction rules connect them.
 
 Variant types fall into three categories:
 
-- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Graph type** — `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`, `SimpleDigraph`, `MultiDigraph`, `MultiMixedGraph`.
 - **Weight type** — `One` (unweighted), `i64`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
+
+`SimpleGraph` is undirected, loop-free, and has no parallel edges: `(u, v)` and
+`(v, u)` are the same edge. Its fallible constructor, `new`, and serde share
+validation. `PlanarGraph` wraps it; `BipartiteGraph` also rejects repeated
+cross-partition pairs. `UnitDiskGraph`, `KingsSubgraph`, and `TriangularSubgraph`
+generate each edge between distinct vertex indices once, including when two
+vertices have coincident positions.
+
+`SimpleDigraph` is loop-free and rejects repeated ordered arcs; `(u, v)`
+and `(v, u)` are distinct. It validates a wrapped `MultiDigraph` and
+delegates graph algorithms to it. `MultiDigraph` allows loops and parallel
+arcs; `arc_count(u, v)` exposes multiplicity. `MultiMixedGraph` allows loops and
+parallel arcs and undirected edges. In both multi types, arc i is entry i of
+`arcs()`; models index their per-arc data by that same order. All three types
+validate serde input and retain the JSON shapes `{num_vertices, arcs}` or
+`{num_vertices, arcs, edges}`.
+
 
 <div class="theme-light-only">
 
@@ -524,12 +541,16 @@ Output: ProblemParameters { num_vars: 25 }
 ```
 
 For multi-step paths, `compose_path_parameter_transform` substitutes each step into the next.
-When only upper bounds are known for the intermediate fields, a downstream polynomial is
-first fully expanded and like monomials are combined; terms with non-positive coefficients
-are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
-produces the sound bound `k <= 10`, while
-`e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
-propagate symbolic upper bounds and makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
+The shared `ParameterTransform::compose` engine first expands downstream polynomials
+and combines like monomials, so cancelled dependencies disappear. Its partial hull
+removes a negative monomial only if it involves an upper-bounded intermediate field;
+negative terms involving exclusively exact inputs are retained. For example,
+`v = n`, `e <= n^2` followed by `e' = v(v - 1)/2 - e` produces
+`e' <= n(n - 1)/2`, keeping the exact `-n/2` term. With `v <= n` instead,
+that term is also dropped and the certificate is `e' <= n^2/2`.
+Likewise, `m <= n^2` followed by `k = 10 - m` produces `k <= 10`.
+A non-polynomial downstream formula cannot propagate symbolic upper bounds and
+makes that field unavailable, preserving the other fields. Projection to `Growth` is a separate descriptive terminal operation used for
 Big-O display; it does not rank or filter paths.
 
 </details>
