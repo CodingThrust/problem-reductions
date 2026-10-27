@@ -849,6 +849,83 @@
       "right": "exp(n)",
       "ratio_limit": "0",
       "relation": "right_dominates"
+    },
+    {
+      "name": "polynomial_exponent",
+      "left": "2^(n^2)",
+      "right": "3^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "sqrt_exponent_over_polynomial",
+      "left": "2^sqrt(n)",
+      "right": "n^100",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "exponential_over_sqrt_exponent",
+      "left": "1.0001^n",
+      "right": "2^sqrt(n)",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "quasi_polynomial",
+      "left": "2^(log(n)^2)",
+      "right": "n^100",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "self_power_over_binary_power",
+      "left": "n^n",
+      "right": "2^(n * log(n))",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "variable_base_rate",
+      "left": "n^(2 * n)",
+      "right": "n^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "mixed_base_product",
+      "left": "2^(2 * n) * 3^n",
+      "right": "2^n * 4^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "close_exponential_rates",
+      "left": "2^(0.773 * n)",
+      "right": "1.1996^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "exponent_cancellation",
+      "left": "2^((n + 1)^2 - n^2)",
+      "right": "2^(2 * n)",
+      "ratio_limit": "2",
+      "relation": "equivalent"
+    },
+    {
+      "name": "decaying_factor",
+      "left": "2^n * 0.5^n",
+      "right": "1",
+      "ratio_limit": "1",
+      "relation": "equivalent"
+    },
+    {
+      "name": "reverse_variable_base",
+      "left": "2^n",
+      "right": "n^n",
+      "ratio_limit": "0",
+      "relation": "right_dominates"
     }
   ],
   "factorial_domain_cases": [
