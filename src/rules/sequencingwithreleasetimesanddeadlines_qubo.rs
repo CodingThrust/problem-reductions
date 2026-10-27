@@ -35,7 +35,7 @@ impl crate::rules::AggregateReductionResult
     for ReductionSequencingWithReleaseTimesAndDeadlinesToQUBO
 {
 }
-#[crate::reduction(transform = upper_bound { num_vars = "num_tasks * (time_horizon + 1)", num_quadratic_terms = "(num_tasks * (time_horizon + 1))^2" })]
+#[crate::reduction(transform = upper_bound { num_vars = "num_tasks * max_start_slots", num_quadratic_terms = "num_tasks * max_start_slots * (num_tasks * max_start_slots - 1) / 2" })]
 impl ReduceTo<Decision<QUBO<i64>>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSequencingWithReleaseTimesAndDeadlinesToQUBO;
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
