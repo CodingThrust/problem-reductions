@@ -38,7 +38,7 @@ impl ReductionResult for ReductionPOKToILP {
         num_constraints = "num_precedences + 1",
     },
     upper_bound {
-        num_nonzeros = "num_items * (num_precedences + 1)",
+        num_nonzeros = "num_items + 2 * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {

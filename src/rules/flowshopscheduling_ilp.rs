@@ -76,7 +76,7 @@ impl crate::rules::AggregateReductionResult for ReductionFSSToILP {}
         max_constraint_magnitude_bits = "max_time_bits + 1",
         num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
         num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
-        num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors) * (num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs)",
+        num_nonzeros = "num_jobs * (num_jobs - 1) * (1 + 3 * num_processors) + 2 * num_jobs * num_processors",
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for FlowShopScheduling {

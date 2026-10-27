@@ -121,7 +121,7 @@ fn weighted_distances_msmc(
     max_constraint_magnitude_bits = "num_vertices + 1",
     num_vars = "num_vertices + num_vertices^2",
     num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
-    num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + 2 * num_vertices + 1)",
+    num_nonzeros = "3 * num_vertices^2 + num_vertices",
 })]
 impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
     type Result = ReductionMSMCToILP;

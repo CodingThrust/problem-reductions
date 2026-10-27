@@ -47,7 +47,7 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_nonzeros = "(num_vars + num_clauses) * num_clauses",
+        num_nonzeros = "3 * num_clauses",
     },
 })]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {

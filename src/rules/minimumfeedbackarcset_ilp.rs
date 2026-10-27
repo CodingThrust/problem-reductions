@@ -61,7 +61,7 @@ impl ReductionResult for ReductionFASToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
+        num_nonzeros = "4 * num_arcs + num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {

@@ -46,7 +46,7 @@ impl ReductionResult for ReductionMinCutBSToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_vertices + num_edges) * (2 + 2 + 2 * num_edges)",
+        num_nonzeros = "2 * num_vertices + 6 * num_edges + 2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {

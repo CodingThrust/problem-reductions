@@ -74,7 +74,7 @@ impl crate::rules::AggregateReductionResult for ReductionNMTSToILP {}
     max_constraint_magnitude_bits = "1",
     num_vars = "num_pairs * num_pairs * num_pairs",
     num_constraints = "3 * num_pairs",
-    num_nonzeros = "(num_pairs * num_pairs * num_pairs) * (3 * num_pairs)",
+    num_nonzeros = "3 * num_pairs * num_pairs * num_pairs",
 })]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
     type Result = ReductionNMTSToILP;
