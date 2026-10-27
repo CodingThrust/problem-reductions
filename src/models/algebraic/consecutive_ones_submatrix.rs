@@ -98,7 +98,9 @@ impl ConsecutiveOnesSubmatrix {
             return Err("all matrix rows must have the same length".into());
         }
         if !usize::try_from(bound).is_ok_and(|bound| bound <= n) {
-            return Err(format!("bound ({bound}) must be in 0..={n}, the number of columns").into());
+            return Err(
+                format!("bound ({bound}) must be in 0..={n}, the number of columns").into(),
+            );
         }
         Ok(Self { matrix, bound })
     }

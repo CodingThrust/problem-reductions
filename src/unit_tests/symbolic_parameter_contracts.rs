@@ -587,10 +587,11 @@ fn missing_structural_bounds_cover_sparse_and_normalized_instances() {
         SimpleGraph::path(3),
         SimpleGraph::complete(3),
     ] {
+        // SimpleGraph rejects repeated edges, so the bipartite side sizes are exact.
         check_reduced_parameters::<_, BalancedCompleteBipartiteSubgraph>(
             KClique::new(graph, 2),
             &["num_vertices"],
-            upper,
+            ParameterRelation::Exact,
         );
     }
 }

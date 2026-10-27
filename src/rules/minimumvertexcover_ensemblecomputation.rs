@@ -76,11 +76,15 @@ impl ReductionResult for ReductionVCToEC {
 }
 
 #[reduction(
-    transform = upper_bound {
+    transform = {
+        exact {
         universe_size = "num_vertices + 1",
+    },
+    upper_bound {
         num_subsets = "num_edges",
         budget = "num_vertices + num_edges + 1",
-    }
+    },
+}
 )]
 impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToEC;

@@ -69,8 +69,9 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToDecisionMVC {}
 
 #[reduction(
     transform = {
-        exact { num_vertices = "2 * num_vars + 3 * num_clauses" },
-        upper_bound { num_edges = "num_vars + 6 * num_clauses" },
+        exact { num_vertices = "2 * num_vars + 3 * num_clauses",
+        num_edges = "num_vars + 6 * num_clauses",
+    },
     }
 )]
 impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiability<K3> {

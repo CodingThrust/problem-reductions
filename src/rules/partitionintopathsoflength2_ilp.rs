@@ -69,11 +69,15 @@ impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
 
 // With q=floor(n/3) and e distinct non-loop edges: q(n+e) variables,
 // n+2q+3eq rows, and 2nq+8eq terms. Deduplication gives e<=num_edges.
-#[reduction(transform = upper_bound {
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices * (num_vertices + num_edges) / 3",
+        num_constraints = "5 * num_vertices / 3 + num_edges * num_vertices",
+        num_nonzeros = "(2 * num_vertices^2 + 8 * num_edges * num_vertices) / 3",
+    },
+    upper_bound {
     max_constraint_magnitude_bits = "2",
-    num_vars = "num_vertices * (num_vertices + num_edges) / 3",
-    num_constraints = "5 * num_vertices / 3 + num_edges * num_vertices",
-    num_nonzeros = "(2 * num_vertices^2 + 8 * num_edges * num_vertices) / 3",
+},
 })]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;
