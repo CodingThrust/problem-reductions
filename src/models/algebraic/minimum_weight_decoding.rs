@@ -179,7 +179,9 @@ impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
 }
 
 crate::declare_variants! {
-    default MinimumWeightDecoding => "2^(0.0494 * num_cols)" create MinimumWeightDecodingCreateSpec,
+    // Information set decoding exponents are average-case over random codes; no
+    // worst-case bound below exhaustive search over x is known.
+    default MinimumWeightDecoding => "2^num_cols" create MinimumWeightDecodingCreateSpec,
 }
 
 crate::register_brute_force! {

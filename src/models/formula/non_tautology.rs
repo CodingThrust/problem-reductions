@@ -183,7 +183,8 @@ impl crate::solvers::BruteForceProblem for NonTautology {
 }
 
 crate::declare_variants! {
-    default NonTautology => "1.307^num_vars",
+    // Unbounded-width DNF is CNF-SAT by De Morgan duality; no O*((2-eps)^n) algorithm is known.
+    default NonTautology => "2^num_vars",
 }
 
 crate::register_brute_force! {

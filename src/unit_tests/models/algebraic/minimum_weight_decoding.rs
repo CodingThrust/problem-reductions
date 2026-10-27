@@ -154,7 +154,7 @@ fn test_minimum_weight_decoding_complexity_metadata() {
         .find(|entry| entry.name == "MinimumWeightDecoding")
         .expect("MinimumWeightDecoding variant entry should exist");
 
-    assert_eq!(entry.complexity, "2^(0.0494 * num_cols)");
+    assert_eq!(entry.complexity, "2^num_cols");
 }
 
 #[test]
