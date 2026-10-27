@@ -480,6 +480,34 @@ fn test_growth_exponential_variants() {
     ));
 }
 
+/// Huge constant powers inside an exponent fail fast instead of computing
+/// enormous rationals.
+#[test]
+fn test_growth_huge_exponent_powers_fail_fast() {
+    let start = std::time::Instant::now();
+    for source in [
+        "2^((n + m)^3000000000.5)",
+        "2^((3*n)^2000000000)",
+        "2^((n + m)^99999999999)",
+    ] {
+        assert!(
+            matches!(
+                g(source).failures(),
+                Some([GrowthFailure::RepresentedExponentOutOfRange(_)])
+            ),
+            "{source}: {:?}",
+            g(source)
+        );
+    }
+    assert!(
+        start.elapsed().as_millis() < 100,
+        "took {:?}",
+        start.elapsed()
+    );
+    // Unit coefficients need no budget.
+    assert_eq!(g("2^(n^2000000000)").failures(), None);
+}
+
 /// Nonlinear exponents, variable bases, and factorials are represented.
 #[test]
 fn test_growth_superexponential_shapes() {

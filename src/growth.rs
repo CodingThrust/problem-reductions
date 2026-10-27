@@ -83,8 +83,8 @@ const ANTICHAIN_CAP: usize = 32;
 const EXPONENT_TERM_CAP: usize = 64;
 /// Largest integer power of a sum expanded exactly inside an exponent.
 const EXPONENT_POWER_CAP: u32 = 16;
-/// Bit budget for deciding a mixed-base weight sign with exact rational powers.
-const EXACT_SIGN_BIT_CAP: u64 = 1 << 16;
+/// Bit budget for exact rational powers (weight signs and exponent coefficients).
+const RATIONAL_POWER_BIT_CAP: u64 = 1 << 16;
 
 /// An exact fixed exponential base.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -265,7 +265,7 @@ fn exact_weight_sign(weight: &Weight) -> Option<Sign> {
             bits.checked_add(magnitude.checked_mul(base.numer().bits() + base.denom().bits())?)?;
         powers.push((base, power));
     }
-    if bits > EXACT_SIGN_BIT_CAP {
+    if bits > RATIONAL_POWER_BIT_CAP {
         return None;
     }
     let (mut above, mut below) = (BigRational::one(), BigRational::one());
@@ -762,9 +762,10 @@ impl ExponentPoly {
         if k.is_zero() {
             return Ok(Self::constant(BigRational::one()));
         }
+        let out_of_range = || GrowthFailure::RepresentedExponentOutOfRange(source.to_string());
         if let (1, Some((monomial, coefficient))) = (self.terms.len(), self.terms.iter().next()) {
             let exact_coefficient = if k.is_integer() {
-                k.to_integer().to_i32().map(|power| coefficient.pow(power))
+                Some(bounded_pow(coefficient, &k.to_integer()).ok_or_else(out_of_range)?)
             } else {
                 coefficient.is_one().then(BigRational::one)
             };
@@ -774,7 +775,10 @@ impl ExponentPoly {
                     self.exact,
                 )),
                 None if coefficient.is_positive() => Ok(Self::from_terms(
-                    [(monomial_pow(monomial, k), ceil_power_bound(coefficient, k))],
+                    [(
+                        monomial_pow(monomial, k),
+                        ceil_power_bound(coefficient, k).ok_or_else(out_of_range)?,
+                    )],
                     false,
                 )),
                 None => Err(GrowthFailure::UnsupportedExponent(source.to_string())),
@@ -802,17 +806,14 @@ impl ExponentPoly {
         let spread = ceil_power_bound(
             &BigRational::from_integer(BigInt::from(positive.len())),
             &excess,
-        );
-        Self::from_terms(
-            positive.into_iter().map(|(monomial, coefficient)| {
-                (
-                    monomial_pow(monomial, k),
-                    &spread * ceil_power_bound(coefficient, k),
-                )
-            }),
-            false,
         )
-        .checked(source)
+        .ok_or_else(out_of_range)?;
+        let mut terms = Vec::with_capacity(positive.len());
+        for (monomial, coefficient) in positive {
+            let bound = ceil_power_bound(coefficient, k).ok_or_else(out_of_range)?;
+            terms.push((monomial_pow(monomial, k), &spread * bound));
+        }
+        Self::from_terms(terms, false).checked(source)
     }
 
     fn monomial_bound(&self) -> Option<MonomialBound> {
@@ -865,15 +866,28 @@ impl ExponentPoly {
     }
 }
 
-/// A rational upper bound on `c^k` for `c > 0`, `k ≥ 0`.
-fn ceil_power_bound(c: &BigRational, k: &BigRational) -> BigRational {
+/// A rational upper bound on `c^k` for `c > 0`, `k ≥ 0`, within the bit budget.
+fn ceil_power_bound(c: &BigRational, k: &BigRational) -> Option<BigRational> {
     if c <= &BigRational::one() {
-        return BigRational::one();
+        return Some(BigRational::one());
     }
-    match k.ceil().to_integer().to_i32() {
-        Some(power) => c.pow(power),
-        None => BigRational::from_integer(BigInt::from(2)).pow(i32::MAX),
+    bounded_pow(c, &k.ceil().to_integer())
+}
+
+/// `c^power` for a nonnegative integer power, or `None` past the bit budget.
+fn bounded_pow(c: &BigRational, power: &BigInt) -> Option<BigRational> {
+    if c.is_zero() || c.abs().is_one() {
+        let odd = (power % BigInt::from(2)).is_one();
+        return Some(if c.is_negative() && odd {
+            -BigRational::one()
+        } else {
+            c.abs()
+        });
     }
+    let power = power.to_i32()?;
+    let bits =
+        (c.numer().bits() + c.denom().bits()).checked_mul(u64::from(power.unsigned_abs()))?;
+    (bits <= RATIONAL_POWER_BIT_CAP).then(|| c.pow(power))
 }
 
 /// A rational upper bound on `ln c` for `c > 0`.
