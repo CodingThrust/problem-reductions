@@ -926,6 +926,34 @@
       "right": "n^n",
       "ratio_limit": "0",
       "relation": "right_dominates"
+    },
+    {
+      "name": "stirling_factorial",
+      "left": "factorial(n)",
+      "right": "n^n * sqrt(n) * exp(-n)",
+      "ratio_limit": "sqrt(2)*sqrt(pi)",
+      "relation": "equivalent"
+    },
+    {
+      "name": "factorial_below_self_power",
+      "left": "n^n",
+      "right": "factorial(n)",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "factorial_above_base_e_power",
+      "left": "factorial(n)",
+      "right": "(n / 3)^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "scaled_factorial",
+      "left": "factorial(2 * n)",
+      "right": "(2 * n)^(2 * n) * sqrt(n) * exp(-2 * n)",
+      "ratio_limit": "2*sqrt(pi)",
+      "relation": "equivalent"
     }
   ],
   "factorial_domain_cases": [

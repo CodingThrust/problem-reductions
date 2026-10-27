@@ -30,8 +30,17 @@
 //! **weakly monotone** (nondecreasing in each variable) on `vars ≥ 2`, and
 //! asymptotic statements quantify over all variables growing together
 //! (`∃N: ∀ vars ≥ N`). Under these axioms `f + g ≍ max(f, g)` up to a constant
-//! factor, which licenses `add = antichain union + prune`. All bounds produced
-//! are **upper** bounds.
+//! factor, which licenses `add = antichain union + prune`. Every known growth is
+//! an **upper** bound; [`Growth::relation`] reports
+//! [`ParameterRelation::Exact`] when it is also a lower bound (`f = Θ(growth)`)
+//! and [`ParameterRelation::UpperBound`] when any step below widened it.
+//!
+//! Exactness is preserved by sums and products of exact operands, constant
+//! powers, exactly expanded exponents with exactly bounded bases, logarithms
+//! whose argument grows without bound, and sums whose widened summands are
+//! strictly dominated by an exact summand (so `n − 1` and `n² − n` stay exact).
+//! `factorial(x)` is exact by Stirling, `x! ≍ x^(x+1/2)·e^(−x)`, when `x`
+//! expands exactly to one monomial.
 //!
 //! Widening (always toward a valid upper bound):
 //! - Subtraction is normalized to addition of a negative term, and
@@ -46,7 +55,7 @@
 //!   floating-point logarithm and never reconstructed by rounding.
 //! - A variable base `B` with exact expansion `Σ c_i μ_i` is bounded by
 //!   `C · M`, where `C = Σ c_i` and `M` takes the largest power of every
-//!   variable, so `B^E ≤ C^E · M^E`. `factorial(x)` widens to `x^x`.
+//!   variable, so `B^E ≤ C^E · M^E`. Any other `factorial(x)` widens to `x^x`.
 //! - `ln ln v` inside an exponent widens to `ln v`.
 //! - The explicit approximation boundary treats [`Expr::log`] as the natural
 //!   logarithm, but all fixed
@@ -72,6 +81,7 @@
 //! `sqrt((n − m)^2) ≍ n + m` hold exactly.
 
 use crate::expr::{AlgebraicAnalysis, BigInt, Expr, ExprNode, ExprNodeId};
+use crate::parameters::ParameterRelation;
 use num_rational::BigRational;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 use std::cmp::Ordering;
@@ -296,7 +306,11 @@ pub struct Growth(GrowthState);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum GrowthState {
-    Known(Vec<GrowthTerm>),
+    /// A pruned antichain and whether it is also a lower bound.
+    Known {
+        terms: Vec<GrowthTerm>,
+        relation: ParameterRelation,
+    },
     /// Content outside the represented growth domain, with every reason that
     /// contributed to the result.
     Unknown(Vec<GrowthFailure>),
@@ -440,8 +454,17 @@ impl Growth {
 
     pub fn failures(&self) -> Option<&[GrowthFailure]> {
         match &self.0 {
-            GrowthState::Known(_) => None,
+            GrowthState::Known { .. } => None,
             GrowthState::Unknown(failures) => Some(failures),
+        }
+    }
+
+    /// Whether a known growth is tight (`Exact`, a Θ bound) or only an
+    /// `UpperBound`; `None` for unknown growth.
+    pub fn relation(&self) -> Option<ParameterRelation> {
+        match &self.0 {
+            GrowthState::Known { relation, .. } => Some(*relation),
+            GrowthState::Unknown(_) => None,
         }
     }
 
@@ -462,7 +485,7 @@ impl Growth {
     /// some term of `self` — the standard antichain (Pareto) comparison.
     pub fn dominates(&self, other: &Growth) -> bool {
         match (&self.0, &other.0) {
-            (GrowthState::Known(a), GrowthState::Known(b)) => {
+            (GrowthState::Known { terms: a, .. }, GrowthState::Known { terms: b, .. }) => {
                 b.iter().all(|tb| a.iter().any(|ta| ta.dominates_or_eq(tb)))
             }
             _ => false,
@@ -478,7 +501,7 @@ impl Growth {
     pub fn to_expr(&self) -> Option<Expr> {
         match &self.0 {
             GrowthState::Unknown(_) => None,
-            GrowthState::Known(terms) => Some(
+            GrowthState::Known { terms, .. } => Some(
                 terms
                     .iter()
                     .map(term_to_expr)
@@ -513,7 +536,10 @@ fn growth_from_analysis(
     let facts = analysis.facts(expression);
     if facts.is_constant {
         let growth = if facts.constant_domain == Some(true) {
-            constant_growth()
+            known(
+                vec![GrowthTerm::one()],
+                exact_if(facts.sign == Some(Ordering::Greater)),
+            )
         } else {
             unknown(GrowthFailure::InvalidConstantDomain {
                 expression: expression.to_string(),
@@ -525,10 +551,13 @@ fn growth_from_analysis(
 
     let growth = match expression.node() {
         ExprNode::Const(_) => unreachable!("constants are handled before node projection"),
-        ExprNode::Var(variable) => exact_growth(vec![GrowthTerm::from_atoms([(
-            ln_atom(variable.as_str()),
-            natural(BigRational::one()),
-        )])]),
+        ExprNode::Var(variable) => known(
+            vec![GrowthTerm::from_atoms([(
+                ln_atom(variable.as_str()),
+                natural(BigRational::one()),
+            )])],
+            ParameterRelation::Exact,
+        ),
         ExprNode::Add(values) => values
             .iter()
             .map(|value| growth_from_analysis(value, analysis, memo))
@@ -569,16 +598,40 @@ fn growth_from_analysis(
             Err(failure) => unknown(failure),
         },
         ExprNode::Log(value) => log_growth(growth_from_analysis(value, analysis, memo)),
-        // x! ≤ x^x for x ≥ 1.
-        ExprNode::Factorial(value) => match power_growth(value, value, analysis) {
-            growth if growth.failures().is_some() => {
-                unknown(GrowthFailure::UnsupportedFactorial(expression.to_string()))
-            }
-            growth => growth,
-        },
+        ExprNode::Factorial(value) => factorial_growth(expression, value, analysis, memo),
     };
     memo.insert(expression.node_identity(), growth.clone());
     growth
+}
+
+/// `x!` is `x^(x+1/2)·e^(−x)` up to a constant (Stirling) when `x^x` is exact,
+/// which holds when `x` expands exactly to one monomial; otherwise `x! ≤ x^x`.
+fn factorial_growth(
+    expression: &Expr,
+    value: &Expr,
+    analysis: &AlgebraicAnalysis,
+    memo: &mut HashMap<ExprNodeId, Growth>,
+) -> Growth {
+    let self_power = power_growth(value, value, analysis);
+    match self_power.relation() {
+        None => unknown(GrowthFailure::UnsupportedFactorial(expression.to_string())),
+        Some(ParameterRelation::UpperBound) => self_power,
+        Some(ParameterRelation::Exact) => {
+            let root = pow_const(
+                growth_from_analysis(value, analysis, memo),
+                &BigRational::new(BigInt::from(1), BigInt::from(2)),
+            );
+            let decay = match exponent_poly(value, analysis) {
+                Ok(poly) => exponential(
+                    LogBound::constant(natural(-BigRational::one())),
+                    &poly,
+                    value,
+                ),
+                Err(failure) => unknown(failure),
+            };
+            mul(mul(self_power, root), decay)
+        }
+    }
 }
 
 /// `base^exponent` for a nonconstant exponent.
@@ -661,7 +714,8 @@ impl LogBound {
 struct MonomialBound {
     scale: BigRational,
     largest: Monomial,
-    /// The polynomial is exactly one unit monomial without log powers.
+    /// The polynomial is exactly one monomial without log powers, so
+    /// `B = scale · largest`.
     exact: bool,
 }
 
@@ -689,7 +743,7 @@ fn exponential(bound: LogBound, exponent: &ExponentPoly, source: &Expr) -> Growt
             );
         }
     }
-    exact_growth(vec![term])
+    known(vec![term], exact_if(bound.exact && exponent.exact))
 }
 
 /// An exponent expanded as `Σ coefficient · monomial`.
@@ -838,7 +892,6 @@ impl ExponentPoly {
         }
         let exact = self.exact
             && self.terms.len() == 1
-            && scale.is_one()
             && largest.values().all(|(_, log_power)| log_power.is_zero());
         Some(MonomialBound {
             scale,
@@ -862,7 +915,8 @@ impl ExponentPoly {
                 )
             });
         let constant = (Monomial::new(), ln_upper_bound(&bound.scale));
-        Ok(Self::from_terms(logs.chain([constant]), bound.exact))
+        let exact = bound.exact && bound.scale.is_one();
+        Ok(Self::from_terms(logs.chain([constant]), exact))
     }
 }
 
@@ -956,8 +1010,12 @@ fn exponent_poly(
     }
 }
 
-fn constant_growth() -> Growth {
-    exact_growth(vec![GrowthTerm::one()])
+fn exact_if(exact: bool) -> ParameterRelation {
+    if exact {
+        ParameterRelation::Exact
+    } else {
+        ParameterRelation::UpperBound
+    }
 }
 
 fn unknown(failure: GrowthFailure) -> Growth {
@@ -1064,7 +1122,13 @@ fn prune(mut terms: Vec<GrowthTerm>) -> Vec<GrowthTerm> {
     result
 }
 
-fn exact_growth(terms: Vec<GrowthTerm>) -> Growth {
+fn both_exact(a: &Growth, b: &Growth) -> bool {
+    [a, b]
+        .iter()
+        .all(|growth| growth.relation() == Some(ParameterRelation::Exact))
+}
+
+fn known(terms: Vec<GrowthTerm>, relation: ParameterRelation) -> Growth {
     let terms = prune(terms);
     if terms.len() > ANTICHAIN_CAP {
         return unknown(GrowthFailure::AntichainLimitExceeded {
@@ -1072,17 +1136,28 @@ fn exact_growth(terms: Vec<GrowthTerm>) -> Growth {
             terms: terms.len(),
         });
     }
-    Growth(GrowthState::Known(terms))
+    Growth(GrowthState::Known { terms, relation })
 }
 
-/// Antichain union (asymptotic `+ ≍ max`).
+/// Antichain union (asymptotic `+ ≍ max`). The sum stays exact when every
+/// widened summand is strictly dominated by an exact one: a widened summand,
+/// even a subtracted one, is then `o` of the exact part.
 fn add(a: Growth, b: Growth) -> Growth {
     if a.failures().is_some() || b.failures().is_some() {
         return merge_unknown(a, b);
     }
-    let mut terms = into_terms(a);
-    terms.extend(into_terms(b));
-    exact_growth(terms)
+    let covers = |high: &Growth, low: &Growth| {
+        high.relation() == Some(ParameterRelation::Exact)
+            && terms(low).iter().all(|l| {
+                terms(high)
+                    .iter()
+                    .any(|h| h.cmp(l) == Some(Ordering::Greater))
+            })
+    };
+    let relation = exact_if(both_exact(&a, &b) || covers(&a, &b) || covers(&b, &a));
+    let mut sum = into_terms(a);
+    sum.extend(into_terms(b));
+    known(sum, relation)
 }
 
 /// Pairwise product of two antichains.
@@ -1090,52 +1165,73 @@ fn mul(a: Growth, b: Growth) -> Growth {
     if a.failures().is_some() || b.failures().is_some() {
         return merge_unknown(a, b);
     }
-    let x = into_terms(a);
-    let y = into_terms(b);
-    let mut product = Vec::with_capacity(x.len() * y.len());
-    for tx in &x {
-        for ty in &y {
+    let relation = exact_if(both_exact(&a, &b));
+    let mut product = Vec::with_capacity(terms(&a).len() * terms(&b).len());
+    for tx in terms(&a) {
+        for ty in terms(&b) {
             product.push(tx.mul(ty));
         }
     }
-    exact_growth(product)
+    known(product, relation)
 }
 
 /// Raise a whole antichain to a nonnegative real power `k` (raise each term).
 fn pow_const(g: Growth, k: &BigRational) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known(terms) => exact_growth(terms.iter().map(|term| term.pow(k)).collect()),
+        GrowthState::Known { terms, relation } => {
+            known(terms.iter().map(|term| term.pow(k)).collect(), relation)
+        }
+    }
+}
+
+fn terms(growth: &Growth) -> &[GrowthTerm] {
+    match &growth.0 {
+        GrowthState::Known { terms, .. } => terms,
+        GrowthState::Unknown(_) => unreachable!("unknown growth is handled before term access"),
     }
 }
 
 fn into_terms(growth: Growth) -> Vec<GrowthTerm> {
     match growth.0 {
-        GrowthState::Known(terms) => terms,
+        GrowthState::Known { terms, .. } => terms,
         GrowthState::Unknown(_) => unreachable!("unknown growth is handled before term access"),
     }
 }
 
 /// Transfer function for `Log(a)`: `log` of an antichain is `log` of its
 /// dominant term(s), unioned. Uses `log(n^a · m^b) ≍ log n + log m` and
-/// `log(2^(r·n)) ≍ n`.
+/// `log(2^(r·n)) ≍ n`. Since `ln max = max ln`, the result is exact when the
+/// argument is exact and every term's logarithm is exact.
 fn log_growth(g: Growth) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known(terms) => {
-            let mut out = Vec::new();
-            for t in &terms {
-                out.extend(log_term(t));
-            }
-            exact_growth(out)
+        GrowthState::Known { terms, relation } => {
+            let exact = relation == ParameterRelation::Exact && terms.iter().all(log_is_exact);
+            known(terms.iter().flat_map(log_term).collect(), exact_if(exact))
         }
     }
+}
+
+/// `ln t = Σ w · atom` is `Θ` of its positive atoms when one of them strictly
+/// dominates every atom not proved positive (so `ln t` is unbounded), and no
+/// positive `ln ln v` atom was widened to `ln v`.
+fn log_is_exact(t: &GrowthTerm) -> bool {
+    let signs: Vec<(&Atom, Sign)> = t
+        .atoms
+        .iter()
+        .map(|(atom, weight)| (atom, weight_sign(weight)))
+        .collect();
+    grows_unboundedly(&signs, Sign::Positive)
+        && !signs
+            .iter()
+            .any(|(atom, sign)| matches!(atom, Atom::LogLog(_)) && *sign == Sign::Positive)
 }
 
 /// `log` of a single term, returned as its own (small) antichain of summands:
 /// `ln exp(Σ w · atom) = Σ w · atom`, so every atom with a possibly positive
 /// weight contributes the growth of the atom itself. None may be dropped (e.g.
-/// `log(2^n·m)` is `n + log m`, not `n`); `finish_growth`/`prune` then collapse
+/// `log(2^n·m)` is `n + log m`, not `n`); `prune` then collapses
 /// any dominated summands (so `log(2^n·n^2)` reduces back to `n`). `ln ln ln v`
 /// widens to `ln ln v`.
 fn log_term(t: &GrowthTerm) -> Vec<GrowthTerm> {
