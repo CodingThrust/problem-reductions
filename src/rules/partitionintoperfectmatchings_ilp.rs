@@ -33,9 +33,9 @@ impl crate::rules::AggregateReductionResult for ReductionPartitionIntoPerfectMat
         num_constraints = "num_vertices + 4 * num_edges",
     },
     upper_bound {
-    num_nonzeros = "16 * num_edges",
-    max_constraint_magnitude_bits = "num_matchings",
-},
+        num_nonzeros = "16 * num_edges",
+        max_constraint_magnitude_bits = "num_matchings",
+    },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for PartitionIntoPerfectMatchings<SimpleGraph> {
     type Result = ReductionPartitionIntoPerfectMatchingsToILP;

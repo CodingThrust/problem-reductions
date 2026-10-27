@@ -79,8 +79,8 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToSubsetSum {}
         num_elements = "2 * num_vars + 2 * num_clauses",
     },
     upper_bound {
-    max_numeric_magnitude_bits = "4 * (num_vars + num_clauses) + 1",
-},
+        max_numeric_magnitude_bits = "4 * (num_vars + num_clauses) + 1",
+    },
 })]
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;

@@ -64,12 +64,12 @@ fn literal_polarity(lit: i64) -> i64 {
 #[reduction(
     transform = {
         exact {
-        num_vertices = "num_vars + 1",
-    },
-    upper_bound {
-        num_edges = "(num_vars + 1)^2",
-    },
-}
+            num_vertices = "num_vars + 1",
+        },
+        upper_bound {
+            num_edges = "(num_vars + 1)^2",
+        },
+    }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i64>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToMaxCut;

@@ -76,8 +76,8 @@ impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
         num_nonzeros = "(2 * num_vertices^2 + 8 * num_edges * num_vertices) / 3",
     },
     upper_bound {
-    max_constraint_magnitude_bits = "2",
-},
+        max_constraint_magnitude_bits = "2",
+    },
 })]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;

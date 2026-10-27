@@ -933,3 +933,41 @@ fn vertex_cover_lcs_transition_bounds_cover_empty_strings() {
         );
     }
 }
+
+#[test]
+fn three_sat_contracts_cover_short_clauses() {
+    use crate::models::decision::Decision;
+    use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
+    use crate::models::graph::{KClique, MinimumVertexCover};
+    use crate::models::misc::SubsetSum;
+    use crate::types::One;
+    use crate::variant::K3;
+    // `new_allow_less` admits clauses with fewer than three literals, so
+    // counts that grow with each literal are only upper bounds.
+    let upper = ParameterRelation::UpperBound;
+    let exact = ParameterRelation::Exact;
+    for clauses in [
+        vec![CNFClause::new(vec![1])],
+        vec![CNFClause::new(vec![])],
+        vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![2])],
+    ] {
+        let source = KSatisfiability::<K3>::new_allow_less(2, clauses);
+        check_reduced_parameters::<_, KClique<SimpleGraph>>(
+            source.clone(),
+            &["num_vertices"],
+            upper,
+        );
+        check_reduced_parameters::<_, KClique<SimpleGraph>>(source.clone(), &["k"], exact);
+        check_reduced_parameters::<_, Decision<MinimumVertexCover<SimpleGraph, One>>>(
+            source.clone(),
+            &["num_edges"],
+            upper,
+        );
+        check_reduced_parameters::<_, OneInThreeSatisfiability>(
+            source.clone(),
+            &["num_clauses"],
+            exact,
+        );
+        check_reduced_parameters::<_, SubsetSum>(source, &["num_elements"], exact);
+    }
+}

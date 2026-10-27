@@ -45,9 +45,9 @@ impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToILP
         num_nonzeros = "10 * num_edges",
     },
     upper_bound {
-    num_constraints = "2 * num_vertices + 2 * num_edges + 1",
-    max_constraint_magnitude_bits = "num_vertices + 2",
-},
+        num_constraints = "2 * num_vertices + 2 * num_edges + 1",
+        max_constraint_magnitude_bits = "num_vertices + 2",
+    },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToILP;

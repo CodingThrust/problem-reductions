@@ -58,14 +58,13 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToKClique {}
 
 #[reduction(
     transform = {
-        exact {
-        num_vertices = "3 * num_clauses + 1",
-        k = "num_clauses + 1",
-    },
-    upper_bound {
-        num_edges = "9 * num_clauses^2 + 3 * num_clauses",
-    },
-}
+        exact { k = "num_clauses + 1", },
+        // Clauses built with `new_allow_less` may have fewer than three literals.
+        upper_bound {
+            num_vertices = "3 * num_clauses + 1",
+            num_edges = "9 * num_clauses^2 + 3 * num_clauses",
+        },
+    }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToKClique;

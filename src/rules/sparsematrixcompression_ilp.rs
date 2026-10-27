@@ -52,10 +52,10 @@ impl crate::rules::AggregateReductionResult for ReductionSMCToILP {}
         num_vars = "num_rows * bound_k",
     },
     upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_constraints = "num_rows + num_rows * (num_rows - 1) * num_cols^2 * bound_k / 2",
-    num_nonzeros = "num_rows * bound_k + num_rows * (num_rows - 1) * num_cols^2 * bound_k",
-},
+        max_constraint_magnitude_bits = "1",
+        num_constraints = "num_rows + num_rows * (num_rows - 1) * num_cols^2 * bound_k / 2",
+        num_nonzeros = "num_rows * bound_k + num_rows * (num_rows - 1) * num_cols^2 * bound_k",
+    },
 })]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;

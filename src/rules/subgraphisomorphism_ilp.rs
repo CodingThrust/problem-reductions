@@ -62,10 +62,10 @@ impl crate::rules::AggregateReductionResult for ReductionSubIsoToILP {}
         num_vars = "num_pattern_vertices * num_host_vertices",
     },
     upper_bound {
-    max_constraint_magnitude_bits = "2",
-    num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
-    num_nonzeros = "2 * num_pattern_vertices * num_host_vertices + 2 * num_pattern_edges * num_host_vertices^2",
-},
+        max_constraint_magnitude_bits = "2",
+        num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
+        num_nonzeros = "2 * num_pattern_vertices * num_host_vertices + 2 * num_pattern_edges * num_host_vertices^2",
+    },
 })]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
     type Result = ReductionSubIsoToILP;

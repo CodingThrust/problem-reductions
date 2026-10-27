@@ -54,10 +54,10 @@ impl ReductionResult for ReductionSCSToILP {
         num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
     },
     upper_bound {
-    max_constraint_magnitude_bits = "max_length / 2 + 1",
-    num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
-    num_nonzeros = "max_length * (alphabet_size + 3) + 5 * total_length * max_length",
-},
+        max_constraint_magnitude_bits = "max_length / 2 + 1",
+        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+        num_nonzeros = "max_length * (alphabet_size + 3) + 5 * total_length * max_length",
+    },
 })]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;

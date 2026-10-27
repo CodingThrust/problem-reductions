@@ -50,10 +50,10 @@ impl crate::rules::AggregateReductionResult for ReductionISTToILP {}
         num_vars = "num_vertices * num_vertices",
     },
     upper_bound {
-    max_constraint_magnitude_bits = "2",
-    num_constraints = "2 * num_vertices + num_vertices * (num_vertices - 1)^2",
-    num_nonzeros = "2 * num_vertices^2 + 2 * num_vertices * (num_vertices - 1)^2",
-},
+        max_constraint_magnitude_bits = "2",
+        num_constraints = "2 * num_vertices + num_vertices * (num_vertices - 1)^2",
+        num_nonzeros = "2 * num_vertices^2 + 2 * num_vertices * (num_vertices - 1)^2",
+    },
 })]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;
