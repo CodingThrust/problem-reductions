@@ -150,3 +150,9 @@ fn test_staff_scheduling_problem_name_and_variant() {
     assert_eq!(<StaffScheduling as Problem>::NAME, "StaffScheduling");
     assert!(<StaffScheduling as Problem>::variant().is_empty());
 }
+
+#[test]
+fn test_staff_scheduling_zero_workers_use_one_bit() {
+    let problem = StaffScheduling::new(1, vec![vec![true]], vec![0], 0);
+    assert_eq!(problem.num_workers_bits(), 1);
+}
