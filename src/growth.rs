@@ -75,7 +75,7 @@ use crate::expr::{AlgebraicAnalysis, BigInt, Expr, ExprNode, ExprNodeId};
 use num_rational::BigRational;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 
 /// Maximum number of incomparable terms retained in one Big-O normal form.
 const ANTICHAIN_CAP: usize = 32;
@@ -165,11 +165,9 @@ fn monomial_pow(a: &Monomial, k: &BigRational) -> Monomial {
 /// lexicographic order, strictly for at least one variable.
 fn monomial_dominates(a: &Monomial, b: &Monomial) -> bool {
     let zero = (BigRational::zero(), BigRational::zero());
-    let variables: BTreeSet<&Box<str>> = a.keys().chain(b.keys()).collect();
-    let mut strict = false;
-    for variable in variables {
+    let mut strict = a.keys().any(|variable| !b.contains_key(variable));
+    for (variable, y) in b {
         let x = a.get(variable).unwrap_or(&zero);
-        let y = b.get(variable).unwrap_or(&zero);
         match x.0.cmp(&y.0).then(x.1.cmp(&y.1)) {
             Ordering::Less => return false,
             Ordering::Greater => strict = true,
@@ -252,7 +250,8 @@ fn exact_weight_sign(weight: &Weight) -> Option<Sign> {
     let mut denominator = BigInt::one();
     for coefficient in weight.values() {
         let d = coefficient.denom();
-        denominator = &denominator * d / gcd(denominator.clone(), d.clone());
+        // lcm(D, d) = D · (d / gcd(D, d)), the reduced denominator of D / d.
+        denominator = &denominator * BigRational::new(denominator.clone(), d.clone()).denom();
     }
     let mut bits = 0_u64;
     let mut powers = Vec::new();
@@ -283,15 +282,6 @@ fn exact_weight_sign(weight: &Weight) -> Option<Sign> {
         Ordering::Less => Sign::Negative,
         Ordering::Equal => Sign::Zero,
     })
-}
-
-fn gcd(mut a: BigInt, mut b: BigInt) -> BigInt {
-    while !b.is_zero() {
-        let r = &a % &b;
-        a = b;
-        b = r;
-    }
-    a.abs()
 }
 
 /// One growth term, `exp(Σ weight · atom)`. An empty map represents `O(1)`.
@@ -393,42 +383,32 @@ impl GrowthTerm {
         if self == other {
             return Some(Ordering::Equal);
         }
-        let mut difference = self.clone();
-        for (atom, weight) in &other.atoms {
-            difference.add_weight(atom.clone(), weight, &-BigRational::one());
-        }
-        let signs: Vec<(&Atom, Sign)> = difference
+        let mut difference: BTreeMap<&Atom, Weight> = self
             .atoms
             .iter()
-            .map(|(atom, weight)| (atom, weight_sign(weight)))
+            .map(|(atom, weight)| (atom, weight.clone()))
+            .collect();
+        for (atom, weight) in &other.atoms {
+            weight_add(
+                difference.entry(atom).or_default(),
+                weight,
+                &-BigRational::one(),
+            );
+        }
+        let signs: Vec<(&Atom, Sign)> = difference
+            .iter()
+            .map(|(atom, weight)| (*atom, weight_sign(weight)))
             .filter(|(_, sign)| *sign != Sign::Zero)
             .collect();
         if signs.is_empty() {
-            return Some(Ordering::Equal);
-        }
-        let flipped: Vec<(&Atom, Sign)> = signs
-            .iter()
-            .map(|(atom, sign)| {
-                let sign = match sign {
-                    Sign::Positive => Sign::Negative,
-                    Sign::Negative => Sign::Positive,
-                    other => *other,
-                };
-                (*atom, sign)
-            })
-            .collect();
-        if bounded_below(&signs) && unbounded_above(&signs) {
+            Some(Ordering::Equal)
+        } else if grows_unboundedly(&signs, Sign::Positive) {
             Some(Ordering::Greater)
-        } else if bounded_below(&flipped) && unbounded_above(&flipped) {
+        } else if grows_unboundedly(&signs, Sign::Negative) {
             Some(Ordering::Less)
         } else {
             None
         }
-    }
-
-    /// `true` iff `self` dominates `other` (grows unboundedly faster).
-    fn dominates(&self, other: &GrowthTerm) -> bool {
-        matches!(self.cmp(other), Some(Ordering::Greater))
     }
 
     /// `true` iff `self` dominates `other` or is asymptotically equal to it.
@@ -440,25 +420,15 @@ impl GrowthTerm {
     }
 }
 
-/// Every atom that might be negative is strictly dominated by a positive atom.
-fn bounded_below(signs: &[(&Atom, Sign)]) -> bool {
-    signs
-        .iter()
-        .filter(|(_, sign)| *sign != Sign::Positive)
-        .all(|(low, _)| {
-            signs
-                .iter()
-                .any(|(high, sign)| *sign == Sign::Positive && atom_dominates(high, low))
-        })
-}
-
-/// One positive atom strictly dominates every atom that might be negative.
-fn unbounded_above(signs: &[(&Atom, Sign)]) -> bool {
+/// The log difference tends to infinity in direction `up`: one atom with that
+/// sign strictly dominates every atom whose sign is not `up`, which also bounds
+/// their sum.
+fn grows_unboundedly(signs: &[(&Atom, Sign)], up: Sign) -> bool {
     signs.iter().any(|(high, sign)| {
-        *sign == Sign::Positive
+        *sign == up
             && signs
                 .iter()
-                .filter(|(_, sign)| *sign != Sign::Positive)
+                .filter(|(_, sign)| *sign != up)
                 .all(|(low, _)| atom_dominates(high, low))
     })
 }
@@ -508,17 +478,13 @@ impl Growth {
     pub fn to_expr(&self) -> Option<Expr> {
         match &self.0 {
             GrowthState::Unknown(_) => None,
-            GrowthState::Known(terms) => {
-                if terms.is_empty() {
-                    return Some(Expr::integer(1));
-                }
-                let mut it = terms.iter().map(term_to_expr);
-                let mut acc = it.next().unwrap();
-                for e in it {
-                    acc = acc + e;
-                }
-                Some(acc)
-            }
+            GrowthState::Known(terms) => Some(
+                terms
+                    .iter()
+                    .map(term_to_expr)
+                    .reduce(|acc, e| acc + e)
+                    .unwrap_or_else(|| Expr::integer(1)),
+            ),
         }
     }
 
@@ -604,12 +570,11 @@ fn growth_from_analysis(
         },
         ExprNode::Log(value) => log_growth(growth_from_analysis(value, analysis, memo)),
         // x! ≤ x^x for x ≥ 1.
-        ExprNode::Factorial(value) => match exponent_poly(value, analysis) {
-            Ok(poly) => match LogBound::of_variable_base(&poly) {
-                Some(bound) => exponential(bound, &poly, value),
-                None => unknown(GrowthFailure::UnsupportedFactorial(expression.to_string())),
-            },
-            Err(_) => unknown(GrowthFailure::UnsupportedFactorial(expression.to_string())),
+        ExprNode::Factorial(value) => match power_growth(value, value, analysis) {
+            growth if growth.failures().is_some() => {
+                unknown(GrowthFailure::UnsupportedFactorial(expression.to_string()))
+            }
+            growth => growth,
         },
     };
     memo.insert(expression.node_identity(), growth.clone());
@@ -618,39 +583,37 @@ fn growth_from_analysis(
 
 /// `base^exponent` for a nonconstant exponent.
 fn power_growth(base: &Expr, exponent: &Expr, analysis: &AlgebraicAnalysis) -> Growth {
-    let base_facts = analysis.facts(base);
-    let bound = if let ExprNode::Exp(argument) = base.node() {
-        match analysis.facts(argument).exact_rational.as_ref() {
-            Some(coefficient) => LogBound::constant(natural(coefficient.clone())),
-            None => return unknown(GrowthFailure::InvalidExponentialBase(base.to_string())),
-        }
-    } else if let Some(value) = base_facts.exact_rational.as_ref() {
-        if !value.is_positive() {
-            return unknown(GrowthFailure::InvalidExponentialBase(base.to_string()));
-        }
-        LogBound::constant(BTreeMap::from([(
-            ExpBase::Rational(value.clone()),
-            BigRational::one(),
-        )]))
-    } else if base_facts.is_constant {
-        return unknown(GrowthFailure::InvalidExponentialBase(base.to_string()));
-    } else {
-        let bound = exponent_poly(base, analysis)
-            .ok()
-            .and_then(|poly| LogBound::of_variable_base(&poly));
-        match bound {
-            Some(bound) => bound,
-            None => {
-                return unknown(GrowthFailure::UnsupportedVariableBase(
-                    Expr::pow(base.clone(), exponent.clone()).to_string(),
-                ))
-            }
-        }
-    };
-    match exponent_poly(exponent, analysis) {
-        Ok(poly) => exponential(bound, &poly, exponent),
-        Err(failure) => unknown(failure),
+    match (log_bound(base, analysis), exponent_poly(exponent, analysis)) {
+        (Ok(bound), Ok(poly)) => exponential(bound, &poly, exponent),
+        (Err(failure), _) | (_, Err(failure)) => unknown(failure),
     }
+}
+
+/// Bound `ln base` for an exponential base: `e^c`, a positive rational, or a
+/// polynomial in variables and their logarithms.
+fn log_bound(base: &Expr, analysis: &AlgebraicAnalysis) -> Result<LogBound, GrowthFailure> {
+    let facts = analysis.facts(base);
+    let invalid = || GrowthFailure::InvalidExponentialBase(base.to_string());
+    if let ExprNode::Exp(argument) = base.node() {
+        let coefficient = analysis.facts(argument).exact_rational.clone();
+        return coefficient
+            .map(|c| LogBound::constant(natural(c)))
+            .ok_or_else(invalid);
+    }
+    if facts.is_constant {
+        return match facts.exact_rational.as_ref() {
+            Some(value) if value.is_positive() => Ok(LogBound::constant(BTreeMap::from([(
+                ExpBase::Rational(value.clone()),
+                BigRational::one(),
+            )]))),
+            _ => Err(invalid()),
+        };
+    }
+    exponent_poly(base, analysis)
+        .ok()
+        .and_then(|poly| poly.monomial_bound())
+        .map(LogBound::from_monomial_bound)
+        .ok_or_else(|| GrowthFailure::UnsupportedVariableBase(base.to_string()))
 }
 
 /// An upper bound `ln B ≤ Σ weight · monomial` for an exponential base `B`.
@@ -668,46 +631,38 @@ impl LogBound {
         }
     }
 
-    /// `B ≤ C·M` with `C = Σ c_i` over the positive monomials and `M` taking
-    /// each variable's largest power and log power; `ln ln v` widens to `ln v`.
-    fn of_variable_base(poly: &ExponentPoly) -> Option<Self> {
-        let positive: Vec<(&Monomial, &BigRational)> = poly
-            .terms
-            .iter()
-            .filter(|(_, coefficient)| coefficient.is_positive())
+    /// `ln B ≤ ln C + Σ_v (power_v + log_v) · ln v` from [`MonomialBound`].
+    fn from_monomial_bound(bound: MonomialBound) -> Self {
+        let mut terms: BTreeMap<Monomial, Weight> = bound
+            .largest
+            .into_iter()
+            .map(|(variable, (power, log_power))| {
+                (
+                    single_variable(&variable, BigRational::zero(), BigRational::one()),
+                    natural(power + log_power),
+                )
+            })
             .collect();
-        if positive.is_empty() {
-            return None;
-        }
-        let scale: BigRational = positive.iter().map(|(_, coefficient)| *coefficient).sum();
-        let mut largest: BTreeMap<Box<str>, (BigRational, BigRational)> = BTreeMap::new();
-        for (monomial, _) in &positive {
-            for (variable, (power, log_power)) in *monomial {
-                let entry = largest
-                    .entry(variable.clone())
-                    .or_insert_with(|| (BigRational::zero(), BigRational::zero()));
-                entry.0 = entry.0.clone().max(power.clone());
-                entry.1 = entry.1.clone().max(log_power.clone());
-            }
-        }
-        let exact = positive.len() == poly.terms.len()
-            && positive.len() == 1
-            && poly.exact
-            && scale.is_one()
-            && largest.values().all(|(_, log_power)| log_power.is_zero());
-        let mut terms = BTreeMap::new();
-        if !scale.is_one() {
+        if !bound.scale.is_one() {
             terms.insert(
                 Monomial::new(),
-                BTreeMap::from([(ExpBase::Rational(scale), BigRational::one())]),
+                BTreeMap::from([(ExpBase::Rational(bound.scale), BigRational::one())]),
             );
         }
-        for (variable, (power, log_power)) in largest {
-            let monomial = single_variable(&variable, BigRational::zero(), BigRational::one());
-            terms.insert(monomial, natural(power + log_power));
+        LogBound {
+            terms,
+            exact: bound.exact,
         }
-        Some(LogBound { terms, exact })
     }
+}
+
+/// `Σ c_i μ_i ≤ scale · largest` over the positive part, where `largest` takes
+/// each variable's largest power and log power (`ln ln v` widens to `ln v`).
+struct MonomialBound {
+    scale: BigRational,
+    largest: Monomial,
+    /// The polynomial is exactly one unit monomial without log powers.
+    exact: bool,
 }
 
 /// `exp(E · ln B)` as a single growth term.
@@ -807,7 +762,7 @@ impl ExponentPoly {
         if k.is_zero() {
             return Ok(Self::constant(BigRational::one()));
         }
-        if let [(monomial, coefficient)] = self.terms.iter().collect::<Vec<_>>()[..] {
+        if let (1, Some((monomial, coefficient))) = (self.terms.len(), self.terms.iter().next()) {
             let exact_coefficient = if k.is_integer() {
                 k.to_integer().to_i32().map(|power| coefficient.pow(power))
             } else {
@@ -860,24 +815,53 @@ impl ExponentPoly {
         .checked(source)
     }
 
+    fn monomial_bound(&self) -> Option<MonomialBound> {
+        let positive: Vec<(&Monomial, &BigRational)> = self
+            .terms
+            .iter()
+            .filter(|(_, coefficient)| coefficient.is_positive())
+            .collect();
+        if positive.is_empty() {
+            return None;
+        }
+        let scale: BigRational = positive.iter().map(|(_, coefficient)| *coefficient).sum();
+        let mut largest = Monomial::new();
+        for (monomial, _) in &positive {
+            for (variable, (power, log_power)) in *monomial {
+                let entry = largest
+                    .entry(variable.clone())
+                    .or_insert_with(|| (BigRational::zero(), BigRational::zero()));
+                entry.0 = entry.0.clone().max(power.clone());
+                entry.1 = entry.1.clone().max(log_power.clone());
+            }
+        }
+        let exact = self.exact
+            && self.terms.len() == 1
+            && scale.is_one()
+            && largest.values().all(|(_, log_power)| log_power.is_zero());
+        Some(MonomialBound {
+            scale,
+            largest,
+            exact,
+        })
+    }
+
     /// `ln(Σ c_i μ_i) ≤ ln C + Σ_v (power_v + log_v) · ln v` over the positive part.
     fn log(&self, source: &Expr) -> Result<Self, GrowthFailure> {
-        let bound = LogBound::of_variable_base(self)
+        let bound = self
+            .monomial_bound()
             .ok_or_else(|| GrowthFailure::UnsupportedExponent(source.to_string()))?;
-        let mut terms = Vec::new();
-        for (monomial, weight) in bound.terms {
-            let coefficient = if monomial.is_empty() {
-                let (base, _) = weight.into_iter().next().expect("scale weight");
-                let ExpBase::Rational(scale) = base else {
-                    unreachable!("variable-base scales are rational")
-                };
-                ln_upper_bound(&scale)
-            } else {
-                weight[&ExpBase::Natural].clone()
-            };
-            terms.push((monomial, coefficient));
-        }
-        Ok(Self::from_terms(terms, bound.exact))
+        let logs = bound
+            .largest
+            .into_iter()
+            .map(|(variable, (power, log_power))| {
+                (
+                    single_variable(&variable, BigRational::zero(), BigRational::one()),
+                    power + log_power,
+                )
+            });
+        let constant = (Monomial::new(), ln_upper_bound(&bound.scale));
+        Ok(Self::from_terms(logs.chain([constant]), bound.exact))
     }
 }
 
@@ -979,119 +963,64 @@ fn merge_unknown(left: Growth, right: Growth) -> Growth {
     Growth(GrowthState::Unknown(failures))
 }
 
-/// Rendering order: by leading variable, then exponential, polynomial, and
-/// logarithmic factors.
-fn render_key(atom: &Atom) -> (Box<str>, u8) {
-    match atom {
-        Atom::Mono(monomial) => {
-            let leading = monomial.keys().next().cloned().unwrap_or_default();
-            let pure_log = monomial.len() == 1
-                && monomial
-                    .values()
-                    .all(|(power, log_power)| power.is_zero() && log_power.is_one());
-            (leading, if pure_log { 1 } else { 0 })
-        }
-        Atom::LogLog(variable) => (variable.clone(), 2),
-    }
-}
-
-/// Render one term as a product of its factors (or `Const(1)` when empty).
+/// Render one term as a product of its factors (`Const(1)` when empty).
+/// `Expr` products sort their factors canonically.
 fn term_to_expr(t: &GrowthTerm) -> Expr {
-    let mut atoms: Vec<(&Atom, &Weight)> = t.atoms.iter().collect();
-    atoms.sort_by(|(a, _), (b, _)| render_key(a).cmp(&render_key(b)).then(a.cmp(b)));
-    let factors: Vec<Expr> = atoms
-        .into_iter()
+    t.atoms
+        .iter()
         .flat_map(|(atom, weight)| {
             weight
                 .iter()
                 .map(move |(base, coefficient)| atom_factor(atom, base, coefficient))
         })
-        .collect();
-    let mut it = factors.into_iter();
-    match it.next() {
-        None => Expr::integer(1),
-        Some(first) => it.fold(first, |acc, f| acc * f),
-    }
-}
-
-fn scaled(coefficient: &BigRational, expression: Expr) -> Expr {
-    if coefficient.is_one() {
-        expression
-    } else {
-        Expr::constant(coefficient.clone()) * expression
-    }
-}
-
-fn power_of(base: Expr, degree: &BigRational) -> Expr {
-    if degree.is_one() {
-        base
-    } else {
-        Expr::pow(base, Expr::constant(degree.clone()))
-    }
+        .fold(Expr::integer(1), |acc, f| acc * f)
 }
 
 fn monomial_expr(monomial: &Monomial) -> Expr {
-    let mut factors = Vec::new();
-    for (variable, (power, log_power)) in monomial {
-        if !power.is_zero() {
-            factors.push(power_of(Expr::variable(variable.as_ref()), power));
-        }
-        if !log_power.is_zero() {
-            factors.push(power_of(
-                Expr::log(Expr::variable(variable.as_ref())),
-                log_power,
-            ));
-        }
-    }
-    factors
-        .into_iter()
-        .reduce(|acc, f| acc * f)
-        .unwrap_or_else(|| Expr::integer(1))
+    monomial
+        .iter()
+        .flat_map(|(variable, (power, log_power))| {
+            let variable = Expr::variable(variable.as_ref());
+            [
+                Expr::pow(variable.clone(), Expr::constant(power.clone())),
+                Expr::pow(Expr::log(variable), Expr::constant(log_power.clone())),
+            ]
+        })
+        .fold(Expr::integer(1), |acc, f| acc * f)
 }
 
 /// Render `exp(coefficient · ln(base) · atom)` with its authoritative base.
 fn atom_factor(atom: &Atom, base: &ExpBase, coefficient: &BigRational) -> Expr {
-    let natural_log_power = |monomial: &Monomial| {
-        monomial
-            .iter()
-            .find(|(_, (_, log_power))| log_power >= &BigRational::one())
-            .map(|(variable, _)| variable.clone())
-    };
+    let c = Expr::constant(coefficient.clone());
     match (atom, base) {
         (Atom::LogLog(variable), ExpBase::Natural) => {
-            power_of(Expr::log(Expr::variable(variable.as_ref())), coefficient)
+            Expr::pow(Expr::log(Expr::variable(variable.as_ref())), c)
         }
         (Atom::LogLog(variable), ExpBase::Rational(value)) => Expr::pow(
             Expr::constant(value.clone()),
-            scaled(
-                coefficient,
-                Expr::log(Expr::log(Expr::variable(variable.as_ref()))),
-            ),
+            c * Expr::log(Expr::log(Expr::variable(variable.as_ref()))),
         ),
-        (Atom::Mono(monomial), ExpBase::Natural) => match natural_log_power(monomial) {
-            // exp(c · R · ln w) = w^(c · R).
-            Some(variable) => {
-                let mut rest = monomial.clone();
-                let entry = rest
-                    .get_mut(&variable)
-                    .expect("variable is in the monomial");
-                entry.1 -= BigRational::one();
-                if entry.0.is_zero() && entry.1.is_zero() {
-                    rest.remove(&variable);
+        (Atom::Mono(monomial), ExpBase::Natural) => {
+            let log_variable = monomial
+                .iter()
+                .find(|(_, (_, log_power))| log_power >= &BigRational::one())
+                .map(|(variable, _)| variable.clone());
+            match log_variable {
+                // exp(c · R · ln w) = w^(c · R).
+                Some(variable) => {
+                    let mut rest = monomial.clone();
+                    let entry = rest
+                        .get_mut(&variable)
+                        .expect("variable is in the monomial");
+                    entry.1 -= BigRational::one();
+                    Expr::pow(Expr::variable(variable.as_ref()), c * monomial_expr(&rest))
                 }
-                let exponent = scaled(coefficient, monomial_expr(&rest));
-                if rest.is_empty() {
-                    power_of(Expr::variable(variable.as_ref()), coefficient)
-                } else {
-                    Expr::pow(Expr::variable(variable.as_ref()), exponent)
-                }
+                None => Expr::exp(c * monomial_expr(monomial)),
             }
-            None => Expr::exp(scaled(coefficient, monomial_expr(monomial))),
-        },
-        (Atom::Mono(monomial), ExpBase::Rational(value)) => Expr::pow(
-            Expr::constant(value.clone()),
-            scaled(coefficient, monomial_expr(monomial)),
-        ),
+        }
+        (Atom::Mono(monomial), ExpBase::Rational(value)) => {
+            Expr::pow(Expr::constant(value.clone()), c * monomial_expr(monomial))
+        }
     }
 }
 
@@ -1105,20 +1034,23 @@ fn prune(mut terms: Vec<GrowthTerm>) -> Vec<GrowthTerm> {
     terms.sort();
     let mut result: Vec<GrowthTerm> = Vec::new();
     for t in terms {
-        if result.iter().any(|r| r.dominates_or_eq(&t)) {
-            continue;
+        let mut kept = true;
+        result.retain(|r| match r.cmp(&t) {
+            Some(Ordering::Greater | Ordering::Equal) => {
+                kept = false;
+                true
+            }
+            Some(Ordering::Less) => false,
+            None => true,
+        });
+        if kept {
+            result.push(t);
         }
-        result.retain(|r| !t.dominates(r));
-        result.push(t);
     }
     result
 }
 
 fn exact_growth(terms: Vec<GrowthTerm>) -> Growth {
-    finish_growth(terms)
-}
-
-fn finish_growth(terms: Vec<GrowthTerm>) -> Growth {
     let terms = prune(terms);
     if terms.len() > ANTICHAIN_CAP {
         return unknown(GrowthFailure::AntichainLimitExceeded {
@@ -1136,7 +1068,7 @@ fn add(a: Growth, b: Growth) -> Growth {
     }
     let mut terms = into_terms(a);
     terms.extend(into_terms(b));
-    finish_growth(terms)
+    exact_growth(terms)
 }
 
 /// Pairwise product of two antichains.
@@ -1152,14 +1084,14 @@ fn mul(a: Growth, b: Growth) -> Growth {
             product.push(tx.mul(ty));
         }
     }
-    finish_growth(product)
+    exact_growth(product)
 }
 
 /// Raise a whole antichain to a nonnegative real power `k` (raise each term).
 fn pow_const(g: Growth, k: &BigRational) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known(terms) => finish_growth(terms.iter().map(|term| term.pow(k)).collect()),
+        GrowthState::Known(terms) => exact_growth(terms.iter().map(|term| term.pow(k)).collect()),
     }
 }
 
@@ -1181,10 +1113,7 @@ fn log_growth(g: Growth) -> Growth {
             for t in &terms {
                 out.extend(log_term(t));
             }
-            if out.is_empty() {
-                out.push(GrowthTerm::one()); // log(O(1)) = O(1)
-            }
-            finish_growth(out)
+            exact_growth(out)
         }
     }
 }
