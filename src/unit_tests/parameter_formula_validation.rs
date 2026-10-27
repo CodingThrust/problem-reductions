@@ -501,3 +501,72 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
     );
     check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 6], 6), 15);
 }
+
+#[test]
+fn ilp_nonzero_bounds_hold_on_dense_sources() {
+    use crate::models::{
+        ConsecutiveOnesSubmatrix, DirectedHamiltonianPath, LongestCircuit, SteinerTree,
+        SubgraphIsomorphism,
+    };
+    use crate::topology::{SimpleDigraph, SimpleGraph};
+    use crate::traits::Problem;
+
+    // Dense inputs exercise every constraint family at full size, so a family
+    // missing from a per-family nonzero count shows up as an exceeded bound.
+    fn check<P: Problem + 'static>(source: P) {
+        let variant = P::variant();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|e| {
+                e.source_name == P::NAME && e.target_name == "ILP" && e.source_variant() == variant
+            })
+            .unwrap();
+        let reduced = entry.reduce_fn.unwrap()(&source).unwrap();
+        let actual = ReductionGraph::compute_problem_parameters(
+            "ILP",
+            &ReductionGraph::variant_to_map(&entry.target_variant()),
+            reduced.target_problem_any(),
+        );
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let (predicted, actual) = (
+            predicted.get("num_nonzeros").unwrap(),
+            actual.get("num_nonzeros").unwrap(),
+        );
+        assert!(
+            predicted >= actual,
+            "{}: predicted {predicted:?} nonzeros, measured {actual:?}",
+            P::NAME
+        );
+    }
+    let complete = |n: usize| {
+        (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect::<Vec<_>>()
+    };
+
+    check(ConsecutiveOnesSubmatrix::new(vec![vec![true; 4]; 3], 4));
+    check(DirectedHamiltonianPath::new(SimpleDigraph::new(
+        4,
+        (0..4)
+            .flat_map(|u| (0..4).filter(move |&v| v != u).map(move |v| (u, v)))
+            .collect(),
+    )));
+    check(SubgraphIsomorphism::new(
+        SimpleGraph::new(4, complete(4)),
+        SimpleGraph::new(3, complete(3)),
+    ));
+    check(SteinerTree::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+        vec![0, 2, 4],
+    ));
+    check(LongestCircuit::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+    ));
+}
