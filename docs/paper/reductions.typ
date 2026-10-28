@@ -12505,7 +12505,7 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
 )[
   The bounded quadratic-congruence construction of Manders and Adleman @mandersAdleman1976 converts an odd signed-knapsack target into a square congruence using prime powers and the Chinese Remainder Theorem. We give base-eight positions only to the actual normalized clauses. The same slack equation handles every native clause width from zero through three.
 ][
-  _Construction._ Delete tautologies and duplicate literals and clauses, retaining empty clauses. Compact the $l$ occurring variables, recording their original positions. Let $C_1, dots, C_m$ be the remaining clauses, $r_j = |C_j|$, $N = 2m+l+1$, and $D=8^(m+1)$. Let $f_i^+$ and $f_i^-$ be the sums of $8^j$ over clauses containing variable $i$ positively and negatively. Define $N$ integer coefficients and an odd target:
+  _Construction._ Delete tautologies and duplicate literals and clauses. Compact the $l$ occurring variables, recording their original positions. Let $C_1, dots, C_m$ be the remaining clauses, $r_j = |C_j|$, $N = 2m+l+1$, and $D=8^(m+1)$. Let $f_i^+$ and $f_i^-$ be the sums of $8^j$ over clauses containing variable $i$ positively and negatively. Define $N$ integer coefficients and an odd target:
   $ c_0=1, quad c_(2j-1)=-8^j/2, quad c_(2j)=-8^j, quad c_(2m+i)=(f_i^+-f_i^-)/2, $
   $ tau=1+sum_(j=1)^m (r_j-5)8^j/2. $
   Take the first $N$ primes starting at $13$, indexed from zero, and put $q_i=p_i^N$ and $K=product_i q_i$. Let $theta_i$ be the least positive integer satisfying $theta_i equiv c_i mod D$, $theta_i equiv 0 mod (K/q_i)$, and $p_i$ not dividing $theta_i$. CRT gives a residue modulo $D K/q_i$; choosing the first positive representative and, if necessary, adding that modulus once gives $theta_i$. Set $H=sum_i theta_i$ and
@@ -12514,7 +12514,7 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
 
   _Clause encoding._ For signs $alpha_i in {-1,+1}$, put $t_i=(1-alpha_(2m+i))/2$ and $y_j=(3-alpha_(2j-1)-2alpha_(2j))/2 in {0,1,2,3}$. Let $T_j$ count true literals in $C_j$ and $R_j=y_j-T_j+1$. Direct expansion gives
   $ sum_i c_i alpha_i-tau=alpha_0-1+sum_(j=1)^m R_j 8^j. $
-  Here $-2<=R_j<=4$ and $alpha_0-1 in {-2,0}$. The right side has absolute value less than $D$. Taking successive residues modulo eight shows that it vanishes exactly when $alpha_0=1$ and all $R_j=0$. Thus the linear congruence modulo $D$ encodes precisely the satisfying assignments. An empty clause has $T_j=0$ and cannot have $R_j=0$; it requires no exceptional construction.
+  Here $-2<=R_j<=4$ and $alpha_0-1 in {-2,0}$. The right side has absolute value less than $D$. Taking successive residues modulo eight shows that it vanishes exactly when $alpha_0=1$ and all $R_j=0$. Thus the linear congruence modulo $D$ encodes precisely the satisfying assignments.
 
   _Magnitude and square-root lemmas._ Each $theta_i<=2D K/q_i$. For $m>=1$, $N>=2m+1>=3$ and $13^N>4N D$, giving $2H<K$. When $m=0$, no variable occurs, and $N=1$, $theta_0=1$, $K=13$ give the same inequality. Also $tau equiv 1 mod 4$ and $D$ is a power of two divisible by eight. For odd $tau$, $x^2 equiv tau^2 mod (2D)$ holds exactly when $x equiv tau$ or $x equiv -tau mod D$: among $x-tau$ and $x+tau$, one has exactly one factor of two and the other must contain all the remaining factors. This is the odd-target hypothesis of the original square-root lemma; doubling the coefficients without increasing the square modulus does not preserve it.
 
@@ -17982,14 +17982,14 @@ The following table shows concrete target-variable counts for example instances,
 
   Conversely, either equal signal colouring extends: make that colour the cycles $u,v,w,a,b,u$ and $u,v,w,c,d,u$ in the two cliques, and give all remaining edges the other colour. Both cycles agree on the private triangle, and each clique has no monochromatic triangle. No triangle crosses between the two signal edges.
 
-  _Construction._ Let the source have $n$ variables and $m$ clauses, each with three literal positions. Let $q$ count its length-three clauses.
+  _Construction._ Let the source have $n$ variables and $m$ clauses, each with three literal positions.
 
-  1. Apply the existing typed embedding into Satisfiability and the existing SAT-to-NAE reduction. It adds a sentinel $s$, replacing each nonempty clause $C$ by $"NAE"(C,s)$ and an empty clause by $"NAE"(s,s)$.
-  2. Replace $"NAE"(a,b)$ by $"NAE"(a,b,b)$; keep triples unchanged; replace $"NAE"(a,b,c,d)$ by $"NAE"(a,b,z)$ and $"NAE"(overline(z),c,d)$ with a fresh variable $z$. There are $N=n+1+q$ logical variables and $m+q$ resulting triples.
-  3. Give every logical variable $i$ two disjoint signal edges $P_i,M_i$. Their $4N$ vertices are disjoint from all subsequent clause vertices. For each variable include the sign-consistency triple $"NAE"(P_i,P_i,M_i)$, followed by the logical triples, using $P_i$ for a positive literal and $M_i$ for a negative one. There are $T=N+m+q$ triples in total.
+  1. Apply the existing typed embedding into Satisfiability and the existing SAT-to-NAE reduction. It adds a sentinel $s$, replacing each clause $C$ by the four-literal $"NAE"(C,s)$.
+  2. Replace each $"NAE"(a,b,c,d)$ by $"NAE"(a,b,z)$ and $"NAE"(overline(z),c,d)$ with a fresh variable $z$. There are $N=n+1+m$ logical variables and $2m$ resulting triples.
+  3. Give every logical variable $i$ two disjoint signal edges $P_i,M_i$. Their $4N$ vertices are disjoint from all subsequent clause vertices. For each variable include the sign-consistency triple $"NAE"(P_i,P_i,M_i)$, followed by the logical triples, using $P_i$ for a positive literal and $M_i$ for a negative one. There are $T=N+2m$ triples in total.
   4. Give every triple its own triangle. Connect its three edges to the three literal signals using three equality senders, each with fresh private vertices. The terminal edges already exist, so a sender adds three vertices and fifteen edges. Repeated literals use separate senders; no endpoint identification or case-specific repair is performed.
 
-  _NAE identities._ The length-two identity holds because duplicating a value does not change whether all values agree. For the length-four identity, if $a=b$ the first triple forces $z=overline(a)$; if $c=d$ the second forces $z=c$. These requirements conflict exactly when all four values agree. If either pair differs, its corresponding triple imposes no condition on $z$. This proves the identity in both directions for all input patterns.
+  _NAE identity._ For the length-four identity, if $a=b$ the first triple forces $z=overline(a)$; if $c=d$ the second forces $z=c$. These requirements conflict exactly when all four values agree. If either pair differs, its corresponding triple imposes no condition on $z$. This proves the identity in both directions for all input patterns.
 
   _Triangle isolation._ Private vertices from different senders are nonadjacent. Any triangle containing a private sender vertex must lie in that sender: both other vertices belong to it, and the only edges among its four boundary vertices are its two terminal edges. This remains true after assembly because all variable signals and clause triangles have disjoint vertex sets, and senders add no boundary-to-boundary edges. A triangle containing no sender-private vertex is one of the clause triangles. Hence the target contains exactly the intended clause triangles and the nineteen triangles inside each sender, even with repeated or complementary literals and repeated variable occurrences.
 
@@ -17999,7 +17999,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Solution extraction._ Validate the target colouring and read the positive signal colours for the original variables and sentinel. Pass this assignment to the existing SAT-to-NAE extraction API. A global colour swap leaves the normalized source assignment unchanged.
 
-  _Overhead._ The exact counts are $4N+12T$ vertices, $2N+48T$ edges and $58T$ triangles. Since $q<=m$, these are bounded by $16n+40m+16$, $50n+146m+50$ and $58n+174m+58$, respectively. All graph-size arithmetic is checked before allocation. With exactly three literals per clause the bounds are equalities.
+  _Overhead._ The exact counts are $4N+12T$ vertices, $2N+48T$ edges and $58T$ triangles. Substituting $N=n+1+m$ and $T=n+1+3m$ gives exactly $16n+40m+16$, $50n+146m+50$ and $58n+174m+58$, respectively. All graph-size arithmetic is checked before allocation. With exactly three literals per clause the bounds are equalities.
 
   _YES example._ For the clause $(x_1 or x_2 or x_3)$, choose values $(1,0,0)$, sentinel $0$ and splitting variable $0$. Both logical triples evaluate to $"NAE"(1,0,0)$. Here $N=5$, $T=7$, giving 104 vertices, 346 edges and 406 triangles. The signal colours extend by the sender construction.
 
@@ -18041,7 +18041,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Schaefer's Lemma 3.5 @schaefer1978 expresses a three-input disjunction by five exact-one constraints. The implementation compacts the $a$ appearing source variables, adds two global constant variables and six auxiliaries per clause. A source with $m$ clauses produces $a + 2 + 6m$ target variables and $1 + 5m$ target clauses, bounded by $n + 2 + 6m$ and $1 + 5m$ in the declared source parameters.
 ][
-  _Construction._ Let $J$ be the sorted original indices of the appearing variables. Replace each actual source literal by the corresponding compact variable with its sign preserved. Use the existing SAT variable allocator to allocate $z_0$ and $z_T$, followed by six fresh variables $a_j, b_j, c_j, d_j, e_j, f_j$ for each source clause. The global exact-one constraint $R(z_0,z_0,z_T)$ forces $(z_0,z_T)=(0,1)$. Each native source clause has zero through three positions; fill missing positions with $z_0$. This preserves its disjunction, including the empty clause's false value. For the resulting three literals $ell_1^j,ell_2^j,ell_3^j$, append
+  _Construction._ Let $J$ be the sorted original indices of the appearing variables. Replace each actual source literal by the corresponding compact variable with its sign preserved. Use the existing SAT variable allocator to allocate $z_0$ and $z_T$, followed by six fresh variables $a_j, b_j, c_j, d_j, e_j, f_j$ for each source clause. The global exact-one constraint $R(z_0,z_0,z_T)$ forces $(z_0,z_T)=(0,1)$. For each clause's three literals $ell_1^j,ell_2^j,ell_3^j$, append
   $
     R(ell_1^j,a_j,d_j), quad R(ell_2^j,b_j,d_j), quad
     R(a_j,b_j,e_j), quad R(c_j,d_j,f_j), quad R(ell_3^j,c_j,z_0).
@@ -19179,7 +19179,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Correctness._ ($arrow.r.double$) Given a satisfying source assignment, choose its true literal in each digon. Let $t_r$ indicate whether the literal at clause position $r$ is selected, with missing positions set to false. Select clause vertex $r$ exactly when $not t_r and t_((r+1) mod 3)$. A selected vertex points to no selected literal, and its successor cannot be selected, so independence holds. An unselected vertex with $t_r$ true is absorbed through its literal arc. Otherwise both $t_r$ and $t_((r+1) mod 3)$ are false. Since the clause is satisfied, $t_((r+2) mod 3)$ is true; its cycle successor is therefore selected and absorbs it. Unselected literal vertices are absorbed by their digon partners.
 
-  ($arrow.l.double$) Each literal vertex has only its digon partner as an outgoing neighbor. Independence and absorption force exactly one selected endpoint per variable. If a clause has no selected literal, absorption must occur entirely within its directed three-cycle. Independence permits at most one selected cycle vertex, which cannot absorb both others. This contradiction proves that every clause is satisfied, including the native short-clause semantics. This proof does not require distinct variables or a particular literal order.
+  ($arrow.l.double$) Each literal vertex has only its digon partner as an outgoing neighbor. Independence and absorption force exactly one selected endpoint per variable. If a clause has no selected literal, absorption must occur entirely within its directed three-cycle. Independence permits at most one selected cycle vertex, which cannot absorb both others. This contradiction proves that every clause is satisfied. This proof does not require distinct variables or a particular literal order.
 
   _Solution extraction._ Validate the target selection once using the formal target evaluator and reject $"Or(false)"$. Initialize a length-$n$ false vector and restore each original position $J_i$ from the selection of $p_i$. Unused variables remain false; selected clause vertices are ignored. The concrete value types are $"Or" arrow.r "Or"$.
 

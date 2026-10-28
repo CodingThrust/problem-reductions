@@ -2,8 +2,8 @@
 //!
 //! Manders and Adleman (ERL-M615, 1976), Section 2: an odd signed-knapsack
 //! target and prime-power CRT encode the clauses. Only the actual normalized
-//! clauses need base-eight positions; widths zero through three use the same
-//! slack equation. Squaring uses twice the linear modulus, and extraction
+//! clauses need base-eight positions; deduplicated widths one through three
+//! use the same slack equation. Squaring uses twice the linear modulus, and extraction
 //! orients every sign by the distinguished odd coordinate.
 
 use std::collections::{BTreeMap, BTreeSet};

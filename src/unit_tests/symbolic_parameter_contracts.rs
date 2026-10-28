@@ -934,7 +934,7 @@ fn vertex_cover_lcs_transition_bounds_cover_empty_strings() {
 fn three_sat_counts_are_exact_on_repeated_literals() {
     use crate::models::decision::Decision;
     use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
-    use crate::models::graph::{KClique, MinimumVertexCover};
+    use crate::models::graph::{KClique, MinimumVertexCover, MonochromaticTriangle};
     use crate::models::misc::SubsetSum;
     use crate::types::One;
     use crate::variant::K3;
@@ -961,6 +961,11 @@ fn three_sat_counts_are_exact_on_repeated_literals() {
         check_reduced_parameters::<_, OneInThreeSatisfiability>(
             source.clone(),
             &["num_clauses"],
+            exact,
+        );
+        check_reduced_parameters::<_, MonochromaticTriangle<SimpleGraph>>(
+            source.clone(),
+            &["num_vertices", "num_edges", "num_triangles"],
             exact,
         );
         check_reduced_parameters::<_, SubsetSum>(source, &["num_elements"], exact);
