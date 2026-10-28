@@ -56,7 +56,8 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToOneInThreeSAT {}
         upper_bound {
             num_vars = "num_vars + 2 + 6 * num_clauses",
         },
-})]
+    }
+)]
 impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
     type Result = Reduction3SATToOneInThreeSAT;
 

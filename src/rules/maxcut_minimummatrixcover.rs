@@ -1,14 +1,14 @@
 //! Reduction from MaxCut to MinimumMatrixCover.
 //!
-//! Given a MaxCut instance `(G, w)` with nonnegative integer edge weights,
-//! the target matrix `A` is the symmetric weighted adjacency matrix of `G`:
+//! For nonnegative edge weights, the target matrix `A` is the symmetric
+//! weighted adjacency matrix of `G`:
 //!     `a_{ij} = w({i, j})` if `{i, j} ∈ E`, otherwise `0` (diagonal is `0`).
 //!
 //! The key identity is
 //!     `Σ_{i,j} a_{ij} · f(i) · f(j) = 2 W − 4 · cut(S)`,
 //! where `S = { i : f(i) = +1 }` and `W = Σ_{e ∈ E} w(e)`. Minimizing the
 //! quadratic form is therefore equivalent to maximizing the cut, and the
-//! reduction is witness-preserving via the identity map between MaxCut's
+//! original vertices keep their bits between MaxCut's
 //! partition encoding (`config[i] = 1 ⇔ i ∈ S`) and MinimumMatrixCover's
 //! sign encoding (`config[i] = 1 ⇔ f(i) = +1 ⇔ i ∈ S`).
 //!
@@ -88,16 +88,15 @@ impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
                 link(u, v, w);
                 continue;
             }
-            let magnitude = w.checked_neg();
-            let anchor = magnitude.and_then(|m| m.checked_add(1));
-            let (Some(magnitude), Some(anchor)) = (magnitude, anchor) else {
+            // anchor = |w| + 1 = 1 - w; then |w| = anchor - 1 cannot overflow.
+            let Some(anchor) = 1_i64.checked_sub(w) else {
                 return Err(crate::rules::ReductionError::integer_overflow::<
                     MaxCut<SimpleGraph, i64>,
                     MinimumMatrixCover,
                 >("negating a negative edge weight"));
             };
             link(auxiliary, v, anchor);
-            link(auxiliary, u, magnitude);
+            link(auxiliary, u, anchor - 1);
             auxiliary += 1;
         }
 

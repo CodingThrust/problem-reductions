@@ -67,8 +67,8 @@ impl ReductionResult for ReductionPIPL2ToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
 
-// With q=floor(n/3) and e distinct non-loop edges: q(n+e) variables,
-// n+2q+3eq rows, and 2nq+8eq terms. Deduplication gives e<=num_edges.
+// Construction requires 3 | n and SimpleGraph has no loops or repeated edges,
+// so q = n/3 and e = num_edges: q(n+e) variables, n+2q+3eq rows, 2nq+8eq terms.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices * (num_vertices + num_edges) / 3",

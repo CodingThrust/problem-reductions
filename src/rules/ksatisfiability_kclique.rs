@@ -58,7 +58,7 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToKClique {}
 
 #[reduction(
     transform = {
-        exact { k = "num_clauses + 1", },
+        exact { k = "num_clauses + 1" },
         // Clauses built with `new_allow_less` may have fewer than three literals.
         upper_bound {
             num_vertices = "3 * num_clauses + 1",

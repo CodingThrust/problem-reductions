@@ -19994,9 +19994,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Correctness._ For any $f in \{-1, +1\}^n$ with $S = \{i : f(i) = +1\}$, each edge $\{i, j\} in E$ appears twice in $sum_(i, j) a_(i j) f(i) f(j)$. A non-cut edge contributes $+2 w(\{i, j\})$ (same signs, $f(i) f(j) = +1$); a cut edge contributes $-2 w(\{i, j\})$. Summing yields $sum_(i, j) a_(i j) f(i) f(j) = 2 (W - "cut"(S)) - 2 "cut"(S) = 2 W - 4 "cut"(S)$. Since $2 W$ is a constant, $min_f sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 max_S "cut"(S)$ on $G'$. Each gadget preserves maximum cuts: moving $t$ to the side opposite $v$ gains $|w| + 1$ and loses at most $|w|$, so every maximum cut of $G'$ separates $t$ from $v$. Then $\{t, u\}$ is cut exactly when $u$ and $v$ share a side, and $|w| dot [u, v "together"] = w dot [u, v "cut"] + |w|$. Each gadget therefore adds the constant $2|w| + 1$, and maximum cuts of $G'$ restrict to maximum cuts of $G$; every maximum cut of $G$ extends to one of $G'$. Hence the two problems share the same optimal partitions on $V$. ($arrow.r.double$) A maximum cut $S^*$ defines $f^*$ minimizing the quadratic form. ($arrow.l.double$) A minimizing $f^*$ defines $S^* = \{i : f^*(i) = +1\}$ achieving the maximum cut.
 
-  _Solution extraction._ Keep the signs of the original vertices and drop auxiliary vertices.
-
-  _Solution extraction._ Both encodings agree that $"config"[i] = 1$ means vertex $i in S$, so extraction is the identity. The complementary witness $f arrow.r -f$ is equally optimal because the quadratic form is invariant under this sign flip.
+  _Solution extraction._ Both encodings agree that $"config"[i] = 1$ means vertex $i in S$, so extraction keeps the original vertices' bits and drops the auxiliary ones. The complementary witness $f arrow.r -f$ is equally optimal because the quadratic form is invariant under this sign flip.
 ]
 
 // 14. HamiltonianPath → IsomorphicSpanningTree (#912)

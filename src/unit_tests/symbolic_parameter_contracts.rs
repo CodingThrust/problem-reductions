@@ -985,17 +985,14 @@ fn exact_construction_counts_hold_on_degenerate_graphs() {
     use crate::topology::{Graph, SimpleDigraph};
     use crate::types::One;
     // Canonical examples are mid-sized; check the boundaries exact claims rely on:
-    // no vertices, no edges, k = 1, and k = n.
+    // no vertices, no edges, and every valid k.
     let exact = ParameterRelation::Exact;
-    let graphs = |n: usize| {
-        [
+    for n in 0..=3 {
+        for graph in [
             SimpleGraph::empty(n),
             SimpleGraph::path(n),
             SimpleGraph::complete(n),
-        ]
-    };
-    for n in 0..=3 {
-        for graph in graphs(n) {
+        ] {
             let m = graph.num_edges();
             check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
                 HamiltonianCircuit::new(graph.clone()),
@@ -1022,7 +1019,7 @@ fn exact_construction_counts_hold_on_degenerate_graphs() {
                 &["universe_size", "num_subsets"],
                 exact,
             );
-            for k in [1, n].into_iter().filter(|&k| (1..=n).contains(&k)) {
+            for k in 1..=n {
                 check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
                     PartitionIntoPerfectMatchings::new(graph.clone(), k),
                     &["num_vars", "num_constraints"],
