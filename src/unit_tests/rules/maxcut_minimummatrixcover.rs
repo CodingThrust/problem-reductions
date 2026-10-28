@@ -229,7 +229,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_overhead_num_rows_equals_num_vertices() {
-    // Spot-check the exact parameter relation: target.num_rows == source.num_vertices.
+    // Nonnegative weights add no auxiliary rows.
     for n in [1usize, 2, 5, 8] {
         let edges: Vec<(usize, usize)> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
         let weights: Vec<i64> = vec![1; edges.len()];
@@ -241,12 +241,48 @@ fn test_overhead_num_rows_equals_num_vertices() {
 }
 
 #[test]
-fn test_negative_weight_is_rejected() {
-    // The reduction only handles nonnegative weights.
-    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-1]);
+fn test_maxcut_to_minimummatrixcover_closed_loop_negative_weights() {
+    // Mixed signs: a negative edge rewards keeping its endpoints together.
+    for (n, edges, weights) in [
+        (2, vec![(0, 1)], vec![-1_i64]),
+        (3, vec![(0, 1), (1, 2), (0, 2)], vec![-2, 3, 1]),
+        (4, vec![(0, 1), (1, 2), (2, 3), (0, 3)], vec![-1, -1, 2, 2]),
+        (3, vec![(0, 1), (1, 2), (0, 2)], vec![-1, -1, -1]),
+    ] {
+        let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges), weights);
+        let reduction =
+            ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &reduction,
+            "MaxCut with negative weights -> MinimumMatrixCover",
+        );
+    }
+}
+
+#[test]
+fn test_negative_edge_gadget_layout() {
+    // Edge {0, 1} with w = -2 adds vertex 2: weight 3 to v = 1 and 2 to u = 0.
+    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-2]);
+    let reduction =
+        ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
+    let expected: Vec<Vec<i64>> = vec![vec![0, 0, 2], vec![0, 0, 3], vec![2, 3, 0]];
+    assert_eq!(reduction.target_problem().matrix(), expected.as_slice());
+    // Auxiliary bits are dropped on extraction.
+    assert_eq!(
+        reduction
+            .extract_solution(&vec![true, true, false])
+            .unwrap(),
+        vec![true, true]
+    );
+}
+
+#[test]
+fn test_minimum_negative_weight_overflows() {
+    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![i64::MIN]);
     let error = ReduceTo::<MinimumMatrixCover>::reduce_to(&source).unwrap_err();
     assert!(matches!(
         error,
-        crate::rules::ReductionError::InvalidTarget { .. }
+        crate::rules::ReductionError::IntegerOverflow { .. }
     ));
 }

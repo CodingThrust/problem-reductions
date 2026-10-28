@@ -12,10 +12,14 @@
 //! partition encoding (`config[i] = 1 ⇔ i ∈ S`) and MinimumMatrixCover's
 //! sign encoding (`config[i] = 1 ⇔ f(i) = +1 ⇔ i ∈ S`).
 //!
-//! **Precondition:** all edge weights must be nonnegative. The reduction
-//! panics on any negative weight, since `MinimumMatrixCover` requires a
-//! nonnegative integer matrix. Negative-weight `MaxCut` instances are out
-//! of scope and must use a different (preprocessing) reduction.
+//! `MinimumMatrixCover` requires a nonnegative matrix, so each negative edge
+//! `{u, v}` with weight `w < 0` becomes an auxiliary vertex `t` joined to `v`
+//! by weight `|w| + 1` and to `u` by weight `|w|`. Moving `t` to the side
+//! opposite `v` gains `|w| + 1` and loses at most `|w|`, so every maximum cut
+//! separates `t` from `v`. Then `t` is cut from `u` exactly when `u` and `v`
+//! share a side, and `|w| · [u, v same side] = w · [u, v cut] + |w|`: each
+//! gadget shifts the cut by the constant `2|w| + 1`. Maximum cuts, and so
+//! optimal sign assignments, correspond after dropping auxiliary vertices.
 //!
 //! Reference: Garey & Johnson, *Computers and Intractability* (1979),
 //! Appendix A1.2, MS13 ("Transformation from MAXIMUM CUT").
@@ -30,6 +34,7 @@ use crate::topology::{Graph, SimpleGraph};
 #[derive(Debug, Clone)]
 pub struct ReductionMaxCutToMMC {
     target: MinimumMatrixCover,
+    num_source_vertices: usize,
 }
 
 impl ReductionResult for ReductionMaxCutToMMC {
@@ -40,7 +45,7 @@ impl ReductionResult for ReductionMaxCutToMMC {
         &self.target
     }
 
-    /// Solution extraction is the identity.
+    /// Solution extraction keeps the source vertices' bits.
     ///
     /// Both encodings agree that bit `i = 1` means vertex `i` is in `S`:
     /// MaxCut treats `config[i] = 1` as one side of the partition, and
@@ -54,13 +59,14 @@ impl ReductionResult for ReductionMaxCutToMMC {
     ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution[..self.num_source_vertices].to_vec())
     }
 }
 
 #[reduction(
-    transform = exact {
-        num_rows = "num_vertices",
+    transform = upper_bound {
+        // One auxiliary row per negative-weight edge.
+        num_rows = "num_vertices + num_edges",
     }
 )]
 impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
@@ -68,24 +74,36 @@ impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
-        let mut matrix: Vec<Vec<i64>> = vec![vec![0i64; n]; n];
+        let edges = self.edges();
+        let size = n + edges.iter().filter(|&&(_, _, w)| w < 0).count();
+        let mut matrix: Vec<Vec<i64>> = vec![vec![0i64; size]; size];
+        let mut link = |a: usize, b: usize, weight: i64| {
+            matrix[a][b] = weight;
+            matrix[b][a] = weight;
+        };
 
-        for (u, v, w) in self.edges() {
-            if w < 0 {
-                return Err(crate::rules::ReductionError::invalid_target::<
+        let mut auxiliary = n;
+        for (u, v, w) in edges {
+            if w >= 0 {
+                link(u, v, w);
+                continue;
+            }
+            let magnitude = w.checked_neg();
+            let anchor = magnitude.and_then(|m| m.checked_add(1));
+            let (Some(magnitude), Some(anchor)) = (magnitude, anchor) else {
+                return Err(crate::rules::ReductionError::integer_overflow::<
                     MaxCut<SimpleGraph, i64>,
                     MinimumMatrixCover,
-                >(format!(
-                    "edge ({u}, {v}) has negative weight {w}"
-                )));
-            }
-            let w64 = w;
-            matrix[u][v] = w64;
-            matrix[v][u] = w64;
+                >("negating a negative edge weight"));
+            };
+            link(auxiliary, v, anchor);
+            link(auxiliary, u, magnitude);
+            auxiliary += 1;
         }
 
         Ok(ReductionMaxCutToMMC {
             target: MinimumMatrixCover::new(matrix),
+            num_source_vertices: n,
         })
     }
 }
