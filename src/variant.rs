@@ -24,6 +24,12 @@ pub trait KValue: VariantParam + Clone + 'static {
     const K: Option<usize>;
 }
 
+/// A `KValue` with a concrete K, such as `K3`; excludes the arbitrary `KN`.
+pub trait FixedK: KValue {
+    /// The concrete K value.
+    const WIDTH: usize;
+}
+
 /// Implement `VariantParam` and optionally `KValue` for a type.
 ///
 /// # Usage
@@ -35,8 +41,8 @@ pub trait KValue: VariantParam + Clone + 'static {
 /// // Generic K value:
 /// impl_variant_param!(KN, "k", k: None);
 ///
-/// // Concrete K value:
-/// impl_variant_param!(K3, "k", k: Some(3));
+/// // Concrete K value (also implements `FixedK`):
+/// impl_variant_param!(K3, "k", fixed_k: 3);
 /// ```
 #[macro_export]
 macro_rules! impl_variant_param {
@@ -50,6 +56,12 @@ macro_rules! impl_variant_param {
         $crate::impl_variant_param!($ty, $cat);
         impl $crate::variant::KValue for $ty {
             const K: Option<usize> = $k;
+        }
+    };
+    ($ty:ty, $cat:expr, fixed_k: $k:literal) => {
+        $crate::impl_variant_param!($ty, $cat, k: Some($k));
+        impl $crate::variant::FixedK for $ty {
+            const WIDTH: usize = $k;
         }
     };
 }
@@ -100,11 +112,11 @@ pub struct K5;
 pub struct KN;
 
 impl_variant_param!(KN, "k", k: None);
-impl_variant_param!(K5, "k", k: Some(5));
-impl_variant_param!(K4, "k", k: Some(4));
-impl_variant_param!(K3, "k", k: Some(3));
-impl_variant_param!(K2, "k", k: Some(2));
-impl_variant_param!(K1, "k", k: Some(1));
+impl_variant_param!(K5, "k", fixed_k: 5);
+impl_variant_param!(K4, "k", fixed_k: 4);
+impl_variant_param!(K3, "k", fixed_k: 3);
+impl_variant_param!(K2, "k", fixed_k: 2);
+impl_variant_param!(K1, "k", fixed_k: 1);
 
 // --- VariantSpec: canonical runtime representation of a problem variant ---
 

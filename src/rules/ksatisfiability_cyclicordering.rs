@@ -136,21 +136,14 @@ fn normalize(
                 }
             })
             .collect();
-        match *literals.as_slice() {
-            [a, b, c] => normalized.push([a, b, c]),
-            [a, b] => {
-                let u = variables.allocate().map_err(
-                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
-                )?;
-                normalized.extend([[a, b, u], [a, b, -u]]);
-            }
-            [a] => {
-                let u = variables.allocate().map_err(
-                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
-                )?;
-                let v = variables.allocate().map_err(
-                    <KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction,
-                )?;
+        // Deduplication leaves one to three literals; fill the rest with fresh variables.
+        let fresh = variables
+            .allocate_many(3 - literals.len())
+            .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
+        match (literals.as_slice(), fresh.as_slice()) {
+            (&[a, b, c], []) => normalized.push([a, b, c]),
+            (&[a, b], &[u]) => normalized.extend([[a, b, u], [a, b, -u]]),
+            (&[a], &[u, v]) => {
                 normalized.extend([[a, u, v], [a, u, -v], [a, -u, v], [a, -u, -v]]);
             }
             _ => unreachable!("deduplicated three-literal clauses keep one to three literals"),

@@ -169,47 +169,45 @@ fn test_repeated_and_tautological_clauses() {
         let literals: Vec<i64> = (1..=num_vars)
             .flat_map(|i| [i as i64, -(i as i64)])
             .collect();
-        {
-            for code in 0..literals.len().pow(3) {
-                let mut remaining = code;
-                let clause: Vec<_> = (0..3)
-                    .map(|_| {
-                        let lit = literals[remaining % literals.len()];
-                        remaining /= literals.len();
-                        lit
-                    })
+        for code in 0..literals.len().pow(3) {
+            let mut remaining = code;
+            let clause: Vec<_> = (0..3)
+                .map(|_| {
+                    let lit = literals[remaining % literals.len()];
+                    remaining /= literals.len();
+                    lit
+                })
+                .collect();
+            let source =
+                KSatisfiability::<K3>::try_new(num_vars, vec![CNFClause::new(clause)]).unwrap();
+            let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
+            let layout = reduction.layout.as_ref().unwrap();
+            for mask in 0..(1usize << num_vars) {
+                let original: Vec<_> = (0..num_vars).map(|i| mask & (1 << i) != 0).collect();
+                let compact: Vec<_> = reduction
+                    .source_variables
+                    .iter()
+                    .map(|&i| original[i])
                     .collect();
-                let source =
-                    KSatisfiability::<K3>::try_new(num_vars, vec![CNFClause::new(clause)]).unwrap();
-                let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
-                let layout = reduction.layout.as_ref().unwrap();
-                for mask in 0..(1usize << num_vars) {
-                    let original: Vec<_> = (0..num_vars).map(|i| mask & (1 << i) != 0).collect();
-                    let compact: Vec<_> = reduction
-                        .source_variables
-                        .iter()
-                        .map(|&i| original[i])
-                        .collect();
-                    let positions = layout.schedule_for_assignment(&compact);
-                    assert!(reduction
-                        .target_problem()
-                        .simulate_registers(&positions)
-                        .unwrap()
-                        .is_some());
-                    let source_value = source.evaluate(&original).unwrap();
-                    assert_eq!(
-                        reduction.target_problem().evaluate(&positions).unwrap(),
-                        source_value
-                    );
-                    if source_value.0 {
-                        let decoded = reduction.extract_solution(&positions).unwrap();
-                        assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));
-                        for &i in &reduction.source_variables {
-                            assert_eq!(decoded[i], original[i]);
-                        }
-                    } else {
-                        assert!(reduction.extract_solution(&positions).is_err());
+                let positions = layout.schedule_for_assignment(&compact);
+                assert!(reduction
+                    .target_problem()
+                    .simulate_registers(&positions)
+                    .unwrap()
+                    .is_some());
+                let source_value = source.evaluate(&original).unwrap();
+                assert_eq!(
+                    reduction.target_problem().evaluate(&positions).unwrap(),
+                    source_value
+                );
+                if source_value.0 {
+                    let decoded = reduction.extract_solution(&positions).unwrap();
+                    assert_eq!(source.evaluate(&decoded).unwrap(), Or(true));
+                    for &i in &reduction.source_variables {
+                        assert_eq!(decoded[i], original[i]);
                     }
+                } else {
+                    assert!(reduction.extract_solution(&positions).is_err());
                 }
             }
         }

@@ -195,7 +195,7 @@ fn build_construction(
         coefficients[2 * j + 1] = -&half_weight;
         coefficients[2 * j + 2] = -BigInt::from(weight.clone());
         let width =
-            i64::try_from(clause.len()).expect("native K3 clauses have at most three literals");
+            i64::try_from(clause.len()).expect("deduplicated clauses have one to three literals");
         tau += (width - 5) * &half_weight;
         for &literal in clause {
             let variable =

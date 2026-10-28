@@ -103,22 +103,20 @@ fn test_acyclicpartition_empty_and_unsatisfiable_formulas() {
             );
         }
     }
-    {
-        let source = KSatisfiability::<K3>::new(
-            1,
-            vec![
-                CNFClause::new(vec![1, 1, 1]),
-                CNFClause::new(vec![-1, -1, -1]),
-            ],
-        );
-        let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
-        assert!(BruteForce::new().solve(&source).unwrap().is_none());
-        let items = reduction.target_problem().num_vertices() - 2;
-        for mask in 0..(1usize << items) {
-            let mut labels: Vec<usize> = (0..items).map(|i| (mask >> i) & 1).collect();
-            labels.extend([0, 1]);
-            assert!(!reduction.target_problem().evaluate(&labels).unwrap().0);
-        }
+    let source = KSatisfiability::<K3>::new(
+        1,
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
+    );
+    let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
+    let items = reduction.target_problem().num_vertices() - 2;
+    for mask in 0..(1usize << items) {
+        let mut labels: Vec<usize> = (0..items).map(|i| (mask >> i) & 1).collect();
+        labels.extend([0, 1]);
+        assert!(!reduction.target_problem().evaluate(&labels).unwrap().0);
     }
 }
 
