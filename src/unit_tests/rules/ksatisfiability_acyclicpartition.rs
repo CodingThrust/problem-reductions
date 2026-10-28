@@ -86,7 +86,7 @@ fn test_acyclicpartition_extraction_rejects_invalid_targets() {
 }
 
 #[test]
-fn test_acyclicpartition_native_empty_and_short_clauses() {
+fn test_acyclicpartition_empty_and_unsatisfiable_formulas() {
     for n in [0, 3] {
         let source = KSatisfiability::<K3>::new(n, vec![]);
         let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
@@ -103,10 +103,13 @@ fn test_acyclicpartition_native_empty_and_short_clauses() {
             );
         }
     }
-    for clauses in [vec![vec![]], vec![vec![1], vec![-1]]] {
-        let source = KSatisfiability::<K3>::new_allow_less(
+    {
+        let source = KSatisfiability::<K3>::new(
             1,
-            clauses.into_iter().map(CNFClause::new).collect(),
+            vec![
+                CNFClause::new(vec![1, 1, 1]),
+                CNFClause::new(vec![-1, -1, -1]),
+            ],
         );
         let reduction = ReduceTo::<AcyclicPartition<i64>>::reduce_to(&source).unwrap();
         assert!(BruteForce::new().solve(&source).unwrap().is_none());

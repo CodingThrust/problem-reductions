@@ -148,48 +148,39 @@ fn test_ksatisfiability_to_register_sufficiency_canonical_example_spec() {
 }
 
 #[test]
-fn test_ksatisfiability_to_registersufficiency_closed_loop_boundaries() {
+fn test_ksatisfiability_to_registersufficiency_empty_formula() {
     use crate::solvers::BruteForce;
     for declared in [0, 5] {
-        let yes = KSatisfiability::<K3>::new(declared, vec![]);
-        let no = KSatisfiability::<K3>::try_new_allow_less(declared, vec![CNFClause::new(vec![])])
+        let source = KSatisfiability::<K3>::new(declared, vec![]);
+        let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
+        let solution = BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
             .unwrap();
-        for (source, feasible) in [(yes, true), (no, false)] {
-            let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
-            let solution = BruteForce::new().solve(reduction.target_problem()).unwrap();
-            assert_eq!(solution.is_some(), feasible);
-            if let Some(solution) = solution {
-                let extracted = reduction.extract_solution(&solution).unwrap();
-                assert_eq!(extracted, vec![false; declared]);
-                assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-            } else {
-                assert!(reduction.extract_solution(&vec![0]).is_err());
-            }
-        }
+        let extracted = reduction.extract_solution(&solution).unwrap();
+        assert_eq!(extracted, vec![false; declared]);
+        assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     }
 }
 
 #[test]
-fn test_short_repeated_and_tautological_clauses() {
+fn test_repeated_and_tautological_clauses() {
     for num_vars in 1..=3 {
         let literals: Vec<i64> = (1..=num_vars)
             .flat_map(|i| [i as i64, -(i as i64)])
             .collect();
-        for width in 1..=3 {
-            for code in 0..literals.len().pow(width) {
+        {
+            for code in 0..literals.len().pow(3) {
                 let mut remaining = code;
-                let clause: Vec<_> = (0..width)
+                let clause: Vec<_> = (0..3)
                     .map(|_| {
                         let lit = literals[remaining % literals.len()];
                         remaining /= literals.len();
                         lit
                     })
                     .collect();
-                let source = KSatisfiability::<K3>::try_new_allow_less(
-                    num_vars,
-                    vec![CNFClause::new(clause)],
-                )
-                .unwrap();
+                let source =
+                    KSatisfiability::<K3>::try_new(num_vars, vec![CNFClause::new(clause)]).unwrap();
                 let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
                 let layout = reduction.layout.as_ref().unwrap();
                 for mask in 0..(1usize << num_vars) {
@@ -227,8 +218,7 @@ fn test_short_repeated_and_tautological_clauses() {
 
 #[test]
 fn test_sparse_original_variables_and_padding_bound() {
-    let source =
-        KSatisfiability::<K3>::try_new_allow_less(17, vec![CNFClause::new(vec![-17, 2])]).unwrap();
+    let source = KSatisfiability::<K3>::new(17, vec![CNFClause::new(vec![-17, 2, 2])]);
     let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source).unwrap();
     assert_eq!(reduction.source_variables, vec![1, 16]);
     let layout = reduction.layout.as_ref().unwrap();

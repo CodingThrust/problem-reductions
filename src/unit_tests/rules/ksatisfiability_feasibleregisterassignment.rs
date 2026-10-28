@@ -178,24 +178,8 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
 }
 
 #[test]
-fn native_empty_clause_is_infeasible_and_empty_conjunction_is_feasible() {
+fn empty_conjunction_is_feasible() {
     for num_vars in [0, 3] {
-        let source =
-            KSatisfiability::<K3>::try_new_allow_less(num_vars, vec![CNFClause::new(vec![])])
-                .unwrap();
-        let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
-        assert_eq!(reduction.target_problem().num_vertices(), 3);
-        for config in [
-            vec![0, 1, 2],
-            vec![0, 2, 1],
-            vec![1, 0, 2],
-            vec![1, 2, 0],
-            vec![2, 0, 1],
-            vec![2, 1, 0],
-        ] {
-            assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(reduction.extract_solution(&config).is_err());
-        }
         let source = KSatisfiability::<K3>::new(num_vars, vec![]);
         let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 0);
@@ -207,21 +191,17 @@ fn native_empty_clause_is_infeasible_and_empty_conjunction_is_feasible() {
 }
 
 #[test]
-fn short_repeated_and_mixed_clauses_have_complete_forward_witnesses() {
+fn repeated_and_mixed_clauses_have_complete_forward_witnesses() {
     for formula in [
-        vec![vec![5]],
-        vec![vec![-5]],
-        vec![vec![5, 2]],
-        vec![vec![-5, 2]],
+        vec![vec![-5, -5, -5]],
+        vec![vec![-5, 2, 2]],
         vec![vec![5, 5, 5]],
         vec![vec![5, -5, 5]],
         vec![vec![5, 1, -3], vec![-1, 5, 2], vec![-3, 2, -5]],
     ] {
-        let source = KSatisfiability::<K3>::try_new_allow_less(
-            6,
-            formula.into_iter().map(CNFClause::new).collect(),
-        )
-        .unwrap();
+        let source =
+            KSatisfiability::<K3>::try_new(6, formula.into_iter().map(CNFClause::new).collect())
+                .unwrap();
         let reduction = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&source).unwrap();
         let a = reduction.source_variables.len();
         assert_eq!(
@@ -248,33 +228,6 @@ fn short_repeated_and_mixed_clauses_have_complete_forward_witnesses() {
             }
         }
     }
-}
-
-#[test]
-fn short_clause_padding_matches_its_equivalent_three_literal_formula() {
-    let short = KSatisfiability::<K3>::try_new_allow_less(
-        3,
-        vec![CNFClause::new(vec![3]), CNFClause::new(vec![-3])],
-    )
-    .unwrap();
-    let padded = KSatisfiability::<K3>::new(
-        3,
-        vec![
-            CNFClause::new(vec![3, 3, 3]),
-            CNFClause::new(vec![-3, -3, -3]),
-        ],
-    );
-    let a = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&short).unwrap();
-    let b = ReduceTo::<FeasibleRegisterAssignment>::reduce_to(&padded).unwrap();
-    assert_eq!(a.target_problem().arcs(), b.target_problem().arcs());
-    assert_eq!(
-        a.target_problem().assignment(),
-        b.target_problem().assignment()
-    );
-    assert_eq!(
-        a.target_problem().num_vertices(),
-        b.target_problem().num_vertices()
-    );
 }
 
 #[test]

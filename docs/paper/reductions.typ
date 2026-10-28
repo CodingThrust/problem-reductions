@@ -12465,11 +12465,11 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
   $ H = a y_3 + 2(y_1 y_2 - 2 y_1 a - 2 y_2 a + 3a). $
   Rosenberg's penalty is zero when $a=y_1 y_2$ and positive otherwise @borosgruber2014quadratization. Its multiplier 2 strictly exceeds the possible unit gain from the $a y_3$ term. Thus minimizing over each independent auxiliary gives exactly the clause falsification indicator, including repeated or complementary literals. Expand with $x^2=x$ into an upper-triangular QUBO matrix, and retain the omitted constant $C$.
 
-  _Correctness._ For every source assignment, the minimum target energy over auxiliaries is the number of falsified clauses minus $C$. Every clause expression is nonnegative before subtracting $C$. Hence the formula is satisfiable iff the global target minimum is exactly $-C$. A satisfying assignment lifts by setting each cubic auxiliary to $y_1 y_2$; every zero-penalty target configuration projects to a satisfying source assignment. If an empty clause occurs, its constant penalty 1 prevents the threshold from being attained. Empty formulas have $C=0$ and every source assignment satisfies them.
+  _Correctness._ For every source assignment, the minimum target energy over auxiliaries is the number of falsified clauses minus $C$. Every clause expression is nonnegative before subtracting $C$. Hence the formula is satisfiable iff the global target minimum is exactly $-C$. A satisfying assignment lifts by setting each cubic auxiliary to $y_1 y_2$; every zero-penalty target configuration projects to a satisfying source assignment. Empty formulas have $C=0$ and every source assignment satisfies them.
 
   _Extraction._ Formal target validation precedes decoding. The DecisionQUBO target checks the bound $E <= -C$, and the registered aggregate decoder maps its completed `Or` value identically. Direct witness extraction rejects energies above the bound and reads the first $n$ coordinates only for a satisfying target witness. It does not solve SAT or repair auxiliary assignments. A completed target decision gives the source decision.
 
-  _Domain and overhead._ The K2 variant has $n$ variables; K3 reserves $n+m$, with unused auxiliaries mathematically free for short clauses. Native `new_allow_less` permits widths up to K; CLI and serde still require exactly K per actual clause. Source and target both use `Or`; the target wraps the integer QUBO with the signed bound $-C$. Matrix and constant accumulation use checked arithmetic; literal indices come from the formal `CNFClause::variables` API. Neither endpoint nor variant changes.
+  _Domain and overhead._ The K2 variant has $n$ variables; K3 reserves $n+m$, one auxiliary per clause. Every clause has exactly K literals. Source and target both use `Or`; the target wraps the integer QUBO with the signed bound $-C$. Matrix and constant accumulation use checked arithmetic; literal indices come from the formal `CNFClause::variables` API. Neither endpoint nor variant changes.
 ]
 
 #let ksat_qc = load-example("KSatisfiability", "QuadraticCongruences")
@@ -17306,16 +17306,6 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
-#reduction-rule("KSatisfiability", "KSatisfiability")[
-  A $k$-SAT instance with fixed clause width ($k = 2$ or $k = 3$) converts to generic $k$-SAT by constructing the registered $K_N$ variant. The clauses and variables are preserved verbatim; the target uses `new_allow_less` to accept clauses with fewer than $k$ literals.
-][
-  _Construction._ Given $"KSat"_(K_j)(n, cal(C))$ with $j in {2, 3}$, construct $"KSat"_(K_N)(n, cal(C))$ with the same $n$ variables and clause set $cal(C)$.
-
-  _Correctness._ Every clause in $cal(C)$ has at most $j$ literals. The $K_N$ variant accepts clauses of any width, so all clauses remain valid. The satisfiability condition (every clause has at least one true literal) is unchanged.
-
-  _Solution extraction._ Return the target configuration unchanged.
-]
-
 #reduction-rule("SpinGlass", "SpinGlass")[
   An Ising spin-glass instance with integer couplings and fields ($J_(i j), h_i in ZZ$) converts to the floating-point variant ($J_(i j), h_i in RR$) through exact `i64_to_exact_f64` embeddings. The graph topology is preserved.
 ][
@@ -17936,7 +17926,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Use the classical 3-SAT to Vertex Cover gadget construction, then ask whether the resulting graph has a vertex cover of size at most $k = n + 2m$ @garey1979.
 ][
-  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$. For accepted short nonempty clauses, repeat their literals to fill three positions. For an empty clause, keep its triangle without communication edges and use threshold $-1$, making the decision instance infeasible. The vertex count stays exact; the edge count is at most $n+6m$.
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$. The graph has exactly $2n+3m$ vertices and $n+6m$ edges.
 
   _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, choose one literal vertex per variable according to a satisfying assignment and choose two triangle vertices per clause, omitting a vertex whose literal is true. This gives a cover of size $n + 2m$, so the decision instance is yes. ($arrow.l.double$) If the decision instance is yes, any cover of size at most $n + 2m$ must use exactly one literal vertex per variable edge and exactly two vertices per clause triangle. The omitted triangle vertex in each clause has its communication edge covered only by a selected literal vertex, so the corresponding literal is true. These selected literal vertices define a satisfying assignment for $phi$.
 
@@ -17992,7 +17982,7 @@ The following table shows concrete target-variable counts for example instances,
 
   Conversely, either equal signal colouring extends: make that colour the cycles $u,v,w,a,b,u$ and $u,v,w,c,d,u$ in the two cliques, and give all remaining edges the other colour. Both cycles agree on the private triangle, and each clique has no monochromatic triangle. No triangle crosses between the two signal edges.
 
-  _Construction._ Let the source have $n$ variables and $m$ clauses of length at most three; the typed API also admits shorter clauses. Let $q$ count its length-three clauses.
+  _Construction._ Let the source have $n$ variables and $m$ clauses, each with three literal positions. Let $q$ count its length-three clauses.
 
   1. Apply the existing typed embedding into Satisfiability and the existing SAT-to-NAE reduction. It adds a sentinel $s$, replacing each nonempty clause $C$ by $"NAE"(C,s)$ and an empty clause by $"NAE"(s,s)$.
   2. Replace $"NAE"(a,b)$ by $"NAE"(a,b,b)$; keep triples unchanged; replace $"NAE"(a,b,c,d)$ by $"NAE"(a,b,z)$ and $"NAE"(overline(z),c,d)$ with a fresh variable $z$. There are $N=n+1+q$ logical variables and $m+q$ resulting triples.
@@ -18104,9 +18094,9 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("KSatisfiability", "FeasibleRegisterAssignment",
   example: false,
 )[
-  Sethi's Reduction 3 @sethi1973 builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets. Nonempty short clauses are padded by repeating a literal; occurring variables are compacted. For $s$ declared source variables and $c$ clauses, the target has at most $2s+12c$ vertices, $15c$ arcs, $s+9c$ registers, and $s+3c$ pairs of vertices sharing a register.
+  Sethi's Reduction 3 @sethi1973 builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets. Occurring variables are compacted. For $s$ declared source variables and $c$ clauses, the target has at most $2s+12c$ vertices, $15c$ arcs, $s+9c$ registers, and $s+3c$ pairs of vertices sharing a register.
 ][
-  _Native normalization._ If any clause is empty, return the three-vertex DAG with dependencies $(2,0),(2,1)$ and register assignment $(0,0,1)$. Both predecessors must stay live until vertex 2, so neither can overwrite the other's register; this target is infeasible. Otherwise collect appearing source indices in increasing order and store their inverse map. Pad each nonempty clause to three literal occurrences by repeating its first literal. Repetition preserves a disjunction, and each occurrence has its own gadget and register pair, so no distinct-variable assumption is needed. An empty conjunction yields the empty DAG and empty realization.
+  _Native normalization._ Collect appearing source indices in increasing order and store their inverse map. Each of the three literal occurrences of a clause, including repeated literals, has its own gadget and register pair, so no distinct-variable assumption is needed. An empty conjunction yields the empty DAG and empty realization.
 
   _Construction._ Let $a$ be the number of appearing variables. For each compact variable $x_k$, create leaves $s_k^+,s_k^-$ sharing register $S_k$. For every clause position $(i,j)$ create $p_(i,j),q_(i,j),r_(i,j),overline(r)_(i,j)$. The $p$ and $q$ registers are unique, while $r$ and $overline(r)$ share a fresh register $R_(i,j)$. Arcs point from a consumer to its dependency: $q_(i,j) -> p_(i,j) -> r_(i,j)$ and $q_(i,j) -> overline(r)_(i,j+1)$, with positions cyclic modulo three. For positive literal $x_k$, add $r_(i,j) -> s_k^+$ and $overline(r)_(i,j) -> s_k^-$; reverse these attachments for a negative literal. This DAG has four levels: leaves, $r/overline(r)$, $p$, and $q$.
 
@@ -18116,7 +18106,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Extraction._ Validate the complete position vector and reject $"Or(false)"$. Set each appearing source variable true iff its compact positive leaf occurs before its negative leaf. Restore original indices through the inverse map and assign false to unused variables. The target model's permitted last-use overwrite does not weaken the order-transfer proof: neither member of a shared pair is the other member's consumer in this construction.
 
-  _Bounds and native arithmetic._ For the ordinary construction $a <= min(s,3c)$, so the displayed upper bounds follow from the exact counts $2a+12c$, $15c$, $a+9c$, and $a+3c$. The fixed NO target has counts $(3,2,2,1)$ and also satisfies the bounds whenever an empty clause exists; the empty YES target has all counts zero. Let $I="isize::MAX"$. A native source clause stores a vector object of 24 bytes on 64-bit or 12 bytes on 32-bit, so successful allocation of its outer vector bounds $c$ by $I/24$ or $I/12$. Therefore $2a+12c <= 18c$, $a+9c <= 12c$, and $15c$ fit $"usize"$ before target allocation on both architectures. Once the target register-assignment vector is allocated, every indexed vertex is within that vector. All same-register groups have size two except the fixed target's singleton, so pair counting introduces no large product. Checked construction arithmetic is retained; allocation and solver limits are not infeasibility proofs.
+  _Bounds and native arithmetic._ For the ordinary construction $a <= min(s,3c)$, so the displayed upper bounds follow from the exact counts $2a+12c$, $15c$, $a+9c$, and $a+3c$. The empty YES target has all counts zero. Let $I="isize::MAX"$. A native source clause stores a vector object of 24 bytes on 64-bit or 12 bytes on 32-bit, so successful allocation of its outer vector bounds $c$ by $I/24$ or $I/12$. Therefore $2a+12c <= 18c$, $a+9c <= 12c$, and $15c$ fit $"usize"$ before target allocation on both architectures. Once the target register-assignment vector is allocated, every indexed vertex is within that vector. All same-register groups have size two, so pair counting introduces no large product. Checked construction arithmetic is retained; allocation and solver limits are not infeasibility proofs.
 ]
 
 #let ksat_rs = load-example("KSatisfiability", "RegisterSufficiency")
@@ -18143,7 +18133,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Sethi's Reduction 1 and Theorem 3.11 @sethi1973 encode literal choices through register pressure. We extend the construction to the native zero-to-three-literal clause domain by truth-preserving normalization and explicit empty-formula boundaries. The original padding $b=max(2n-m,0)$ is retained.
 ][
-  _Normalization._ A formula containing an empty clause is false; output a single output vertex with register bound zero. An empty conjunction is true; output the empty graph with bound zero. In every other case collect the appearing variables in increasing original-index order, map them to $1,dots,n$, and retain the inverse map. Keep the original clause order and literal occurrences. Repeat the first literal of each nonempty short clause until it has three positions. This preserves disjunction truth, gives $n,m>=1$, and never introduces a fictitious vertex for a missing literal. Let $Y_(i,j)$ denote the literal at position $j$ of clause $i$, allowing repeated literals.
+  _Normalization._ An empty conjunction is true; output the empty graph with bound zero. Otherwise collect the appearing variables in increasing original-index order, map them to $1,dots,n$, and retain the inverse map. Keep the original clause order and literal occurrences, which gives $n,m>=1$. Let $Y_(i,j)$ denote the literal at position $j$ of clause $i$, allowing repeated literals.
 
   _DAG construction._ Put $b=max(2n-m,0)$ and $K=3m+4n+1+b$. Arcs $(v,u)$ mean that $v$ depends on $u$. Create the following disjoint families, with one-based subscripts:
   $ |A|=2n+1, quad |B|=b, quad |C|=m, quad F={f_(i,j):1<=i<=m,1<=j<=3}, $
@@ -18305,13 +18295,13 @@ The following table shows concrete target-variable counts for example instances,
     *Multiplicity:* The fixture stores one canonical witness. The formula has multiple satisfying assignments; each induces at least one $k$-clique by choosing one true literal per clause.
   ],
 )[
-  Karp's literal-compatibility construction @karp1972 is extended with an anchor and, when needed, isolated padding. This keeps the same endpoint and handles both empty formulas and the shorter clauses accepted by the native `new_allow_less` API.
+  Karp's literal-compatibility construction @karp1972 is extended with an anchor vertex, so the empty formula maps to a one-vertex clique instance.
 ][
-  _Construction._ Let $m$ be the clause count and $t=sum_j |C_j|$ the actual occurrence count. Number literal vertices in clause/position order, with stored variable indices and polarities. Set $N=max(t,m)+1$, $k=m+1$, and anchor $a=t$. Connect two literal vertices iff they come from different clauses and are not opposite polarities of the same variable; then connect $a$ to all literal vertices. Any remaining vertices are isolated. Thus $1<=k<=N$, $N<=3m+1$, and the edge count is at most $9m^2+3m$.
+  _Construction._ Let $m$ be the clause count. Number the $3m$ literal occurrences in clause/position order, with stored variable indices and polarities. Set $N=3m+1$, $k=m+1$, and anchor $a=3m$. Connect two literal vertices iff they come from different clauses and are not opposite polarities of the same variable; then connect $a$ to all literal vertices. Thus $1<=k<=N$ and the edge count is at most $9m^2+3m$.
 
-  _Correctness._ A satisfying assignment selects a true occurrence from each clause; these mutually compatible vertices and the anchor form a $k$-clique. Conversely, the literal subgraph contains at most one vertex per clause in a clique, hence has clique number at most $m$. For $m>0$, any clique of size at least $k>=2$ excludes padding isolates and must contain the anchor plus one occurrence from every clause. Their polarities consistently satisfy all clauses. An empty clause prevents such a clique. For $m=0$, the target is a single anchor with $k=1$, and every source assignment satisfies the empty conjunction.
+  _Correctness._ A satisfying assignment selects a true occurrence from each clause; these mutually compatible vertices and the anchor form a $k$-clique. Conversely, the literal subgraph contains at most one vertex per clause in a clique, hence has clique number at most $m$. For $m>0$, any clique of size at least $k>=2$ must contain the anchor plus one occurrence from every clause. Their polarities consistently satisfy all clauses. For $m=0$, the target is a single anchor with $k=1$, and every source assignment satisfies the empty conjunction.
 
-  _Solution extraction._ Validate the complete target selection and its true clique predicate first. Decode the literal vertices via their stored source indices and signs, leaving unselected variables false; ignore the nonliteral anchor and padding by the defined mapping. Checked occurrence and output counts precede allocation. Formal `CNFClause::variables` supplies validated indices. Normal CLI/serde still requires exactly three literals per actual clause; native short-clause support does not change variants or serialization.
+  _Solution extraction._ Validate the complete target selection and its true clique predicate first. Decode the literal vertices via their stored source indices and signs, leaving unselected variables false; ignore the anchor by the defined mapping. Checked vertex and output counts precede allocation. Formal `CNFClause::variables` supplies validated indices.
 ]
 
 #let ksat_co = load-example("KSatisfiability", "CyclicOrdering")
@@ -18340,7 +18330,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This reduction @galilMegiddo1977 first normalizes clauses to three distinct, globally ordered variables. With $s$ declared source variables and $c$ source clauses it produces at most $3s + 26c + 3$ elements and $40c + 2$ cyclic-order constraints. The original ten-constraint gadget is applied to the normalized formula.
 ][
-  _Normalization._ An empty clause maps to the fixed NO target on three elements with constraints $(0,1,2)$ and $(0,2,1)$. Otherwise remove repeated literals within each clause and discard clauses containing both signs of a variable. Compact the remaining appearing variables in increasing original-index order, retaining the inverse map. Replace a two-literal clause $(a or b)$ by $(a or b or u) and (a or b or not u)$ with fresh $u$. Replace a unit clause $a$ by the four clauses $(a or (plus.minus u) or (plus.minus v))$ over both independent signs, with fresh $u,v$. These conjunctions are true for every auxiliary assignment when the original clause is true and false for at least one constituent clause under every auxiliary assignment when the original clause is false. Every resulting clause has three distinct variables; order its literals by increasing variable index. If no clauses remain, use the one-element unconstrained YES target.
+  _Normalization._ Remove repeated literals within each clause and discard clauses containing both signs of a variable. Compact the remaining appearing variables in increasing original-index order, retaining the inverse map. Replace a two-literal clause $(a or b)$ by $(a or b or u) and (a or b or not u)$ with fresh $u$. Replace a unit clause $a$ by the four clauses $(a or (plus.minus u) or (plus.minus v))$ over both independent signs, with fresh $u,v$. These conjunctions are true for every auxiliary assignment when the original clause is true and false for at least one constituent clause under every auxiliary assignment when the original clause is false. Every resulting clause has three distinct variables; order its literals by increasing variable index. If no clauses remain, use the one-element unconstrained YES target.
 
   _Construction._ Let the normalized formula have $N$ variables and $M$ clauses. For each variable $x_i$, create three target elements $alpha_i, beta_i, gamma_i$. A positive literal has associated triple $(alpha_i,beta_i,gamma_i)$; a negative literal has $(alpha_i,gamma_i,beta_i)$. For each normalized clause, let its three literal triples be $(a,b,c)$, $(d,e,f)$, $(g,h,i)$ in increasing variable order. Add five fresh elements $j,k,l,m,n$ and the ten constraints
   $
@@ -18400,7 +18390,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   Ullman's reduction first builds a variable-capacity unit-task scheduling instance for 3-SAT, then pads each time slot with chained filler jobs so a fixed number of processors simulates the desired capacity profile. Because every task has length $1$, preemption is irrelevant: the resulting instance is already a valid preemptive scheduling instance whose optimal makespan is at most $T = n + 3$ iff the formula is satisfiable @ullman1975 @garey1979.
 ][
-  Short nonempty clauses are padded by repeating literals. An empty conjunction maps to one unit task with threshold 1; a formula containing an empty clause maps to the same task with threshold 0. The following construction handles the remaining instances.
+  An empty conjunction maps to one unit task with threshold 1. The following construction handles the remaining instances.
 
   _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. Create unit jobs $x_(i,j)$ and $overline(x)_(i,j)$ for $1 <= i <= n$ and $0 <= j <= n$, plus forcing jobs $y_i, overline(y)_i$, and clause jobs $D_(r,s)$ for $1 <= r <= m$, $1 <= s <= 7$. Add chain precedences $x_(i,j) prec x_(i,j+1)$ and $overline(x)_(i,j) prec overline(x)_(i,j+1)$, and branching precedences $x_(i,i-1) prec y_i$, $overline(x)_(i,i-1) prec overline(y)_i$. Set $T = n + 3$ and slot capacities $c_0 = n$, $c_1 = 2n + 1$, $c_t = 2n + 2$ for $2 <= t <= n$, $c_(n+1) = m + n + 1$, and $c_(n+2) = 6m$.
   For each clause $C_r = (ell_1 or ell_2 or ell_3)$ and each nonzero bit pattern $b in {1, dots, 7}$, create clause job $D_(r,b)$. Its predecessors are the three chain endpoints chosen according to the bits of $b$: for literal position $k$, use the endpoint of $ell_k$ when bit $k$ is 1 and of $not ell_k$ when bit $k$ is 0. This makes exactly one clause job per clause ready one slot earlier when the clause is satisfied.
@@ -18483,7 +18473,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Solution extraction._ Validate the target partition, select precisely those vertex items sharing the label of $s$, and invoke the formal clique-to-SAT extractor. This mapping is independent of the numerical names of partition blocks.
 
-  _Overhead._ There are exactly $h+e+2$ vertices and $2h+4e$ arcs. With $m$ source clauses, $h<=3m+1$ and $e<=9m(m-1)/2+3m$, including native short or empty clauses. Thus target sizes are at most $(9m^2+3m+6)/2$ vertices and $18m^2+2$ arcs. The construction checks representability of counts and signed integer coefficients before allocating its incidence graph.
+  _Overhead._ There are exactly $h+e+2$ vertices and $2h+4e$ arcs. With $m$ source clauses, $h<=3m+1$ and $e<=9m(m-1)/2+3m$. Thus target sizes are at most $(9m^2+3m+6)/2$ vertices and $18m^2+2$ arcs. The construction checks representability of counts and signed integer coefficients before allocating its incidence graph.
 ]
 
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
@@ -19010,7 +19000,7 @@ The following table shows concrete target-variable counts for example instances,
 #reduction-rule("KSatisfiability", "BicliqueCover")[
   Polynomial reduction (Chandran, Issac, and Karrenbauer, IPEC 2016 @chandran_et_al:LIPIcs.IPEC.2016.11) from 3-SAT to BicliqueCover with logarithmic rank. Each appearing source variable is split into a positive/negative pair $(t_i, f_i)$, exactly-one clauses tie them to opposite truth values, and the formula is padded so that $n = 2^ell$ normalized variables admit a balanced satisfying assignment with exactly $n / 2$ true variables. The construction then assembles a bipartite gadget whose biclique cover rank equals $k_f + 2 ell + 2$ iff the (normalized) formula is satisfiable.
 ][
-  _Construction._ Let $psi$ have $n_s$ declared variables and $m_s$ clauses. The native Rust API also permits clauses of at most three literals. An empty clause maps to a single-edge, rank-zero NO target. A formula with no clauses maps to an empty, rank-zero YES target. Otherwise compact the $a$ variables that actually appear, recording their original indices, and repeat one literal in each nonempty short clause to obtain exactly three positions. Repetition preserves disjunction, and absent variables may be assigned false in the inverse map. *Normalize* this compact formula:
+  _Construction._ Let $psi$ have $n_s$ declared variables and $m_s$ three-literal clauses. A formula with no clauses maps to an empty, rank-zero YES target. Otherwise compact the $a$ variables that actually appear, recording their original indices; absent variables may be assigned false in the inverse map. *Normalize* this compact formula:
   $
     "vars:" quad     & "introduce" t_i, f_i "for each appearing" x_i "and pad to" n = 2^ell "variables" \
     "clauses:" quad  & "replace literal" x_i "by" t_i ";" not x_i "by" f_i \
@@ -19185,7 +19175,7 @@ The following table shows concrete target-variable counts for example instances,
 )[
   This reduction uses variable digons and clause three-cycles, following the kernel hardness approach of @chvatal1973. With $a$ appearing variables, $m$ clauses and $L$ literal occurrences, the target has $2a + 3m$ vertices and $2a + 3m + L$ arcs. These are bounded by $2n + 3m$ and $2n + 6m$ on the native source domain. Each occurrence has its own clause vertex; kernels may include clause vertices as well as literals.
 ][
-  _Construction._ Collect the sorted original indices $J$ of appearing variables, with $a = |J|$. For each compact variable $i$, create literal vertices $p_i, n_i$ and both digon arcs. Each native clause has zero through three literals. Create three vertices $c_(j,0), c_(j,1), c_(j,2)$ and the directed cycle in that order, then add $(c_(j,t), v(ell_(j,t)))$ only for its actual literal positions. Repeated literals keep separate occurrence vertices. An empty clause therefore produces a three-cycle with no outgoing literal arcs, which has no kernel; an empty formula produces an empty graph, whose empty selection is a kernel. No padding is needed.
+  _Construction._ Collect the sorted original indices $J$ of appearing variables, with $a = |J|$. For each compact variable $i$, create literal vertices $p_i, n_i$ and both digon arcs. For each clause create three vertices $c_(j,0), c_(j,1), c_(j,2)$ and the directed cycle in that order, then add $(c_(j,t), v(ell_(j,t)))$ for its three literal positions. Repeated literals keep separate occurrence vertices. An empty formula produces an empty graph, whose empty selection is a kernel.
 
   _Correctness._ ($arrow.r.double$) Given a satisfying source assignment, choose its true literal in each digon. Let $t_r$ indicate whether the literal at clause position $r$ is selected, with missing positions set to false. Select clause vertex $r$ exactly when $not t_r and t_((r+1) mod 3)$. A selected vertex points to no selected literal, and its successor cannot be selected, so independence holds. An unselected vertex with $t_r$ true is absorbed through its literal arc. Otherwise both $t_r$ and $t_((r+1) mod 3)$ are false. Since the clause is satisfied, $t_((r+2) mod 3)$ is true; its cycle successor is therefore selected and absorbs it. Unselected literal vertices are absorbed by their digon partners.
 
@@ -19193,7 +19183,7 @@ The following table shows concrete target-variable counts for example instances,
 
   _Solution extraction._ Validate the target selection once using the formal target evaluator and reject $"Or(false)"$. Initialize a length-$n$ false vector and restore each original position $J_i$ from the selection of $p_i$. Unused variables remain false; selected clause vertices are ignored. The concrete value types are $"Or" arrow.r "Or"$.
 
-  _Bounds and native arithmetic._ Since $a <= L <= 3m$, the target has at most $9m$ vertices and $12m$ arcs. The registered relations use upper bounds in the declared source parameters, covering sparse variables and short clauses. Counts are checked before allocation, and every vertex index is bounded by the checked total. A successfully allocated native clause vector also bounds $m$ by its element layout and the address space; original sparse indices are never doubled. Allocation limits do not represent mathematical infeasibility.
+  _Bounds and native arithmetic._ Since $a <= L <= 3m$, the target has at most $9m$ vertices and $12m$ arcs. The registered relations use upper bounds in the declared source parameters, covering sparse variables. Counts are checked before allocation, and every vertex index is bounded by the checked total. A successfully allocated native clause vector also bounds $m$ by its element layout and the address space; original sparse indices are never doubled. Allocation limits do not represent mathematical infeasibility.
 
 ]
 

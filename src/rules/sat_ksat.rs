@@ -10,7 +10,7 @@ use crate::models::formula::{CNFClause, KSatisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::variant::{KValue, K2, K3, KN};
+use crate::variant::{KValue, K2, K3};
 
 /// Result of reducing general SAT to K-SAT.
 ///
@@ -206,7 +206,8 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
     }
 }
 
-crate::register_aggregate_reduction!(ReductionKSATToSAT<KN>);
+crate::register_aggregate_reduction!(ReductionKSATToSAT<K2>);
+crate::register_aggregate_reduction!(ReductionKSATToSAT<K3>);
 
 #[crate::aggregate_reduction(identity)]
 impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKSATToSAT<K> {}
@@ -243,24 +244,8 @@ macro_rules! impl_ksat_to_sat {
     };
 }
 
-// Register KN for the reduction graph (covers all K values as the generic entry)
-impl_ksat_to_sat!(KN);
-
-// K3 and K2 keep their ReduceTo<Satisfiability> impls for typed use,
-// but are NOT registered as separate primitive graph edges (KN covers them).
-impl ReduceTo<Satisfiability> for KSatisfiability<K3> {
-    type Result = ReductionKSATToSAT<K3>;
-    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(reduce_ksat_to_sat(self))
-    }
-}
-
-impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
-    type Result = ReductionKSATToSAT<K2>;
-    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(reduce_ksat_to_sat(self))
-    }
-}
+impl_ksat_to_sat!(K2);
+impl_ksat_to_sat!(K3);
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
@@ -297,7 +282,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "ksatisfiability_to_satisfiability",
             build: || {
-                let source = KSatisfiability::<KN>::new(
+                let source = KSatisfiability::<K3>::new(
                     4,
                     vec![
                         CNFClause::new(vec![1, -2, 3]),
@@ -310,6 +295,26 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     SolutionPair {
                         source_config: serde_json::json!(vec![true, true, true, false]),
                         target_config: serde_json::json!(vec![true, true, true, false]),
+                    },
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_k2_to_satisfiability",
+            build: || {
+                let source = KSatisfiability::<K2>::new(
+                    3,
+                    vec![
+                        CNFClause::new(vec![1, -2]),
+                        CNFClause::new(vec![2, 3]),
+                        CNFClause::new(vec![-1, -3]),
+                    ],
+                );
+                crate::example_db::specs::rule_example_with_witness::<_, Satisfiability>(
+                    source,
+                    SolutionPair {
+                        source_config: serde_json::json!(vec![true, true, false]),
+                        target_config: serde_json::json!(vec![true, true, false]),
                     },
                 )
             },
