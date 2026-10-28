@@ -10,21 +10,21 @@ use crate::models::formula::{CNFClause, KSatisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::variant::{FixedK, K2, K3};
+use crate::variant::{KValue, K2, K3};
 
 /// Result of reducing general SAT to K-SAT.
 ///
 /// This reduction transforms a SAT formula into an equisatisfiable K-SAT formula
 /// by introducing ancilla (auxiliary) variables.
 #[derive(Debug, Clone)]
-pub struct ReductionSATToKSAT<K: FixedK> {
+pub struct ReductionSATToKSAT<K: KValue> {
     /// Number of original variables in the source problem.
     source_num_vars: usize,
     /// The target K-SAT problem.
     target: KSatisfiability<K>,
 }
 
-impl<K: FixedK> ReductionResult for ReductionSATToKSAT<K> {
+impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
     type Source = Satisfiability;
     type Target = KSatisfiability<K>;
 
@@ -51,7 +51,7 @@ impl<K: FixedK> ReductionResult for ReductionSATToKSAT<K> {
 }
 
 #[crate::aggregate_reduction(identity)]
-impl<K: FixedK> crate::rules::AggregateReductionResult for ReductionSATToKSAT<K> {}
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionSATToKSAT<K> {}
 
 /// Add a clause to the K-SAT formula, splitting or padding as necessary.
 ///
@@ -125,7 +125,7 @@ fn add_clause_to_ksat(
 /// Note: We implement this for specific K values rather than generic K
 /// because the `#[reduction]` proc macro requires concrete types.
 macro_rules! impl_sat_to_ksat {
-    ($ktype:ty) => {
+    ($ktype:ty, $k:expr) => {
         crate::register_aggregate_reduction!(ReductionSATToKSAT<$ktype>);
 
         #[rustfmt::skip]
@@ -149,7 +149,7 @@ macro_rules! impl_sat_to_ksat {
                 >)?;
 
                 for clause in self.clauses() {
-                    add_clause_to_ksat(<$ktype as FixedK>::WIDTH, clause, &mut result_clauses, &mut variables)
+                    add_clause_to_ksat($k, clause, &mut result_clauses, &mut variables)
                         .map_err(crate::rules::ReductionError::construction::<
                             Satisfiability,
                             KSatisfiability<$ktype>,
@@ -168,19 +168,19 @@ macro_rules! impl_sat_to_ksat {
 }
 
 // Implement for K=3 (the canonical NP-complete case)
-impl_sat_to_ksat!(K3);
+impl_sat_to_ksat!(K3, 3);
 
 /// Result of reducing K-SAT to general SAT.
 ///
 /// This is a trivial embedding since K-SAT is a special case of SAT.
 #[derive(Debug, Clone)]
-pub struct ReductionKSATToSAT<K: FixedK> {
+pub struct ReductionKSATToSAT<K: KValue> {
     /// The target SAT problem.
     target: Satisfiability,
     _phantom: std::marker::PhantomData<K>,
 }
 
-impl<K: FixedK> ReductionResult for ReductionKSATToSAT<K> {
+impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
     type Source = KSatisfiability<K>;
     type Target = Satisfiability;
 
@@ -207,10 +207,10 @@ impl<K: FixedK> ReductionResult for ReductionKSATToSAT<K> {
 }
 
 #[crate::aggregate_reduction(identity)]
-impl<K: FixedK> crate::rules::AggregateReductionResult for ReductionKSATToSAT<K> {}
+impl<K: KValue> crate::rules::AggregateReductionResult for ReductionKSATToSAT<K> {}
 
 /// Helper function for KSAT -> SAT reduction logic (generic over K).
-fn reduce_ksat_to_sat<K: FixedK>(ksat: &KSatisfiability<K>) -> ReductionKSATToSAT<K> {
+fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSAT<K> {
     let clauses = ksat.clauses().to_vec();
     let target = Satisfiability::new(ksat.num_vars(), clauses);
 

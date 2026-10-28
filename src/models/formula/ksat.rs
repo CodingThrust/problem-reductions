@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
-use crate::variant::{FixedK, K2, K3};
+use crate::variant::{KValue, K2, K3};
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 
 use super::{sat::validate_cnf_literals, CNFClause};
@@ -72,7 +72,7 @@ inventory::submit! {
 /// This is the decision version of the problem.
 ///
 /// # Type Parameters
-/// * `K` - A `FixedK` type that specifies the number of literals per clause
+/// * `K` - A type implementing `KValue` that specifies the number of literals per clause
 ///
 /// # Example
 ///
@@ -95,7 +95,7 @@ inventory::submit! {
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize)]
-pub struct KSatisfiability<K: FixedK> {
+pub struct KSatisfiability<K: KValue> {
     /// Number of variables.
     num_vars: usize,
     /// Clauses in CNF, each with exactly K literals.
@@ -110,7 +110,7 @@ struct KSatisfiabilityDef {
     clauses: Vec<CNFClause>,
 }
 
-impl<'de, K: FixedK> Deserialize<'de> for KSatisfiability<K> {
+impl<'de, K: KValue> Deserialize<'de> for KSatisfiability<K> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -120,7 +120,7 @@ impl<'de, K: FixedK> Deserialize<'de> for KSatisfiability<K> {
     }
 }
 
-impl<K: FixedK> KSatisfiability<K> {
+impl<K: KValue> KSatisfiability<K> {
     /// Create a new K-SAT problem.
     ///
     /// # Panics
@@ -136,7 +136,7 @@ impl<K: FixedK> KSatisfiability<K> {
         clauses: Vec<CNFClause>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
-        let k = K::WIDTH;
+        let k = K::K.ok_or("KSatisfiability requires a fixed clause width K")?;
         for (i, clause) in clauses.iter().enumerate() {
             if clause.len() != k {
                 return Err(
@@ -199,7 +199,7 @@ impl<K: FixedK> KSatisfiability<K> {
     }
 }
 
-impl<K: FixedK> Problem for KSatisfiability<K> {
+impl<K: KValue> Problem for KSatisfiability<K> {
     const NAME: &'static str = "KSatisfiability";
     type Solution = Vec<bool>;
     type Value = crate::types::Or;
@@ -227,7 +227,7 @@ impl<K: FixedK> Problem for KSatisfiability<K> {
     }
 }
 
-impl<K: FixedK> crate::solvers::BruteForceProblem for KSatisfiability<K> {
+impl<K: KValue> crate::solvers::BruteForceProblem for KSatisfiability<K> {
     fn dimensions(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }

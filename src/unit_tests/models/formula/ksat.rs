@@ -3,7 +3,7 @@ use crate::registry::ConstructionError;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
-use crate::variant::{K2, K3};
+use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -80,6 +80,15 @@ fn test_ksat_rejects_clause_widths_other_than_k() {
             ConstructionError::Conversion(format!("Clause 0 has {width} literals, expected 3"))
         );
     }
+}
+
+#[test]
+fn test_ksat_rejects_unbounded_clause_width() {
+    let error = KSatisfiability::<KN>::try_new(1, vec![CNFClause::new(vec![1])]).unwrap_err();
+    assert_eq!(
+        error,
+        ConstructionError::Conversion("KSatisfiability requires a fixed clause width K".into())
+    );
 }
 
 #[test]
