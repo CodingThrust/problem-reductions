@@ -62,7 +62,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
-        let k = self.bound() as usize;
+        let k = usize::try_from(self.bound()).expect("construction keeps 0 <= bound <= num_cols");
 
         // Variable layout (all binary):
         // s_c: n vars at [0, n)  — column selection

@@ -79,9 +79,9 @@ impl ReductionResult for ReductionVCToEC {
     transform = {
         exact {
             universe_size = "num_vertices + 1",
+            num_subsets = "num_edges",
         },
         upper_bound {
-            num_subsets = "num_edges",
             budget = "num_vertices + num_edges + 1",
         },
     }
