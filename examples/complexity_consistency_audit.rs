@@ -11,9 +11,9 @@
 //! registered bound is polynomial is only suggestive.
 //!
 //! cargo run --release --example complexity_consistency_audit
+use problemreductions::Growth;
 use problemreductions::expr::Expr;
 use problemreductions::rules::{ReductionGraph, ReductionPath, ReductionStep};
-use problemreductions::Growth;
 use std::collections::{BTreeMap, HashMap};
 
 const MAX_HOPS: usize = 3;
