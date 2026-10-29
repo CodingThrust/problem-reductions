@@ -221,7 +221,7 @@ fn test_pathwidth_auto_large() {
 
 #[test]
 fn test_pathwidth_greedy_is_deterministic() {
-    // Reproduces issue #1061: pathwidth greedy must be deterministic across calls.
+    // pathwidth greedy must be deterministic across calls.
     // Graph is large enough that Auto picks Greedy and tie-breaking in greedy_step
     // is exercised (grid with many symmetric choices).
     let n = 64;

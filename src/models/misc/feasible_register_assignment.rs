@@ -242,7 +242,6 @@ impl FeasibleRegisterAssignment {
             order[position] = vertex;
         }
 
-        // Check topological ordering and register conflicts
         let mut computed = vec![false; n];
 
         for step in 0..n {
@@ -328,16 +327,12 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "feasible_register_assignment",
-        // 4 vertices, arcs: (0,1),(0,2),(1,3), K=2, assignment [0,1,0,0]
-        // Valid order: v3, v1, v2, v0 -> config [3, 1, 2, 0]
         instance: Box::new(FeasibleRegisterAssignment::new(
             4,
             vec![(0, 1), (0, 2), (1, 3)],
             2,
             vec![0, 1, 0, 0],
         )),
-        // config[v] = position: v0 at pos 3, v1 at pos 1, v2 at pos 2, v3 at pos 0
-        // Order: v3(pos0), v1(pos1), v2(pos2), v0(pos3)
         optimal_config: serde_json::json!(vec![3, 1, 2, 0]),
         optimal_value: serde_json::json!(true),
     }]

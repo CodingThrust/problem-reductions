@@ -66,7 +66,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
                 ));
             }
 
-            // Collect selected edges (those with config value 1)
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
             for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
                 if target_solution[i] {
@@ -75,7 +74,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
                 }
             }
 
-            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
             if adj.iter().any(|neighbors| neighbors.len() != 2) {
                 return Err(crate::rules::ExtractionError::invalid(
                     "selected edges do not give every source vertex degree two",
@@ -147,7 +145,6 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircu
         // Edgeless initial graph
         let initial_graph = SimpleGraph::empty(n);
 
-        // Create potential edges for all pairs (u, v) with u < v
         let mut potential_weights = Vec::new();
         let mut potential_edges = Vec::new();
         for u in 0..n {
@@ -183,13 +180,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_biconnectivityaugmentation",
         build: || {
-            // Square graph (4-cycle): 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            // Potential edges for 4 vertices (indices 0..5):
-            // 0: (0,1) w=1, 1: (0,2) w=2, 2: (0,3) w=1,
-            // 3: (1,2) w=1, 4: (1,3) w=2, 5: (2,3) w=1
-            // HC 0-1-2-3-0 selects edges (0,1),(1,2),(2,3),(0,3) => indices 0,3,5,2
-            // Config: [1, 0, 1, 1, 0, 1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 BiconnectivityAugmentation<SimpleGraph, i64>,

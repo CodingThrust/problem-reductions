@@ -22,7 +22,7 @@
 //!   - `b_v` at local index `v`
 //!   - `h_v` at local index `n + v`
 //!
-//! In unified vertex space (used by `BicliqueCover::dims()`):
+//! In the unified vertex space used by biclique witnesses:
 //!
 //! - `a_v` -> `v`
 //! - `g_v` -> `n + v`
@@ -234,7 +234,7 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
     }
 }
 
-/// Build the canonical forward witness described in the issue.
+/// Build a forward witness from a source coloring.
 ///
 /// For each source vertex `v` (with `v in 0..n`), create one guard biclique
 ///
@@ -322,9 +322,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kcoloring_to_bicliquecover",
         build: || {
-            // P_2 with q = 2: vertices {0, 1}, one edge (0, 1).
-            // A valid 2-coloring is (0, 1). Target has 8 vertices and rank 4,
-            // small enough to keep the canonical bundle compact.
+            // Use a tiny source to keep the constructed bundle compact.
             let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
             let coloring = vec![0usize, 1usize];
             let target_config = forward_witness(&source, &coloring);

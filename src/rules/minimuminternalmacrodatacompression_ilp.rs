@@ -288,9 +288,6 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    // s = "ab" (len 2), alphabet {a,b} (size 2), h=2
-    // Optimal: uncompressed C="ab", cost = 2
-    // ILP: lit[0]=1, lit[1]=1, no pointers
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimuminternalmacrodatacompression_to_ilp",
         build: || {

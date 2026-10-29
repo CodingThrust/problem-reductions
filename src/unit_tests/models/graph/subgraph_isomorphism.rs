@@ -163,7 +163,6 @@ fn test_subgraph_isomorphism_empty_pattern() {
 
 #[test]
 fn test_subgraph_isomorphism_issue_example() {
-    // Example from issue #218
     // Host: K4 on {0,1,2,3} plus triangle {4,5,6} connected via 3-4
     let host = SimpleGraph::new(
         7,
@@ -184,10 +183,8 @@ fn test_subgraph_isomorphism_issue_example() {
     let pattern = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = SubgraphIsomorphism::new(host, pattern);
 
-    // The mapping from the issue: a->0, b->1, c->2, d->3
     assert!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap());
 
-    // Verify solver can find a solution
     let solver = BruteForce::new();
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());

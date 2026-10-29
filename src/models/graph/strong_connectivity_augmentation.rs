@@ -262,21 +262,19 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "strong_connectivity_augmentation",
-        // Path digraph 0→1→2→3→4 (not strongly connected — no back-edges).
-        // Nine candidate arcs are all individually affordable, but only the
-        // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.
+        // The budget forces a two-arc repair instead of the direct closing arc.
         instance: Box::new(StrongConnectivityAugmentation::new(
             DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
             vec![
-                (4, 0, 10), // direct fix, too expensive
-                (4, 3, 3),  // 4-escape to dead end
-                (4, 2, 3),  // 4-escape to dead end
-                (4, 1, 3),  // correct 4-escape
-                (3, 0, 7),  // too expensive to combine
-                (3, 1, 3),  // dead-end intermediate
-                (2, 0, 7),  // too expensive to combine
-                (2, 1, 3),  // dead-end intermediate
-                (1, 0, 5),  // the closing arc
+                (4, 0, 10),
+                (4, 3, 3),
+                (4, 2, 3),
+                (4, 1, 3),
+                (3, 0, 7),
+                (3, 1, 3),
+                (2, 0, 7),
+                (2, 1, 3),
+                (1, 0, 5),
             ],
             8,
         )),

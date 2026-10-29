@@ -369,14 +369,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 5,
                 vec![(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4)],
             ),
-            vec![3, 1, 2, 0, 0, 0], // prices
-            vec![2, 2, 2, 2, 2, 2], // capacities
+            vec![3, 1, 2, 0, 0, 0],
+            vec![2, 2, 2, 2, 2, 2],
             0,
             4,
             3,
         )),
-        // Optimal: route 1 unit via v2 and 2 units via v3 → cost = 1 + 2 = 3
-        // config = [0, 1, 2, 0, 1, 2]
         optimal_config: serde_json::json!(vec![0, 1, 2, 0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]

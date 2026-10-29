@@ -183,8 +183,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Path graph P6: 6 vertices, edges [(0,1),(1,2),(2,3),(3,4),(4,5)]
-    // config [0,1,0,1,0] = edges {(1,2),(3,4)} — a maximal matching of size 2.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_maximal_matching_simplegraph",
         instance: Box::new(MinimumMaximalMatching::new(SimpleGraph::new(

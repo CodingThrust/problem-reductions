@@ -31,7 +31,6 @@ use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
-/// Build the 9-vertex, 15-arc example from the issue.
 ///
 /// Three triangles: 0→1→2→0, 3→4→5→3, 6→7→8→6
 /// Cross arcs set 1: 1→3, 4→6, 7→0
@@ -173,7 +172,6 @@ fn test_minimum_feedback_vertex_set_evaluate_wrong_length() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
-    // Wrong length config returns Invalid
     assert!(matches!(
         problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -228,7 +226,6 @@ fn test_minimum_feedback_vertex_set_paper_example() {
     let config_v1 = vec![false, true, false, false, false];
     assert!(!problem.evaluate(&config_v1).unwrap().is_valid());
 
-    // Verify optimal FVS weight is 1
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 1);

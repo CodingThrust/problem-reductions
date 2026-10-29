@@ -25,7 +25,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Instance 1 from issue: hexagonal graph with 3 required edges
+/// Instance: hexagonal graph with 3 required edges
 fn hexagon_rpp() -> RuralPostman<SimpleGraph, i64> {
     // 6 vertices, 8 edges
     // Edges: {0,1}:1, {1,2}:1, {2,3}:1, {3,4}:1, {4,5}:1, {5,0}:1, {0,3}:2, {1,4}:2
@@ -48,7 +48,7 @@ fn hexagon_rpp() -> RuralPostman<SimpleGraph, i64> {
     RuralPostman::new(graph, edge_lengths, required_edges)
 }
 
-/// Instance 3 from issue: C4 cycle, all edges required (Chinese Postman)
+/// Instance: C4 cycle, all edges required (Chinese Postman)
 fn chinese_postman_rpp() -> RuralPostman<SimpleGraph, i64> {
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
     let edge_lengths = vec![1, 1, 1, 1];
@@ -153,7 +153,6 @@ fn test_rural_postman_brute_force_hexagon() {
 
 #[test]
 fn test_rural_postman_find_all_witnesses() {
-    // Issue #248 instance 1: hexagonal graph, 6 vertices, 8 edges
     // Required edges E'={{0,1},{2,3},{4,5}}
     // Search space = 3^8 = 6561
     let problem = hexagon_rpp();
@@ -162,7 +161,7 @@ fn test_rural_postman_find_all_witnesses() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap().0.is_some());
     }
-    // The issue witness (hexagon cycle, all multiplicity 1) must be among solutions
+    // The hexagon cycle with all multiplicities 1 must be among solutions
     assert!(solutions.contains(&vec![1, 1, 1, 1, 1, 1, 0, 0]));
     // Only the hexagon cycle (cost 6) is optimal; diagonals cost 2 each
     assert_eq!(solutions.len(), 1);

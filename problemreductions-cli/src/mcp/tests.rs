@@ -473,7 +473,6 @@ fn deterministic_solver_dispatch_mcp_output_is_repeatable_for_each_solver_class(
 fn test_solve_bundle() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    // Reduce first, then solve the bundle
     let bundle_json = server
         .reduce_inner(
             &problem_json,

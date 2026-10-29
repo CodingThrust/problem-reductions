@@ -84,7 +84,6 @@ impl ReduceTo<MinimumCutIntoBoundedSets<SimpleGraph, i64>> for MaxCut<SimpleGrap
                 >("computing the inverted-weight ceiling")
             })?;
 
-        // Build an adjacency lookup for the original graph
         let orig_edges = self.graph().edges();
         let mut edge_weight_map: std::collections::HashMap<(usize, usize), i64> =
             std::collections::HashMap::new();
@@ -145,7 +144,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maxcut_to_minimumcutintoboundedsets",
         build: || {
-            // Triangle with unit weights: max cut = 2
             let source = MaxCut::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1i64, 1, 1],
@@ -154,7 +152,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
                     .expect("reduction should succeed");
 
-            // Find optimal source and target solutions
             let solver = BruteForce::new();
             let source_witness = solver
                 .solve(&source)

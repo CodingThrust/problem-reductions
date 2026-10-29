@@ -242,7 +242,6 @@ impl Problem for LongestCommonSubsequence {
                 return Ok(Max(None));
             }
 
-            // Extract the non-padding prefix as the candidate subsequence.
             let prefix = &config[..effective_length];
 
             // Check the prefix is a subsequence of every input string.

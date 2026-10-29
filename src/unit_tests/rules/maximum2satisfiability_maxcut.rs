@@ -61,7 +61,7 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // For this issue instance, every partition satisfies
+    // For this instance, every partition satisfies
     // 2 * satisfied_clauses = 8 + cut_weight.
     for mask in 0..(1usize << target.num_vertices()) {
         let target_solution: Vec<bool> = (0..target.num_vertices())

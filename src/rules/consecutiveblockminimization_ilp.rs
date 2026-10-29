@@ -140,7 +140,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "consecutiveblockminimization_to_ilp",
         build: || {
-            // 2x3 matrix, bound=2
             let source = ConsecutiveBlockMinimization::new(
                 vec![vec![true, false, true], vec![false, true, true]],
                 2,

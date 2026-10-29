@@ -210,7 +210,6 @@ impl Problem for ResourceConstrainedScheduling {
                 let d = self.deadline as usize;
                 let r = self.num_resources();
 
-                // Check config length
                 if config.len() != n {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "schedule length does not match the tasks".into(),
@@ -242,12 +241,10 @@ impl Problem for ResourceConstrainedScheduling {
                         }
                     }
 
-                    // Check processor capacity
                     if slot_tasks.len() > self.num_processors {
                         return Ok(crate::types::Or(false));
                     }
 
-                    // Check resource bounds
                     for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
                         if usage > bound {
                             return Ok(crate::types::Or(false));
@@ -279,7 +276,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "resource_constrained_scheduling",
-        // 6 tasks, 3 processors, 1 resource B_1=20, deadline 2
         instance: Box::new(
             ResourceConstrainedScheduling::new(
                 3,

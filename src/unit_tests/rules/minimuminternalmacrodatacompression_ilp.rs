@@ -51,7 +51,6 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
     let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
-    // Verify against brute force
     let bf_val_solution = BruteForce::new().solve(&source).unwrap().unwrap();
     let bf_val = source.evaluate(&bf_val_solution).unwrap();
     assert_eq!(val, bf_val);

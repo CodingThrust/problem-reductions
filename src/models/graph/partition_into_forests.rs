@@ -220,8 +220,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             2,
         )),
-        // V0={0,3}: edges from graph in class 0: none among {0,3} → forest
-        // V1={1,2,4,5}: edges (1,2),(3,4) but 3∉V1; edges among V1: (1,2),(4,5) → path forest
         optimal_config: serde_json::json!(vec![0, 1, 1, 0, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]

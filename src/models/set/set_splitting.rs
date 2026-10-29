@@ -248,8 +248,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4, 5], vec![1, 3, 5]],
         )),
-        // config[i]=0 means element i in S1, config[i]=1 means element i in S2
-        // S1={1,3,4}, S2={0,2,5} → config [1,0,1,0,0,1]
         optimal_config: serde_json::json!(vec![true, false, true, false, false, true]),
         optimal_value: serde_json::json!(true),
     }]

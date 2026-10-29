@@ -187,7 +187,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 6 elements [2,3,5,7,6,10], target 210 → select {2,3,5,7}
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_product",
         instance: Box::new(SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32)),
