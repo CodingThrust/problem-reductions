@@ -5,7 +5,7 @@
 //! ordering variables `y_{i,j}` for each task pair. Big-M constraints
 //! enforce that tasks sharing a processor do not overlap.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -69,7 +69,7 @@ impl ReductionResult for ReductionSMWCTToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 2",
-        num_nonzeros = "(num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2) * (num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2)",
+        num_nonzeros = "2 * num_tasks * num_processors + 2 * num_tasks + num_tasks * (num_tasks - 1) * (10 * num_processors + 1) / 2",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SchedulingToMinimizeWeightedCompletionTime {
@@ -216,7 +216,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "schedulingtominimizeweightedcompletiontime_to_ilp",
         build: || {
-            // 3 tasks, 2 processors: simple instance for canonical example
             let source =
                 SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2, 3], vec![4, 2, 1], 2);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)

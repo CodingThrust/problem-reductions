@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};

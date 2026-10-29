@@ -62,9 +62,11 @@ fn test_degree_constrained_spanning_tree_evaluate_valid() {
     // Select edges 1,2,3,4: (0,2),(0,3),(1,2),(1,4)
     // Degrees: 0→2, 1→2, 2→2, 3→1, 4→1 — all ≤ 2
     // Connected and n-1=4 edges → valid spanning tree
-    assert!(problem
-        .evaluate(&vec![false, true, true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, true, true, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -72,22 +74,28 @@ fn test_degree_constrained_spanning_tree_evaluate_invalid_degree() {
     let problem = example_instance();
     // Select edges 0,1,2,4: (0,1),(0,2),(0,3),(1,4)
     // Degrees: 0→3 (exceeds K=2)
-    assert!(!problem
-        .evaluate(&vec![true, true, true, false, true, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, false, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_evaluate_not_tree() {
     let problem = example_instance();
     // Select only 3 edges (not enough for n-1=4)
-    assert!(!problem
-        .evaluate(&vec![true, true, true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, false, false, false, false])
+            .unwrap()
+    );
     // Select 5 edges (too many)
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -100,9 +108,11 @@ fn test_degree_constrained_spanning_tree_evaluate_disconnected() {
     // Need to pick 4 edges forming a tree where no vertex has degree > 2.
     // edges (0,2),(2,3),(3,4),(1,4) → indices 1,5,6,4
     // Degrees: 0→1, 1→1, 2→2, 3→2, 4→2 → valid and connected!
-    assert!(problem
-        .evaluate(&vec![false, true, false, false, true, true, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, false, false, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]

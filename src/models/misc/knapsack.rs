@@ -179,7 +179,7 @@ impl Problem for Knapsack {
             let total_weight = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {
@@ -194,7 +194,7 @@ impl Problem for Knapsack {
             let total_value = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.values[i])
                 .try_fold(0_i64, |total, value| {
                     total.checked_add(value).ok_or_else(|| {
@@ -224,8 +224,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 items: weights [2,3,4,5], values [3,4,5,7], capacity 7
-    // Optimal: items 0,3 → weight=7, value=10
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "knapsack",
         instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),

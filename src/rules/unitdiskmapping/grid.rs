@@ -146,11 +146,12 @@ impl MappingGrid {
     /// This matches that behavior - converts Occupied cells to Connected.
     /// Silently ignores out-of-bounds access.
     pub fn connect(&mut self, row: usize, col: usize) {
-        if row < self.rows && col < self.cols {
-            if let CellState::Occupied { weight } = self.content[row][col] {
-                // Julia: converts plain Occupied cell (MCell()) to Connected cell
-                self.content[row][col] = CellState::Connected { weight };
-            }
+        if row < self.rows
+            && col < self.cols
+            && let CellState::Occupied { weight } = self.content[row][col]
+        {
+            // Julia: converts plain Occupied cell (MCell()) to Connected cell
+            self.content[row][col] = CellState::Connected { weight };
         }
     }
 

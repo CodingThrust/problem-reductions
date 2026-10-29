@@ -1,4 +1,4 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson};
+use crate::dispatch::{ProblemJson, load_problem, read_input};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 use std::path::Path;

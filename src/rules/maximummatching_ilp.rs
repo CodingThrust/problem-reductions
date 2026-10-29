@@ -6,7 +6,7 @@
 //!   (at most one incident edge can be selected)
 //! - Objective: Maximize the sum of weights of selected edges
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -48,11 +48,11 @@ impl ReductionResult for ReductionMatchingToILP {
 #[reduction(transform = {
     exact {
         num_vars = "num_edges",
+        num_nonzeros = "2 * num_edges",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
         num_constraints = "num_vertices",
-        num_nonzeros = "2 * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {

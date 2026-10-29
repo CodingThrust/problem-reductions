@@ -89,13 +89,15 @@ fn test_subsetsum_to_closestvectorproblem_large_integers_and_unit_pivots() {
         Min(Some(1))
     );
     assert_eq!(result.extract_solution(&witness).unwrap(), vec![true]);
-    assert!(result
-        .target_problem()
-        .inner()
-        .basis()
-        .iter()
-        .flatten()
-        .all(|&x| (-2..=1).contains(&x)));
+    assert!(
+        result
+            .target_problem()
+            .inner()
+            .basis()
+            .iter()
+            .flatten()
+            .all(|&x| (-2..=1).contains(&x))
+    );
 
     let source = SubsetSum::new(vec![1u32; 40], 20u32);
     let result = ReduceTo::<Decision<ClosestVectorProblem>>::reduce_to(&source).unwrap();

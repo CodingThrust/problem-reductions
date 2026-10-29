@@ -34,9 +34,6 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     assert_eq!(source.evaluate(&coloring).unwrap(), Or(true));
 }
 
-/// Structural assertions against the exact target parameterss derived in the
-/// issue. Picks a small but non-trivial instance: P_3 (path on 3 vertices)
-/// with q = 2.
 #[test]
 fn test_kcoloring_to_bicliquecover_structure_path() {
     // n = 3, m = 2 (path 0-1-2), q = 2.
@@ -157,7 +154,7 @@ fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
     set(&mut bad, 0, 0); // a_0
     set(&mut bad, 1, 0); // g_0
     set(&mut bad, left_size + n, 0); // h_0
-                                     // Biclique 1: G_1 = ({a_1, g_1}, {h_1}); no nonadjacent w of 1.
+    // Biclique 1: G_1 = ({a_1, g_1}, {h_1}); no nonadjacent w of 1.
     set(&mut bad, 2, 1); // a_1
     set(&mut bad, 3, 1); // g_1
     set(&mut bad, left_size + n + 1, 1); // h_1

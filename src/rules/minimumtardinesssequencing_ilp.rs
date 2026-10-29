@@ -4,7 +4,7 @@
 //! with binary tardy indicator u_j. Precedence constraints and a
 //! length-aware tardy indicator with big-M linearization.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumTardinessSequencing;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
@@ -111,7 +111,7 @@ fn build_common_constraints(
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + 1",
-        num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks)",
+        num_nonzeros = "3 * num_tasks^2 + num_tasks + 2 * num_tasks * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
@@ -167,7 +167,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 1",
-        num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks * num_tasks)",
+        num_nonzeros = "4 * num_tasks^2 + 2 * num_tasks * num_precedences + num_tasks^3 * (num_tasks - 1) / 2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {

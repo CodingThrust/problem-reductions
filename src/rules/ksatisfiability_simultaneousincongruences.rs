@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use crate::models::algebraic::SimultaneousIncongruences;
-use crate::models::formula::{ksat::first_n_odd_primes, CNFClause, KSatisfiability};
+use crate::models::formula::{CNFClause, KSatisfiability, ksat::first_n_odd_primes};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
@@ -52,11 +52,7 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
 }
 
 fn falsifying_residue(literal: i64) -> u64 {
-    if literal > 0 {
-        2
-    } else {
-        1
-    }
+    if literal > 0 { 2 } else { 1 }
 }
 
 fn modular_inverse(value: u64, modulus: u64) -> Option<u64> {

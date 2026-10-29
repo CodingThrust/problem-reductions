@@ -12,7 +12,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use syn::{parse_macro_input, DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type};
+use syn::{DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type, parse_macro_input};
 
 /// Generate static construction-input metadata from a typed create spec.
 #[proc_macro_derive(CreateSpec, attributes(create))]
@@ -167,7 +167,7 @@ fn create_codec_tokens(value: &syn::LitStr) -> syn::Result<TokenStream2> {
             return Err(syn::Error::new(
                 value.span(),
                 "unknown construction codec; expected one of: auto, scalar, json, comma-separated, semicolon-separated, edge-list, arc-list, bipartite-edge-list, equality-pair-list, functional-dependency-list, character-rows",
-            ))
+            ));
         }
     };
     Ok(quote!(crate::registry::CreateInputCodec::#variant))
@@ -273,7 +273,7 @@ fn generate_common_aggregate_impl(
             return Err(syn::Error::new_spanned(
                 mapping,
                 "expected identity or ilp_feasibility",
-            ))
+            ));
         }
     };
     let mut implementation = implementation.clone();
@@ -455,7 +455,7 @@ impl ReductionAttrs {
                 return Err(syn::Error::new(
                     relation.span(),
                     "expected `exact`, `upper_bound`, or `unavailable`",
-                ))
+                ));
             }
         };
         self.fields.extend(
@@ -516,15 +516,15 @@ fn extract_type_name(ty: &Type) -> Option<String> {
             let segment = type_path.path.segments.last()?;
             let ident = segment.ident.to_string();
 
-            if ident == "Decision" {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    let inner_ty = args.args.iter().find_map(|arg| match arg {
-                        GenericArgument::Type(ty) => Some(ty),
-                        _ => None,
-                    })?;
-                    let inner_name = extract_type_name(inner_ty)?;
-                    return Some(format!("Decision{inner_name}"));
-                }
+            if ident == "Decision"
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+            {
+                let inner_ty = args.args.iter().find_map(|arg| match arg {
+                    GenericArgument::Type(ty) => Some(ty),
+                    _ => None,
+                })?;
+                let inner_name = extract_type_name(inner_ty)?;
+                return Some(format!("Decision{inner_name}"));
             }
 
             Some(ident)
@@ -555,16 +555,15 @@ fn collect_type_generic_names(generics: &syn::Generics) -> HashSet<String> {
 fn type_uses_type_generics(ty: &Type, type_generics: &HashSet<String>) -> bool {
     match ty {
         Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in args.args.iter() {
-                        if let GenericArgument::Type(Type::Path(inner)) = arg {
-                            if let Some(ident) = inner.path.get_ident() {
-                                if type_generics.contains(&ident.to_string()) {
-                                    return true;
-                                }
-                            }
-                        }
+            if let Some(segment) = type_path.path.segments.last()
+                && let PathArguments::AngleBracketed(args) = &segment.arguments
+            {
+                for arg in args.args.iter() {
+                    if let GenericArgument::Type(Type::Path(inner)) = arg
+                        && let Some(ident) = inner.path.get_ident()
+                        && type_generics.contains(&ident.to_string())
+                    {
+                        return true;
                     }
                 }
             }
@@ -598,28 +597,22 @@ fn generate_reduction_entry(
     attrs: &ReductionAttrs,
     impl_block: &ItemImpl,
 ) -> syn::Result<TokenStream2> {
-    // Extract the trait path (should be ReduceTo<Target>)
     let trait_path = impl_block
         .trait_
         .as_ref()
         .map(|(path, _)| path)
         .ok_or_else(|| syn::Error::new_spanned(impl_block, "Expected impl ReduceTo<T> for S"))?;
 
-    // Extract target type from ReduceTo<Target>
     let target_type = extract_target_from_trait(trait_path)?;
 
-    // Extract source type (Self type)
     let source_type = &impl_block.self_ty;
 
-    // Get type names
     let source_name = extract_type_name(source_type)
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
-    // Generate variant fn bodies
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
@@ -652,7 +645,6 @@ fn generate_reduction_entry(
         .iter()
         .map(|(field, reason)| quote! { crate::rules::registry::UnavailableParameterField { field: #field, reason: #reason } });
 
-    // Generate the combined output
     let output = quote! {
         #impl_block
 
@@ -703,10 +695,10 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         return Err(syn::Error::new_spanned(segment, "Expected ReduceTo trait"));
     }
 
-    if let PathArguments::AngleBracketed(args) = &segment.arguments {
-        if let Some(GenericArgument::Type(ty)) = args.args.first() {
-            return Ok(ty.clone());
-        }
+    if let PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(GenericArgument::Type(ty)) = args.args.first()
+    {
+        return Ok(ty.clone());
     }
 
     Err(syn::Error::new_spanned(
@@ -926,8 +918,6 @@ pub fn register_brute_force(input: TokenStream) -> TokenStream {
 
 /// Generate code for all `declare_variants!` entries.
 fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
-    // Validate default markers per problem name.
-    // Group entries by their base type name (e.g., "MaximumIndependentSet").
     let mut defaults_per_problem: HashMap<String, Vec<usize>> = HashMap::new();
     let mut problem_names = HashSet::new();
     for (i, entry) in input.entries.iter().enumerate() {
@@ -938,7 +928,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         }
     }
 
-    // Check for multiple defaults for the same problem
     for (name, indices) in &defaults_per_problem {
         if indices.len() > 1 {
             return Err(syn::Error::new(
@@ -973,7 +962,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let is_default = entry.is_default;
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
-        // Parse the complexity expression to validate syntax
         let parsed = problemreductions_expr::Expr::try_parse(&complexity_str).map_err(|e| {
             syn::Error::new(
                 entry.complexity.span(),
@@ -981,7 +969,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             )
         })?;
 
-        // Generate a compiled complexity evaluator over the problem-owned parameters.
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
         let construction_fields = if let Some(create_spec) = create_spec {
@@ -1089,7 +1076,31 @@ fn generate_complexity_eval_fn(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syn::{parse_str, Type};
+    use syn::{Type, parse_str};
+
+    #[test]
+    fn test_extract_type_name_skips_lifetime_and_const_arguments() {
+        let ty: Type = parse_str("Decision<'a, 3, MinimumVertexCover<SimpleGraph, One>>").unwrap();
+        assert_eq!(
+            extract_type_name(&ty).as_deref(),
+            Some("DecisionMinimumVertexCover")
+        );
+        let ty: Type = parse_str("Decision<'a, 3>").unwrap();
+        assert_eq!(extract_type_name(&ty), None);
+    }
+
+    #[test]
+    fn test_reduction_rejects_type_generic_source() {
+        let attrs: ReductionAttrs =
+            syn::parse_quote! { transform = exact { num_vertices = "num_vertices" } };
+        let implementation: ItemImpl =
+            syn::parse_quote! { impl<G> ReduceTo<Target> for Source<G> {} };
+        let error = generate_reduction_entry(&attrs, &implementation).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "#[reduction] does not support type generics (found: G). Make the ReduceTo impl concrete by specifying explicit types."
+        );
+    }
 
     #[test]
     fn parameters_report_expression_domain_errors() {
@@ -1362,10 +1373,12 @@ mod tests {
             .to_string();
         assert!(tokens.contains("reduce_aggregate_fn : None"));
         assert!(tokens.contains("aggregate_view_fn : None"));
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            aggregate = identity, transform = exact { n = n }
-        })
-        .is_err());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                aggregate = identity, transform = exact { n = n }
+            })
+            .is_err()
+        );
     }
 
     #[test]
@@ -1458,26 +1471,34 @@ mod tests {
 
     #[test]
     fn reduction_rejects_legacy_exact_and_bound_attributes() {
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            exact = { n = "n" }
-        })
-        .is_err());
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            bound = { n = "n" }
-        })
-        .is_err());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                exact = { n = "n" }
+            })
+            .is_err()
+        );
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                bound = { n = "n" }
+            })
+            .is_err()
+        );
     }
 
     #[test]
     fn reduction_requires_unavailable_to_be_the_primary_transform_declaration() {
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            unavailable = { n = "not represented" }
-        })
-        .is_err());
-        assert!(syn::parse2::<ReductionAttrs>(quote! {
-            transform = unavailable { n = "not represented" }
-        })
-        .is_ok());
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                unavailable = { n = "not represented" }
+            })
+            .is_err()
+        );
+        assert!(
+            syn::parse2::<ReductionAttrs>(quote! {
+                transform = unavailable { n = "not represented" }
+            })
+            .is_ok()
+        );
     }
 
     #[test]

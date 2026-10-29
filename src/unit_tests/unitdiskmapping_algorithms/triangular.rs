@@ -1,8 +1,22 @@
 //! Tests for triangular lattice mapping (src/rules/mapping/triangular.rs).
 
 use super::common::solve_weighted_grid_mis;
-use crate::rules::unitdiskmapping::{trace_centers, triangular, MappingResult};
+use crate::rules::unitdiskmapping::{MappingResult, trace_centers, triangular};
 use crate::topology::smallgraph;
+
+#[test]
+fn test_weighted_triangular_tape_rejects_unknown_gadget() {
+    let entry = triangular::gadgets::WeightedTriTapeEntry {
+        gadget_idx: 104,
+        row: 0,
+        col: 0,
+    };
+    assert!(
+        matches!(triangular::gadgets::tape_entry_mis_overhead(&entry),
+        Err(crate::rules::ReductionError::InvalidTarget { source_problem: "Graph", target_problem: "UnitDiskMapping", message })
+        if message == "tape contains an unknown weighted triangular gadget index")
+    );
+}
 
 // === Basic Triangular Mapping Tests ===
 
@@ -195,7 +209,6 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
         }
     }
 
-    // Compute and compare weighted MIS
     let mapped_mis = solve_weighted_grid_mis(&result) as i64;
     let julia_mis = julia_data["mapped_mis_size"]
         .as_f64()
@@ -376,7 +389,6 @@ fn test_triangular_map_config_back_standard_graphs() {
         let grid_edges = result.edges();
         let num_grid = result.positions.len();
 
-        // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
 
         let center_config = triangular::map_config_back(&result, &grid_config).unwrap();

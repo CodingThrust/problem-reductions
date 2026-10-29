@@ -16,7 +16,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
 
-/// Canonical instance from issue #1020: 4 vertices, edges
+/// Canonical instance: 4 vertices, edges
 /// {(0,1), (0,2), (1,2), (0,3), (1,3)} with weights [5, 4, -1, 1, 0]
 /// and k = 3. Triangles are {0,1,2} (value 8) and {0,1,3} (value 6).
 fn issue_instance() -> MaximumEdgeWeightedKClique<i64> {
@@ -45,7 +45,7 @@ fn test_maximum_edge_weighted_k_clique_creation() {
 fn test_maximum_edge_weighted_k_clique_evaluate_feasible() {
     let problem = issue_instance();
 
-    // Optimum from the issue: S = {0,1,2}, value 5 + 4 + (-1) = 8.
+    // Optimum: S = {0,1,2}, value 5 + 4 + (-1) = 8.
     assert_eq!(
         problem.evaluate(&vec![true, true, true, false]).unwrap(),
         Max(Some(8))

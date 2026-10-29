@@ -1,4 +1,5 @@
 use super::*;
+use crate::registry::ConstructionError;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
@@ -70,16 +71,24 @@ fn test_3sat_brute_force() {
 }
 
 #[test]
-fn test_ksat_allow_less() {
-    // This should work - clause has 2 literals which is <= 3
-    let problem = KSatisfiability::<K3>::new_allow_less(2, vec![CNFClause::new(vec![1, 2])]);
-    assert_eq!(problem.num_clauses(), 1);
+fn test_ksat_rejects_clause_widths_other_than_k() {
+    for literals in [vec![], vec![1], vec![1, 2], vec![1, 2, 3, 4]] {
+        let width = literals.len();
+        let error = KSatisfiability::<K3>::try_new(4, vec![CNFClause::new(literals)]).unwrap_err();
+        assert_eq!(
+            error,
+            ConstructionError::Conversion(format!("Clause 0 has {width} literals, expected 3"))
+        );
+    }
 }
 
 #[test]
-#[should_panic(expected = "Clause 0 has 4 literals, expected at most 3")]
-fn test_ksat_allow_less_too_many() {
-    let _ = KSatisfiability::<K3>::new_allow_less(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
+fn test_ksat_rejects_unbounded_clause_width() {
+    let error = KSatisfiability::<KN>::try_new(1, vec![CNFClause::new(vec![1])]).unwrap_err();
+    assert_eq!(
+        error,
+        ConstructionError::Conversion("KSatisfiability requires a fixed clause width K".into())
+    );
 }
 
 #[test]
@@ -178,43 +187,6 @@ fn test_jl_parity_evaluation() {
         let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
         let rust_best_set: HashSet<Vec<bool>> = rust_best.into_iter().collect();
         assert_eq!(rust_best_set, jl_best, "KSat best solutions mismatch");
-    }
-}
-
-#[test]
-fn test_kn_creation() {
-    // KN accepts clauses of any length without validation
-    let problem = KSatisfiability::<KN>::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]), // 3 literals
-            CNFClause::new(vec![-1, -2]),  // 2 literals
-            CNFClause::new(vec![1]),       // 1 literal
-        ],
-    );
-    assert_eq!(problem.num_vars(), 3);
-    assert_eq!(problem.num_clauses(), 3);
-    assert!(problem.evaluate(&vec![true, false, false]).unwrap()); // x1=T, x2=F, x3=F
-}
-
-#[test]
-fn test_kn_from_k3_clauses() {
-    // KN can be constructed from clauses originally built for K3
-    let k3 = KSatisfiability::<K3>::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, -3]),
-            CNFClause::new(vec![-1, -2, -3]),
-        ],
-    );
-    let kn = KSatisfiability::<KN>::new(k3.num_vars(), k3.clauses().to_vec());
-    // Both should agree on evaluations
-    for config in &[
-        vec![true, false, false],
-        vec![false, true, false],
-        vec![true, true, true],
-    ] {
-        assert_eq!(k3.evaluate(config).unwrap(), kn.evaluate(config).unwrap());
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::EnsembleComputation;
-use crate::rules::traits::ReduceTo;
 use crate::rules::ReductionResult;
+use crate::rules::traits::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -27,7 +27,6 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify target structure
     assert_eq!(target.universe_size(), 3); // |V| + 1
     assert_eq!(target.num_subsets(), 1); // |E|
     assert_eq!(target.budget(), 3); // |V| + |E|
@@ -62,7 +61,6 @@ fn test_reduction_structure_triangle() {
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify sizes
     assert_eq!(target.universe_size(), 4); // 3 + 1
     assert_eq!(target.num_subsets(), 3); // 3 edges
     assert_eq!(target.budget(), 6); // 3 + 3

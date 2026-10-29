@@ -182,7 +182,6 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
 
     /// Get the weight of an edge between vertices u and v.
     pub fn edge_weight(&self, u: usize, v: usize) -> Option<&W> {
-        // Find the edge index
         for (idx, (eu, ev)) in self.graph.edges().iter().enumerate() {
             if (*eu == u && *ev == v) || (*eu == v && *ev == u) {
                 return self.edge_weights.get(idx);
@@ -348,8 +347,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_max_cut_to_max_cut",
         build: || {

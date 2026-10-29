@@ -1,5 +1,5 @@
 use crate::dispatch::{
-    load_problem, read_input, solver_capabilities_view, ProblemJson, ReductionBundle,
+    ProblemJson, ReductionBundle, load_problem, read_input, solver_capabilities_view,
 };
 use crate::output::OutputConfig;
 use anyhow::Result;
@@ -11,7 +11,6 @@ pub fn inspect(input: &Path, out: &OutputConfig) -> Result<()> {
     let content = read_input(input)?;
     let json: serde_json::Value = serde_json::from_str(&content)?;
 
-    // Detect if it's a bundle or a problem
     if json.get("source").is_some() && json.get("target").is_some() && json.get("path").is_some() {
         let bundle: ReductionBundle = serde_json::from_value(json)?;
         inspect_bundle(&bundle, out)

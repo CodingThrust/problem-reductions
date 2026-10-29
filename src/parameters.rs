@@ -1,7 +1,7 @@
 //! Symbolic parameter transformations carried by reduction rules.
 
 use crate::expr::{AlgebraicAnalysis, Expr, ExprNode, ExprNodeId, Symbol};
-use crate::polynomial::{pow_rational, Poly};
+use crate::polynomial::{Poly, pow_rational};
 use crate::types::ProblemParameters;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_rational::BigRational;
@@ -258,7 +258,7 @@ impl ParameterTransform {
                             edge: next.edge.clone(),
                             field: field.name.clone(),
                             expression: field.expression.to_string().into(),
-                        })
+                        });
                     }
                 };
                 let bounded_input = !bounded.is_empty();
@@ -464,21 +464,27 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` declares target parameter field `{field}` more than once")]
     DuplicateTargetField { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`"
+    )]
     NonIntegralConstantExponent {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         exponent: Box<str>,
     },
-    #[error("reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`"
+    )]
     UnsupportedOperator {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         operator: &'static str,
     },
-    #[error("reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`"
+    )]
     CannotPropagateUpperBound {
         edge: Box<str>,
         field: Box<str>,
@@ -502,7 +508,9 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` target field `{field}` divides by zero")]
     DivisionByZero { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`"
+    )]
     NonIntegralResult {
         edge: Box<str>,
         field: Box<str>,

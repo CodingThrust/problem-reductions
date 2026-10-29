@@ -25,6 +25,20 @@ fn test_json_enforces_construction_constraints() {
 }
 
 use super::*;
+
+#[test]
+fn test_minimum_capacitated_spanning_tree_evaluate_weight_overflow() {
+    let problem = MinimumCapacitatedSpanningTree::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![i64::MAX, 1],
+        0,
+        vec![0, 1, 1],
+        2,
+    );
+    assert!(matches!(problem.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(message))
+        if message == "summing capacitated spanning tree edge weights"));
+}
 use crate::solvers::BruteForceProblem as _;
 
 #[test]
@@ -41,7 +55,7 @@ fn create_spec_defaults_edge_weights() {
 }
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
-/// 5-vertex instance from issue #901.
+/// 5-vertex instance.
 /// Edges: (0,1,2), (0,2,1), (0,3,4), (1,2,3), (1,4,1), (2,3,2), (2,4,3), (3,4,1)
 /// Root=0, capacity=3, all requirements=1
 fn example_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
@@ -175,13 +189,17 @@ fn test_tight_capacity() {
 fn test_is_valid_solution() {
     let problem = example_instance();
     // Valid
-    assert!(problem
-        .is_valid_solution(&[true, true, false, false, true, false, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .is_valid_solution(&[true, true, false, false, true, false, false, true])
+            .unwrap()
+    );
     // Invalid: not enough edges
-    assert!(!problem
-        .is_valid_solution(&[true, true, false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .is_valid_solution(&[true, true, false, false, false, false, false, false])
+            .unwrap()
+    );
     // Invalid: wrong length
     assert!(!problem.is_valid_solution(&[true, true, false]).unwrap());
 }

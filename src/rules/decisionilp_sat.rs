@@ -1,6 +1,6 @@
 //! Binary decision ILP to SAT using ripple adders and Tseitin gate clauses.
 
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ILP, ObjectiveSense};
 use crate::models::{CNFClause, Decision, Satisfiability};
 use crate::registry::ConstructionError;
 use crate::rules::sat_helpers::SatVariableAllocator;
@@ -211,7 +211,7 @@ mod tests;
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::example_db::specs::{
-        assemble_rule_example, rule_example_with_witness, RuleExampleSpec,
+        RuleExampleSpec, assemble_rule_example, rule_example_with_witness,
     };
     use crate::export::SolutionPair;
     use crate::models::algebraic::ilp::canonical_decision_example;

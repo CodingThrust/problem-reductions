@@ -89,7 +89,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kclique_to_subgraphisomorphism",
         build: || {
-            // 5-vertex graph with a known 3-clique on vertices {2, 3, 4}
             let source = KClique::new(
                 SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
                 3,

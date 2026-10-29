@@ -24,6 +24,22 @@ fn test_json_enforces_construction_constraints() {
 }
 
 use super::*;
+
+#[test]
+fn test_minimum_sum_multicenter_create_rejects_undersized_graph() {
+    let error = MinimumSumMulticenter::try_from(MinimumSumMulticenterCreateSpec {
+        graph: vec![(0, 2)],
+        num_vertices: Some(2),
+        weights: None,
+        edge_weights: None,
+        k: 1,
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, crate::registry::ConstructionError::Conversion(message)
+        if message == "num_vertices 2 is too small for graph endpoints; need at least 3")
+    );
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
@@ -170,7 +186,6 @@ fn test_min_sum_multicenter_two_centers() {
 
 #[test]
 fn test_min_sum_multicenter_solver() {
-    // Issue example: 7 vertices, 8 edges, unit weights, K=2
     let graph = SimpleGraph::new(
         7,
         vec![
@@ -261,7 +276,7 @@ fn test_min_sum_multicenter_k_too_large() {
 
 #[test]
 fn test_min_sum_multicenter_paper_example() {
-    // Paper/issue #399: 7 vertices, 8 edges, unit weights, K=2
+    // Paper example: 7 vertices, 8 edges, unit weights, K=2
     let graph = SimpleGraph::new(
         7,
         vec![
@@ -286,7 +301,6 @@ fn test_min_sum_multicenter_paper_example() {
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 6);
 
-    // Verify optimality with brute force
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 6);

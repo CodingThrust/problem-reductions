@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -57,7 +57,6 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
     // The ILP is trivially infeasible (0 vars, unsatisfiable constraint)
     let problem = StringToStringCorrection::new(2, vec![0], vec![0, 1], 1);
 
-    // Verify the source problem is actually infeasible
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_none(), "source should be infeasible");

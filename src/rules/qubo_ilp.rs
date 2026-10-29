@@ -14,7 +14,7 @@
 //! ## Objective
 //! minimize Σ_i Q_ii · x_i + Σ_{i<j} Q_ij · y_{ij}
 
-use crate::models::algebraic::{ILPCoefficient, ObjectiveSense, ILP, QUBO};
+use crate::models::algebraic::{ILP, ILPCoefficient, ObjectiveSense, QUBO};
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};

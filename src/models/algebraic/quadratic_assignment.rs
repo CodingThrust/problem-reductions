@@ -153,7 +153,6 @@ impl Problem for QuadraticAssignment {
             let n = self.num_facilities();
             let m = self.num_locations();
 
-            // Check config length matches number of facilities
             if config.len() != n {
                 return Err(crate::traits::EvaluationError::InvalidConfiguration(
                     "assignment length does not match the number of facilities".into(),
@@ -262,8 +261,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_quadratic_assignment_to_quadratic_assignment",
         build: || {

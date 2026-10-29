@@ -1,5 +1,27 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+
+#[test]
+fn test_minimumexternalmacrodatacompression_to_ilp_rejects_malformed_dictionary_slots() {
+    let source = MinimumExternalMacroDataCompression::new(2, vec![0], 2);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    for (symbols, expected) in [
+        ([0, 0], "dictionary slot 0 is active without a symbol"),
+        ([1, 1], "dictionary slot 0 selects multiple symbols"),
+    ] {
+        let mut witness = vec![0; reduction.target_problem().num_vars()];
+        witness[reduction.layout.d_used_var(0)] = 1;
+        for (symbol, selected) in symbols.into_iter().enumerate() {
+            witness[reduction.layout.d_var(0, symbol)] = selected;
+        }
+        assert_eq!(
+            reduction.target_problem().evaluate(&witness).unwrap().value,
+            None
+        );
+        assert!(matches!(reduction.extract_solution(&witness),
+            Err(crate::rules::ExtractionError::InvalidTargetSolution(message)) if message == expected));
+    }
+}
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Min;

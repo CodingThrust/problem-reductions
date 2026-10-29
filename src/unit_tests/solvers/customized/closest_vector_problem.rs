@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ClosestVectorProblem;
-use crate::solvers::{solver_capabilities, ExactProblemKey};
+use crate::solvers::{ExactProblemKey, solver_capabilities};
 use crate::traits::Problem;
 use std::collections::BTreeMap;
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ILP, ObjectiveSense};
 use crate::models::misc::{ResourceConstrainedScheduling, ThreePartition};
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};

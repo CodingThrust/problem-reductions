@@ -3,7 +3,7 @@
 //! Binary variable x_{u,v} with x_{u,v} = 1 iff tree vertex u maps to graph
 //! vertex v. Bijection constraints plus non-edge exclusion for every tree edge.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::IsomorphicSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -45,11 +45,15 @@ impl crate::rules::AggregateReductionResult for ReductionISTToILP {}
 // Two assignment families contribute 2n rows and 2n^2 terms. Each of the
 // n-1 tree edges emits one two-term row per ordered non-edge, at most n(n-1).
 // At n=0 both products vanish, including the otherwise negative n-1 factor.
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "2",
-    num_vars = "num_vertices * num_vertices",
-    num_constraints = "2 * num_vertices + num_vertices * (num_vertices - 1)^2",
-    num_nonzeros = "2 * num_vertices^2 + 2 * num_vertices * (num_vertices - 1)^2",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices * num_vertices",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+        num_constraints = "2 * num_vertices + num_vertices * (num_vertices - 1)^2",
+        num_nonzeros = "2 * num_vertices^2 + 2 * num_vertices * (num_vertices - 1)^2",
+    },
 })]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;
@@ -103,17 +107,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "isomorphicspanningtree_to_ilp",
         build: || {
-            // K4 graph, star tree
             let source = IsomorphicSpanningTree::new(
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
             );
-            // Identity bijection works
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config: serde_json::json!(vec![0, 1, 2, 3]),
-                    // x_{0,0}=1, x_{1,1}=1, x_{2,2}=1, x_{3,3}=1
                     target_config: serde_json::json!(vec![
                         1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
                     ]),

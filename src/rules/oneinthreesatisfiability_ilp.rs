@@ -1,6 +1,6 @@
 //! One binary variable per SAT variable and one equality per exact-one clause.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::formula::OneInThreeSatisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

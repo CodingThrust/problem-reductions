@@ -1,6 +1,6 @@
 //! Direct union chains and bounded subset enumeration with a compact ILP fallback.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::EnsembleComputation;
 use crate::solvers::{ILPSolveError, ILPSolver, SolveError};
 use crate::traits::Problem;

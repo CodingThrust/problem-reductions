@@ -3,7 +3,7 @@ use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
 use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use num_bigint::BigUint;
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::formula::Quantifier;
@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod schema_support;
 use self::schema_support::*;
 pub(crate) use self::schema_support::{
-    create_inputs_for, resolve_schema_field_type, InputValueKind,
+    InputValueKind, create_inputs_for, resolve_schema_field_type,
 };
 
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -353,9 +353,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         return create_registered_random(args, canonical, &resolved_variant, out);
     }
 
-    // ILP and CircuitSAT have complex input structures
-    // not suited for CLI flags. Check before the empty-flags help so they get a
-    // clear message.
+    // ILP and CircuitSAT have complex input structures not suited for CLI flags.
     if canonical == "ILP" || canonical == "CircuitSAT" {
         bail!(
             "CLI creation is not yet supported for {canonical}.\n\n\

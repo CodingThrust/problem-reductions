@@ -96,7 +96,7 @@ impl MinimumMatrixDomination {
             .flat_map(|(i, row)| {
                 row.iter()
                     .enumerate()
-                    .filter(|(_, &value)| value)
+                    .filter(|&(_, &value)| value)
                     .map(move |(j, _)| (i, j))
             })
             .collect();
@@ -154,11 +154,10 @@ impl Problem for MinimumMatrixDomination {
                     "selected-entry vector length does not match the matrix".into(),
                 ));
             }
-            // Collect the set of selected 1-entry indices
             let selected: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(i, _)| i)
                 .collect();
 
@@ -207,9 +206,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // P6 adjacency matrix (6×6, 10 ones)
-    // 1-entries: (0,1),(1,0),(1,2),(2,1),(2,3),(3,2),(3,4),(4,3),(4,5),(5,4)
-    // Optimal: select indices 0,1,7,6 -> C = {(0,1),(1,0),(4,3),(3,4)}, value = 4
     let matrix = vec![
         vec![false, true, false, false, false, false],
         vec![true, false, true, false, false, false],

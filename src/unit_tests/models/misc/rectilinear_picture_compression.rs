@@ -24,10 +24,12 @@ fn test_rectilinear_picture_compression_rejects_invalid_json_without_panicking()
         serde_json::json!([[]]),
         serde_json::json!([[true], []]),
     ] {
-        assert!(serde_json::from_value::<RectilinearPictureCompression>(
-            serde_json::json!({"matrix": matrix, "bound": 1})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<RectilinearPictureCompression>(
+                serde_json::json!({"matrix": matrix, "bound": 1})
+            )
+            .is_err()
+        );
     }
 }
 
@@ -41,7 +43,6 @@ fn two_block_matrix() -> Vec<Vec<bool>> {
 }
 
 fn issue_matrix() -> Vec<Vec<bool>> {
-    // 6x6 matrix from the issue description
     vec![
         vec![true, true, true, false, false, false],
         vec![true, true, true, false, false, false],

@@ -11,7 +11,7 @@
 //!
 //! Objective: minimize 0 (feasibility).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::NumericalMatchingWithTargetSums;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -70,11 +70,15 @@ impl ReductionResult for ReductionNMTSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionNMTSToILP {}
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_vars = "num_pairs * num_pairs * num_pairs",
-    num_constraints = "3 * num_pairs",
-    num_nonzeros = "(num_pairs * num_pairs * num_pairs) * (3 * num_pairs)",
+#[reduction(transform = {
+    exact {
+        num_constraints = "3 * num_pairs",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "1",
+        num_vars = "num_pairs * num_pairs * num_pairs",
+        num_nonzeros = "3 * num_pairs * num_pairs * num_pairs",
+    },
 })]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
     type Result = ReductionNMTSToILP;

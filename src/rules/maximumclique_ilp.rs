@@ -6,7 +6,7 @@
 //!   at most one can be in the clique
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -49,7 +49,7 @@ impl ReductionResult for ReductionCliqueToILP {
     max_constraint_magnitude_bits = "1",
     num_vars = "num_vertices",
     num_constraints = "num_vertices^2",
-    num_nonzeros = "num_vertices * (num_vertices^2)",
+    num_nonzeros = "num_vertices * (num_vertices - 1)",
 })]
 impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
     type Result = ReductionCliqueToILP;

@@ -7,10 +7,12 @@ fn tuple_count_must_fit_usize() {
         KthLargestMTuple::try_new(sets.clone(), 1, 1),
         Err(crate::registry::ConstructionError::IntegerOverflow(_))
     ));
-    assert!(serde_json::from_value::<KthLargestMTuple>(
-        serde_json::json!({"sets": sets, "k": 1, "bound": 1})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<KthLargestMTuple>(
+            serde_json::json!({"sets": sets, "k": 1, "bound": 1})
+        )
+        .is_err()
+    );
     let problem =
         KthLargestMTuple::try_new(vec![vec![1, 2]; usize::BITS as usize - 1], 1, 1).unwrap();
     assert_eq!(problem.total_tuples(), 1usize << (usize::BITS - 1));
@@ -133,7 +135,6 @@ fn test_kth_largest_m_tuple_zero_size_panics() {
 
 #[test]
 fn test_kth_largest_m_tuple_paper_example() {
-    // Issue example: m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14
     // 14 of 18 tuples have sum >= 12 -> YES (boundary case: count == K)
     let p = example_problem(14);
     let solver = BruteForce::new();

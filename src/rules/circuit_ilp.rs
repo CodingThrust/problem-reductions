@@ -14,7 +14,7 @@
 //! ## Objective
 //! Trivial (minimize 0): any feasible ILP solution is a satisfying assignment.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::formula::{BooleanExpr, BooleanOp, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

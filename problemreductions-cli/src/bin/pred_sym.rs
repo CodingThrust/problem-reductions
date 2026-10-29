@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use problemreductions::{big_o_normal_form, evaluate_approximate, Expr, ProblemParameters};
+use problemreductions::{Expr, ProblemParameters, big_o_normal_form, evaluate_approximate};
 
 #[derive(Parser)]
 #[command(
@@ -122,7 +122,6 @@ fn main() {
                 })
                 .collect();
 
-            // Check for unbound variables
             let expr_vars = parsed.variables();
             let bound_vars: std::collections::HashSet<&str> =
                 bindings.iter().map(|(name, _)| name.as_str()).collect();

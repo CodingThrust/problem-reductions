@@ -233,14 +233,13 @@ fn test_ilp_to_qubo_structure() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
-    // Verify QUBO has appropriate structure
     assert!(qubo.num_variables() >= ilp.num_vars());
 }
 
 #[test]
 fn test_ilp_qubo_all_small_rows_and_target_assignments() {
-    use crate::rules::AggregateReductionResult;
     use crate::Problem;
+    use crate::rules::AggregateReductionResult;
     for n in 0usize..=3 {
         for mut code in 0..3usize.pow(n as u32) {
             let coefficients: Vec<_> = (0..n)
@@ -314,9 +313,11 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
                             .unwrap();
                         }
                         assert_eq!(actual, expected);
-                        assert!(reduction
-                            .extract_solution(&vec![false; target.num_vars() + 1])
-                            .is_err());
+                        assert!(
+                            reduction
+                                .extract_solution(&vec![false; target.num_vars() + 1])
+                                .is_err()
+                        );
                     }
                 }
             }
@@ -326,8 +327,8 @@ fn test_ilp_qubo_all_small_rows_and_target_assignments() {
 
 #[test]
 fn test_ilp_qubo_inconsistent_rows_and_absent_aggregate() {
-    use crate::rules::AggregateReductionResult;
     use crate::Problem;
+    use crate::rules::AggregateReductionResult;
     for sense in [ObjectiveSense::Minimize, ObjectiveSense::Maximize] {
         let source = ILP::<bool>::new(
             3,
@@ -351,16 +352,14 @@ fn test_ilp_qubo_inconsistent_rows_and_absent_aggregate() {
             !AggregateReductionResult::extract_value(&reduction, crate::types::Min(None))
                 .is_valid()
         );
-        assert!(!AggregateReductionResult::extract_value(
-            &reduction,
-            crate::types::Min(Some(i64::MIN))
-        )
-        .is_valid());
-        assert!(!AggregateReductionResult::extract_value(
-            &reduction,
-            crate::types::Min(Some(i64::MAX))
-        )
-        .is_valid());
+        assert!(
+            !AggregateReductionResult::extract_value(&reduction, crate::types::Min(Some(i64::MIN)))
+                .is_valid()
+        );
+        assert!(
+            !AggregateReductionResult::extract_value(&reduction, crate::types::Min(Some(i64::MAX)))
+                .is_valid()
+        );
     }
 }
 

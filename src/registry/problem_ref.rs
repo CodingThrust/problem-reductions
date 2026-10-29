@@ -1,7 +1,7 @@
 //! Typed internal problem references with catalog-validated variants.
 
-use super::problem_type::ProblemType;
 use super::ConstructionError;
+use super::problem_type::ProblemType;
 use std::collections::BTreeMap;
 
 /// A typed internal reference to a specific problem variant.
@@ -34,13 +34,11 @@ impl ProblemRef {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
-        // Start with all defaults
         let mut variant: BTreeMap<String, String> = problem_type.default_variant();
         let mut matched_dims: Vec<bool> = vec![false; problem_type.dimensions.len()];
 
         for value in values {
             let val = value.as_ref();
-            // Find which dimension this value belongs to
             let dim_idx = problem_type
                 .dimensions
                 .iter()
@@ -80,7 +78,6 @@ impl ProblemRef {
         problem_type: &ProblemType,
         variant: BTreeMap<String, String>,
     ) -> Result<Self, ConstructionError> {
-        // Validate all keys and values
         for (key, value) in &variant {
             let dim = problem_type
                 .dimensions
@@ -101,7 +98,6 @@ impl ProblemRef {
             }
         }
 
-        // Fill in defaults for missing dimensions
         let mut full_variant = problem_type.default_variant();
         full_variant.extend(variant);
 
@@ -178,7 +174,6 @@ pub fn parse_catalog_problem_ref(input: &str) -> Result<ProblemRef, Construction
     let raw_name = parts[0];
     let values: Vec<&str> = parts[1..].to_vec();
 
-    // Resolve name through catalog
     let problem_type = super::problem_type::find_problem_type_by_alias(raw_name)
         .ok_or_else(|| format!("Unknown problem type: \"{raw_name}\""))?;
 

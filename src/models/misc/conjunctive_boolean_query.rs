@@ -324,8 +324,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "conjunctive_boolean_query",
-        // D={0..5}, 2 relations (binary R0, ternary R1), 3 atoms, 2 variables.
-        // Satisfying assignment: y0=0, y1=1.
         instance: Box::new(ConjunctiveBooleanQuery::new(
             6,
             vec![

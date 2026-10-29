@@ -84,8 +84,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partition_to_multiprocessorscheduling",
         build: || {
-            // sizes [1, 2, 3, 4], sum=10, target=5
-            // partition: {1,4} on proc 0 and {2,3} on proc 1
             crate::example_db::specs::rule_example_with_witness::<_, MultiprocessorScheduling>(
                 Partition::new(vec![1, 2, 3, 4]).unwrap(),
                 SolutionPair {

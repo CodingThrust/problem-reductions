@@ -96,9 +96,10 @@ fn test_preemptive_scheduling_evaluate_wrong_length() {
     let p = small_instance();
     assert!(p.evaluate(&vec![]).is_err());
     assert!(p.evaluate(&vec![vec![true, true, false]]).is_err());
-    assert!(p
-        .evaluate(&vec![vec![true, true, false], vec![true, false]])
-        .is_err());
+    assert!(
+        p.evaluate(&vec![vec![true, true, false], vec![true, false]])
+            .is_err()
+    );
 }
 
 #[test]
@@ -124,10 +125,8 @@ fn test_preemptive_scheduling_evaluate_processor_overflow() {
 
 #[test]
 fn test_preemptive_scheduling_evaluate_precedence_violation() {
-    // Task 0 last active slot 1, task 1 first active slot 1 — not strictly less
     let p = precedence_instance();
-    // D_max=2; t0=[0,1], t1=[0,1] — both active at slot 1; last of pred = 1, first of succ = 0
-    // Actually last_pred = 1, first_succ = 0 → 1 >= 0 → violation
+    // The predecessor's last slot (1) is after the successor's first slot (0).
     let config = vec![vec![false, true], vec![true, false]];
     assert_eq!(p.evaluate(&config).unwrap(), Min(None));
 }

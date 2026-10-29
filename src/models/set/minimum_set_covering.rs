@@ -179,10 +179,8 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
     pub fn covered_elements(&self, config: &[bool]) -> HashSet<usize> {
         let mut covered = HashSet::new();
         for (i, &selected) in config.iter().enumerate() {
-            if selected {
-                if let Some(set) = self.sets.get(i) {
-                    covered.extend(set.iter().copied());
-                }
+            if selected && let Some(set) = self.sets.get(i) {
+                covered.extend(set.iter().copied());
             }
         }
         covered

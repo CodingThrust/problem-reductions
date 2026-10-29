@@ -33,9 +33,11 @@ fn test_decision_longestcircuit_to_ilp_bound_is_a_constraint() {
                 source.evaluate(&actual.unwrap()).unwrap(),
                 crate::types::Or(true)
             );
-            assert!(reduction
-                .extract_solution(&vec![0; target.num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; target.num_vars()])
+                    .is_err()
+            );
         }
     }
     let acyclic = Decision::new(LongestCircuit::new(SimpleGraph::path(3), vec![1, 2]), -1);
@@ -94,7 +96,6 @@ fn test_longestcircuit_to_ilp_closed_loop() {
         .expect("brute-force should find a solution");
     assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
-    // Solve via ILP
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

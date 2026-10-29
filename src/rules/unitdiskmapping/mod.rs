@@ -33,7 +33,6 @@ mod traits;
 pub mod triangular;
 mod weighted;
 
-// Re-export commonly used items from submodules for convenience
 pub use ksg::{GridKind, MappingResult};
 
 use crate::rules::ReductionError;
@@ -65,12 +64,12 @@ fn mapping_non_finite(operation: impl Into<String>) -> ReductionError {
 // Re-exports for unit tests (only needed in test builds)
 #[cfg(test)]
 pub(crate) use copyline::{
-    copyline_weighted_locations_triangular, create_copylines, mis_overhead_copyline, CopyLine,
+    CopyLine, copyline_weighted_locations_triangular, create_copylines, mis_overhead_copyline,
 };
 #[cfg(test)]
 pub(crate) use grid::{CellState, MappingGrid};
 #[cfg(test)]
-pub(crate) use traits::{apply_gadget, unapply_gadget, Pattern};
+pub(crate) use traits::{Pattern, apply_gadget, unapply_gadget};
 #[cfg(test)]
 pub(crate) use weighted::{map_weights, trace_centers};
 
@@ -78,7 +77,7 @@ pub(crate) use weighted::{map_weights, trace_centers};
 #[doc(hidden)]
 pub mod _internal {
     pub use super::copyline::{
-        create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular, CopyLine,
+        CopyLine, create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular,
     };
     pub use super::grid::{CellState, MappingGrid};
 }

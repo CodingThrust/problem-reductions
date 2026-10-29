@@ -9,7 +9,7 @@
 //! - Objective: Minimize Σ w_a * y_a
 //! - Variable layout: first |A| are y_a, next |V| are o_v
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumFeedbackArcSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -61,7 +61,7 @@ impl ReductionResult for ReductionFASToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
+        num_nonzeros = "4 * num_arcs + num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {

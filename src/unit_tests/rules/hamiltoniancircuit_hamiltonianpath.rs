@@ -1,10 +1,10 @@
+use crate::Problem;
 use crate::models::graph::{HamiltonianCircuit, HamiltonianPath};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
-use crate::Problem;
 
 fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
     HamiltonianCircuit::new(SimpleGraph::cycle(4))

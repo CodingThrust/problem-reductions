@@ -130,7 +130,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bmf_to_bicliquecover",
         build: || {
-            // 2x2 all-ones, rank 1 — a single biclique covering both sides exactly.
             let source = BMF::new(vec![vec![true, true], vec![true, true]], 1);
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,

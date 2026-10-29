@@ -74,6 +74,14 @@ struct MinimumCodeGenerationOneRegisterData {
     num_leaves: usize,
 }
 
+fn add_instructions(count: i64, additional: i64) -> Result<i64, crate::traits::EvaluationError> {
+    count.checked_add(additional).ok_or_else(|| {
+        crate::traits::EvaluationError::IntegerOverflow(
+            "counting one-register instructions".to_string(),
+        )
+    })
+}
+
 impl TryFrom<MinimumCodeGenerationOneRegisterData> for MinimumCodeGenerationOneRegister {
     type Error = crate::registry::ConstructionError;
     fn try_from(data: MinimumCodeGenerationOneRegisterData) -> Result<Self, Self::Error> {
@@ -276,15 +284,12 @@ impl MinimumCodeGenerationOneRegister {
             // 1. Register holds a value
             // 2. That value is still needed in the future
             // 3. That value is not already in memory
-            if let Some(r) = register {
-                if !in_memory[r] && future_uses[r] > 0 {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // STORE
-                    in_memory[r] = true;
-                }
+            if let Some(r) = register
+                && !in_memory[r]
+                && future_uses[r] > 0
+            {
+                instructions = add_instructions(instructions, 1)?; // STORE
+                in_memory[r] = true;
             }
 
             // Now compute v
@@ -294,33 +299,17 @@ impl MinimumCodeGenerationOneRegister {
                 let one_in_register = (register == Some(c0) && in_memory[c1])
                     || (register == Some(c1) && in_memory[c0]);
                 if one_in_register {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // OP v
+                    instructions = add_instructions(instructions, 1)?; // OP v
                 } else {
                     // Need to LOAD one operand, OP with the other from memory
-                    instructions = instructions.checked_add(2).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // LOAD + OP
+                    instructions = add_instructions(instructions, 2)?; // LOAD + OP
                 }
             } else if operands.len() == 1 {
                 let c0 = operands[0];
                 if register == Some(c0) {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // OP v
+                    instructions = add_instructions(instructions, 1)?; // OP v
                 } else {
-                    instructions = instructions.checked_add(2).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // LOAD + OP
+                    instructions = add_instructions(instructions, 2)?; // LOAD + OP
                 }
             }
 
@@ -385,14 +374,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_code_generation_one_register",
-        // Issue #900 example: 7 vertices, leaves {4,5,6}, internal {0,1,2,3}
-        // Edges: (0,1),(0,2),(1,3),(1,4),(2,3),(2,5),(3,5),(3,6)
-        // Optimal order: v3, v2, v1, v0 with positions [3, 2, 1, 0]
-        // Wait — config[i] = position for internal vertex i.
-        // Internal vertices sorted: [0, 1, 2, 3]
-        // Optimal evaluation order: v3, v2, v1, v0
-        // v3 at position 0, v2 at position 1, v1 at position 2, v0 at position 3
-        // So config = [3, 2, 1, 0] (internal idx 0=v0 -> pos 3, idx 1=v1 -> pos 2, ...)
         instance: Box::new(MinimumCodeGenerationOneRegister::new(
             7,
             vec![

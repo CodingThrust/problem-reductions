@@ -99,15 +99,19 @@ fn identical_tasks_share_a_canonical_temporal_order() {
     let source = SequencingWithReleaseTimesAndDeadlines::new(vec![1; 3], vec![0; 3], vec![3; 3]);
     assert_eq!(source.evaluate(&vec![2, 1, 0]).unwrap(), Or(true));
     let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
-    assert!(reduction
-        .target_problem()
-        .is_feasible(&[0, 1, 2, 1, 1, 1])
-        .unwrap());
+    assert!(
+        reduction
+            .target_problem()
+            .is_feasible(&[0, 1, 2, 1, 1, 1])
+            .unwrap()
+    );
     // Reversing indistinguishable task labels must not create another target order.
-    assert!(!reduction
-        .target_problem()
-        .is_feasible(&[2, 1, 0, 0, 0, 0])
-        .unwrap());
+    assert!(
+        !reduction
+            .target_problem()
+            .is_feasible(&[2, 1, 0, 0, 0, 0])
+            .unwrap()
+    );
     assert_eq!(
         source
             .evaluate(&ILPSolver::new().solve(&source).unwrap())

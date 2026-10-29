@@ -6,7 +6,7 @@
 //! - Constraints: assignment (each item in exactly one bin) + capacity/linking
 //! - Objective: minimize number of bins used
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::BinPacking;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -55,7 +55,7 @@ impl ReductionResult for ReductionBPToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
-        num_nonzeros = "(num_items * num_items + num_items) * (2 * num_items)",
+        num_nonzeros = "2 * num_items * num_items + num_items",
     },
 })]
 impl ReduceTo<ILP<bool>> for BinPacking<i64> {
@@ -92,7 +92,7 @@ impl ReduceTo<ILP<bool>> for BinPacking<i64> {
         let objective: Vec<(usize, i64)> = (0..n).map(|j| (n * n + j, 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionBPToILP { target, n })
     }

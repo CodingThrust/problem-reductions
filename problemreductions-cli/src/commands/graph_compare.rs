@@ -1,9 +1,9 @@
 //! Presentation only: decisions and the front come from `poly_compare::compare_all`.
-use super::{fmt_path_chain, ReductionGraph, ReductionPath};
+use super::{ReductionGraph, ReductionPath, fmt_path_chain};
 use problemreductions::poly_compare::{
-    compare_all, Direction, PathComparison, Profile, ProfileComparison, Side, Verdict,
+    Direction, PathComparison, Profile, ProfileComparison, Side, Verdict, compare_all,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// 1-based `(winner, loser)` of a dominated pair.
 fn winner_loser(i: usize, j: usize, verdict: Verdict) -> Option<(usize, usize)> {
@@ -104,7 +104,9 @@ impl ComparisonView {
         paths: &[ReductionPath],
         proofs: bool,
     ) -> String {
-        let mut text = String::from("Polynomial comparison: generic order of chosen certificates, batch-relative regular valid growth families; smaller certificates are better. Ignores exact-cancellation families such as complete graphs; keeps bounded strata and exponent cells.\n");
+        let mut text = String::from(
+            "Polynomial comparison: generic order of chosen certificates, batch-relative regular valid growth families; smaller certificates are better. Ignores exact-cancellation families such as complete graphs; keeps bounded strata and exponent cells.\n",
+        );
         text.push_str(&format!(
             "\nPair verdicts ({} pairs):\n",
             self.result.pairs.len()
@@ -199,7 +201,7 @@ impl ComparisonView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use problemreductions::{parameters::ParameterRelation, poly_compare::FieldCertificate, Expr};
+    use problemreductions::{Expr, parameters::ParameterRelation, poly_compare::FieldCertificate};
     use std::collections::BTreeMap;
 
     fn certificate(s: &str) -> FieldCertificate {

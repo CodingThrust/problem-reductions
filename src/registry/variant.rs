@@ -3,8 +3,8 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::registry::dyn_problem::DynProblem;
 use crate::registry::FieldInfo;
+use crate::registry::dyn_problem::DynProblem;
 
 /// Reusable syntax used to transport one construction input.
 ///

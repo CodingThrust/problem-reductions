@@ -201,12 +201,16 @@ fn test_rank_zero_exactness() {
 fn test_is_exact() {
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
-    assert!(problem
-        .is_exact(&(vec![vec![true]], vec![vec![true]]))
-        .unwrap());
-    assert!(!problem
-        .is_exact(&(vec![vec![false]], vec![vec![false]]))
-        .unwrap());
+    assert!(
+        problem
+            .is_exact(&(vec![vec![true]], vec![vec![true]]))
+            .unwrap()
+    );
+    assert!(
+        !problem
+            .is_exact(&(vec![vec![false]], vec![vec![false]]))
+            .unwrap()
+    );
 }
 
 #[test]
@@ -293,10 +297,10 @@ fn test_bmf_paper_example() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<BMF>(
-        serde_json::json!({"matrix":[[true],[]],"k":1,"m":2,"n":1})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<BMF>(serde_json::json!({"matrix":[[true],[]],"k":1,"m":2,"n":1}))
+            .is_err()
+    );
 }
 
 #[test]

@@ -4,7 +4,7 @@
 //! each using at most `K` edges, over up to `max_paths` path slots.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{is_simple_st_path, Graph, SimpleGraph};
+use crate::topology::{Graph, SimpleGraph, is_simple_st_path};
 use crate::traits::Problem;
 use crate::types::Max;
 use crate::variant::VariantParam;
@@ -327,9 +327,6 @@ fn encode_paths(num_edges: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<V
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
-    // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
-    // Three edge-selection rows over six edges.
-    // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
         instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),

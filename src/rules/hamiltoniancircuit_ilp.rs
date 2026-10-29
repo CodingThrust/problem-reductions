@@ -1,6 +1,6 @@
 //! Degree two and a single bounded flow enforce a spanning cycle.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::HamiltonianCircuit;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
@@ -39,11 +39,15 @@ impl ReductionResult for ReductionHamiltonianCircuitToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionHamiltonianCircuitToILP {}
 
-#[crate::reduction(transform = upper_bound {
-    num_vars = "3 * num_edges",
-    num_constraints = "2 * num_vertices + 2 * num_edges + 1",
-    num_nonzeros = "10 * num_edges",
-    max_constraint_magnitude_bits = "num_vertices + 2",
+#[crate::reduction(transform = {
+    exact {
+        num_vars = "3 * num_edges",
+        num_nonzeros = "10 * num_edges",
+    },
+    upper_bound {
+        num_constraints = "2 * num_vertices + 2 * num_edges + 1",
+        max_constraint_magnitude_bits = "num_vertices + 2",
+    },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToILP;

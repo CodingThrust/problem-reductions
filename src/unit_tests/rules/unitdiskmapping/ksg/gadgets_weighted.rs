@@ -1,6 +1,18 @@
 use super::*;
 
 #[test]
+fn test_weighted_ksg_tape_rejects_unknown_gadget() {
+    let entry = WeightedKsgTapeEntry {
+        pattern_idx: 106,
+        row: 0,
+        col: 0,
+    };
+    assert!(matches!(weighted_tape_entry_mis_overhead(&entry),
+        Err(ReductionError::InvalidTarget { source_problem: "Graph", target_problem: "UnitDiskMapping", message })
+        if message == "tape contains an unknown weighted KSG gadget index"));
+}
+
+#[test]
 fn test_weighted_ksg_cross_false_mis_overhead() {
     assert_eq!(WeightedKsgCross::<false>.mis_overhead(), -2);
 }

@@ -10,7 +10,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: For each task j, find argmax_t x_{j,t}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::PrecedenceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -37,7 +37,6 @@ impl ReductionResult for ReductionPCSToILP {
     /// Extract schedule from ILP solution.
     ///
     /// For each task j, find the time slot t where x_{j,t} = 1.
-    /// Returns the time slot for each task (matching the `dims()` encoding of PCS).
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
@@ -68,7 +67,7 @@ impl crate::rules::AggregateReductionResult for ReductionPCSToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + deadline + 1",
-        num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_precedences)",
+        num_nonzeros = "2 * num_tasks * deadline + 2 * deadline * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
@@ -132,7 +131,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "precedenceconstrainedscheduling_to_ilp",
         build: || {
-            // 3 tasks, 2 processors, deadline 2, with task 0 < task 2
             let source = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

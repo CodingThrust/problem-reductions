@@ -291,11 +291,10 @@ where
                     ));
                 }
 
-                // Collect selected edges
                 let selected_indices: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| i)
                     .collect();
 
@@ -307,7 +306,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Build adjacency list and compute total weight
                 let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
                 let mut total_weight = W::Sum::zero();
                 for &idx in &selected_indices {
@@ -321,12 +319,10 @@ where
                     )?;
                 }
 
-                // Check weight bound
                 if total_weight > self.weight_bound.clone() {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check connectivity using BFS
                 let mut visited = vec![false; n];
                 let mut queue = VecDeque::new();
                 visited[0] = true;
@@ -346,7 +342,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check diameter bound (BFS from each vertex)
                 let diameter = Self::tree_diameter(&adj, n);
                 diameter <= self.diameter_bound
             })
@@ -374,10 +369,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 vertices, 7 edges with weights: (0,1,1),(0,2,2),(0,3,1),(1,2,1),(1,4,2),(2,3,1),(3,4,1)
-    // B=5, D=3
-    // Tree: edges (0,1),(0,3),(2,3),(3,4) → edge indices 0,2,5,6
-    // Config: [1,0,1,0,0,1,1] → weight = 1+1+1+1 = 4 ≤ 5, diameter = 3 ≤ 3
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bounded_diameter_spanning_tree_simplegraph",
         instance: Box::new(BoundedDiameterSpanningTree::new(

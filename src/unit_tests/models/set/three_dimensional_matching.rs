@@ -25,34 +25,46 @@ fn test_three_dimensional_matching_evaluation() {
     );
 
     // T0, T1, T2: W={0,1,2} distinct, X={1,0,2} distinct, Y={2,1,0} distinct -> valid
-    assert!(problem
-        .evaluate(&vec![true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, false, false])
+            .unwrap()
+    );
 
     // T0, T3: both have w=0 -> invalid (also only 2 selected, need 3)
-    assert!(!problem
-        .evaluate(&vec![true, false, false, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, false, true, false])
+            .unwrap()
+    );
 
     // T0, T1, T3: w-coordinates {0,1,0} not distinct -> invalid
-    assert!(!problem
-        .evaluate(&vec![true, true, false, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, true, false])
+            .unwrap()
+    );
 
     // Only T0 selected (need q=3 triples)
-    assert!(!problem
-        .evaluate(&vec![true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, false, false, false])
+            .unwrap()
+    );
 
     // All selected (too many)
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true])
+            .unwrap()
+    );
 
     // None selected
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -69,7 +81,6 @@ fn test_three_dimensional_matching_solver() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
     }
-    // Verify the known solution is in there
     assert!(solutions.contains(&vec![true, true, true, false, false]));
 }
 
@@ -143,9 +154,6 @@ fn test_three_dimensional_matching_is_valid_solution() {
 
 #[test]
 fn test_three_dimensional_matching_duplicate_coordinates() {
-    // q = 2, T0=(0,0,0), T1=(1,1,1), T2=(0,1,0)
-    // T0+T1 is valid matching; T0+T2 shares w=0; T1+T2 shares y (not y, T1 y=1, T2 y=0, ok)
-    // Actually T1+T2: w={1,0} ok, x={1,1} NOT distinct -> invalid
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0)]);
 
     assert!(problem.evaluate(&vec![true, true, false]).unwrap()); // T0+T1: w={0,1}, x={0,1}, y={0,1} all distinct

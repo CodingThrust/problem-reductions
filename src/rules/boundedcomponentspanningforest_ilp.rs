@@ -4,7 +4,7 @@
 //! connectivity inside each used component via flow.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;

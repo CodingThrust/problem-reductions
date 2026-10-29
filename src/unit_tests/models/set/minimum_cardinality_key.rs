@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Instance 1 from the issue: 6 attributes, FDs {0,1}->{2}, {0,2}->{3},
+/// Instance: 6 attributes, FDs {0,1}->{2}, {0,2}->{3},
 /// {1,3}->{4}, {2,4}->{5}. K={0,1} is a key of size 2.
 fn instance1() -> MinimumCardinalityKey {
     MinimumCardinalityKey::new(
@@ -18,7 +18,7 @@ fn instance1() -> MinimumCardinalityKey {
     )
 }
 
-/// Instance 2 from the issue: 6 attributes, FDs {0,1,2}->{3}, {3,4}->{5}.
+/// Instance: 6 attributes, FDs {0,1,2}->{3}, {3,4}->{5}.
 /// No 2-element subset determines all attributes.
 fn instance2() -> MinimumCardinalityKey {
     MinimumCardinalityKey::new(6, vec![(vec![0, 1, 2], vec![3]), (vec![3, 4], vec![5])])
@@ -117,11 +117,13 @@ fn test_minimum_cardinality_key_invalid_config() {
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
     // Value > 1.
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, true, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, true, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

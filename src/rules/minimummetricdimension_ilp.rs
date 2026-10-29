@@ -7,9 +7,9 @@
 //!   (at least one resolving vertex distinguishes u from v)
 //! - Objective: Minimize Σ z_v
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::graph::minimum_metric_dimension::bfs_distances;
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumMetricDimension;
+use crate::models::graph::minimum_metric_dimension::bfs_distances;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
@@ -95,7 +95,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummetricdimension_to_ilp",
         build: || {
-            // P3 path graph: 3 vertices, metric dimension = 1
             let source = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

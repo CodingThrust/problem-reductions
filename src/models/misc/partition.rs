@@ -136,7 +136,7 @@ impl Problem for Partition {
                 let selected_sum: i64 = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &x)| x)
+                    .filter(|&(_, &x)| x)
                     .map(|(i, _)| self.sizes[i])
                     .sum();
                 selected_sum == self.total_sum() - selected_sum

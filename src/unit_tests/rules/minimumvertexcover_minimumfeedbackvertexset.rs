@@ -1,10 +1,10 @@
+use super::ReductionVCToFVS;
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use super::ReductionVCToFVS;
 use crate::models::graph::{MinimumFeedbackVertexSet, MinimumVertexCover};
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};

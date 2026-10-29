@@ -175,12 +175,14 @@ fn test_ksatisfiability_to_cyclicordering_unsatisfiable_repeated_literal_pair() 
     assert_eq!(normalized.clauses.len(), 8);
     assert_eq!(reduction.target_problem().num_elements(), 55);
     for mask in 0..1usize << normalized.num_vars {
-        assert!(!normalized
-            .clauses
-            .iter()
-            .all(|clause| clause.iter().any(|&literal| {
-                (mask & (1 << (literal.unsigned_abs() as usize - 1)) != 0) == (literal > 0)
-            })));
+        assert!(
+            !normalized
+                .clauses
+                .iter()
+                .all(|clause| clause.iter().any(|&literal| {
+                    (mask & (1 << (literal.unsigned_abs() as usize - 1)) != 0) == (literal > 0)
+                }))
+        );
     }
 }
 
@@ -207,29 +209,28 @@ fn test_ksatisfiability_to_cyclicordering_closed_loop() {
 }
 
 #[test]
-fn repeated_short_and_unsorted_clauses_preserve_all_source_assignments() {
+fn repeated_and_unsorted_clauses_preserve_all_source_assignments() {
     let formulas = [
         vec![vec![5, 5, 5]],
         vec![vec![-5, -5, -5]],
         vec![vec![5, -5, 5]],
         vec![vec![5, 2, 5]],
-        vec![vec![5]],
-        vec![vec![-5, 2]],
+        vec![vec![-5, 2, 2]],
         vec![vec![5, 1, -3], vec![-1, 5, 2], vec![-3, 2, -5]],
     ];
     for clauses in formulas {
-        let source = KSatisfiability::<K3>::try_new_allow_less(
-            6,
-            clauses.into_iter().map(CNFClause::new).collect(),
-        )
-        .unwrap();
+        let source =
+            KSatisfiability::<K3>::try_new(6, clauses.into_iter().map(CNFClause::new).collect())
+                .unwrap();
         let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source).unwrap();
         let normalized = normalize(&source).unwrap();
-        assert!(normalized
-            .clauses
-            .iter()
-            .all(|clause| clause[0].unsigned_abs() < clause[1].unsigned_abs()
-                && clause[1].unsigned_abs() < clause[2].unsigned_abs()));
+        assert!(
+            normalized
+                .clauses
+                .iter()
+                .all(|clause| clause[0].unsigned_abs() < clause[1].unsigned_abs()
+                    && clause[1].unsigned_abs() < clause[2].unsigned_abs())
+        );
         for mask in 0..64 {
             let assignment: Vec<_> = (0..6).map(|bit| mask & (1 << bit) != 0).collect();
             if source.evaluate(&assignment).unwrap().0 {
@@ -248,7 +249,7 @@ fn repeated_short_and_unsorted_clauses_preserve_all_source_assignments() {
 }
 
 #[test]
-fn empty_formula_and_empty_clause_have_opposite_fixed_targets() {
+fn empty_formula_has_a_fixed_yes_target() {
     for num_vars in [0, 3] {
         let source = KSatisfiability::<K3>::new(num_vars, vec![]);
         let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source).unwrap();
@@ -257,22 +258,6 @@ fn empty_formula_and_empty_clause_have_opposite_fixed_targets() {
             reduction.extract_solution(&vec![0]).unwrap(),
             vec![false; num_vars]
         );
-        let source =
-            KSatisfiability::<K3>::try_new_allow_less(num_vars, vec![CNFClause::new(vec![])])
-                .unwrap();
-        let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source).unwrap();
-        assert_eq!(reduction.target_problem().num_elements(), 3);
-        for config in [
-            vec![0, 1, 2],
-            vec![0, 2, 1],
-            vec![1, 0, 2],
-            vec![1, 2, 0],
-            vec![2, 0, 1],
-            vec![2, 1, 0],
-        ] {
-            assert!(!reduction.target_problem().evaluate(&config).unwrap().0);
-            assert!(reduction.extract_solution(&config).is_err());
-        }
     }
 }
 

@@ -108,10 +108,12 @@ fn test_setsplitting_to_betweenness_issue_no_instance_is_unsat() {
     let source = issue_no_instance();
     let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[cfg(feature = "example-db")]

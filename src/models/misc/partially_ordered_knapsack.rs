@@ -286,15 +286,13 @@ impl Problem for PartiallyOrderedKnapsack {
                     "item-selection length does not match the instance".into(),
                 ));
             }
-            // Check downward-closure (precedence constraints)
             if !self.is_downward_closed(config) {
                 return Ok(Max(None));
             }
-            // Check capacity constraint
             let total_weight = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {
@@ -306,11 +304,10 @@ impl Problem for PartiallyOrderedKnapsack {
             if total_weight > self.capacity {
                 return Ok(Max(None));
             }
-            // Compute total value
             let total_value = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x)
+                .filter(|&(_, &x)| x)
                 .map(|(i, _)| self.values[i])
                 .try_fold(0_i64, |total, value| {
                     total.checked_add(value).ok_or_else(|| {

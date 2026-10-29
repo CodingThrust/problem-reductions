@@ -1,5 +1,5 @@
 //! Rank dependencies and copy indicators for two-address operations.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumCodeGenerationUnlimitedRegisters;
 use crate::rules::ilp_helpers::ranks_to_positions;
 use crate::rules::traits::{ReduceTo, ReductionResult};

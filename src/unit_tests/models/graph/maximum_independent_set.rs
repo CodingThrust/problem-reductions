@@ -262,7 +262,6 @@ fn test_mis_paper_example() {
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 4);
 
-    // Verify this is optimal
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 4);

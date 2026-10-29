@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Create a 4x4 test instance matching issue #300's example.
+/// Create a 4x4 test instance.
 ///
 /// Cost matrix C (flows between 4 facilities):
 /// [[0, 5, 2, 0],
@@ -106,7 +106,6 @@ fn test_quadratic_assignment_serialization() {
     let qap2: QuadraticAssignment = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(qap2.num_facilities(), 4);
     assert_eq!(qap2.num_locations(), 4);
-    // Verify functional equivalence after round-trip.
     assert_eq!(
         Problem::evaluate(&qap, &vec![0, 1, 2, 3]).unwrap(),
         Problem::evaluate(&qap2, &vec![0, 1, 2, 3]).unwrap()
@@ -163,8 +162,10 @@ fn test_quadratic_assignment_solver() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<QuadraticAssignment>(
-        serde_json::json!({"cost_matrix":[[1]],"distance_matrix":[[]]})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<QuadraticAssignment>(
+            serde_json::json!({"cost_matrix":[[1]],"distance_matrix":[[]]})
+        )
+        .is_err()
+    );
 }

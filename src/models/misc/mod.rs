@@ -214,6 +214,7 @@ pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
+pub(crate) use longest_common_subsequence::is_subsequence;
 pub use maximum_likelihood_ranking::MaximumLikelihoodRanking;
 pub use minimum_axiom_set::MinimumAxiomSet;
 pub use minimum_code_generation_one_register::MinimumCodeGenerationOneRegister;

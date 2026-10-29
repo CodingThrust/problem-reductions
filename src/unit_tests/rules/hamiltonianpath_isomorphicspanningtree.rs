@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -46,15 +46,7 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_path_graph() {
 
 #[test]
 fn test_hamiltonianpath_to_isomorphicspanningtree_no_hamiltonian_path() {
-    // Star graph K_{1,4}: vertex 0 connected to 1,2,3,4 with no other edges.
-    // This has no Hamiltonian path because vertex 0 must appear in the middle
-    // but has only degree 4 neighbors that are pairwise non-adjacent.
-    // Actually for n=5 star, vertex 0 has degree 4, so it can be internal,
-    // but the leaves have degree 1, so at most 2 can be endpoints.
-    // A path visits 5 vertices needing 4 edges, but all edges go through 0.
-    // So the path must be leaf-0-leaf-..., but after visiting 0 we can only
-    // go to unvisited leaves, and from a leaf we can only go back to 0 (already visited).
-    // Path: leaf-0-leaf is length 2, can't extend. No HP exists.
+    // K_{1,4} has four degree-one leaves, but a Hamiltonian path has only two endpoints.
     let source = HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]));
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
@@ -88,7 +80,6 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
         .unwrap()
         .expect("K4 should have an IST solution");
     let extracted = result.extract_solution(&target_solution).unwrap();
-    // Extracted solution should be a valid Hamiltonian path
     assert!(
         source.evaluate(&extracted).unwrap().0,
         "Extracted solution should be a valid Hamiltonian path"

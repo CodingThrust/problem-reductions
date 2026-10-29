@@ -51,7 +51,7 @@ inventory::submit! {
 /// use problemreductions::types::Max;
 /// use problemreductions::{BruteForce, Problem};
 ///
-/// // Graph from issue #1020: 4 vertices, triangles {0,1,2} and {0,1,3}.
+/// // Graph: 4 vertices, triangles {0,1,2} and {0,1,3}.
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]);
 /// let weights = vec![5_i64, 4, -1, 1, 0];
 /// let problem = MaximumEdgeWeightedKClique::new(graph, weights, 3).unwrap();
@@ -236,7 +236,7 @@ fn is_k_clique_config(graph: &SimpleGraph, config: &[bool], k: usize) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &selected)| selected)
+        .filter(|&(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
     if selected.len() != k {

@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::graph::{BoundedComponentSpanningForest, PartitionIntoPathsOfLength2};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -15,7 +15,6 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_closed_loo
         .expect("reduction should succeed");
     let target = result.target_problem();
 
-    // Check target structure
     assert_eq!(target.num_vertices(), 6);
     assert_eq!(target.num_edges(), 4);
     assert_eq!(target.max_components(), 2); // K = 6/3 = 2
@@ -51,7 +50,6 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_no_solutio
 
 #[test]
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_triangle_partition() {
-    // 9-vertex graph from the issue example
     let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
         9,
         vec![
@@ -85,7 +83,6 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_triangle_p
 
 #[test]
 fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_extract_solution() {
-    // Verify extract_solution is identity
     let source =
         PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]));
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i64>>::reduce_to(&source)

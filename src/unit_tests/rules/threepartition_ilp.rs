@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    solvers::{BruteForce, ILPSolveError, ILPSolver},
     Problem,
+    solvers::{BruteForce, ILPSolveError, ILPSolver},
 };
 
 #[test]
@@ -27,8 +27,10 @@ fn indexed_triples_preserve_duplicate_items_and_impossibility() {
             }
             other => panic!("partition disagreement: {other:?}"),
         }
-        assert!(reduction
-            .extract_solution(&vec![0; reduction.target_problem().num_vars() + 1])
-            .is_err());
+        assert!(
+            reduction
+                .extract_solution(&vec![0; reduction.target_problem().num_vars() + 1])
+                .is_err()
+        );
     }
 }

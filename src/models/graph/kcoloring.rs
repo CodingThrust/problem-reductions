@@ -7,7 +7,7 @@ use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::variant::{KValue, VariantParam, K2, K3, KN};
+use crate::variant::{K2, K3, KN, KValue, VariantParam};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -259,11 +259,9 @@ pub(crate) fn is_valid_coloring<G: Graph>(
         graph.num_vertices(),
         "coloring length must match num_vertices"
     );
-    // Check all colors are valid
     if coloring.iter().any(|&c| c >= num_colors) {
         return false;
     }
-    // Check no adjacent vertices have same color
     for (u, v) in graph.edges() {
         if coloring[u] == coloring[v] {
             return false;

@@ -137,9 +137,11 @@ fn test_partition_to_open_shop_all_small_partitions_and_machine_orders() {
                 }
             }
             assert!(reduction.extract_solution(&vec![0; (n + 1) * 3]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![0; (n + 1) * 3 + 1])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; (n + 1) * 3 + 1])
+                    .is_err()
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
 //! One orientation selector per betweenness triple, with bounded element ranks.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, ObjectiveSense};
 use crate::models::misc::Betweenness;
 use crate::rules::ilp_helpers::{bounded_order_comparison, ranks_to_positions};
 use crate::rules::traits::{ReduceTo, ReductionResult};

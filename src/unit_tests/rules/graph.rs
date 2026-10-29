@@ -623,10 +623,12 @@ fn path_parameter_contract_errors_are_typed_and_isolated() {
     let empty = ReductionPath { steps: vec![] };
     let graph = ReductionGraph::from_test_edges(&["A", "B"], &[]);
     assert!(graph.path_parameter_transforms(&single).unwrap().is_empty());
-    assert!(graph
-        .compose_path_parameter_transform(&single)
-        .unwrap()
-        .is_none());
+    assert!(
+        graph
+            .compose_path_parameter_transform(&single)
+            .unwrap()
+            .is_none()
+    );
     assert!(matches!(
         graph.compose_path_parameter_transform(&empty),
         Err(PathParameterError::EmptyPath)
@@ -908,24 +910,28 @@ fn witness_path_search_rejects_aggregate_only_edge() {
         },
     );
 
-    assert!(graph
-        .find_all_paths_mode(
-            AggregateChainSource::NAME,
-            &source_variant,
-            AggregateChainMiddle::NAME,
-            &target_variant,
-            ReductionMode::Witness
-        )
-        .is_empty());
-    assert!(!graph
-        .find_all_paths_mode(
-            AggregateChainSource::NAME,
-            &source_variant,
-            AggregateChainMiddle::NAME,
-            &target_variant,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
+    assert!(
+        graph
+            .find_all_paths_mode(
+                AggregateChainSource::NAME,
+                &source_variant,
+                AggregateChainMiddle::NAME,
+                &target_variant,
+                ReductionMode::Witness
+            )
+            .is_empty()
+    );
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                AggregateChainSource::NAME,
+                &source_variant,
+                AggregateChainMiddle::NAME,
+                &target_variant,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -946,24 +952,28 @@ fn aggregate_path_search_rejects_witness_only_edge() {
         },
     );
 
-    assert!(graph
-        .find_all_paths_mode(
-            AggregateChainSource::NAME,
-            &source_variant,
-            AggregateChainMiddle::NAME,
-            &target_variant,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
-    assert!(!graph
-        .find_all_paths_mode(
-            AggregateChainSource::NAME,
-            &source_variant,
-            AggregateChainMiddle::NAME,
-            &target_variant,
-            ReductionMode::Witness
-        )
-        .is_empty());
+    assert!(
+        graph
+            .find_all_paths_mode(
+                AggregateChainSource::NAME,
+                &source_variant,
+                AggregateChainMiddle::NAME,
+                &target_variant,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                AggregateChainSource::NAME,
+                &source_variant,
+                AggregateChainMiddle::NAME,
+                &target_variant,
+                ReductionMode::Witness
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -984,24 +994,28 @@ fn witness_executor_does_not_imply_aggregate_capability() {
         },
     );
 
-    assert!(!graph
-        .find_all_paths_mode(
-            NaturalVariantProblem::NAME,
-            &source_variant,
-            NaturalVariantProblem::NAME,
-            &target_variant,
-            ReductionMode::Witness
-        )
-        .is_empty());
-    assert!(graph
-        .find_all_paths_mode(
-            NaturalVariantProblem::NAME,
-            &source_variant,
-            NaturalVariantProblem::NAME,
-            &target_variant,
-            ReductionMode::Aggregate
-        )
-        .is_empty());
+    assert!(
+        !graph
+            .find_all_paths_mode(
+                NaturalVariantProblem::NAME,
+                &source_variant,
+                NaturalVariantProblem::NAME,
+                &target_variant,
+                ReductionMode::Witness
+            )
+            .is_empty()
+    );
+    assert!(
+        graph
+            .find_all_paths_mode(
+                NaturalVariantProblem::NAME,
+                &source_variant,
+                NaturalVariantProblem::NAME,
+                &target_variant,
+                ReductionMode::Aggregate
+            )
+            .is_empty()
+    );
 }
 
 #[test]
@@ -1026,10 +1040,12 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
             variant: source_variant,
         }],
     };
-    assert!(graph
-        .reduce_aggregate_along_path(&single_step_path, &AggregateChainSource as &dyn Any)
-        .expect("single-step path lookup should not fail")
-        .is_none());
+    assert!(
+        graph
+            .reduce_aggregate_along_path(&single_step_path, &AggregateChainSource as &dyn Any)
+            .expect("single-step path lookup should not fail")
+            .is_none()
+    );
 }
 
 #[test]
@@ -1061,10 +1077,12 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
             },
         ],
     };
-    assert!(graph
-        .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
-        .expect("witness-only edge lookup should not fail")
-        .is_none());
+    assert!(
+        graph
+            .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
+            .expect("witness-only edge lookup should not fail")
+            .is_none()
+    );
 }
 
 #[test]
@@ -1212,20 +1230,24 @@ fn test_find_direct_path_variants() {
     let dst = ReductionGraph::variant_to_map(
         &crate::models::graph::SpinGlass::<SimpleGraph, i64>::variant(),
     );
-    assert!(graph
-        .find_all_paths("MaxCut", &src, "SpinGlass", &dst)
-        .iter()
-        .any(|path| path.len() == 1));
+    assert!(
+        graph
+            .find_all_paths("MaxCut", &src, "SpinGlass", &dst)
+            .iter()
+            .any(|path| path.len() == 1)
+    );
 
     let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(
         &crate::models::graph::SpinGlass::<SimpleGraph, i64>::variant(),
     );
-    assert!(graph
-        .find_all_paths("Factoring", &src, "SpinGlass", &dst)
-        .iter()
-        .any(|path| path.type_names()
-            == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]));
+    assert!(
+        graph
+            .find_all_paths("Factoring", &src, "SpinGlass", &dst)
+            .iter()
+            .any(|path| path.type_names()
+                == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"])
+    );
 }
 
 #[test]
@@ -1267,19 +1289,19 @@ fn test_to_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // Check nodes
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
-    assert!(json
-        .nodes
-        .iter()
-        .any(|n| n.category == ProblemCategory::Graph));
-    assert!(json
-        .nodes
-        .iter()
-        .any(|n| n.category == ProblemCategory::Algebraic));
+    assert!(
+        json.nodes
+            .iter()
+            .any(|n| n.category == ProblemCategory::Graph)
+    );
+    assert!(
+        json.nodes
+            .iter()
+            .any(|n| n.category == ProblemCategory::Algebraic)
+    );
 
-    // Check edges
     assert!(json.edges.len() >= 10);
 
     // Check that IS -> VC and VC -> IS both exist as separate directed edges
@@ -1316,16 +1338,20 @@ fn graph_export_identifies_declared_defaults_and_catalog_aliases() {
                 .unwrap()
         );
         for alias in problem.aliases {
-            assert!(export["aliases"][problem.canonical_name]
-                .as_array()
-                .unwrap()
-                .contains(&serde_json::json!(alias)));
+            assert!(
+                export["aliases"][problem.canonical_name]
+                    .as_array()
+                    .unwrap()
+                    .contains(&serde_json::json!(alias))
+            );
         }
     }
-    assert!(export["aliases"]["KSatisfiability"]
-        .as_array()
-        .unwrap()
-        .contains(&serde_json::json!("3SAT")));
+    assert!(
+        export["aliases"]["KSatisfiability"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("3SAT"))
+    );
 }
 
 #[test]
@@ -1407,10 +1433,10 @@ fn test_circuit_reductions() {
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i64>::variant());
     let paths = graph.find_all_paths("Factoring", &src, "SpinGlass", &dst);
     assert!(!paths.is_empty());
-    assert!(paths
-        .iter()
-        .any(|path| path.type_names()
-            == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"]));
+    assert!(
+        paths.iter().any(|path| path.type_names()
+            == ["Factoring", "CircuitSAT", "DecisionSpinGlass", "SpinGlass"])
+    );
 }
 
 #[test]
@@ -1462,8 +1488,11 @@ fn test_nae_sat_to_partition_into_perfect_matchings_reduction_registered() {
 
     let graph = ReductionGraph::new();
 
-    assert!(graph
-        .has_direct_reduction::<NAESatisfiability, PartitionIntoPerfectMatchings<SimpleGraph>>());
+    assert!(
+        graph
+            .has_direct_reduction::<NAESatisfiability, PartitionIntoPerfectMatchings<SimpleGraph>>(
+            )
+    );
 }
 
 #[test]
@@ -1531,7 +1560,6 @@ fn test_to_json_file() {
     assert!(content.contains("\"edges\""));
     assert!(content.contains("MaximumIndependentSet"));
 
-    // Parse as generic JSON to verify validity
     let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(!parsed["nodes"].as_array().unwrap().is_empty());
     assert!(!parsed["edges"].as_array().unwrap().is_empty());
@@ -1555,12 +1583,16 @@ fn test_unknown_name_returns_empty() {
     assert!(!graph.has_direct_reduction_by_name("UnknownA", "UnknownB"));
 
     // find_all_paths with unknown name
-    assert!(graph
-        .find_all_paths("UnknownProblem", &unknown, "MaximumIndependentSet", &is_var)
-        .is_empty());
-    assert!(graph
-        .find_all_paths("MaximumIndependentSet", &is_var, "UnknownProblem", &unknown)
-        .is_empty());
+    assert!(
+        graph
+            .find_all_paths("UnknownProblem", &unknown, "MaximumIndependentSet", &is_var)
+            .is_empty()
+    );
+    assert!(
+        graph
+            .find_all_paths("MaximumIndependentSet", &is_var, "UnknownProblem", &unknown)
+            .is_empty()
+    );
 }
 
 #[test]
@@ -1610,10 +1642,12 @@ fn test_circuitsat_to_satisfiability_direct_edge() {
 
     assert!(graph.has_direct_reduction_by_name("CircuitSAT", "Satisfiability"));
 
-    assert!(graph
-        .find_all_paths("CircuitSAT", &src, "Satisfiability", &dst)
-        .iter()
-        .any(|path| path.len() == 1));
+    assert!(
+        graph
+            .find_all_paths("CircuitSAT", &src, "Satisfiability", &dst)
+            .iter()
+            .any(|path| path.len() == 1)
+    );
 }
 
 #[test]
@@ -1637,9 +1671,7 @@ fn test_to_json_nodes_have_variants() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // Check that nodes have variant information
     for node in &json.nodes {
-        // Verify node has a name
         assert!(!node.name.is_empty());
     }
 }
@@ -1892,7 +1924,7 @@ fn test_reduction_chain_with_variant_reductions() {
         )
         .into_iter()
         .find(|path| {
-            path.len() == 5
+            path.len() == 4
                 && path.type_names()
                     == [
                         "KSatisfiability",
@@ -1903,7 +1935,6 @@ fn test_reduction_chain_with_variant_reductions() {
         })
         .expect("explicit SAT route");
 
-    // Create a 3-SAT formula
     let ksat = KSatisfiability::<crate::variant::K3>::new(
         3,
         vec![
@@ -2063,25 +2094,33 @@ fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
 
     let unit_targets =
         graph.outgoing_reductions_from("MaximumIndependentSet", &unit, ReductionMode::Witness);
-    assert!(unit_targets
-        .iter()
-        .all(|edge| edge.source_variant == unit && edge.capabilities.witness));
+    assert!(
+        unit_targets
+            .iter()
+            .all(|edge| edge.source_variant == unit && edge.capabilities.witness)
+    );
     assert!(unit_targets.iter().any(|edge| {
         edge.target_name == "MaximumSetPacking"
             && edge.target_variant.get("weight").map(String::as_str) == Some("One")
     }));
-    assert!(!unit_targets
-        .iter()
-        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+    assert!(
+        !unit_targets
+            .iter()
+            .any(|edge| edge.target_name == "IntegralFlowBundles")
+    );
 
     let weighted_targets =
         graph.outgoing_reductions_from("MaximumIndependentSet", &weighted, ReductionMode::Witness);
-    assert!(weighted_targets
-        .iter()
-        .all(|edge| edge.source_variant == weighted && edge.capabilities.witness));
-    assert!(!weighted_targets
-        .iter()
-        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+    assert!(
+        weighted_targets
+            .iter()
+            .all(|edge| edge.source_variant == weighted && edge.capabilities.witness)
+    );
+    assert!(
+        !weighted_targets
+            .iter()
+            .any(|edge| edge.target_name == "IntegralFlowBundles")
+    );
     for (variant, has_flow_rule) in [(&unit, true), (&weighted, false)] {
         let decision_targets = graph.outgoing_reductions_from(
             "DecisionMaximumIndependentSet",
@@ -2096,10 +2135,12 @@ fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
         );
         let optimization_queries =
             graph.outgoing_reductions_from("MaximumIndependentSet", variant, ReductionMode::Turing);
-        assert!(optimization_queries
-            .iter()
-            .any(|edge| edge.target_name == "DecisionMaximumIndependentSet"
-                && edge.target_variant == *variant));
+        assert!(
+            optimization_queries
+                .iter()
+                .any(|edge| edge.target_name == "DecisionMaximumIndependentSet"
+                    && edge.target_variant == *variant)
+        );
     }
     assert!(!weighted_targets.iter().any(|edge| {
         edge.target_name == "MaximumIndependentSet"
@@ -2230,12 +2271,14 @@ fn completed_cut() -> crate::solvers::SolveOutcome {
 
 #[test]
 fn completed_recovery_propagates_target_infeasibility() {
-    assert!(recover_fixture(
-        &recovery_fixture(Some(1), true),
-        &crate::solvers::SolveOutcome::Infeasible
-    )
-    .unwrap()
-    .is_none());
+    assert!(
+        recover_fixture(
+            &recovery_fixture(Some(1), true),
+            &crate::solvers::SolveOutcome::Infeasible
+        )
+        .unwrap()
+        .is_none()
+    );
 }
 
 #[test]
@@ -2252,9 +2295,11 @@ fn completed_recovery_rejects_witness_not_realizing_mapped_value() {
     let error = recover_fixture(&recovery_fixture(Some(2), false), &completed_cut())
         .err()
         .unwrap();
-    assert!(error
-        .to_string()
-        .contains("does not realize the mapped aggregate"));
+    assert!(
+        error
+            .to_string()
+            .contains("does not realize the mapped aggregate")
+    );
 }
 
 #[test]
@@ -2278,9 +2323,11 @@ fn completed_recovery_checks_target_evaluation() {
     let error = recover_fixture(&recovery_fixture(Some(1), false), &outcome)
         .err()
         .unwrap();
-    assert!(error
-        .to_string()
-        .contains("target evaluation does not match"));
+    assert!(
+        error
+            .to_string()
+            .contains("target evaluation does not match")
+    );
 }
 
 #[test]

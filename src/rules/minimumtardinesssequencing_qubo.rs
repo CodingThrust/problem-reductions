@@ -1,7 +1,7 @@
 //! Direct quadratic encoding of MinimumTardinessSequencing<One>.
 use crate::models::algebraic::QUBO;
 use crate::models::misc::MinimumTardinessSequencing;
-use crate::rules::qubo_helpers::{decode_rows, invert_permutation, ObjectiveEncoding, QuboBuilder};
+use crate::rules::qubo_helpers::{ObjectiveEncoding, QuboBuilder, decode_rows, invert_permutation};
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;
 use crate::types::One;

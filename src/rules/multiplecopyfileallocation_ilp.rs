@@ -14,7 +14,7 @@
 //! Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} u(v)·d(v,u)·y_{v,u}.
 //! Extraction: first n variables (x_v).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MultipleCopyFileAllocation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -75,7 +75,7 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + num_vertices)",
+        num_nonzeros = "3 * num_vertices^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
@@ -154,10 +154,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiplecopyfileallocation_to_ilp",
         build: || {
-            // 3-vertex path: 0 - 1 - 2
-            // Place a copy at vertex 1 (center); all vertices reachable within
-            // distance 1.  storage = [5,5,5], usage = [1,1,1].
-            // Cost = 5 (storage at 1) + 1*1 + 1*0 + 1*1 = 7.
             let source = MultipleCopyFileAllocation::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1, 1, 1],

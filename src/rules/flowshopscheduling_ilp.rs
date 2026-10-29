@@ -5,7 +5,7 @@
 //! Machine-chain and big-M disjunctive constraints enforce a valid flow-shop
 //! schedule; the deadline becomes a makespan bound.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::FlowShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -72,11 +72,15 @@ impl ReductionResult for ReductionFSSToILP {
 impl crate::rules::AggregateReductionResult for ReductionFSSToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "max_time_bits + 1",
-        num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
-        num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
-        num_nonzeros = "(num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors) * (num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs)",
+    transform = {
+        exact {
+            num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
+        },
+        upper_bound {
+            max_constraint_magnitude_bits = "max_time_bits + 1",
+            num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
+            num_nonzeros = "num_jobs * (num_jobs - 1) * (1 + 3 * num_processors) + 2 * num_jobs * num_processors",
+        },
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for FlowShopScheduling {
@@ -211,7 +215,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "flowshopscheduling_to_ilp",
         build: || {
-            // 2 machines, 3 jobs, deadline 10
             let source = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

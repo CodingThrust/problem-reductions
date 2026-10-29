@@ -23,7 +23,6 @@ fn test_two_dimensional_consecutive_sets_creation() {
 
 #[test]
 fn test_two_dimensional_consecutive_sets_evaluation() {
-    // YES instance from issue:
     // Alphabet: {0,1,2,3,4,5}
     // Subsets: {0,1,2}, {3,4,5}, {1,3}, {2,4}, {0,5}
     let problem = TwoDimensionalConsecutiveSets::new(
@@ -70,7 +69,6 @@ fn test_two_dimensional_consecutive_sets_evaluation_ignores_empty_group_labels()
 
 #[test]
 fn test_two_dimensional_consecutive_sets_no_instance() {
-    // NO instance from issue:
     // Alphabet: {0,1,2,3,4,5}
     // Subsets: {0,1,2}, {0,3,4}, {0,5,1}, {2,3,5}
     let problem = TwoDimensionalConsecutiveSets::new(
@@ -143,7 +141,6 @@ fn test_two_dimensional_consecutive_sets_paper_example() {
         ],
     );
 
-    // Verify the known valid solution
     let valid_config = vec![0, 1, 2, 2, 3, 1];
     assert!(problem.evaluate(&valid_config).unwrap());
 

@@ -2,8 +2,8 @@
 
 use super::adapter::HighsAdapter;
 use crate::models::algebraic::{Bounded, ILP};
-use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::ExactProblemKey;
+use crate::solvers::registry::solver_capability_registry;
 use crate::traits::Problem;
 
 /// A failure to produce an ILP solution optimal within backend numerical tolerances.

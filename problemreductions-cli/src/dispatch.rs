@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::{
-    brute_force_dimensions, solve, solver_capabilities, ExactProblemKey, SolveOutcome, SolveResult,
-    SolverRequest,
+    ExactProblemKey, SolveOutcome, SolveResult, SolverRequest, brute_force_dimensions, solve,
+    solver_capabilities,
 };
 use serde_json::Value;
 use std::any::Any;
@@ -471,7 +471,7 @@ mod tests {
     }
 
     use super::*;
-    use crate::test_support::{AggregateValueSource, AGGREGATE_SOURCE_NAME};
+    use crate::test_support::{AGGREGATE_SOURCE_NAME, AggregateValueSource};
     use problemreductions::models::graph::MaximumIndependentSet;
     use problemreductions::models::misc::BinPacking;
     use problemreductions::topology::SimpleGraph;
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn completed_recovery_handles_infeasible_numeric_cast() {
-        use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+        use problemreductions::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
         let source = ILP::<bool>::new(
             1,
             vec![LinearConstraint::eq(vec![(0, 1)], 2)],
@@ -603,22 +603,24 @@ mod tests {
                 (json!([true, true, true]), "Max(None)"),
                 (json!([true, false, false]), "Max(99)"),
             ] {
-                assert!(replay
-                    .extract_result(&SolveOutcome::Optimal {
-                        solution,
-                        evaluation: evaluation.into()
-                    })
-                    .is_err());
+                assert!(
+                    replay
+                        .extract_result(&SolveOutcome::Optimal {
+                            solution,
+                            evaluation: evaluation.into()
+                        })
+                        .is_err()
+                );
             }
         }
     }
 
     #[test]
     fn completed_recovery_carries_negative_answers_through_value_mappings() {
+        use problemreductions::Problem;
         use problemreductions::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
         use problemreductions::models::graph::MaxCut;
         use problemreductions::solvers::BruteForce;
-        use problemreductions::Problem;
         for unsatisfiable in [false, true] {
             let clauses = if unsatisfiable {
                 vec![vec![1], vec![-1]]
@@ -655,8 +657,8 @@ mod tests {
 
     #[test]
     fn completed_recovery_checks_value_and_solution_agreement() {
-        use problemreductions::models::algebraic::{ObjectiveSense, ILP, QUBO};
         use problemreductions::Problem;
+        use problemreductions::models::algebraic::{ILP, ObjectiveSense, QUBO};
         let source = ILP::<bool>::new(1, vec![], vec![(0, 1)], ObjectiveSense::Maximize).unwrap();
         let mut replay = replay(&source, vec![problem_step::<QUBO<i64>>()]);
         let target_result = replay
@@ -677,22 +679,26 @@ mod tests {
             serde_json::to_value(different).unwrap(),
         )
         .unwrap();
-        assert!(replay
-            .extract_result(&target_result)
-            .unwrap_err()
-            .to_string()
-            .contains("does not realize the mapped aggregate"));
-        assert!(replay
-            .source
-            .aggregate_witness_evaluation(&json!(true))
-            .is_err());
+        assert!(
+            replay
+                .extract_result(&target_result)
+                .unwrap_err()
+                .to_string()
+                .contains("does not realize the mapped aggregate")
+        );
+        assert!(
+            replay
+                .source
+                .aggregate_witness_evaluation(&json!(true))
+                .is_err()
+        );
     }
 
     #[test]
     fn decision_chain_carries_no_through_identity_and_threshold_maps() {
         use problemreductions::models::{
-            formula::{CNFClause, KSatisfiability, Satisfiability},
             MinimumVertexCover,
+            formula::{CNFClause, KSatisfiability, Satisfiability},
         };
         use problemreductions::variant::K3;
         for second in [1, -1] {
@@ -868,9 +874,11 @@ mod tests {
         let coefficient = restored.target.data["objective"][0][1].as_f64().unwrap();
         restored.target.data["objective"][0][1] = json!(f64::from_bits(coefficient.to_bits() + 1));
         let error = BundleReplay::prepare(&restored).err().unwrap();
-        assert!(error
-            .to_string()
-            .contains("does not match the result of replaying"));
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the result of replaying")
+        );
     }
 
     #[test]
@@ -1060,8 +1068,8 @@ mod tests {
 
     #[test]
     fn solver_capabilities_view_centralizes_default_and_available_order() {
-        use problemreductions::models::graph::RootedTreeArrangement;
         use problemreductions::Problem;
+        use problemreductions::models::graph::RootedTreeArrangement;
 
         let problem = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
         let loaded = load_problem(

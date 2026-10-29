@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -24,7 +24,6 @@ fn test_sequencingwithinintervals_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // task 0 has 1 start slot (d-r-l+1=3-0-2+1=2, so 2 offsets: 0 or 1... wait)
     // dim for task 0: d[0]-r[0]-l[0]+1 = 3-0-2+1 = 2 offsets
     // dim for task 1: d[1]-r[1]-l[1]+1 = 5-2-2+1 = 2 offsets
     // total vars = 2 + 2 = 4

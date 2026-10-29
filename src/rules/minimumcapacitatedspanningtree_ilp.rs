@@ -24,7 +24,7 @@
 //!
 //! Objective: minimize sum(w_e * y_e)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -239,10 +239,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source = MinimumCapacitatedSpanningTree::new(
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
-                vec![2, 3, 1, 1, 2], // edge weights
-                0,                   // root
-                vec![0, 1, 1, 1],    // requirements
-                2,                   // capacity
+                vec![2, 3, 1, 1, 2],
+                0,
+                vec![0, 1, 1, 1],
+                2,
             );
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

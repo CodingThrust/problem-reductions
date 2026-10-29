@@ -3,6 +3,10 @@
 .typst-detail h3 { margin: 24px 0 10px; font-size: 17px; font-weight: 600; }
 .typst-detail p { margin: 10px 0; }
 .typst-detail svg { max-width: 100%; filter: invert(.9); }
+/* Direct glyph colors avoid WebKit rasterizing small filtered math into blocks. */
+.typst-detail .typst-math > svg { filter: none; }
+.typst-detail .typst-math [fill="#000000"] { fill: var(--ink); }
+.typst-detail .typst-math [stroke="#000000"] { stroke: var(--ink); }
 .typst-math > svg { display: inline-block !important; vertical-align: baseline; }
 div.typst-math { overflow-x: auto; margin: 14px 0; }
 .typst-detail figure { margin: 20px 0; }

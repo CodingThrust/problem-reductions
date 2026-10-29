@@ -69,10 +69,12 @@ fn test_export_schemas() {
         .into_iter()
         .find(|schema| schema.name == "MaximumIndependentSet")
         .unwrap();
-    assert!(serde_json::to_value(public_schema)
-        .unwrap()
-        .get("module_path")
-        .is_none());
+    assert!(
+        serde_json::to_value(public_schema)
+            .unwrap()
+            .get("module_path")
+            .is_none()
+    );
     std::fs::remove_dir_all(output_dir).unwrap();
 }
 
@@ -90,9 +92,5 @@ fn test_export_petersen_mapping() {
     }
     std::fs::remove_dir_all(output_dir).unwrap();
 }
-
-// Note: detect_isolated_problems and detect_unreachable_from_3sat are diagnostic
-// tools that exit(1) when they find issues. They are run via `make` targets
-// (topology-sanity-check), not as part of `cargo test`.
 
 // Note: export_examples is exercised by `make paper` with the example-db feature.

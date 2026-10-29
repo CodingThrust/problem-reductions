@@ -1,18 +1,14 @@
 //! Reduction from KSatisfiability (3-SAT) to TimetableDesign.
 //!
-//! The issue sketch for #486 is not directly implementable against this
-//! repository's `TimetableDesign` model: the sketch relies on pair-specific
-//! availability and per-clause optional work, while the model exposes only
-//! craftsman/task availability sets and exact pairwise requirements.
-//!
-//! This implementation uses a fully specified chain instead:
+//! `TimetableDesign` exposes craftsman/task availability sets and exact pairwise
+//! requirements, so the reduction uses the following chain:
 //! 1. Eliminate pure literals from the source formula.
 //! 2. Apply Tovey's bounded-occurrence cloning so every remaining variable
 //!    appears at most three times and every clause has length two or three.
 //! 3. Build the explicit bipartite list-edge-coloring instance from Marx's
 //!    outerplanar reduction, padding missing literal-occurrence colors with
 //!    dummy colors when a variable occurs only `1+1`, `2+1`, or `1+2` times.
-//! 4. Compile the list instance to a core  edge-coloring instance with blocked
+//! 4. Compile the list instance to a core edge-coloring instance with blocked
 //!    colors on auxiliary vertices, following Marx's precoloring gadgets.
 //! 5. Encode blocked colors as dedicated dummy assignments in `TimetableDesign`.
 //!
@@ -134,11 +130,7 @@ fn literal_var_index(literal: i64) -> usize {
 fn evaluate_clause(clause: &CNFClause, assignment: &[bool]) -> bool {
     clause.literals.iter().any(|&literal| {
         let value = assignment[literal_var_index(literal)];
-        if literal > 0 {
-            value
-        } else {
-            !value
-        }
+        if literal > 0 { value } else { !value }
     })
 }
 

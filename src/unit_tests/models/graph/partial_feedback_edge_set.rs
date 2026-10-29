@@ -104,11 +104,13 @@ fn test_partial_feedback_edge_set_rejects_wrong_length_config() {
 #[test]
 fn test_partial_feedback_edge_set_rejects_non_binary_entries() {
     let problem = yes_instance();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, 0, 0, 0, 0, 0, 0, 0, 0]),
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, 0, 0, 0, 0, 0, 0, 0, 0]),
+        )
+        .is_err()
+    );
 }
 
 #[test]

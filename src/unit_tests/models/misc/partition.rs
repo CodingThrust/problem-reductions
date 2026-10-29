@@ -16,22 +16,28 @@ fn test_partition_basic() {
 fn test_partition_evaluate_satisfying() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
     // A' = {3, 2} (indices 0, 3), sum = 5 = 10/2
-    assert!(problem
-        .evaluate(&vec![true, false, false, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, false, false, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_partition_evaluate_unsatisfying() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
     // All in first subset, selected sum = 0 != 5
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
     // All in second subset, selected sum = 10 != 5
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -50,11 +56,13 @@ fn test_partition_evaluate_wrong_length() {
 #[test]
 fn test_partition_evaluate_invalid_value() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

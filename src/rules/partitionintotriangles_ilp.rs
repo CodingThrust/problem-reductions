@@ -9,7 +9,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: argmax_g x_{v,g} for each vertex v
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::PartitionIntoTriangles;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -125,7 +125,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintotriangles_to_ilp",
         build: || {
-            // Two triangles: 0-1-2 and 3-4-5
             let source = PartitionIntoTriangles::new(SimpleGraph::new(
                 6,
                 vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)],

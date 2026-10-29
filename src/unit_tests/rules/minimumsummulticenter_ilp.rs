@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::models::graph::MinimumSumMulticenter;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;

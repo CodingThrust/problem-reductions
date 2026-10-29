@@ -1,10 +1,10 @@
+use super::ReductionVCToFAS;
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use super::ReductionVCToFAS;
 use crate::models::graph::{MinimumFeedbackArcSet, MinimumVertexCover};
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -39,14 +39,18 @@ fn test_signed_weights_preserve_all_target_optima() {
 fn test_extraction_rejects_uncovered_edges_and_penalty_overflow() {
     let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1_i64; 2]);
     let reduction = ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).unwrap();
-    assert!(reduction
-        .target_problem()
-        .evaluate(&vec![false, false, true, true])
-        .unwrap()
-        .is_valid());
-    assert!(reduction
-        .extract_solution(&vec![false, false, true, true])
-        .is_err());
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&vec![false, false, true, true])
+            .unwrap()
+            .is_valid()
+    );
+    assert!(
+        reduction
+            .extract_solution(&vec![false, false, true, true])
+            .is_err()
+    );
     for weights in [vec![i64::MAX, 0], vec![i64::MAX, 1]] {
         let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), weights);
         assert!(ReduceTo::<MinimumFeedbackArcSet<i64>>::reduce_to(&source).is_err());

@@ -60,11 +60,7 @@ impl CNFClause {
                 .checked_sub(1)
                 .expect("CNF literal 0 is invalid");
             let value = assignment.get(var).copied().unwrap_or(false);
-            if lit > 0 {
-                value
-            } else {
-                !value
-            }
+            if lit > 0 { value } else { !value }
         })
     }
 
@@ -309,11 +305,7 @@ pub(crate) fn is_satisfying_assignment(
         clause.iter().any(|&lit| {
             let var = lit.unsigned_abs() as usize - 1;
             let value = assignment.get(var).copied().unwrap_or(false);
-            if lit > 0 {
-                value
-            } else {
-                !value
-            }
+            if lit > 0 { value } else { !value }
         })
     })
 }

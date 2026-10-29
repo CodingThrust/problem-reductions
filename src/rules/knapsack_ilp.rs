@@ -7,7 +7,7 @@
 //!
 //! Items exceeding capacity are fixed to zero and omitted from the capacity row.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

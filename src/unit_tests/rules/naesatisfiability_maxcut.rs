@@ -57,7 +57,6 @@ fn test_naesatisfiability_to_maxcut_single_clause() {
 
 #[test]
 fn test_naesatisfiability_to_maxcut_two_literal_clause() {
-    // Clause with 2 literals: (x1, ~x2) — always NAE-satisfying unless x1=T, x2=F or x1=F, x2=T... actually (x1, ~x2) is NAE-unsatisfied when both literals are same: x1=T,~x2=T (x2=F) or x1=F,~x2=F (x2=T).
     // NAE-satisfied when x1 != ~x2, i.e., x1 == x2.
     let naesat = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
     let reduction = ReduceTo::<Decision<MaxCut<SimpleGraph, i64>>>::reduce_to(&naesat)
@@ -115,7 +114,6 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
     let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![true, false, true]); // x1=T, x2=F, x3=T
 
-    // Verify this is a valid NAE-SAT solution
     assert!(naesat.evaluate(&extracted).unwrap().0);
 }
 
@@ -227,9 +225,11 @@ fn check_every_cut(source: &NAESatisfiability) {
         decoded.iter().any(|&valid| valid)
     );
     assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Or(false)).0);
-    assert!(reduction
-        .extract_solution(&vec![false; target.num_vertices() + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false; target.num_vertices() + 1])
+            .is_err()
+    );
 }
 
 #[test]

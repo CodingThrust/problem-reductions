@@ -2,7 +2,7 @@
 use crate::models::algebraic::QUBO;
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::rules::qubo_helpers::{
-    invert_permutation, pair_index, tournament_ranks, ObjectiveEncoding, QuboBuilder,
+    ObjectiveEncoding, QuboBuilder, invert_permutation, pair_index, tournament_ranks,
 };
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;

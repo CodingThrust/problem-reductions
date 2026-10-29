@@ -24,7 +24,7 @@
 //! Note: All-pairs shortest-path distances are computed using weighted shortest
 //! paths over `edge_lengths`. Unreachable assignment variables are forced to 0.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinMaxMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -133,7 +133,7 @@ fn weighted_distances_mmc(
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * max_numeric_magnitude_bits + num_vertices",
-        num_nonzeros = "(num_vertices + num_vertices^2 + 1) * (2 * num_vertices^2 + 3 * num_vertices + 2)",
+        num_nonzeros = "5 * num_vertices^2 + 3 * num_vertices + 1",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinMaxMulticenter<SimpleGraph, i64> {
@@ -257,8 +257,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minmaxmulticenter_to_ilp",
         build: || {
-            // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
-            // Optimal: place center at vertex 1; max distance = 1.
             let source = MinMaxMulticenter::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1i64; 3],

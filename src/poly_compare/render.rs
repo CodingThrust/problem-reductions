@@ -1,7 +1,7 @@
 //! Human-readable certificates and the version-5 exact JSON proof schema.
 use super::*;
 use serde::{Serialize, Serializer};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::fmt;
 
 fn monomial(m: &Monomial) -> String {
@@ -10,10 +10,11 @@ fn monomial(m: &Monomial) -> String {
         .to_string()
 }
 fn powers(m: &Monomial) -> Value {
-    json!(m
-        .iter()
-        .map(|(v, e)| (v.to_string(), e.to_string()))
-        .collect::<BTreeMap<_, _>>())
+    json!(
+        m.iter()
+            .map(|(v, e)| (v.to_string(), e.to_string()))
+            .collect::<BTreeMap<_, _>>()
+    )
 }
 fn domain(d: &BTreeSet<Symbol>) -> Vec<String> {
     d.iter().map(ToString::to_string).collect()
@@ -33,10 +34,11 @@ fn leading(p: &BTreeMap<BigUint, BigRational>) -> String {
         .unwrap_or_else(|| "0".into())
 }
 fn univariate(p: &BTreeMap<BigUint, BigRational>) -> Value {
-    json!(p
-        .iter()
-        .map(|(e, c)| json!({"exponent":e.to_string(), "coefficient":c.to_string()}))
-        .collect::<Vec<_>>())
+    json!(
+        p.iter()
+            .map(|(e, c)| json!({"exponent":e.to_string(), "coefficient":c.to_string()}))
+            .collect::<Vec<_>>()
+    )
 }
 
 impl fmt::Display for Reason {
@@ -45,7 +47,10 @@ impl fmt::Display for Reason {
             Self::NotPolynomial(s) => write!(f, "not polynomial: {s}"),
             Self::Unavailable(e) => write!(f, "unavailable: {e}"),
             Self::MissingField => write!(f, "field missing on one path"),
-            Self::Validity => write!(f, "Newton coverage fails; no regular witness found positive for every batch certificate"),
+            Self::Validity => write!(
+                f,
+                "Newton coverage fails; no regular witness found positive for every batch certificate"
+            ),
             Self::ResourceLimit(s) => write!(f, "resource limit: {s}"),
         }
     }

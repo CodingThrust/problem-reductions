@@ -3,22 +3,22 @@
 //! This module provides functions to map arbitrary graphs to King's SubGraph
 //! (8-connected grid graphs). It supports both unweighted and weighted mapping modes.
 
-use super::super::copyline::{create_copylines, mis_overhead_copyline, CopyLine};
+use super::super::copyline::{CopyLine, create_copylines, mis_overhead_copyline};
 use super::super::grid::MappingGrid;
 use super::super::pathdecomposition::{
-    pathwidth, vertex_order_from_layout, PathDecompositionMethod,
+    PathDecompositionMethod, pathwidth, vertex_order_from_layout,
 };
 use super::gadgets::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, KsgPattern,
-    KsgTapeEntry,
+    KsgPattern, KsgTapeEntry, apply_crossing_gadgets, apply_simplifier_gadgets,
+    tape_entry_mis_overhead,
 };
 use super::gadgets_weighted::{
-    apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
-    weighted_tape_entry_mis_overhead, WeightedKsgPattern, WeightedKsgTapeEntry,
+    WeightedKsgPattern, WeightedKsgTapeEntry, apply_weighted_crossing_gadgets,
+    apply_weighted_simplifier_gadgets, weighted_tape_entry_mis_overhead,
 };
 use super::{PADDING, SPACING};
-use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
 use crate::rules::ReductionError;
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
 use crate::topology::{Graph, KingsSubgraph, TriangularSubgraph};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -95,7 +95,6 @@ impl<T> MappingResult<T> {
     pub fn format_config(&self, config: &[Vec<usize>]) -> String {
         let (rows, cols) = self.grid_dimensions;
 
-        // Build position to node index map
         let mut pos_to_node: HashMap<(i64, i64), usize> = HashMap::new();
         for (idx, &(r, c)) in self.positions.iter().enumerate() {
             pos_to_node.insert((r, c), idx);
@@ -118,11 +117,7 @@ impl<T> MappingResult<T> {
                 let has_node = pos_to_node.contains_key(&(row, column));
 
                 let s = if has_node {
-                    if is_selected {
-                        "*"
-                    } else {
-                        "o"
-                    }
+                    if is_selected { "*" } else { "o" }
                 } else {
                     "."
                 };
@@ -193,11 +188,7 @@ impl<T> MappingResult<T> {
                     } else {
                         let w = self.node_weights[idx];
                         let ws = format!("{}", w);
-                        if ws.len() == 1 {
-                            ws
-                        } else {
-                            "●".to_string()
-                        }
+                        if ws.len() == 1 { ws } else { "●".to_string() }
                     }
                 } else {
                     "⋅".to_string()
@@ -594,7 +585,6 @@ pub fn map_unweighted_with_order(
             .ok_or(mapping_integer_overflow("summing copy-line MIS overhead"))
     })?;
 
-    // Add MIS overhead from gadgets
     let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
         total
             .checked_add(tape_entry_mis_overhead(entry)?)
@@ -714,7 +704,6 @@ pub fn map_weighted_with_order(
         ))
     })?;
 
-    // Add MIS overhead from weighted gadgets
     let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
         total
             .checked_add(weighted_tape_entry_mis_overhead(entry)?)
@@ -735,7 +724,6 @@ pub fn map_weighted_with_order(
         ));
     }
 
-    // Extract positions and weights from occupied cells
     let positions_and_weights = grid
         .occupied_coords()
         .into_iter()

@@ -283,9 +283,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // e = (1 ∪ 4) + (3 ∪ 6) + (2 ∪ 5), K = 12
-    // 3 union nodes → 8 configs. Set = {6, 9, 12, 15}.
-    // Witness: choose right(4), right(6), left(2) → 4+6+2=12, config=[1,1,0]
     let expr = IntExpr::Sum(
         Box::new(IntExpr::Sum(
             Box::new(IntExpr::Union(

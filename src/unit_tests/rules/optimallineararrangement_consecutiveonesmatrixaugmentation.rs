@@ -7,7 +7,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Or;
 
-/// The 6-vertex / 7-edge worked example from the issue (path + two chords).
+/// The 6-vertex / 7-edge worked example (path + two chords).
 fn example_graph() -> SimpleGraph {
     SimpleGraph::new(
         6,
@@ -31,7 +31,6 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_structure(
     assert_eq!(target.num_cols(), 6); // num_vertices
     assert_eq!(target.bound(), 4); // k - m = 11 - 7
 
-    // Verify the incidence matrix encodes edge endpoints.
     let expected = vec![
         vec![true, true, false, false, false, false], // {0,1}
         vec![false, true, true, false, false, false], // {1,2}
@@ -191,9 +190,11 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
                 Or(true)
             );
         } else {
-            assert!(reduction
-                .extract_solution(&(0..target.num_cols()).collect())
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&(0..target.num_cols()).collect())
+                    .is_err()
+            );
         }
     }
 }

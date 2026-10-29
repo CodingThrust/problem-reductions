@@ -100,10 +100,12 @@ fn test_find_path_schema_accepts_complete_problem_json() {
         "problem_json": "{\"type\":\"MaximumIndependentSet\",\"variant\":{},\"data\":{}}"
     }))
     .unwrap();
-    assert!(params
-        .problem_json
-        .unwrap()
-        .contains("MaximumIndependentSet"));
+    assert!(
+        params
+            .problem_json
+            .unwrap()
+            .contains("MaximumIndependentSet")
+    );
 }
 
 #[test]
@@ -245,11 +247,13 @@ fn test_create_problem_longest_circuit_random() {
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["type"], "LongestCircuit");
     assert_eq!(json["data"]["graph"]["num_vertices"], 5);
-    assert!(json["data"]["edge_lengths"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .all(|length| length == 1));
+    assert!(
+        json["data"]["edge_lengths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|length| length == 1)
+    );
 }
 
 #[test]
@@ -473,7 +477,6 @@ fn deterministic_solver_dispatch_mcp_output_is_repeatable_for_each_solver_class(
 fn test_solve_bundle() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    // Reduce first, then solve the bundle
     let bundle_json = server
         .reduce_inner(
             &problem_json,

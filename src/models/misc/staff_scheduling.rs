@@ -163,6 +163,11 @@ impl StaffScheduling {
         self.num_workers
     }
 
+    /// Magnitude bits of the worker budget, with at least one bit.
+    pub fn num_workers_bits(&self) -> u64 {
+        crate::types::max_numeric_magnitude_bits([self.num_workers])
+    }
+
     /// Get the number of schedule patterns.
     pub fn num_schedules(&self) -> usize {
         self.schedules.len()
@@ -232,6 +237,7 @@ impl Problem for StaffScheduling {
         ("num_periods", num_periods),
         ("num_schedules", num_schedules),
         ("num_workers", num_workers),
+        ("num_workers_bits", num_workers_bits),
     ];
 
     fn evaluate(

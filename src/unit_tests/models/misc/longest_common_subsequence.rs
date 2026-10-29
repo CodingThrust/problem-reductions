@@ -103,12 +103,6 @@ fn test_lcs_evaluate_interleaved_padding() {
 #[test]
 fn test_lcs_out_of_range_symbol() {
     let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
-    // Symbol 3 > alphabet_size (2), but 2 is padding. Symbol 3 is truly out of range.
-    // Actually with alphabet_size=2, valid symbols are 0,1 and padding is 2. Symbol 3 is invalid.
-    // But dims allows 0..2, so symbol 3 wouldn't normally appear. Let's test with a symbol
-    // that is neither valid nor padding: but the config space is [0..3), so max valid index is 2.
-    // The evaluate function should reject symbols >= alphabet_size that aren't padding.
-    // Actually let me just test wrong length:
     assert!(matches!(
         problem.evaluate(&vec![Some(0), Some(1)]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
@@ -157,7 +151,7 @@ fn test_lcs_empty_string_max_length_zero() {
     let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]);
     assert_eq!(problem.max_length(), 0);
     assert_eq!(problem.dimensions(), Vec::<usize>::new()); // empty config space
-                                                           // Empty config is the only valid config; LCS length is 0
+    // Empty config is the only valid config; LCS length is 0
     assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 

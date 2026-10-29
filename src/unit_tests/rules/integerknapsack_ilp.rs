@@ -1,6 +1,6 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use crate::models::algebraic::{Bounded, Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, Comparison, ILP, ObjectiveSense};
 use crate::models::set::IntegerKnapsack;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};

@@ -26,6 +26,22 @@ fn test_minimum_code_generation_one_register_validates_persisted_input() {
 use crate::types::Min;
 
 #[test]
+fn test_instruction_count_accepts_exact_limit_and_rejects_overflow() {
+    for additional in [1, 2] {
+        let last_valid_count = i64::MAX - additional;
+        assert_eq!(
+            add_instructions(last_valid_count, additional).unwrap(),
+            i64::MAX
+        );
+        assert!(matches!(
+            add_instructions(last_valid_count + 1, additional),
+            Err(crate::traits::EvaluationError::IntegerOverflow(message))
+                if message == "counting one-register instructions"
+        ));
+    }
+}
+
+#[test]
 fn test_minimum_code_generation_one_register_creation() {
     let problem = MinimumCodeGenerationOneRegister::new(
         7,
@@ -58,7 +74,7 @@ fn test_minimum_code_generation_one_register_creation() {
 
 #[test]
 fn test_minimum_code_generation_one_register_evaluate_optimal() {
-    // Issue #900 example: optimal is 8 instructions
+    // Example: optimal is 8 instructions
     // Evaluation order: v3, v2, v1, v0
     // config[i] = position for internal vertex i
     // internal = [0,1,2,3], so config = [3, 2, 1, 0]
@@ -160,13 +176,6 @@ fn test_minimum_code_generation_one_register_invalid_permutation() {
 
 #[test]
 fn test_minimum_code_generation_one_register_solver() {
-    // Small instance: 4 vertices, 2 leaves, 2 internal
-    // v0 = op(v1, v2), v1 = op(v2, v3)
-    // Leaves: {2, 3}, Internal: {0, 1}
-    // Edges: (0,1), (0,2), (1,2), (1,3)
-    // Wait — v2 appears as both child and parent?
-    // No: v0 has children v1,v2. v1 has children v2,v3.
-    // Leaves: v2 and v3 have out-degree 0. So num_leaves=2.
     let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
@@ -229,7 +238,6 @@ fn test_minimum_code_generation_one_register_unary_ops() {
 
 #[test]
 fn test_minimum_code_generation_one_register_paper_example() {
-    // Issue #900 example
     let problem = MinimumCodeGenerationOneRegister::new(
         7,
         vec![
@@ -249,35 +257,28 @@ fn test_minimum_code_generation_one_register_paper_example() {
     let config = vec![3, 2, 1, 0];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(8)));
 
-    // Verify with brute force
     let solver = BruteForce::new();
     let result_solution = solver.solve(&problem).unwrap().unwrap();
     let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(8)));
 
-    // Verify witness
     let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(8));
 }
 
 #[test]
-fn test_minimum_code_generation_one_register_lost_value() {
-    // Test that a value computed but not stored and overwritten becomes unavailable
+fn test_minimum_code_generation_one_register_stores_live_value_before_overwrite() {
     // v0 = op(v1, v2), v1 = op(v3, v4), v2 = op(v3, v5)
     // Leaves: {3, 4, 5}, Internal: {0, 1, 2}
-    // If we evaluate v1, then v2 (overwriting v1 in register without storing),
-    // then v0 needs v1 which is lost.
     let problem = MinimumCodeGenerationOneRegister::new(
         6,
         vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 3), (2, 5)],
         3,
     );
-    // Order: v1, v2, v0 => config: v0->2, v1->0, v2->1
-    let config = vec![2, 0, 1];
-    // v1 computed first, but v1 is needed by v0.
-    // When v2 is computed, we should check if v1 needs to be stored.
-    // future_uses[1] = 1 (used by v0), so STORE v1 before computing v2.
-    // So this should NOT be None — the simulation stores v1 automatically.
-    let result = problem.simulate(&config).unwrap();
-    assert!(result.is_some());
+    // Each child needs LOAD + OP. Preserve the first child with one STORE,
+    // then combine the stored child and the register with one OP: 2 + 1 + 2 + 1.
+    for config in [vec![2, 0, 1], vec![2, 1, 0]] {
+        assert_eq!(problem.simulate(&config).unwrap(), Some(6));
+        assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
+    }
 }

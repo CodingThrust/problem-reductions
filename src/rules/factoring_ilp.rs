@@ -19,7 +19,7 @@
 //! 4. Binary bounds: p_i ≤ 1, q_j ≤ 1
 //! 5. Carry bounds: 0 ≤ c_k ≤ min(m, n)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -88,24 +88,18 @@ impl ReductionResult for ReductionFactoringToILP {
         )?;
 
         Ok({
-            // Extract p bits (first factor)
             let p = (0..self.m)
                 .filter(|&i| target_solution[self.p_var(i)] == 1)
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
                     value + (num_bigint::BigUint::from(1u8) << index)
                 });
 
-            // Extract q bits (second factor)
             let q = (0..self.n)
                 .filter(|&j| target_solution[self.q_var(j)] == 1)
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
                     value + (num_bigint::BigUint::from(1u8) << index)
                 });
-            if p <= q {
-                (p, q)
-            } else {
-                (q, p)
-            }
+            if p <= q { (p, q) } else { (q, p) }
         })
     }
 }
@@ -184,7 +178,6 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for Factoring {
                 }
             }
 
-            // Add carry_in (from position k-1)
             if k > 0 {
                 terms.push((carry_var(k - 1), 1));
             }

@@ -3,7 +3,7 @@
 //! Tests square lattice mapping, MappingResult, and config_back.
 
 use super::common::{is_independent_set, solve_mis, solve_mis_config};
-use crate::rules::unitdiskmapping::{ksg, GridKind, MappingResult};
+use crate::rules::unitdiskmapping::{GridKind, MappingResult, ksg};
 use crate::topology::smallgraph;
 
 // === Square Lattice Basic Tests ===
@@ -325,11 +325,9 @@ fn test_map_config_back_standard_graphs() {
     for name in graph_names {
         let (n, edges) = super::common::small_graph_case(name);
         let result = ksg::map_unweighted(n, &edges).unwrap();
-        // Solve MIS on mapped graph
         let grid_edges = result.edges();
         let grid_config = solve_mis_config(result.positions.len(), &grid_edges);
 
-        // Extract original config using gadget traceback
         let original_config = result.map_config_back(&grid_config).unwrap();
         // Verify it's a valid independent set
         assert!(
@@ -394,7 +392,7 @@ fn test_grid_graph_nodes_have_weights() {
 
 // === Tape Entry and Ruleset Tests ===
 
-use crate::rules::unitdiskmapping::ksg::{tape_entry_mis_overhead, KsgTapeEntry};
+use crate::rules::unitdiskmapping::ksg::{KsgTapeEntry, tape_entry_mis_overhead};
 
 #[test]
 fn test_tape_entry_mis_overhead_crossing_patterns() {

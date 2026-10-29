@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -18,7 +18,7 @@ fn small_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     )
 }
 
-/// Canonical instance from issue #901: 5 vertices, 8 edges.
+/// Canonical instance: 5 vertices, 8 edges.
 fn canonical_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     MinimumCapacitatedSpanningTree::new(
         SimpleGraph::new(

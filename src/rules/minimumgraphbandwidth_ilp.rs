@@ -7,7 +7,7 @@
 //! - For each edge (u,v): pos_u - pos_v <= B, pos_v - pos_u <= B
 //! - Objective: minimize B
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumGraphBandwidth;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -56,7 +56,7 @@ impl ReductionResult for ReductionMGBToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_vertices^2 + num_vertices + 1) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges)",
+        num_nonzeros = "4 * num_vertices^2 + 2 * num_vertices + 1 + 6 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumGraphBandwidth<SimpleGraph> {
@@ -154,7 +154,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumgraphbandwidth_to_ilp",
         build: || {
-            // Star S4: center 0 connected to 1, 2, 3
             let source =
                 MinimumGraphBandwidth::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)

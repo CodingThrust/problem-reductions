@@ -6,7 +6,7 @@
 //!   (v or at least one of its neighbors must be selected)
 //! - Objective: Minimize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -52,10 +52,10 @@ impl ReductionResult for ReductionDSToILP {
     exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
+        num_nonzeros = "2 * num_edges + num_vertices",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * num_edges + 2",
-        num_nonzeros = "2 * num_edges + num_vertices",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {

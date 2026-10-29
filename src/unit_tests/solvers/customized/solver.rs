@@ -1,8 +1,8 @@
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::BruteForceProblem as _;
 use crate::solvers::CartesianIndices;
 use crate::solvers::ExactProblemKey;
+use crate::solvers::registry::solver_capability_registry;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -356,7 +356,6 @@ fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
-    // Verify optimality: customized solver returns same value as brute force
     let brute_val = problem.evaluate(brute.as_ref().unwrap()).unwrap();
     let custom_val = problem.evaluate(custom.as_ref().unwrap()).unwrap();
     assert_eq!(
@@ -622,8 +621,8 @@ fn test_solve_two_coloring_direct_graph_cases() {
 
 #[test]
 fn customized_clique_cover_and_decision_preserve_optimum() {
-    use crate::models::graph::MinimumCoveringByCliques;
     use crate::models::Decision;
+    use crate::models::graph::MinimumCoveringByCliques;
     for graph in all_simple_graphs(4).chain([
         SimpleGraph::new(0, vec![]),
         SimpleGraph::new(3, vec![(1, 2)]),

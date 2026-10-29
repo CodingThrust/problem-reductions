@@ -194,7 +194,6 @@ fn test_spinglass_paper_example() {
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), -3);
 
-    // Verify this is optimal
     let all_best = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(!all_best.is_empty());
     assert_eq!(problem.evaluate(&all_best[0]).unwrap().unwrap(), -3);

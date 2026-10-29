@@ -76,8 +76,8 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
 }
 
 #[test]
-fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers_all_active_vertices(
-) {
+fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers_all_active_vertices()
+ {
     let source = decision_mvc(3, &[(0, 1), (1, 2)], 3);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");

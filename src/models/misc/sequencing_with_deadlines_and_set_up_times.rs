@@ -39,7 +39,7 @@ inventory::submit! {
 /// This is problem SS14 in Garey & Johnson (1979), written
 /// $1 | s_{ij} | \text{feasibility}$.
 ///
-/// Configurations are direct permutation encodings with `dims() = [n; n]`:
+/// Configurations are direct permutation encodings with `dimensions() = [n; n]`:
 /// each position holds the index of the task scheduled at that position.
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]
@@ -163,16 +163,16 @@ impl SequencingWithDeadlinesAndSetUpTimes {
         let mut prev_compiler: Option<usize> = None;
         for &task in schedule {
             // Add setup time if the compiler switches.
-            if let Some(prev) = prev_compiler {
-                if prev != self.compilers[task] {
-                    elapsed = elapsed
-                        .checked_add(self.setup_times[self.compilers[task]])
-                        .ok_or_else(|| {
-                            crate::traits::EvaluationError::IntegerOverflow(
-                                "adding sequencing setup time".to_string(),
-                            )
-                        })?;
-                }
+            if let Some(prev) = prev_compiler
+                && prev != self.compilers[task]
+            {
+                elapsed = elapsed
+                    .checked_add(self.setup_times[self.compilers[task]])
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding sequencing setup time".to_string(),
+                        )
+                    })?;
             }
             elapsed = elapsed.checked_add(self.lengths[task]).ok_or_else(|| {
                 crate::traits::EvaluationError::IntegerOverflow(
@@ -268,14 +268,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_with_deadlines_and_set_up_times",
-        // 5 tasks, lengths [2,3,1,2,2], deadlines [4,11,3,16,7], compilers [0,1,0,1,0],
-        // setup_times [1,2].
-        // Optimal config: [2,0,4,1,3] (tasks t3,t1,t5,t2,t4 in 1-indexed)
-        // Position 0: task 2 (compiler 0), no prev  → elapsed = 0+1 = 1  ≤ d[2]=3 ✓
-        // Position 1: task 0 (compiler 0), same     → elapsed = 1+2 = 3  ≤ d[0]=4 ✓
-        // Position 2: task 4 (compiler 0), same     → elapsed = 3+2 = 5  ≤ d[4]=7 ✓
-        // Position 3: task 1 (compiler 1), switch+s[1]=2 → elapsed = 5+2+3 = 10 ≤ d[1]=11 ✓
-        // Position 4: task 3 (compiler 1), same     → elapsed = 10+2 = 12 ≤ d[3]=16 ✓
         instance: Box::new(SequencingWithDeadlinesAndSetUpTimes::new(
             vec![2, 3, 1, 2, 2],
             vec![4, 11, 3, 16, 7],

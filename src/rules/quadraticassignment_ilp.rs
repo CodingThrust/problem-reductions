@@ -8,7 +8,7 @@
 //! - Objective: minimize sum_{i!=j} C[i][j] * D[p][q] * z_{(i,p),(j,q)}
 
 use crate::models::algebraic::QuadraticAssignment;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_assignment_constraints};
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -132,7 +132,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "quadraticassignment_to_ilp",
         build: || {
-            // 2x2 QAP: 2 facilities, 2 locations
             let source = QuadraticAssignment::new(
                 vec![vec![0, 1], vec![1, 0]],
                 vec![vec![0, 2], vec![2, 0]],

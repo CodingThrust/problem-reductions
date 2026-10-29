@@ -1,7 +1,7 @@
 //! Direct quadratic encoding of MaximumLikelihoodRanking.
 use crate::models::algebraic::QUBO;
 use crate::models::misc::MaximumLikelihoodRanking;
-use crate::rules::qubo_helpers::{pair_index, tournament_ranks, ObjectiveEncoding, QuboBuilder};
+use crate::rules::qubo_helpers::{ObjectiveEncoding, QuboBuilder, pair_index, tournament_ranks};
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;
 

@@ -82,9 +82,11 @@ fn test_flow_conservation_simple_path() {
 
     // Solution: f_01 = 1, f_12 = 1
     let values = vec![1i64, 1];
-    assert!(constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&values).unwrap()));
+    assert!(
+        constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&values).unwrap())
+    );
 }
 
 #[test]
@@ -113,17 +115,23 @@ fn test_abs_diff_le() {
 
     // |a - b| <= z
     // a=3, b=1, z=2: |3-1|=2 <= 2 ✓
-    assert!(constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&[3, 1, 2]).unwrap()));
+    assert!(
+        constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&[3, 1, 2]).unwrap())
+    );
     // a=3, b=1, z=1: |3-1|=2 > 1 ✗
-    assert!(!constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&[3, 1, 1]).unwrap()));
+    assert!(
+        !constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&[3, 1, 1]).unwrap())
+    );
     // a=1, b=3, z=2: |1-3|=2 <= 2 ✓
-    assert!(constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&[1, 3, 2]).unwrap()));
+    assert!(
+        constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&[1, 3, 2]).unwrap())
+    );
 }
 
 #[test]
@@ -136,13 +144,17 @@ fn test_minimax_constraints() {
     assert_eq!(constraints.len(), 2);
 
     // z=5, x_0=3, x_1=4: z >= max(3,4) ✓
-    assert!(constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&[3, 4, 5]).unwrap()));
+    assert!(
+        constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&[3, 4, 5]).unwrap())
+    );
     // z=3, x_0=3, x_1=4: z < max(3,4) ✗
-    assert!(!constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&[3, 4, 3]).unwrap()));
+    assert!(
+        !constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&[3, 4, 3]).unwrap())
+    );
 }
 
 #[test]
@@ -217,7 +229,9 @@ fn test_one_hot_assignment_constraints() {
     solution[0] = 1; // item 0 -> slot 0
     solution[4] = 1; // item 1 -> slot 1
     solution[8] = 1; // item 2 -> slot 2
-    assert!(constraints
-        .iter()
-        .all(|constraint| constraint.is_satisfied(&solution).unwrap()));
+    assert!(
+        constraints
+            .iter()
+            .all(|constraint| constraint.is_satisfied(&solution).unwrap())
+    );
 }

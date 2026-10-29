@@ -213,7 +213,6 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         let edges = self.graph.edges();
         let n = self.graph.num_vertices();
 
-        // Check all required edges are traversed at least once
         for &req_idx in &self.required_edges {
             if config[req_idx] == 0 {
                 return Ok(None);
@@ -364,8 +363,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // Issue #248 instance 1: hexagonal graph, 8 edges, E'={e0,e2,e4}
-    // Solution: hexagon cycle with all 6 unit-cost edges, config [1,1,1,1,1,1,0,0], cost=6
     let graph = SimpleGraph::new(
         6,
         vec![
@@ -415,8 +412,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_rural_postman_to_rural_postman",
         build: || {
