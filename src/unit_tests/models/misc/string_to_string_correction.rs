@@ -93,10 +93,8 @@ fn test_string_to_string_correction_solver() {
 fn test_string_to_string_correction_paper_example() {
     // Paper example: source [0,1,2,3,1,0], target [0,1,3,2,1], bound 2
     let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
-    // Verify the known solution
     assert!(problem.evaluate(&vec![8, 5]).unwrap());
 
-    // Verify all solutions with brute force
     let solver = BruteForce::new();
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());

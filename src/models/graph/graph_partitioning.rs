@@ -122,7 +122,6 @@ where
             if count_ones != n / 2 {
                 return Ok(Min(None));
             }
-            // Count crossing edges
             let mut cut = 0i64;
             for (u, v) in self.graph.edges() {
                 if config[u] != config[v] {
@@ -154,7 +153,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // Two triangles connected by 3 edges; balanced cut = 3
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "graph_partitioning",
         instance: Box::new(GraphPartitioning::new(SimpleGraph::new(

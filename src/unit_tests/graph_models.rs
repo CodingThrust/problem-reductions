@@ -1,8 +1,5 @@
 //! Unit tests for graph problems.
 //!
-//! Tests extracted from source files for better compilation times
-//! and clearer separation of concerns.
-
 use crate::models::graph::kcoloring::is_valid_coloring;
 use crate::models::graph::maximum_independent_set::is_independent_set;
 use crate::models::graph::minimum_vertex_cover::is_vertex_cover;
@@ -79,7 +76,7 @@ mod maximum_independent_set {
         let problem =
             MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i64; 4]);
 
-        // Invalid: 0 and 1 are adjacent - returns Invalid
+        // Vertices 0 and 1 are adjacent.
         assert_eq!(
             problem.evaluate(&vec![true, true, false, false]).unwrap(),
             Max(None)
@@ -152,7 +149,6 @@ mod maximum_independent_set {
         for sol in &solutions {
             let size: usize = sol.iter().filter(|&&selected| selected).count();
             assert_eq!(size, 2);
-            // Verify it's valid (evaluate returns Valid, not Invalid)
             assert_eq!(problem.evaluate(sol).unwrap(), Max(Some(2)));
         }
     }
@@ -232,7 +228,6 @@ mod maximum_independent_set {
         let problem =
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-        // Valid IS configurations return is_valid() == true
         assert!(problem
             .evaluate(&vec![true, false, true])
             .unwrap()
@@ -241,7 +236,6 @@ mod maximum_independent_set {
             .evaluate(&vec![false, true, false])
             .unwrap()
             .is_valid());
-        // Invalid configurations return Invalid
         assert_eq!(
             problem.evaluate(&vec![true, true, false]).unwrap(),
             Max(None)
@@ -301,7 +295,6 @@ mod minimum_vertex_cover {
         let problem =
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-        // Invalid: no vertex selected - returns Invalid for minimization
         assert_eq!(
             problem.evaluate(&vec![false, false, false]).unwrap(),
             Min(None)
@@ -340,7 +333,6 @@ mod minimum_vertex_cover {
         assert_eq!(solutions.len(), 3);
         for sol in &solutions {
             assert_eq!(sol.iter().filter(|&&selected| selected).count(), 2);
-            // Verify valid (not Invalid)
             assert!(problem.evaluate(sol).unwrap().is_valid());
         }
     }
@@ -409,7 +401,6 @@ mod minimum_vertex_cover {
         let problem =
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-        // Valid cover configurations return is_valid() == true
         assert!(problem
             .evaluate(&vec![false, true, false])
             .unwrap()
@@ -418,7 +409,6 @@ mod minimum_vertex_cover {
             .evaluate(&vec![true, false, true])
             .unwrap()
             .is_valid());
-        // Invalid configurations return Invalid
         assert_eq!(
             problem.evaluate(&vec![true, false, false]).unwrap(),
             Min(None)
@@ -443,7 +433,6 @@ mod minimum_vertex_cover {
         for is_sol in &is_solutions {
             // Complement should be a valid vertex cover
             let vc_config: Vec<bool> = is_sol.iter().map(|&selected| !selected).collect();
-            // Valid cover returns is_valid() == true
             assert!(vc_problem.evaluate(&vc_config).unwrap().is_valid());
         }
     }
@@ -476,12 +465,12 @@ mod minimum_vertex_cover {
 
 mod integral_flow_homologous_arcs {
     use super::*;
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
 
     #[test]
     fn test_creation() {
         let problem = IntegralFlowHomologousArcs::new(
-            DirectedGraph::new(
+            MultiDigraph::new(
                 6,
                 vec![
                     (0, 1),

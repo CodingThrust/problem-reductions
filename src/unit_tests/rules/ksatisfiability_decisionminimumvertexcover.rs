@@ -107,7 +107,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_empty_clause() {
     let source = KSatisfiability::<K3>::new_allow_less(0, vec![CNFClause::new(vec![])]);
     let reduction =
         ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().bound(), &2);
+    assert_eq!(reduction.target_problem().bound(), &-1);
     assert!(BruteForce::new().solve(&source).unwrap().is_none());
     assert!(BruteForce::new()
         .solve(reduction.target_problem())

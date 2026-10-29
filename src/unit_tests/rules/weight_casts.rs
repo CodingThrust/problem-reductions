@@ -4,7 +4,7 @@ use crate::models::set::ComparativeContainment;
 use crate::models::Decision;
 use crate::rules::{ReductionError, ReductionGraph};
 use crate::solvers::{BruteForce, BruteForceProblem};
-use crate::topology::{DirectedGraph, MixedGraph, SimpleGraph};
+use crate::topology::{MultiDigraph, MultiMixedGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{One, MAX_EXACT_F64_INTEGER};
 use crate::variant::KN;
@@ -144,7 +144,7 @@ fn unit_weight_promotions_preserve_instances_and_optima() {
     );
     assert_cast::<MinimumFeedbackVertexSet<One>, MinimumFeedbackVertexSet<i64>>(
         MinimumFeedbackVertexSet::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
             vec![One; 3],
         ),
         true,
@@ -163,7 +163,7 @@ fn unit_weight_promotions_preserve_instances_and_optima() {
     );
     assert_cast::<MixedChinesePostman<One>, MixedChinesePostman<i64>>(
         MixedChinesePostman::new(
-            MixedGraph::new(2, vec![(0, 1)], vec![(0, 1)]),
+            MultiMixedGraph::new(2, vec![(0, 1)], vec![(0, 1)]),
             vec![One],
             vec![One],
         ),

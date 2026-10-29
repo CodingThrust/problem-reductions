@@ -281,7 +281,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_sets",
-        // YES instance from issue: w = [0, 4, 2, 5, 1, 3]
         instance: Box::new(ConsecutiveSets::new(
             6,
             vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],

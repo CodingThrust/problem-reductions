@@ -298,8 +298,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        // B = [[1,0],[1,1],[0,1]], C = [[1,1,0],[0,1,1]].
-        // Total 1s: 4 in B + 4 in C = 8, and B * C = A exactly.
         optimal_config: serde_json::json!((
             vec![vec![true, false], vec![true, true], vec![false, true]],
             vec![vec![true, true, false], vec![false, true, true]]

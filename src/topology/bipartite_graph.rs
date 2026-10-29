@@ -3,7 +3,7 @@
 use super::graph::Graph;
 use serde::{Deserialize, Serialize};
 
-/// Bipartite graph with explicit left/right partitions.
+/// Simple bipartite graph with explicit left/right partitions.
 ///
 /// Vertices are split into left (indices `0..left_size`) and right (`0..right_size`).
 /// Edges connect left vertices to right vertices using bipartite-local coordinates.
@@ -56,12 +56,13 @@ impl BipartiteGraph {
     /// # Panics
     ///
     /// Panics if any edge references an out-of-bounds left or right vertex index,
-    /// or if the combined vertex count overflows `usize`.
+    /// if a pair is repeated, or if the combined vertex count overflows `usize`.
     pub fn new(left_size: usize, right_size: usize, edges: Vec<(usize, usize)>) -> Self {
         Self::try_new(left_size, right_size, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a simple bipartite graph with checked partition sizes and edges.
+    pub fn try_new(
         left_size: usize,
         right_size: usize,
         edges: Vec<(usize, usize)>,
@@ -83,6 +84,10 @@ impl BipartiteGraph {
                 .into());
             }
         }
+        super::graph::validate_simple_connections(
+            edges.iter().map(|&(u, v)| (u, left_size + v)),
+            false,
+        )?;
         Ok(Self {
             left_size,
             right_size,

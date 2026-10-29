@@ -11,7 +11,7 @@
 use crate::models::graph::{MinimumFeedbackArcSet, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{DirectedGraph, Graph, SimpleGraph};
+use crate::topology::{Graph, MultiDigraph, SimpleGraph};
 
 /// Result of reducing MinimumVertexCover to MinimumFeedbackArcSet.
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ impl ReduceTo<MinimumFeedbackArcSet<i64>> for MinimumVertexCover<SimpleGraph, i6
             weights.push(big_m);
         }
 
-        let graph = DirectedGraph::new(2 * n, arcs);
+        let graph = MultiDigraph::new(2 * n, arcs);
         let target = MinimumFeedbackArcSet::new(graph, weights);
 
         Ok(ReductionVCToFAS {
@@ -120,8 +120,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumvertexcover_to_minimumfeedbackarcset",
         build: || {
-            // Triangle graph: 0-1-2-0, unit weights
-            // MVC optimal = 2 vertices (e.g., {0, 1})
             let source = MinimumVertexCover::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
                 vec![1i64; 3],

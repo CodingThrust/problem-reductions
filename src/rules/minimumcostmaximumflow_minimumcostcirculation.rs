@@ -18,7 +18,7 @@
 use crate::models::graph::{MinimumCostCirculation, MinimumCostMaximumFlow};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 
 /// Result of reducing MinimumCostMaximumFlow to MinimumCostCirculation.
 ///
@@ -118,7 +118,7 @@ impl ReduceTo<MinimumCostCirculation> for MinimumCostMaximumFlow {
             >("negating the return-arc cost")
         })?);
 
-        let target = MinimumCostCirculation::new(DirectedGraph::new(n, arcs), capacities, costs);
+        let target = MinimumCostCirculation::new(MultiDigraph::new(n, arcs), capacities, costs);
 
         Ok(ReductionMCMFToMCC {
             target,
@@ -134,12 +134,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumcostmaximumflow_to_minimumcostcirculation",
         build: || {
-            // Canonical 4-vertex diamond from issue #1029/#1031.
-            // Optimal source flow: [2, 1, 1, 1, 2] with value 3, cost 7.
-            // Target circulation appends return arc (3 -> 0) with
-            // flow value 3, giving config [2, 1, 1, 1, 2, 3].
             let source = MinimumCostMaximumFlow::new(
-                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
+                MultiDigraph::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]),
                 0,
                 3,
                 vec![2, 1, 1, 1, 2],

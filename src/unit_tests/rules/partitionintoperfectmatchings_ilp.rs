@@ -30,21 +30,3 @@ fn test_partitionintoperfectmatchings_to_ilp_closed_loop() {
         }
     }
 }
-#[test]
-fn matching_partition_ignores_loops_and_repeated_adjacencies() {
-    let source = PartitionIntoPerfectMatchings::new(
-        SimpleGraph::new(4, vec![(0, 0), (0, 1), (1, 0), (0, 1), (2, 3)]),
-        1,
-    );
-    let reduced = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
-    crate::rules::test_helpers::assert_parameter_predictions(&source, &reduced);
-    for directions in [vec![0, 0], vec![1, 1]] {
-        let mut target = vec![0, 0, 0, 0, 1, 1];
-        target.extend(directions);
-        let witness = reduced.extract_solution(&target).unwrap();
-        assert!(source.evaluate(&witness).unwrap().0);
-    }
-    for invalid in [vec![], vec![0; 8], vec![1, 0, 0, 0, 1, 1, 0, 0]] {
-        assert!(reduced.extract_solution(&invalid).is_err());
-    }
-}

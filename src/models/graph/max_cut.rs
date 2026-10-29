@@ -3,6 +3,7 @@
 //! The Maximum Cut problem asks for a partition of vertices into two sets
 //! that maximizes the total weight of edges crossing the partition.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -123,34 +124,6 @@ macro_rules! max_cut_create_spec {
 max_cut_create_spec!(MaxCutI64CreateSpec, i64, 1, edge_weights);
 max_cut_create_spec!(MaxCutOneCreateSpec, One, One);
 
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let num_vertices = num_vertices.unwrap_or(inferred);
-    if num_vertices < inferred {
-        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
-    }
-    Ok(SimpleGraph::new(num_vertices, edges))
-}
-
 impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     /// Create a MaxCut problem from a graph with specified edge weights.
     ///
@@ -209,7 +182,6 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
 
     /// Get the weight of an edge between vertices u and v.
     pub fn edge_weight(&self, u: usize, v: usize) -> Option<&W> {
-        // Find the edge index
         for (idx, (eu, ev)) in self.graph.edges().iter().enumerate() {
             if (*eu == u && *ev == v) || (*eu == v && *ev == u) {
                 return self.edge_weights.get(idx);

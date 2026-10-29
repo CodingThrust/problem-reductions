@@ -64,13 +64,7 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let arcs = self.graph().arcs();
-
-        // Build arc set for fast lookup
-        let mut arc_set = std::collections::HashSet::new();
-        for (u, v) in &arcs {
-            arc_set.insert((*u, *v));
-        }
+        let arc_set: std::collections::HashSet<_> = self.graph().inner().iter_arcs().collect();
 
         let x_idx = |v: usize, k: usize| -> usize { v * n + k };
 
@@ -122,7 +116,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "directedhamiltonianpath_to_ilp",
         build: || {
             // Simple directed path: 0->1->2->3
-            let source = DirectedHamiltonianPath::new(crate::topology::DirectedGraph::new(
+            let source = DirectedHamiltonianPath::new(crate::topology::SimpleDigraph::new(
                 4,
                 vec![(0, 1), (1, 2), (2, 3)],
             ));

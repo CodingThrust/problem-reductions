@@ -134,21 +134,18 @@ where
                 let n = self.graph.num_vertices();
                 let q = n / 3;
 
-                // Check config length
                 if config.len() != n {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "partition assignment length does not match the graph vertices".into(),
                     ));
                 }
 
-                // Check all values are in range [0, q)
                 if config.iter().any(|&c| c >= q) {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "partition assignment contains an out-of-range group".into(),
                     ));
                 }
 
-                // Count vertices per group
                 let mut counts = vec![0usize; q];
                 for &c in config {
                     counts[c] += 1;
@@ -169,7 +166,6 @@ where
                     group_pos[g] = pos + 1;
                 }
 
-                // Check each group forms a triangle
                 for verts in &group_verts {
                     if !self.graph.has_edge(verts[0], verts[1]) {
                         return Ok(crate::types::Or(false));

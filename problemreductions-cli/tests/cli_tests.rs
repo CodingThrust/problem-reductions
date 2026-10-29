@@ -10267,3 +10267,228 @@ fn test_extract_reads_bundle_from_stdin() {
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
 }
+
+#[test]
+fn bipartite_create_reports_construction_errors() {
+    for model in ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"] {
+        for (left, edges, expected) in [
+            (
+                "1".to_string(),
+                "0-0,0-0",
+                "edge (0, 1) duplicates an undirected edge",
+            ),
+            (
+                usize::MAX.to_string(),
+                "0-0",
+                "bipartite vertex count overflows usize",
+            ),
+        ] {
+            let output = pred()
+                .args([
+                    "create",
+                    model,
+                    "--left",
+                    &left,
+                    "--right",
+                    "1",
+                    "--biedges",
+                    edges,
+                    "--k",
+                    "1",
+                ])
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8(output.stderr).unwrap();
+            assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+            assert!(stderr.contains(expected), "{model}: {stderr}");
+            assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+        }
+    }
+}
+
+#[test]
+fn schema_graph_create_reports_construction_errors() {
+    for (model, flag, input, expected) in [
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-0",
+            "edge (0, 0) is a self-loop",
+        ),
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "MaximumDomaticNumber",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            "0>1,0>1",
+            "arc (0, 1) duplicates a directed arc",
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, input, "--num-vertices", "3"])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(stderr.contains(expected), "{model}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
+fn schema_graph_create_rejects_vertex_count_overflow() {
+    for (model, flag, input) in [
+        ("HamiltonianCircuit", "--graph", format!("0-{}", usize::MAX)),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            format!("0>{}", usize::MAX),
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, &input])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(
+            stderr.contains("vertex count overflows usize"),
+            "{model}: {stderr}"
+        );
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
+fn simple_graph_create_rejects_loops_and_parallel_edges() {
+    for (edges, offending) in [
+        ("0-0", "edge (0, 0)"),
+        ("0-1,0-1", "edge (0, 1)"),
+        ("0-1,1-0", "edge (1, 0)"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MaximumIndependentSet/SimpleGraph/One",
+                "--graph",
+                edges,
+                "--num-vertices",
+                "3",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains(offending), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
+}
+
+#[test]
+fn simple_directed_models_reject_a_loop_on_create() {
+    for (name, extra) in [
+        (
+            "AcyclicPartition/i64",
+            vec!["--weight-bound", "2", "--cost-bound", "2"],
+        ),
+        ("DirectedHamiltonianPath", vec![]),
+        ("Kernel", vec![]),
+        ("MinimumDummyActivitiesPert", vec![]),
+        (
+            "MultipleChoiceBranching/i64",
+            vec!["--weights", "1", "--partition", "0", "--threshold", "1"],
+        ),
+        (
+            "StrongConnectivityAugmentation/i64",
+            vec!["--candidate-arcs", "0-1:1", "--bound", "1"],
+        ),
+    ] {
+        let output = pred()
+            .args(["create", name, "--arcs", "0>0", "--num-vertices", "2"])
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{name} accepted a loop");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("arc (0, 0)"), "{name}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{name}: {stderr}");
+    }
+}
+
+#[test]
+fn mixed_chinese_postman_create_preserves_weighted_parallel_loops() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman/i64",
+            "--graph",
+            "0-0,0-0",
+            "--arcs",
+            "0>0,0>0",
+            "--num-vertices",
+            "1",
+            "--edge-weights",
+            "5,7",
+            "--arc-weights",
+            "2,3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
+        serde_json::from_value(json["data"].clone()).unwrap();
+    assert_eq!(problem.graph().edges(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.graph().arcs(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.arc_weights(), &[2, 3]);
+    assert_eq!(problem.edge_weights(), &[5, 7]);
+    assert_eq!(
+        problemreductions::Problem::evaluate(&problem, &vec![false, true]).unwrap(),
+        problemreductions::Min(Some(17))
+    );
+}
+
+#[test]
+fn mixed_chinese_postman_create_rejects_invalid_endpoints_and_weights() {
+    for (arcs, edge_weights, arc_weights, expected) in [
+        ("0>1", "3", "2", "endpoint is out of range"),
+        ("0>0", "2,3", "2", "edge_weights has length"),
+        ("0>0", "3", "-1", "must be nonnegative"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MixedChinesePostman/i64",
+                "--graph",
+                "0-0",
+                "--arcs",
+                arcs,
+                "--num-vertices",
+                "1",
+                "--edge-weights",
+                edge_weights,
+                "--arc-weights",
+                arc_weights,
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(expected), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
+}

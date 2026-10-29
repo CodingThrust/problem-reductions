@@ -115,9 +115,9 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 
 #[cfg(any(test, feature = "example-db"))]
 fn issue_example_source() -> MinimumFeedbackVertexSet<One> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     MinimumFeedbackVertexSet::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![One; 3],
     )
 }

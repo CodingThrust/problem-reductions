@@ -98,7 +98,7 @@ impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
             }
         }
 
-        let graph = BipartiteGraph::new(spec.left, spec.right, spec.biedges);
+        let graph = BipartiteGraph::try_new(spec.left, spec.right, spec.biedges)?;
         Ok(Self::new(graph, spec.k))
     }
 }
@@ -382,10 +382,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::BipartiteGraph;
-    // Biclique 0: L_0={ℓ_1}, R_0={r_1, r_2} — covers edges (0,0), (0,1).
-    // Biclique 1: L_1={ℓ_2}, R_1={r_2, r_3} — covers edges (1,1), (1,2).
-    // Both are sub-bicliques of G; every edge covered; total size = 6.
-    // One incidence row per biclique over the five vertices.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biclique_cover",
         instance: Box::new(BicliqueCover::new(

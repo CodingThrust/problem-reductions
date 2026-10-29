@@ -187,11 +187,7 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // Star graph S4: center 0 connected to 1, 2, 3
-    // Config [1,0,2,3]: f(0)=1, f(1)=0, f(2)=2, f(3)=3
-    // Bandwidth = max(|1-0|, |1-2|, |1-3|) = max(1, 1, 2) = 2
-    // Optimal bandwidth for S4 is 2 (center must be adjacent to all leaves,
-    // placing center at position 1 achieves max stretch 2).
+    // The center has three neighbors, forcing bandwidth at least 2.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_graph_bandwidth",
         instance: Box::new(MinimumGraphBandwidth::new(SimpleGraph::new(

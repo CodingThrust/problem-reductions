@@ -43,12 +43,6 @@ fn test_isomorphicspanningtree_evaluation_yes() {
 
 #[test]
 fn test_isomorphicspanningtree_evaluation_no() {
-    // Host graph: path 0-1-2 (no edge 0-2)
-    // Tree: star with center 1: edges (0,1), (1,2) -- this is also a path, same structure
-    // Actually let's make a case where it fails:
-    // Host graph: 0-1, 2-3 (disconnected, 2 components)
-    // But wait, the tree must span, so let's use a connected graph where the tree doesn't fit.
-
     // Host graph: path 0-1-2-3 (edges: 0-1, 1-2, 2-3)
     // Tree: star K_{1,3} center=0, leaves=1,2,3 (edges: 0-1, 0-2, 0-3)
     // No vertex in graph has degree 3, so no valid mapping exists
@@ -135,7 +129,6 @@ fn test_isomorphicspanningtree_serialization() {
 
 #[test]
 fn test_isomorphicspanningtree_caterpillar_example() {
-    // Example from the issue: 7-vertex graph with caterpillar tree
     let graph = SimpleGraph::new(
         7,
         vec![
@@ -158,7 +151,6 @@ fn test_isomorphicspanningtree_caterpillar_example() {
     let tree = SimpleGraph::new(7, vec![(0, 1), (1, 2), (2, 3), (3, 4), (1, 5), (2, 6)]);
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
-    // The issue gives solution: a→0, b→1, c→2, d→3, e→6, f→4, g→5
     // As config: π = [0, 1, 2, 3, 6, 4, 5]
     assert!(problem.evaluate(&vec![0, 1, 2, 3, 6, 4, 5]).unwrap());
 }

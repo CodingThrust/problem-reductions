@@ -6,7 +6,7 @@ use crate::types::Min;
 
 #[test]
 fn test_signed_cut_weights_preserve_every_target_optimum() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (1, 1), (0, 1)]);
+    let graph = SimpleGraph::cycle(4);
     let solver = BruteForce::new();
     for encoding in 0..81 {
         let mut digits = encoding;

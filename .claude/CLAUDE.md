@@ -142,7 +142,7 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - Decision-equivalence rules map completed `Or` values identically. Decision-to-optimization rules own their feasibility/threshold map; reject target configurations that do not certify YES instead of returning an invalid source witness. Optimization rules decode optimal witnesses and evaluate the source; register a value map only when mathematically defined. Counting and universal rules map completed folds without witnesses. Follow [result mappings](../docs/src/design.md#result-mappings); no mandatory rule-category tags.
 - Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
-- Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
+- Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph, SimpleDigraph, MultiDigraph, MultiMixedGraph
 - Weight types: `One` (unit weight marker), `i64`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits

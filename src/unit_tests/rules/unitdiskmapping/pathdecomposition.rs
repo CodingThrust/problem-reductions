@@ -221,7 +221,7 @@ fn test_pathwidth_auto_large() {
 
 #[test]
 fn test_pathwidth_greedy_is_deterministic() {
-    // Reproduces issue #1061: pathwidth greedy must be deterministic across calls.
+    // pathwidth greedy must be deterministic across calls.
     // Graph is large enough that Auto picks Greedy and tie-breaking in greedy_step
     // is exercised (grid with many symmetric choices).
     let n = 64;
@@ -372,7 +372,7 @@ fn test_ground_truth_vsep_matches_claimed_pathwidth() {
 fn test_branch_and_bound_matches_ground_truth() {
     let entries = load_pathwidth_ground_truth();
     for entry in &entries {
-        // tutte (46 vertices) is too slow for routine B&B; tested separately with #[ignore]
+        // The Tutte certificate and its bounded search case are tested separately.
         if entry.graph == "tutte" {
             continue;
         }
@@ -411,14 +411,46 @@ fn test_branch_and_bound_matches_ground_truth() {
 }
 
 #[test]
-#[ignore] // tutte (46 vertices) takes ~10s in branch-and-bound
 fn test_branch_and_bound_tutte() {
-    let (n, edges) = crate::topology::smallgraph("tutte").unwrap();
+    let (full_n, full_edges) = crate::topology::smallgraph("tutte").unwrap();
+    let certificate = load_pathwidth_ground_truth()
+        .into_iter()
+        .find(|entry| entry.graph == "tutte")
+        .unwrap();
+    assert_eq!(certificate.vertex_order.len(), full_n);
+    assert_eq!(
+        verify_vsep(full_n, &full_edges, &certificate.vertex_order),
+        6
+    );
+
+    // Keep the Tutte case, but search an induced subgraph; the full order is certified above.
+    let n = 14;
+    let edges: Vec<_> = full_edges
+        .into_iter()
+        .filter(|&(u, v)| u < n && v < n)
+        .collect();
+    let mut adjacency = vec![0usize; n];
+    for &(u, v) in &edges {
+        adjacency[u] |= 1 << v;
+        adjacency[v] |= 1 << u;
+    }
+    // Independent subset DP: an ordering's last vertex leaves the preceding subset.
+    let mut optimum = vec![usize::MAX; 1 << n];
+    optimum[0] = 0;
+    for mask in 1usize..1 << n {
+        let boundary = (0..n)
+            .filter(|&v| mask & (1 << v) != 0 && adjacency[v] & !mask != 0)
+            .count();
+        optimum[mask] = (0..n)
+            .filter(|&v| mask & (1 << v) != 0)
+            .map(|v| optimum[mask ^ (1 << v)].max(boundary))
+            .min()
+            .unwrap();
+    }
     let layout = pathwidth(n, &edges, PathDecompositionMethod::MinhThiTrick);
     assert_eq!(layout.vertices.len(), n);
-    assert_eq!(layout.vsep(), 6); // known pathwidth from ground truth
-    let verified = verify_vsep(n, &edges, &layout.vertices);
-    assert_eq!(verified, layout.vsep());
+    assert_eq!(layout.vsep(), optimum[(1 << n) - 1]);
+    assert_eq!(verify_vsep(n, &edges, &layout.vertices), layout.vsep());
 }
 
 #[test]

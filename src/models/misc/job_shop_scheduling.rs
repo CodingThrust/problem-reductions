@@ -343,8 +343,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![(0, 2), (1, 3), (0, 1)],
             ],
         )),
-        // Machine 0 order [0,3,5,8,9,11] => [0,0,0,0,0,0]
-        // Machine 1 order [2,7,1,6,10,4] => [1,3,0,1,1,0]
         optimal_config: serde_json::json!(vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(19),
     }]

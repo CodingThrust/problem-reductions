@@ -6,7 +6,6 @@ use crate::traits::Problem;
 
 #[test]
 fn test_longestcommonsubsequence_to_maximumindependentset_closed_loop() {
-    // Issue example: k=2, s1="ABAC", s2="BACA", alphabet={A=0, B=1, C=2}
     let lcs = LongestCommonSubsequence::new(
         3,
         vec![
@@ -25,7 +24,6 @@ fn test_longestcommonsubsequence_to_maximumindependentset_closed_loop() {
 
 #[test]
 fn test_lcs_to_mis_graph_structure() {
-    // Issue example: should produce 6 vertices, 9 edges
     let lcs = LongestCommonSubsequence::new(
         3,
         vec![
@@ -119,9 +117,6 @@ fn test_lcs_to_mis_extract_solution() {
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
         .expect("reduction should succeed");
 
-    // Vertices: A nodes at indices 0-3, B node at index 4, C node at index 5
-    // Actually the ordering depends on implementation: char 0 (A) first, then 1 (B), then 2 (C)
-    // Let's verify by solving
     let solver = BruteForce::new();
     let witness = solver
         .solve(reduction.target_problem())

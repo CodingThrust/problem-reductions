@@ -22,7 +22,6 @@ pub struct ReductionTravelingSalesmanToQUBO {
     edge_index: HashMap<(usize, usize), usize>,
     objective_offset: i64,
     feasible_energy_upper: i128,
-    small_optimum: Option<(Vec<bool>, i64)>,
 }
 
 impl ReductionResult for ReductionTravelingSalesmanToQUBO {
@@ -51,15 +50,6 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
             },
             "target energy does not encode a feasible tour",
         )?;
-        if self.num_vertices < 3 {
-            return Ok(self
-                .small_optimum
-                .as_ref()
-                .expect("value mapping established a small tour")
-                .0
-                .clone());
-        }
-
         Ok({
             let n = self.num_vertices;
 
@@ -106,11 +96,7 @@ impl crate::rules::AggregateReductionResult for ReductionTravelingSalesmanToQUBO
 
     fn extract_value(&self, value: crate::types::Min<i64>) -> crate::types::Min<i64> {
         if self.num_vertices < 3 {
-            return crate::types::Min(
-                value
-                    .0
-                    .and(self.small_optimum.as_ref().map(|(_, cost)| *cost)),
-            );
+            return crate::types::Min(None);
         }
         // The offset is nonnegative; below the feasibility bound, the sum is
         // less than A + n * shift <= A, so addition cannot overflow in either direction.
@@ -146,30 +132,8 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             .checked_mul(n)
             .ok_or_else(|| overflow("computing the number of QUBO variables"))?;
 
-        // The source represents a connected degree-two edge set. With fewer
-        // than three vertices this means one loop or two parallel edges.
+        // A simple graph with fewer than three vertices has no Hamiltonian cycle.
         if n < 3 {
-            let mut candidates: Vec<usize> = edges
-                .iter()
-                .enumerate()
-                .filter(|&(_, &(u, v, _))| (n == 1 && u == v) || (n == 2 && u != v))
-                .map(|(index, _)| index)
-                .collect();
-
-            let small_optimum = if n > 0 && candidates.len() >= n {
-                candidates.select_nth_unstable_by_key(n - 1, |&index| (edges[index].2, index));
-                let mut solution = vec![false; num_edges];
-                let mut cost = 0i64;
-                for &index in &candidates[..n] {
-                    solution[index] = true;
-                    cost = cost
-                        .checked_add(edges[index].2)
-                        .ok_or_else(|| overflow("summing a small tour cost"))?;
-                }
-                Some((solution, cost))
-            } else {
-                None
-            };
             return Ok(ReductionTravelingSalesmanToQUBO {
                 target: QUBO::from_matrix(vec![vec![0; dim]; dim])
                     .map_err(<Self as ReduceTo<QUBO<i64>>>::target_construction)?,
@@ -178,26 +142,14 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
                 edge_index: HashMap::new(),
                 objective_offset: 0,
                 feasible_energy_upper: 0,
-                small_optimum,
             });
         }
 
-        // A tour on at least three vertices uses no loops and at most one
-        // edge per endpoint pair. Retain the cheapest parallel edge.
+        // Index source edges by their unordered endpoint pairs.
         let mut edge_index: HashMap<(usize, usize), usize> = HashMap::new();
-        for (index, &(u, v, weight)) in edges.iter().enumerate() {
-            if u == v {
-                continue;
-            }
+        for (index, &(u, v, _)) in edges.iter().enumerate() {
             let key = (u.min(v), u.max(v));
-            edge_index
-                .entry(key)
-                .and_modify(|previous| {
-                    if weight < edges[*previous].2 {
-                        *previous = index;
-                    }
-                })
-                .or_insert(index);
+            edge_index.insert(key, index);
         }
         let shift = edge_index
             .values()
@@ -237,7 +189,6 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             .map_err(|_| overflow("computing the tour penalty constant"))?;
         let feasible_energy_upper = i128::from(a) - omitted_constant;
 
-        // Build n^2 x n^2 upper-triangular QUBO matrix
         let mut matrix = vec![vec![0i64; dim]; dim];
 
         // Helper: add value to upper-triangular position
@@ -327,7 +278,6 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             edge_index,
             objective_offset,
             feasible_energy_upper,
-            small_optimum: None,
         })
     }
 }

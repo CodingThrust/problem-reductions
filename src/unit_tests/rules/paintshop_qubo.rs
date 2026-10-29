@@ -4,7 +4,6 @@ use crate::solvers::BruteForce;
 
 #[test]
 fn test_paintshop_to_qubo_closed_loop() {
-    // Issue example: Sequence [A, B, C, A, D, B, D, C], 4 cars
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
@@ -37,7 +36,7 @@ fn test_paintshop_to_qubo_simple() {
 
 #[test]
 fn test_paintshop_to_qubo_optimal_value() {
-    // Issue example verifies optimal QUBO = -1, total switches = -1 + 3 = 2
+    // Optimal QUBO = -1, total switches = -1 + 3 = 2
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
@@ -56,13 +55,11 @@ fn test_paintshop_to_qubo_optimal_value() {
 
 #[test]
 fn test_paintshop_to_qubo_matrix_structure() {
-    // Issue example: verify the Q matrix matches expected values
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let m = qubo.matrix();
-    // From the issue:
     // Q = [ -1,  -2,   2,   2 ]
     //     [  0,   2,  -2,   0 ]
     //     [  0,   0,   1,  -2 ]

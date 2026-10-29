@@ -151,14 +151,7 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
 
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_small_graphs_are_no() {
-    for (n, edges) in [
-        (0, vec![]),
-        (1, vec![]),
-        (1, vec![(0, 0)]),
-        (2, vec![]),
-        (2, vec![(0, 1)]),
-        (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)]),
-    ] {
+    for (n, edges) in [(0, vec![]), (1, vec![]), (2, vec![]), (2, vec![(0, 1)])] {
         let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
         assert!(!source.evaluate(&(0..n).collect()).unwrap().0);
         let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
@@ -224,15 +217,13 @@ fn test_hamiltoniancircuit_to_quadraticassignment_all_small_graphs_and_orders() 
             .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
             .collect();
         for mask in 0..(1usize << pairs.len()) {
-            let mut edges: Vec<_> = pairs
+            let edges: Vec<_> = pairs
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| mask & (1 << i) != 0)
                 .map(|(_, &e)| e)
                 .collect();
-            // Native loops and repeated edges must preserve the same equivalence.
-            edges.extend((0..n).map(|v| (v, v)));
-            edges.extend(edges.clone());
+
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
             let reduction = ReduceTo::<Decision<QuadraticAssignment>>::reduce_to(&source).unwrap();
             for mut encoded in 0..n.pow(u32::try_from(n).unwrap()) {

@@ -6,7 +6,7 @@ use crate::topology::{BipartiteGraph, Graph};
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Build the canonical YES bipartite instance from the issue: L = {l0, l1},
+/// Build the canonical YES bipartite instance: L = {l0, l1},
 /// R = {r0, r1, r2}, F = {(l0, r0), (l0, r1), (l0, r2), (l1, r1), (l1, r2)}.
 ///
 /// In BipartiteGraph local coordinates this is:
@@ -16,7 +16,7 @@ fn yes_bipartite() -> BipartiteGraph {
     BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (0, 2), (1, 1), (1, 2)])
 }
 
-/// Build the canonical NO bipartite instance from the issue (a perfect
+/// Build the canonical NO bipartite instance (a perfect
 /// matching on 3+3 vertices: L = {l0, l1, l2}, R = {r0, r1, r2}, F =
 /// {(l0, r0), (l1, r1), (l2, r2)}).
 fn no_bipartite() -> BipartiteGraph {
@@ -224,7 +224,6 @@ fn test_identity_on_random_bipartite_instances() {
         BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
         // 3+3 perfect matching.
         no_bipartite(),
-        // Issue's YES instance.
         yes_bipartite(),
     ];
 

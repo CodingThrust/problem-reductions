@@ -27,7 +27,6 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify target structure
     assert_eq!(target.universe_size(), 3); // |V| + 1
     assert_eq!(target.num_subsets(), 1); // |E|
     assert_eq!(target.budget(), 3); // |V| + |E|
@@ -62,7 +61,6 @@ fn test_reduction_structure_triangle() {
         ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify sizes
     assert_eq!(target.universe_size(), 4); // 3 + 1
     assert_eq!(target.num_subsets(), 3); // 3 edges
     assert_eq!(target.budget(), 6); // 3 + 3
@@ -252,33 +250,4 @@ fn test_minimumvertexcover_to_ensemblecomputation_all_small_pair_families() {
             }
         }
     }
-}
-
-#[test]
-fn test_minimumvertexcover_to_ensemblecomputation_loops_and_parallel_edges() {
-    // SimpleGraph's native constructor permits these representations. Duplicate
-    // required sets need no extra operations; a loop requires its endpoint pair.
-    let source = MinimumVertexCover::new(
-        SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0), (1, 2), (1, 2)]),
-        vec![One; 3],
-    );
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
-    let mut program = vec![3, 0, 3, 1, 1, 4, 2, 5];
-    program.resize(2 * reduction.target_problem().budget(), usize::MAX);
-    assert_eq!(
-        reduction.target_problem().evaluate(&program).unwrap(),
-        Min(Some(4))
-    );
-    let cover = reduction.extract_solution(&program).unwrap();
-    assert_eq!(cover, vec![true, true, false]);
-    assert_eq!(source.evaluate(&cover).unwrap(), Min(Some(2)));
-
-    let source = MinimumVertexCover::new(SimpleGraph::new(1, vec![(0, 0)]), vec![One]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source).unwrap();
-    assert_eq!(
-        reduction
-            .extract_solution(&vec![1, 0, usize::MAX, usize::MAX])
-            .unwrap(),
-        vec![true]
-    );
 }

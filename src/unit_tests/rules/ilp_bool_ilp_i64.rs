@@ -29,7 +29,6 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
     assert_eq!(target.constraints(), source.constraints());
     assert_eq!(target.variables(), source.variables());
 
-    // Extract solution back to source and verify optimality
     let target_solution = ILPSolver::new().solve(target).unwrap();
     let source_solution = result.extract_solution(&target_solution).unwrap();
     assert_eq!(source.evaluate(&source_solution).unwrap(), source_obj);
