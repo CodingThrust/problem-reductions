@@ -51,7 +51,8 @@ fn path_text_preserves_variant_conversion_steps() {
 
 #[test]
 fn polynomial_comparison_default_layout_and_opt_in_proofs() {
-    let args = ["path", "MIS", "QUBO", "--compare", "--limit", "3"];
+    // The first two clique routes are equivalent; set-packing and feedback-arc routes add comparisons.
+    let args = ["path", "MIS", "QUBO", "--compare", "--limit", "4"];
     let output = pred().args(args).output().unwrap();
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();
@@ -63,14 +64,14 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     assert!(text.contains("Path 1") && text.contains("num_vars"));
     assert!(!text.contains("[upper bound]") && !text.contains("[exact]"));
     assert!(text[pairs..unresolved]
-        .contains("0 dominated, 1 equivalent, 2 proven incomparable, 0 unresolved"));
+        .contains("2 dominated, 1 equivalent, 3 proven incomparable, 0 unresolved"));
     assert!(!text.contains("worst case:") && !text.contains("Generic candidate front"));
-    assert!(text.contains("Paths 1, 2: proven incomparable"));
-    assert!(text.contains("Paths 2, 3: Path 2 ≡ Path 3"));
+    assert!(text.contains("Paths 1, 3: proven incomparable"));
+    assert!(text.contains("Paths 1, 2: Path 1 ≡ Path 2"));
     assert!(
         text.contains("Ignores exact-cancellation families") && text.contains("bounded strata")
     );
-    assert!(text.contains("2 proven incomparable, 0 unresolved"));
+    assert!(text.contains("3 proven incomparable, 0 unresolved"));
     assert!(
         !text.contains("Field proofs") && !text.contains("Witness {") && !text.contains("f/g → ∞")
     );
@@ -79,8 +80,8 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(
-        text.contains("Paths 1, 2: proven incomparable")
-            && text.contains("Paths 2, 3: Path 2 ≡ Path 3")
+        text.contains("Paths 1, 3: proven incomparable")
+            && text.contains("Paths 1, 2: Path 1 ≡ Path 2")
     );
     assert!(text.contains("Field proofs") && text.contains("f/g → ∞"));
     assert!(text.contains("f ≡ g after expansion"));
@@ -89,17 +90,25 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     let output = pred().args(args).arg("--json").output().unwrap();
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    for (route, step, name) in [
+        (0, 0, "MaximumClique"),
+        (1, 1, "MaximumClique"),
+        (2, 1, "MaximumSetPacking"),
+        (3, 2, "MinimumFeedbackArcSet"),
+    ] {
+        assert_eq!(json["paths"][route]["path"][step]["to"]["name"], name);
+    }
     let view = &json["polynomial_comparison"];
     assert_eq!(view["schema_version"], 5);
     assert_eq!(view["mode"], "generic");
-    assert_eq!(view["counts"]["Incomparable"], 2);
+    assert_eq!(view["counts"]["Incomparable"], 3);
     assert!(view.get("generic_counts").is_none());
     assert!(view.get("generic_candidate_front").is_none());
     assert!(view["pairs"][0]["fields"]["num_vars"]["forward"]["certificate"].is_object());
-    let identity = &view["pairs"][2]["fields"]["num_vars"]["forward"]["certificate"];
+    let identity = &view["pairs"][0]["fields"]["num_vars"]["forward"]["certificate"];
     assert_eq!(identity["kind"], "identity");
     assert_eq!(identity.as_object().unwrap().len(), 1);
-    assert!(view["pairs"][2]["fields"]["num_vars"]
+    assert!(view["pairs"][0]["fields"]["num_vars"]
         .get("generic")
         .is_none());
     let output = pred()

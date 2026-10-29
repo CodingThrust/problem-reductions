@@ -39,6 +39,8 @@ fn test_sequencing_rtd_basic() {
     assert_eq!(problem.release_times(), &[0, 1, 5, 0, 8]);
     assert_eq!(problem.deadlines(), &[5, 6, 10, 3, 12]);
     assert_eq!(problem.time_horizon(), 12);
+    // Start windows hold [3, 4, 2, 3, 3] start times.
+    assert_eq!(problem.max_start_slots(), 4);
     // Lehmer code dims: [5, 4, 3, 2, 1]
     assert_eq!(problem.dimensions(), vec![5, 4, 3, 2, 1]);
     assert_eq!(
@@ -97,6 +99,7 @@ fn test_sequencing_rtd_empty_instance() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.time_horizon(), 0);
+    assert_eq!(problem.max_start_slots(), 0);
     assert_eq!(problem.dimensions(), Vec::<usize>::new());
     assert!(problem.evaluate(&vec![]).unwrap());
 }
@@ -171,4 +174,18 @@ fn test_sequencing_rtd_invalid_task_index() {
         problem.evaluate(&vec![2, 0]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
+}
+
+#[test]
+fn test_sequencing_rtd_max_start_slots_extremes() {
+    // A release after the deadline or a task longer than its window has no start.
+    let closed = SequencingWithReleaseTimesAndDeadlines::new(vec![0, 3], vec![5, 0], vec![4, 2]);
+    assert_eq!(closed.max_start_slots(), 0);
+    // The widest window, [0, i64::MAX] with length 0, has 2^63 starts.
+    let widest = SequencingWithReleaseTimesAndDeadlines::new(
+        vec![0, i64::MAX],
+        vec![0, i64::MAX],
+        vec![i64::MAX, 0],
+    );
+    assert_eq!(widest.max_start_slots(), 1 << 63);
 }

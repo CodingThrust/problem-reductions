@@ -127,7 +127,7 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMaximumLikelihoodRankingToILP { target, n })
     }

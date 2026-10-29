@@ -192,6 +192,8 @@ fn test_is_valid_solution() {
     assert!(problem.is_valid_solution(&[true, false, true]));
     // Invalid: {0} is independent but not maximal (vertex 2 can be added)
     assert!(!problem.is_valid_solution(&[true, false, false]));
+    assert!(!problem.is_valid_solution(&[false, true]));
+    assert!(!problem.is_valid_solution(&[false, true, false, true]));
 }
 
 #[test]

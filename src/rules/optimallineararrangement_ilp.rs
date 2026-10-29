@@ -56,7 +56,7 @@ impl ReductionResult for ReductionOLAToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_vertices^2 + num_vertices + num_edges) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges)",
+        num_nonzeros = "4 * num_vertices^2 + 2 * num_vertices + 7 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for OptimalLinearArrangement<SimpleGraph> {

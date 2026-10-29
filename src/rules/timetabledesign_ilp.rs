@@ -69,7 +69,9 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         let nh = self.num_periods();
         let requirements = self.requirements();
         // A pair can work at most nh periods. Keep out-of-range requirements infeasible.
-        let max_requirement = Self::exact_i64(nh, "encoding the period count")?.saturating_add(1);
+        let max_requirement =
+            <Self as ReduceTo<ILP<bool>>>::exact_i64(nh, "encoding the period count")?
+                .saturating_add(1);
         let mut assignments = Vec::new();
         let mut craftsmen = std::collections::BTreeMap::<_, Vec<_>>::new();
         let mut tasks = std::collections::BTreeMap::<_, Vec<_>>::new();
@@ -110,7 +112,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
                 vec![],
                 ObjectiveSense::Minimize,
             )
-            .map_err(Self::target_construction)?,
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             num_craftsmen: nc,
             num_tasks: nt,
             num_periods: nh,

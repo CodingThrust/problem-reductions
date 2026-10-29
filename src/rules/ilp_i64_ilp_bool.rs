@@ -16,7 +16,7 @@ fn overflow(operation: impl Into<String>) -> ReductionError {
     ReductionError::integer_overflow::<ILP<i64, i64, Bounded>, ILP<bool>>(operation)
 }
 
-fn binary_weights(width: i64) -> Vec<i64> {
+pub(super) fn binary_weights(width: i64) -> Vec<i64> {
     if width == 0 {
         return Vec::new();
     }

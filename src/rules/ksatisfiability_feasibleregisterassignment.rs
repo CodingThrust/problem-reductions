@@ -1,9 +1,8 @@
 //! Reduction from KSatisfiability (3-SAT) to Feasible Register Assignment.
 //!
 //! This follows Sethi's Reduction 3 / Theorem 5.11 (STOC 1973):
-//! Nonempty short clauses are padded by literal repetition, an empty clause
-//! maps to a fixed infeasible DAG, and appearing variables are compacted with
-//! an inverse map. No ordering or distinct-variable hypothesis is needed.
+//! Appearing variables are compacted with an inverse map. No ordering or
+//! distinct-variable hypothesis is needed.
 //! - Variable leaf pairs `s_pos[k], s_neg[k]` share register `S[k]`
 //! - Each literal occurrence adds `p[i,j], q[i,j], r[i,j], rbar[i,j]`
 //! - `r[i,j]` and `rbar[i,j]` share register `R[i,j]`
@@ -109,19 +108,6 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        if self
-            .clauses()
-            .iter()
-            .any(|clause| clause.literals.is_empty())
-        {
-            // Both predecessors must remain live until vertex 2, but they
-            // share a register. This acyclic target has no realization.
-            return Ok(Reduction3SATToFeasibleRegisterAssignment {
-                target: FeasibleRegisterAssignment::new(3, vec![(2, 0), (2, 1)], 2, vec![0, 0, 1]),
-                num_vars: self.num_vars(),
-                source_variables: Vec::new(),
-            });
-        }
         let source_variables: Vec<_> = self
             .clauses()
             .iter()
@@ -166,10 +152,9 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
         }
 
         for (clause_idx, clause) in self.clauses().iter().enumerate() {
-            // Repetition preserves a nonempty disjunction. Every occurrence
-            // keeps its own gadget and register pair, even for repeated literals.
-            let mut literals = clause.literals.clone();
-            literals.resize(3, literals[0]);
+            // Every occurrence keeps its own gadget and register pair, even
+            // for repeated literals.
+            let literals = &clause.literals;
             for literal_pos in 0..3 {
                 assignment[p_idx(num_vars, clause_idx, literal_pos)] =
                     p_register(num_vars, clause_idx, literal_pos);

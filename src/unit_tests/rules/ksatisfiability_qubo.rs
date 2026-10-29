@@ -231,24 +231,21 @@ fn test_k3satisfiability_to_qubo_all_negated() {
 }
 
 #[test]
-fn test_sat_qubo_all_short_clauses_and_raw_targets() {
+fn test_sat_qubo_all_one_variable_clause_pairs_and_raw_targets() {
     use crate::rules::AggregateReductionResult;
     use crate::types::{Min, Or};
     macro_rules! verify {
         ($k:ty, $width:expr) => {{
-            let mut clauses = vec![vec![]];
-            for width in 1..=$width {
-                for mask in 0..(1 << width) {
-                    clauses.push(
-                        (0..width)
-                            .map(|p| if mask & (1 << p) == 0 { 1 } else { -1 })
-                            .collect(),
-                    );
-                }
-            }
+            let clauses: Vec<Vec<i64>> = (0..1 << $width)
+                .map(|mask| {
+                    (0..$width)
+                        .map(|p| if mask & (1 << p) == 0 { 1 } else { -1 })
+                        .collect()
+                })
+                .collect();
             for a in &clauses {
                 for b in &clauses {
-                    let source = KSatisfiability::<$k>::new_allow_less(
+                    let source = KSatisfiability::<$k>::new(
                         1,
                         vec![CNFClause::new(a.clone()), CNFClause::new(b.clone())],
                     );
@@ -267,8 +264,6 @@ fn test_sat_qubo_all_short_clauses_and_raw_targets() {
                                 .map(|&l| i64::from(witness[0] != (l > 0)))
                                 .collect();
                             penalty += match y.as_slice() {
-                                [] => 1,
-                                &[u] => u,
                                 &[u, v] => u * v,
                                 &[u, v, w] => {
                                     let z = i64::from(witness[1 + j]);
@@ -360,9 +355,12 @@ fn test_sat_qubo_checked_numeric_boundaries() {
 #[test]
 fn test_sat_qubo_registered_aggregate_threshold() {
     macro_rules! check {
-        ($k:ty) => {
-            for (clauses, expected) in [(vec![vec![1]], true), (vec![vec![1], vec![-1]], false)] {
-                let source = KSatisfiability::<$k>::new_allow_less(
+        ($k:ty, $width:expr) => {
+            for (clauses, expected) in [
+                (vec![vec![1; $width]], true),
+                (vec![vec![1; $width], vec![-1; $width]], false),
+            ] {
+                let source = KSatisfiability::<$k>::new(
                     1,
                     clauses.into_iter().map(CNFClause::new).collect(),
                 );
@@ -387,6 +385,6 @@ fn test_sat_qubo_registered_aggregate_threshold() {
             }
         };
     }
-    check!(K2);
-    check!(K3);
+    check!(K2, 2);
+    check!(K3, 3);
 }

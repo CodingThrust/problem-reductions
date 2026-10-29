@@ -190,6 +190,45 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.path')).to_have_count(2)
         expect(self.page.get_by_role('button', name='Hide other routes', exact=True)).to_be_visible()
 
+    def test_typst_math_keeps_vector_glyphs_and_colors_in_both_themes(self):
+        self.visit('problem/KSatisfiability?variant=k=K3')
+        expect(self.page.locator('article.typst-detail')).to_be_visible()
+        formula = self.page.locator('.typst-math > svg').filter(has=self.page.locator('g + g use')).first
+        expect(formula).to_be_visible()
+        self.page.evaluate('document.fonts.ready')
+        # Include an intentional color and a fraction-like stroke alongside the real Typst glyphs.
+        formula.locator('use').first.evaluate("node => node.setAttribute('fill', '#e15759')")
+        formula.evaluate('''svg => {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            line.setAttribute('d', 'M0 .1H4'); line.setAttribute('stroke', '#000000');
+            line.setAttribute('stroke-width', '.1'); svg.append(line);
+        }''')
+        for theme, ink, paper in [('dark', '#eef3e9', '#0b110d'), ('light', '#112011', '#ffffff')]:
+            with self.subTest(theme=theme):
+                self.page.evaluate('''({ink, paper}) => {
+                    document.documentElement.style.setProperty('--ink', ink);
+                    document.documentElement.style.setProperty('--paper', paper);
+                }''', {'ink': ink, 'paper': paper})
+                expect(formula.locator('use').first).to_have_css('fill', 'rgb(225, 87, 89)')
+                actual = formula.screenshot()
+                # Reference the same vectors with explicit theme paint and no rasterizing filter.
+                saved = formula.evaluate('''(svg, ink) => {
+                    const painted = [...svg.querySelectorAll('[fill="#000000"], [stroke="#000000"]')];
+                    const saved = [svg.getAttribute('style'), painted.map(node => node.getAttribute('style'))];
+                    svg.style.filter = 'none';
+                    for (const node of painted) {
+                        if (node.getAttribute('fill') === '#000000') node.style.fill = ink;
+                        if (node.getAttribute('stroke') === '#000000') node.style.stroke = ink;
+                    }
+                    return saved;
+                }''', ink)
+                self.assertEqual(actual, formula.screenshot(), 'Theme styling changed the rendered math vectors')
+                formula.evaluate('''(svg, [style, paints]) => {
+                    const restore = (node, value) => value === null ? node.removeAttribute('style') : node.setAttribute('style', value);
+                    restore(svg, style);
+                    [...svg.querySelectorAll('[fill="#000000"], [stroke="#000000"]')].forEach((node, i) => restore(node, paints[i]));
+                }''', saved)
+
     def test_accessibility_atlas(self):
         self.visit('atlas')
         expect(self.page.locator('.atlas-row').first).to_be_visible()
@@ -390,7 +429,7 @@ class WebsiteTests(unittest.TestCase):
         self.page.locator('.act.primary').click()
         self.page.locator('#target').fill('QUBO')
         self.page.locator('#suggest button', has_text='QUBO').first.click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
 
     def test_accessibility_graph_desktop_drawer(self):
         self.page.goto(self.base + 'graph.html#directions')
@@ -525,7 +564,7 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.path')).to_have_count(0)
         self.choose_endpoint('source', 'SAT')
         self.choose_endpoint('target', 'QUBO')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         route = self.copy_route()
         self.assertEqual(route['path'][0]['from']['name'], 'Satisfiability')
         self.assertEqual(route['path'][-1]['to']['name'], 'QUBO')
@@ -1026,12 +1065,38 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.path').first.locator('.size')).to_contain_text('n')
 
     def test_graph_unavailable_parameters_keep_size_badges_unknown(self):
+        # Keep unavailable-field UI coverage independent of improvements to registry bounds.
+        nodes = [{'name': name, 'category': 'formula', 'variant': {}, 'default': True}
+                 for name in ['Satisfiability', 'QUBO']]
+        known = {'certificate': 'num_vars^3', 'accuracy': {'kind': 'upper_bound'}}
+        unavailable = {'certificate': None, 'accuracy': {'kind': 'unavailable',
+            'reason': {'kind': 'unavailable', 'detail': 'Synthetic unavailable parameter'}}}
+        fields = {'num_vars': known, 'num_quadratic_terms': unavailable}
+        scene = {'nodes': nodes, 'edges': [{'source': 0, 'target': 1, 'witness': True,
+                 'aggregate': False, 'turing': False, 'fields': fields}], 'aliases': {},
+                 'layout': {'Satisfiability': {'x': 0, 'y': 0}, 'QUBO': {'x': 100, 'y': 70}}}
+        self.page.route('**/graph-scene.json.gz', lambda route: route.fulfill(
+            body=gzip.compress(json.dumps(scene).encode()), content_type='application/gzip'))
+        endpoint = lambda i: {'name': nodes[i]['name'], 'variant': {}}
+        paths = {'truncated': False, 'paths': [{'steps': 1,
+            'path': [{'from': endpoint(0), 'to': endpoint(1)}]}]}
+        comparison = {'profiles': [{'source_coordinates': ['num_vars'], 'fields': fields}],
+            'front': [1], 'counts': {'Dominated': 0, 'Equivalent': 0, 'Incomparable': 0, 'Unknown': 0}}
+        worker = 'self.onmessage = () => {' + ''.join('self.postMessage(' + json.dumps(reply) + ');'
+            for reply in [{'phase': 'paths', 'result': paths}, {'phase': 'comparison', 'result': comparison}]) + '};'
+        self.page.route('**/path-worker.js', lambda route: route.fulfill(body=worker, content_type='text/javascript'))
         self.page.goto(self.base + 'graph.html#directions')
-        self.choose_endpoint('source', 'MVC')
-        self.page.locator('#source-options [aria-label="weight"]').get_by_role('button', name='One', exact=True).click()
-        self.choose_endpoint('target', 'LongestCommonSubsequence')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate', timeout=3000)
-        expect(self.page.locator('.path').first.locator('.size')).to_have_text('?', timeout=500)
+        expect(self.page.locator('#results .summary strong')).to_have_text('1 size-bound candidate')
+        expect(self.page.locator('.size.pending')).to_have_count(0)
+        expect(self.page.locator('.path .size')).to_have_text('?')
+        expect(self.page.locator('.path .size')).to_have_attribute('title', 'Size unavailable for one or more parameters')
+        summaries = self.page.locator('.growth').evaluate('''dl => Object.fromEntries(
+            [...dl.querySelectorAll('dt')].map(term=>[term.textContent,term.nextElementSibling.textContent]))''')
+        self.assertEqual(summaries, {'vars': 'O(vars³)', 'quadratic terms': 'unavailable'})
+        expect(self.page.locator('.steps .rule-link .oh')).to_have_text('?')
+        edge = self.page.locator('.scene-edge[data-edge="Satisfiability→QUBO"]')
+        expect(edge).to_have_count(1)
+        self.assertTrue({'route', 'e-unknown'} <= set(edge.get_attribute('class').split()))
 
     def test_directions_preloads_engine_before_graph_initialization(self):
         self.page.goto(self.base + 'graph.html#directions')

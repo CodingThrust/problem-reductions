@@ -205,27 +205,24 @@ fn nae_support_ignores_repeated_literals_and_bounds_cancellation() {
 fn timetable_counts_core_edges_and_their_available_colors() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::variant::K3;
-    let source = KSatisfiability::<K3>::new_allow_less(
+    let source = KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     );
-    // Six two-list variable edges each supply three edges with two colors;
-    // the two singleton clause edges each supply one available assignment.
     check_counts::<_, TimetableDesign>(
         &source,
         &[
-            ("num_nonzero_requirements", 20, 48),
-            ("num_available_assignments", 38, 96),
-            ("period_count_bits", 3, 5),
-            ("num_craftsmen", 10, 23),
-            ("num_tasks", 10, 24),
+            ("num_nonzero_requirements", 128, 132),
+            ("num_available_assignments", 258, 264),
+            ("period_count_bits", 5, 9),
+            ("num_craftsmen", 61, 63),
+            ("num_tasks", 62, 64),
         ],
     );
-    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(0, vec![]));
-    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(
-        0,
-        vec![CNFClause::new(vec![])],
-    ));
+    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new(0, vec![]));
 }
 
 #[test]
@@ -396,9 +393,12 @@ fn ensemble_terms_include_ordering_and_target_matches() {
 fn changed_predictions_bound_real_intermediate_targets() {
     use crate::models::formula::{CNFClause, KSatisfiability, NAESatisfiability, Satisfiability};
     use crate::variant::K3;
-    let source = KSatisfiability::<K3>::new_allow_less(
+    let source = KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     );
     for intermediate in [
         step::<TimetableDesign>(),
@@ -581,20 +581,14 @@ fn sentinel_literal_pairs_count_each_clause_once() {
 fn unit_schedule_bits_and_precedences_count_layers() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::variant::K3;
-    // Capacities [1,3,3,6], seven processors, filler sizes [6,4,4,1].
-    // 4 variable links + 21 literal links + 24+16+4 filler links.
     check_counts::<_, PreemptiveScheduling>(
-        &KSatisfiability::<K3>::new_allow_less(1, vec![CNFClause::new(vec![1])]),
+        &KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]),
         &[
             ("num_precedences", 69, 388),
             ("max_schedule_magnitude_bits", 5, 8),
         ],
     );
-    for clauses in [vec![], vec![CNFClause::new(vec![])]] {
-        check_contract::<_, PreemptiveScheduling>(&KSatisfiability::<K3>::new_allow_less(
-            0, clauses,
-        ));
-    }
+    check_contract::<_, PreemptiveScheduling>(&KSatisfiability::<K3>::new(0, vec![]));
 }
 
 #[test]

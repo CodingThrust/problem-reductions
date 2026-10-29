@@ -507,17 +507,17 @@ mod tests {
         let cli = Cli::try_parse_from([
             "pred",
             "create",
-            "3SAT",
+            "2SAT",
             "--num-vars",
             "3",
             "--clauses",
-            "1,2,3",
+            "1,2",
         ])
         .expect("variant alias parses");
         let Commands::Create(args) = cli.command else {
             panic!("expected create command");
         };
-        assert_eq!(args.problem.as_deref(), Some("KSatisfiability/K3"));
+        assert_eq!(args.problem.as_deref(), Some("KSatisfiability/K2"));
         assert_eq!(args.raw("num-vars"), Some("3"));
     }
 

@@ -127,7 +127,10 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
         for i in 0..n {
             for j in (i + 1)..n {
                 for k1 in 0..slot_counts[i] {
-                    let offset_i = Self::exact_i64(k1, "converting a task start offset to i64")?;
+                    let offset_i = <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                        k1,
+                        "converting a task start offset to i64",
+                    )?;
                     let start_i = release[i]
                         .checked_add(offset_i)
                         .ok_or_else(|| overflow("computing a task start time"))?;
@@ -135,8 +138,10 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
                         .checked_add(lengths[i])
                         .ok_or_else(|| overflow("computing a task end time"))?;
                     for k2 in 0..slot_counts[j] {
-                        let offset_j =
-                            Self::exact_i64(k2, "converting a task start offset to i64")?;
+                        let offset_j = <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                            k2,
+                            "converting a task start offset to i64",
+                        )?;
                         let start_j = release[j]
                             .checked_add(offset_j)
                             .ok_or_else(|| overflow("computing a task start time"))?;
@@ -157,7 +162,7 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
 
         Ok(ReductionSWIToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             task_layout,
         })
     }

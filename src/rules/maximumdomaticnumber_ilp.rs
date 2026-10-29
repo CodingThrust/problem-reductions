@@ -65,7 +65,7 @@ impl ReductionResult for ReductionDomaticNumberToILP {
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
     },
     upper_bound {
-        num_nonzeros = "(num_vertices * num_vertices + num_vertices) * (num_vertices + num_vertices * num_vertices + num_vertices * num_vertices)",
+        num_nonzeros = "num_vertices^3 + 4 * num_vertices^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {

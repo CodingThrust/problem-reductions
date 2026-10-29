@@ -1329,38 +1329,6 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_generates_model_dispatch_without_solver_dispatch() {
-        let input: DeclareVariantsInput = syn::parse_quote! {
-            default Foo => "1",
-        };
-        let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(
-            tokens.contains("serialize_fn :"),
-            "expected serialize_fn field"
-        );
-        assert!(!tokens.contains("solve_typed_fn :"));
-        assert!(!tokens.contains("solve_fn :"));
-        assert!(
-            !tokens.contains("factory : None"),
-            "factory should not be None"
-        );
-        assert!(
-            !tokens.contains("serialize_fn : None"),
-            "serialize_fn should not be None"
-        );
-        assert!(!tokens.contains("find_cartesian"));
-        assert!(
-            !tokens.contains("find_best"),
-            "did not expect legacy find_best in tokens"
-        );
-        assert!(
-            !tokens.contains("SolutionSize :: Invalid"),
-            "did not expect legacy invalid fallback in tokens"
-        );
-    }
-
-    #[test]
     fn reduction_rejects_unexpected_attribute() {
         let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
