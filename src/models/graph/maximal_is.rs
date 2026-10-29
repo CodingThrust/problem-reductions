@@ -133,13 +133,13 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
 
     /// Check if a configuration is a valid maximal independent set.
     pub fn is_valid_solution(&self, config: &[bool]) -> bool {
-        self.is_maximal(config)
+        config.len() == self.graph.num_vertices() && self.is_maximal(config)
     }
 
     /// Check if a configuration is an independent set.
     fn is_independent(&self, config: &[bool]) -> bool {
         for (u, v) in self.graph.edges() {
-            if config.get(u).copied().unwrap_or(false) && config.get(v).copied().unwrap_or(false) {
+            if config[u] && config[v] {
                 return false;
             }
         }
@@ -154,18 +154,15 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
 
         let n = self.graph.num_vertices();
         for v in 0..n {
-            if config.get(v).copied().unwrap_or(false) {
-                continue; // Already in set
+            if config[v] {
+                continue;
             }
 
-            // Check if v can be added
             let neighbors = self.graph.neighbors(v);
-            let can_add = neighbors
-                .iter()
-                .all(|&u| !config.get(u).copied().unwrap_or(false));
+            let can_add = neighbors.iter().all(|&u| !config[u]);
 
             if can_add {
-                return false; // Set is not maximal
+                return false;
             }
         }
 

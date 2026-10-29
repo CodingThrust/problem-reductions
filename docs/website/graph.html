@@ -8,8 +8,13 @@
   <title>Reduction Paths — Problem Reductions</title>
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="./assets/graph-scene.json.gz" as="fetch" type="application/gzip" crossorigin>
-  <link rel="preload" href="./assets/path-graph.json.gz" as="fetch" type="application/gzip" crossorigin>
-  <link rel="preload" href="./assets/path-selection_bg.wasm.gz" as="fetch" type="application/gzip" crossorigin>
+  <script>
+    if (location.hash === '#directions') for (const name of ['path-graph.json.gz', 'path-selection_bg.wasm.gz']) {
+      const link = document.createElement('link');
+      Object.assign(link, {rel: 'preload', href: './assets/' + name, as: 'fetch', type: 'application/gzip', crossOrigin: ''});
+      document.head.append(link);
+    }
+  </script>
   <link rel="preload" href="./assets/fonts/dm-sans-variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./src/styles/site.css">
   <link rel="stylesheet" href="./src/styles/details.css">
@@ -33,23 +38,44 @@
 </header>
 <main id="canvas" aria-label="Reduction graph"><div id="cy"></div></main>
 
-<section class="panel" aria-label="Reduction paths">
-  <header class="panel-head"><h1 class="brand"><a href="./index.html">Reduction paths</a></h1></header>
-  <div class="ends" id="ends">
-    <div class="end from">
-      <span class="pin" aria-hidden="true"></span>
-      <div><input id="source" placeholder="Start problem" autocomplete="off" spellcheck="false" aria-label="Start problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="source-options" hidden></div></div>
+<section class="panel" aria-label="Reduction graph">
+  <p id="graph-error" class="note" role="alert" hidden></p>
+  <div id="view-explore" class="view">
+    <h1 class="sr-only">Reduction graph</h1>
+    <div class="search-row">
+      <label class="searchbox"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input id="find" type="search" placeholder="Search problems" autocomplete="off" spellcheck="false" aria-label="Search problems and rules"></label>
+      <button id="go-directions" class="dir-btn" type="button"><svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 1.8 16.2 9 9 16.2 1.8 9Z"/><path d="M6 10V8.4a1 1 0 0 1 1-1h4.6M10.2 5.9l1.6 1.5-1.6 1.5"/></svg>Directions</button>
     </div>
-    <div class="end to">
-      <span class="pin" aria-hidden="true"></span>
-      <div><input id="target" placeholder="End problem" autocomplete="off" spellcheck="false" aria-label="End problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="target-options" hidden></div></div>
-    </div>
-    <button class="swap" id="swap" aria-label="Swap start and end"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5v11M2.5 5 5 2.5 7.5 5M11 13.5v-11M8.5 11l2.5 2.5 2.5-2.5"/></svg></button>
-    <div class="suggest" id="suggest" role="listbox" aria-label="Problems" hidden></div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Browse"></div>
+    <div class="explore-body" id="explore-body"></div>
   </div>
-  <div id="search-status" class="sr-only" role="status"></div>
-  <div class="results" id="results" aria-live="polite"></div>
+  <div id="view-directions" class="view" hidden>
+    <header class="panel-head dir-head"><button id="back-explore" class="back-btn" type="button" aria-label="Back to explore"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button><h1 class="brand">Directions</h1></header>
+    <div class="ends" id="ends">
+      <div class="end from">
+        <span class="pin" aria-hidden="true"></span>
+        <div><input id="source" placeholder="Start problem" autocomplete="off" spellcheck="false" aria-label="Start problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="source-options" hidden></div></div>
+      </div>
+      <div class="end to">
+        <span class="pin" aria-hidden="true"></span>
+        <div><input id="target" placeholder="End problem" autocomplete="off" spellcheck="false" aria-label="End problem" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggest"><div class="options" id="target-options" hidden></div></div>
+      </div>
+      <button class="swap" id="swap" aria-label="Swap start and end"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5v11M2.5 5 5 2.5 7.5 5M11 13.5v-11M8.5 11l2.5 2.5 2.5-2.5"/></svg></button>
+      <div class="suggest" id="suggest" role="listbox" aria-label="Problems" hidden></div>
+    </div>
+    <div id="search-status" class="sr-only" role="status"></div>
+    <div class="results" id="results" aria-live="polite"></div>
+  </div>
+  <p class="route-note">Routes alone do not establish complexity or solver availability. Colours summarize variants.</p>
 </section>
+
+<section class="mapbar" id="mapbar" aria-label="Map controls">
+  <div class="seg" id="views" role="group" aria-label="Map view"></div>
+  <div class="legend-group"><span class="legend-label" id="growth-label">Growth</span><div class="growth-legend" id="growth-legend" role="radiogroup" aria-labelledby="growth-label"></div></div>
+  <button type="button" class="legend-chip turing-toggle" id="turing-toggle" role="switch" aria-checked="false">Turing</button>
+</section>
+
+<div class="status-legend" id="status-legend" role="note" aria-label="Node colours"></div>
 
 <div class="pop" id="pop" role="dialog" aria-labelledby="pop-title" hidden></div>
 <nav class="dock" aria-label="Graph navigation">

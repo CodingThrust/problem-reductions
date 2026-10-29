@@ -216,10 +216,11 @@ const wrongRequest: PathRequest = {kind: 'compare', source: 0, target: 1, limit:
             if a != b:
                 neighbors[a].add(b)
                 neighbors[b].add(a)
-        radius = lambda name: max(6, min(22, 6 + 2.4 * math.sqrt(len(neighbors[name])))) / 2 + 9
+        # The default disc's 2px stroke extends 1px beyond its geometric radius.
+        radius = lambda name: max(6, min(22, 6 + 2.4 * math.sqrt(len(neighbors[name])))) / 2 + 1
         for a, b in itertools.combinations(positions, 2):
             distance = math.hypot(positions[a]['x'] - positions[b]['x'], positions[a]['y'] - positions[b]['y']) * 1.6
-            self.assertGreaterEqual(distance, radius(a) + radius(b) - 0.1, (a, b))
+            self.assertGreaterEqual(distance, radius(a) + radius(b), (a, b))
 
 
 if __name__ == '__main__':

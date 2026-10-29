@@ -62,7 +62,7 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
         if m == 0 {
             return Ok(ReductionSCToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
-                    .map_err(Self::target_construction)?,
+                    .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
                 num_arcs: 0,
             });
         }
@@ -134,7 +134,7 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionSCToILP {
             target,

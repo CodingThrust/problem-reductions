@@ -12,6 +12,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from urllib.request import build_opener, ProxyHandler
 from urllib.parse import urlsplit
 
@@ -74,7 +75,13 @@ class WebsiteVerificationTests(unittest.TestCase):
     def test_verification_only_report_does_not_claim_the_artifact_build_source(self):
         with tempfile.TemporaryDirectory() as directory:
             site = Path(directory)
-            with self.assertRaises(FileNotFoundError):
+            # This case checks failed-artifact provenance; the full verifier exercises these tools.
+            run = subprocess.run
+            def skip_tool_checks(command, **kwargs):
+                if command[:2] in [["cargo", "test"], ["npm", "run"]]:
+                    return subprocess.CompletedProcess(command, 0)
+                return run(command, **kwargs)
+            with patch("check_website.subprocess.run", side_effect=skip_tool_checks), self.assertRaises(FileNotFoundError):
                 check_website.check(site, build=False, open_questions=None)
             report = json.loads((site / "verification.json").read_text())
             self.assertEqual(report["verification"]["status"], "failed")

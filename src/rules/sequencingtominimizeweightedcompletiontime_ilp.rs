@@ -92,7 +92,8 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedCompletion
             let low = integer(i128::from(p) + lower - i128::from(p.min(0)))?;
             let high = integer(i128::from(p) + upper - i128::from(p.max(0)))?;
             variables.push(
-                IntegerVariable::new(Some(low), Some(high)).map_err(Self::target_construction)?,
+                IntegerVariable::new(Some(low), Some(high))
+                    .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
             );
         }
         variables.resize(num_vars, IntegerVariable::binary());
@@ -130,7 +131,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedCompletion
         let objective = self.weights().iter().copied().enumerate().collect();
         let target =
             ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
         crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
         Ok(Self::Result {
             target,

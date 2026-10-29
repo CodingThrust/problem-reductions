@@ -1,4 +1,6 @@
 // The scene is small and already laid out at build time; SVG owns hit testing and painting.
+import { make } from './svg.ts';
+
 export interface Point { x: number; y: number }
 export interface SceneNodeInput extends Point {
   id: string; label: string; size: number; color: string; deg: number;
@@ -8,18 +10,20 @@ export interface SceneNode extends Omit<SceneNodeInput, 'label'> {
   labelKey: string | null; width: number; height: number;
 }
 export interface SceneEdge {
-  id: string; source: SceneNode; target: SceneNode; shape: SVGLineElement;
+  id: string; source: SceneNode; target: SceneNode; shape: SVGLineElement; hit: SVGLineElement;
   label?: never;
 }
 export type SceneItem = SceneNode | SceneEdge;
 interface Rectangle extends Point { w: number; h: number }
 interface Bounds { x1: number; x2: number; y1: number; y2: number }
+export type LabelSide = 'below' | 'above' | 'right' | 'left';
 interface Gesture { item: SceneItem | undefined; moved: boolean; start: Point }
 
 export class GraphScene {
   zoom: number;
   pan: Point;
   animation: number;
+  intro: number;
   svg: SVGSVGElement;
   world: SVGGElement;
   nodes: SceneNode[];
@@ -34,22 +38,26 @@ export class GraphScene {
   onBackgroundTap?: () => void;
   onChange?: () => void;
   onDrag?: (node: SceneNode) => void;
+  onDragEnd?: (node: SceneNode) => void;
   onHover?: (node: SceneNode, over: boolean) => void;
 
   constructor(container: HTMLElement, nodes: SceneNodeInput[], edges: { s: string; t: string }[]) {
-    const make = <Tag extends keyof SVGElementTagNameMap>(tag: Tag, attrs: Record<string, string | number> = {}) => {
-      const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
-      return node;
-    };
-    this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0;
+    this.zoom = 1; this.pan = {x: 0, y: 0}; this.animation = 0; this.intro = 0;
     this.svg = make('svg', {class: 'graph-scene', role: 'group',
       'aria-label': 'Problem families and directed reductions. Arrows move between spatial neighbours. Page Up and Page Down visit every problem. Home and End jump to the first and last problem. Enter or Space opens controls.'});
     this.world = make('g');
     const defs = make('defs'), marker = make('marker', {id: 'route-arrow', viewBox: '0 -5 10 10', refX: 9, refY: 0,
       markerWidth: 11, markerHeight: 11, orient: 'auto', markerUnits: 'userSpaceOnUse'});
     marker.append(make('path', {d: 'M0,-4.5 L10,0 L0,4.5 Z', fill: 'var(--accent)'}));
-    defs.append(marker); this.svg.append(defs, this.world); container.append(this.svg);
+    defs.append(marker);
+    // One arrowhead per growth class so the colour follows the edge without relying on context-stroke.
+    for (const cls of ['constant', 'linear', 'quadratic', 'cubic', 'higher', 'unknown']) {
+      const head = make('marker', {id: 'arrow-' + cls, viewBox: '0 -5 10 10', refX: 9, refY: 0, markerWidth: 7, markerHeight: 7,
+        orient: 'auto', markerUnits: 'userSpaceOnUse'});
+      head.append(make('path', {d: 'M0,-4 L10,0 L0,4 Z', fill: `var(--g-${cls})`}));
+      defs.append(head);
+    }
+    this.svg.append(defs, this.world); container.append(this.svg);
     this.nodes = nodes.map(data => {
       const shape = make('g', {class: 'scene-node', 'data-node': data.id, role: 'button', tabindex: -1,
         'aria-haspopup': 'dialog', 'aria-label': data.label});
@@ -63,9 +71,11 @@ export class GraphScene {
     this.edges = edges.map(({s, t}) => {
       const source = this.byId.get(s), target = this.byId.get(t);
       if (!source?.label || !target?.label) throw new Error('A scene edge references a missing node');
-      const edge = {id: s + '→' + t, source, target,
-        shape: make('line', {class: 'scene-edge', 'data-edge': s + '→' + t, 'aria-hidden': 'true'})};
-      this.byId.set(edge.id, edge); this.world.append(edge.shape); return edge;
+      const id = s + '→' + t;
+      const edge = {id, source, target,
+        shape: make('line', {class: 'scene-edge', 'data-edge': id, 'aria-hidden': 'true'}),
+        hit: make('line', {class: 'edge-hit', 'data-hit': id, 'aria-hidden': 'true'})};
+      this.byId.set(edge.id, edge); this.world.append(edge.hit, edge.shape); return edge;
     });
     for (const node of this.nodes) this.world.append(node.shape);
     this.elements = [...this.nodes, ...this.edges];
@@ -81,8 +91,8 @@ export class GraphScene {
       if (e.button !== 0) return;
       this.stop();
       const p = point(e); pointers.set(e.pointerId, p);
-      const target = e.target instanceof Element ? e.target.closest('[data-node], [data-edge]') : null;
-      const id = target?.getAttribute('data-node') || target?.getAttribute('data-edge');
+      const target = e.target instanceof Element ? e.target.closest('[data-node], [data-edge], [data-hit]') : null;
+      const id = target?.getAttribute('data-node') || target?.getAttribute('data-edge') || target?.getAttribute('data-hit');
       gesture = {item: id ? this.byId.get(id) : undefined,
         moved: pointers.size > 1, start: p};
       this.svg.setPointerCapture(e.pointerId);
@@ -113,6 +123,7 @@ export class GraphScene {
     const release = (e: PointerEvent) => {
       if (!pointers.has(e.pointerId) || !gesture) return;
       pointers.delete(e.pointerId);
+      if (gesture.moved && gesture.item?.label) this.onDragEnd?.(gesture.item);
       if (e.type === 'pointerup' && !gesture.moved) {
         if (gesture.item?.label) this.onNodeTap?.(gesture.item);
         else if (gesture.item) this.onEdgeTap?.(gesture.item);
@@ -228,16 +239,20 @@ export class GraphScene {
       for (const name of added) if (!this.has(item, name)) item.shape.classList.add(name);
     }
   }
-  updatePositions() {
-    for (const node of this.nodes) node.shape.setAttribute('transform', `translate(${node.x} ${node.y})`);
+  /* Draws nodes at `at(node)`, the laid-out position by default. The intro draws transient positions
+     and skips the invisible hit lines; the layout itself never moves. */
+  updatePositions(at: (node: SceneNode) => Point = node => node, hits = true) {
+    for (const node of this.nodes) { const p = at(node); node.shape.setAttribute('transform', `translate(${p.x} ${p.y})`); }
     for (const edge of this.edges) {
-      const a = edge.source, b = edge.target, d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = b.size/2 + 4;
-      edge.shape.setAttribute('x1', String(a.x)); edge.shape.setAttribute('y1', String(a.y));
-      edge.shape.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); edge.shape.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
+      const a = at(edge.source), b = at(edge.target), d = Math.hypot(b.x-a.x, b.y-a.y) || 1, r = edge.target.size/2 + 4;
+      for (const line of hits ? [edge.shape, edge.hit] : [edge.shape]) {
+        line.setAttribute('x1', String(a.x)); line.setAttribute('y1', String(a.y));
+        line.setAttribute('x2', String(b.x - (b.x-a.x)*r/d)); line.setAttribute('y2', String(b.y - (b.y-a.y)*r/d));
+      }
     }
   }
   moveNode(node: SceneNode, dx: number, dy: number) {
-    this.stop();
+    this.stop(); this.settle();
     node.x += dx / this.zoom; node.y += dy / this.zoom;
     this.updatePositions(); this.onDrag?.(node); this.onChange?.();
   }
@@ -261,11 +276,47 @@ export class GraphScene {
     this.onChange?.();
   }
   zoomAt(zoom: number, p: Point) {
-    zoom = Math.max(.1, Math.min(3, zoom));
+    zoom = Math.max(.1, Math.min(4, zoom));
     const scale = zoom / this.zoom;
     this.setViewport(zoom, {x: p.x-(p.x-this.pan.x)*scale, y: p.y-(p.y-this.pan.y)*scale});
   }
   stop() { cancelAnimationFrame(this.animation); this.animation = 0; }
+  /* Animates every node from `from(node)` to its laid-out position along an underdamped spring, each released
+     after `delay(node)` seconds. The closed-form spring keeps each frame O(n), and the layout itself never moves. */
+  morph(from: (node: SceneNode) => Point, delay: (node: SceneNode) => number = () => 0) {
+    this.settle();
+    const nodes = this.nodes, starts = nodes.map(from), delays = nodes.map(delay);
+    const zeta = .55, omega = 9, damped = omega * Math.sqrt(1 - zeta * zeta), settled = 1 + Math.max(0, ...delays);
+    const begin = performance.now();
+    this.svg.classList.add('unfolding');
+    const step = (now: number) => {
+      const elapsed = (now - begin) / 1000;
+      if (elapsed >= settled) { this.settle(); return; }
+      const shown = new Map(nodes.map((b, i) => {
+        const t = Math.max(0, elapsed - delays[i]!), a = starts[i]!;
+        const k = Math.exp(-zeta * omega * t) * (Math.cos(damped * t) + zeta * omega / damped * Math.sin(damped * t));
+        return [b, {x: b.x + (a.x - b.x) * k, y: b.y + (a.y - b.y) * k}] as const;
+      }));
+      this.updatePositions(node => shown.get(node)!, false);
+      this.intro = requestAnimationFrame(step);
+    };
+    step(begin);
+  }
+  /* Intro: every node starts in a cloud at the centre and is released in a ripple from the centre outwards. */
+  unfold() {
+    const nodes = this.nodes;
+    const cx = nodes.reduce((s, p) => s + p.x, 0) / nodes.length, cy = nodes.reduce((s, p) => s + p.y, 0) / nodes.length;
+    const far = Math.max(1, ...nodes.map(p => Math.hypot(p.x - cx, p.y - cy)));
+    this.morph(p => ({x: cx + (p.x - cx) * .06 + (Math.random() - .5) * 24, y: cy + (p.y - cy) * .06 + (Math.random() - .5) * 24}),
+      p => .35 * Math.hypot(p.x - cx, p.y - cy) / far);
+  }
+  // Ends a morph at once; dragging a node needs the drawing to match the layout.
+  settle() {
+    if (!this.svg.classList.contains('unfolding')) return;
+    cancelAnimationFrame(this.intro); this.intro = 0;
+    this.svg.classList.remove('unfolding');
+    this.updatePositions(); this.onChange?.();
+  }
   frame(zoom: number, pan: Point, animate: boolean) {
     this.stop();
     if (!animate) { this.setViewport(zoom, pan); performance.mark('graph:camera-settled'); return; }
@@ -278,8 +329,9 @@ export class GraphScene {
     };
     this.animation = requestAnimationFrame(step);
   }
-  labelBox(node: SceneNode): Bounds {
-    const important = ['route', 'start', 'end', 'hover', 'focused'].some(c => this.has(node, c));
+  /* Measures the label and places it on one side of its node, returning its screen box. */
+  labelBox(node: SceneNode, side: LabelSide = 'below'): Bounds {
+    const important = ['route', 'start', 'end', 'hover', 'focused', 'reach'].some(c => this.has(node, c));
     const size = important ? 12 : 11, text = important ? node.routeLabel : node.labelText;
     const key = size + ':' + text;
     if (node.labelKey !== key) {
@@ -297,13 +349,22 @@ export class GraphScene {
       node.width = Math.max(...lines.map(line => this.measure.measureText(line).width));
       node.height = lines.length * size * 1.25;
       node.label.replaceChildren(...lines.map((line, i) => {
+        // Wrapped lines stay separated for assistive technology, which reads textContent.
         const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = line; return span;
+        span.setAttribute('x', '0'); span.setAttribute('y', String(5+size+i*size*1.25)); span.textContent = i < lines.length - 1 ? line + ' ' : line; return span;
       }));
       node.label.setAttribute('font-size', String(size));
     }
-    node.label.setAttribute('transform', `translate(0 ${node.size/2}) scale(${1/this.zoom})`);
-    const p = this.position(node), top = p.y + node.size/2*this.zoom + 5;
-    return {x1:p.x-node.width/2-3, x2:p.x+node.width/2+3, y1:top-3, y2:top+node.height+3};
+    // The text block spans [5, 5 + height] below its origin; each side moves that origin in screen pixels.
+    const r = node.size/2, w = node.width, h = node.height;
+    const [ox, oy, dx, dy, anchor] = {
+      below: [0, r, 0, 0, 'middle'], above: [0, -r, 0, -h - 10, 'middle'],
+      right: [r, 0, 6, -5 - h/2, 'start'], left: [-r, 0, -6, -5 - h/2, 'end'],
+    }[side] as [number, number, number, number, string];
+    node.label.setAttribute('text-anchor', anchor);
+    node.label.setAttribute('transform', `translate(${ox} ${oy}) scale(${1/this.zoom}) translate(${dx} ${dy})`);
+    const p = this.position(node), x = p.x + ox*this.zoom + dx, top = p.y + oy*this.zoom + dy + 5;
+    const x1 = anchor === 'middle' ? x - w/2 : anchor === 'start' ? x : x - w;
+    return {x1: x1-3, x2: x1+w+3, y1: top-3, y2: top+h+3};
   }
 }

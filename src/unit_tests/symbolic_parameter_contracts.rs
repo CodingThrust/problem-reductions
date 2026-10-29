@@ -587,10 +587,11 @@ fn missing_structural_bounds_cover_sparse_and_normalized_instances() {
         SimpleGraph::path(3),
         SimpleGraph::complete(3),
     ] {
+        // SimpleGraph rejects repeated edges, so the bipartite side sizes are exact.
         check_reduced_parameters::<_, BalancedCompleteBipartiteSubgraph>(
             KClique::new(graph, 2),
             &["num_vertices"],
-            upper,
+            ParameterRelation::Exact,
         );
     }
 }
@@ -683,12 +684,8 @@ fn sat_flow_and_scheduling_bounds_cover_fixed_outputs() {
         misc::PreemptiveScheduling,
     };
     use crate::variant::K3;
-    for clauses in [
-        vec![],
-        vec![CNFClause::new(vec![])],
-        vec![CNFClause::new(vec![1, 1, -2])],
-    ] {
-        let source = KSatisfiability::<K3>::new_allow_less(2, clauses);
+    for clauses in [vec![], vec![CNFClause::new(vec![1, 1, -2])]] {
+        let source = KSatisfiability::<K3>::new(2, clauses);
         check_reduced_parameters::<_, DirectedTwoCommodityIntegralFlow>(
             source.clone(),
             &["max_capacity"],
@@ -892,7 +889,7 @@ fn closest_vector_size_bounds_cover_numeric_and_rank_variation() {
 }
 
 #[test]
-fn incongruence_pair_bounds_cover_prime_growth_and_repeated_literals() {
+fn incongruence_bounds_cover_prime_growth_and_repeated_literals() {
     use crate::models::{
         algebraic::SimultaneousIncongruences,
         formula::{CNFClause, KSatisfiability},
@@ -906,7 +903,7 @@ fn incongruence_pair_bounds_cover_prime_growth_and_repeated_literals() {
         };
         check_reduced_parameters::<_, SimultaneousIncongruences>(
             KSatisfiability::<K3>::new(variables, clauses),
-            &["num_pairs"],
+            &["num_pairs", "lcm_bits"],
             ParameterRelation::UpperBound,
         );
     }
@@ -929,6 +926,130 @@ fn vertex_cover_lcs_transition_bounds_cover_empty_strings() {
             MinimumVertexCover::new(graph, weights),
             &["num_transitions"],
             ParameterRelation::UpperBound,
+        );
+    }
+}
+
+#[test]
+fn three_sat_counts_are_exact_on_repeated_literals() {
+    use crate::models::decision::Decision;
+    use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
+    use crate::models::graph::{KClique, MinimumVertexCover, MonochromaticTriangle};
+    use crate::models::misc::SubsetSum;
+    use crate::types::One;
+    use crate::variant::K3;
+    let exact = ParameterRelation::Exact;
+    for clauses in [
+        vec![],
+        vec![CNFClause::new(vec![1, 1, 1])],
+        vec![
+            CNFClause::new(vec![1, -2, -2]),
+            CNFClause::new(vec![2, 2, 2]),
+        ],
+    ] {
+        let source = KSatisfiability::<K3>::new(2, clauses);
+        check_reduced_parameters::<_, KClique<SimpleGraph>>(
+            source.clone(),
+            &["k", "num_vertices"],
+            exact,
+        );
+        check_reduced_parameters::<_, Decision<MinimumVertexCover<SimpleGraph, One>>>(
+            source.clone(),
+            &["num_vertices", "num_edges"],
+            exact,
+        );
+        check_reduced_parameters::<_, OneInThreeSatisfiability>(
+            source.clone(),
+            &["num_clauses"],
+            exact,
+        );
+        check_reduced_parameters::<_, MonochromaticTriangle<SimpleGraph>>(
+            source.clone(),
+            &["num_vertices", "num_edges", "num_triangles"],
+            exact,
+        );
+        check_reduced_parameters::<_, SubsetSum>(source, &["num_elements"], exact);
+    }
+}
+
+#[test]
+fn exact_construction_counts_hold_on_degenerate_graphs() {
+    use crate::models::algebraic::ILP;
+    use crate::models::decision::Decision;
+    use crate::models::graph::{
+        HamiltonianCircuit, Kernel, MaximalIS, MaximumMatching, MinimumCoveringByCliques,
+        MinimumDominatingSet, MinimumVertexCover, PartitionIntoCliques,
+        PartitionIntoPathsOfLength2, PartitionIntoPerfectMatchings,
+    };
+    use crate::models::misc::EnsembleComputation;
+    use crate::topology::{Graph, SimpleDigraph};
+    use crate::types::One;
+    // Canonical examples are mid-sized; check the boundaries exact claims rely on:
+    // no vertices, no edges, and every valid k.
+    let exact = ParameterRelation::Exact;
+    for n in 0..=3 {
+        for graph in [
+            SimpleGraph::empty(n),
+            SimpleGraph::path(n),
+            SimpleGraph::complete(n),
+        ] {
+            let m = graph.num_edges();
+            check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+                HamiltonianCircuit::new(graph.clone()),
+                &["num_vars", "num_nonzeros"],
+                exact,
+            );
+            check_reduced_parameters::<_, ILP<bool>>(
+                MaximalIS::new(graph.clone(), vec![1_i64; n]),
+                &["num_constraints", "num_nonzeros"],
+                exact,
+            );
+            check_reduced_parameters::<_, ILP<bool>>(
+                MinimumDominatingSet::new(graph.clone(), vec![1_i64; n]),
+                &["num_nonzeros"],
+                exact,
+            );
+            check_reduced_parameters::<_, ILP<bool>>(
+                MaximumMatching::new(graph.clone(), vec![1_i64; m]),
+                &["num_nonzeros"],
+                exact,
+            );
+            check_reduced_parameters::<_, EnsembleComputation>(
+                MinimumVertexCover::new(graph.clone(), vec![One; n]),
+                &["universe_size", "num_subsets"],
+                exact,
+            );
+            for k in 1..=n {
+                check_reduced_parameters::<_, ILP<i64, i64, Bounded>>(
+                    PartitionIntoPerfectMatchings::new(graph.clone(), k),
+                    &["num_vars", "num_constraints"],
+                    exact,
+                );
+                check_reduced_parameters::<_, Decision<MinimumCoveringByCliques<SimpleGraph>>>(
+                    PartitionIntoCliques::new(graph.clone(), k),
+                    &["num_vertices", "num_edges"],
+                    exact,
+                );
+            }
+            if n % 3 == 0 {
+                check_reduced_parameters::<_, ILP<bool>>(
+                    PartitionIntoPathsOfLength2::new(graph.clone()),
+                    &["num_vars", "num_constraints", "num_nonzeros"],
+                    exact,
+                );
+            }
+        }
+    }
+    for arcs in [
+        vec![],
+        vec![(0, 1)],
+        vec![(0, 1), (1, 0)],
+        vec![(0, 1), (1, 2), (2, 0)],
+    ] {
+        check_reduced_parameters::<_, ILP<bool>>(
+            Kernel::new(SimpleDigraph::new(3, arcs)),
+            &["num_nonzeros"],
+            exact,
         );
     }
 }

@@ -1,4 +1,4 @@
-use problemreductions_web::{find_paths, summarize_paths};
+use problemreductions_web::{edge_growth, find_paths, summarize_paths};
 use serde_json::{json, Value};
 
 fn graph() -> Value {
@@ -233,4 +233,21 @@ fn unreachable_and_identical_endpoints_have_no_routes() {
         .unwrap();
         assert_eq!(result, json!({"paths":[],"truncated":false}));
     }
+}
+
+#[test]
+fn edge_growth_certifies_each_reduction_alone_and_keeps_its_accuracy() {
+    let mut graph = graph();
+    graph["edges"][1]["parameters"] = json!([
+        {"field":"n", "contract":"upper_bound", "formula":"n + m^2"},
+        {"field":"k", "contract":"unavailable", "reason":"data dependent"}
+    ]);
+    let growth: Value = serde_json::from_str(&edge_growth(&graph.to_string()).unwrap()).unwrap();
+    assert_eq!(growth.as_array().unwrap().len(), 3);
+    assert_eq!(growth[0]["n"]["certificate"], "n^2");
+    assert_eq!(growth[0]["n"]["accuracy"]["kind"], "exact");
+    assert_eq!(growth[1]["n"]["certificate"], "n + m^2");
+    assert_eq!(growth[1]["n"]["accuracy"]["kind"], "upper_bound");
+    assert_eq!(growth[1]["k"]["certificate"], Value::Null);
+    assert_eq!(growth[1]["k"]["accuracy"]["kind"], "unavailable");
 }

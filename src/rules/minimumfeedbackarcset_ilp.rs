@@ -61,7 +61,7 @@ impl ReductionResult for ReductionFASToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_arcs + num_vertices) * (num_arcs + num_arcs + num_vertices)",
+        num_nonzeros = "4 * num_arcs + num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
@@ -78,7 +78,10 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
         // o_v = m + v     (integer: topological order of vertex v)
 
         let mut constraints = Vec::new();
-        let n_i64 = Self::exact_i64(n, "encoding the topological order")?;
+        let n_i64 = <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(
+            n,
+            "encoding the topological order",
+        )?;
 
         // Binary bounds: y_a <= 1 for a in 0..m
         for a in 0..m {
@@ -113,12 +116,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackArcSet<i64> {
         let mut variables = vec![IntegerVariable::binary(); num_vars];
         variables[m..].fill(
             IntegerVariable::new(Some(0), Some((n_i64 - 1).max(0)))
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?,
         );
 
         let target =
             ILP::with_variables(variables, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?;
+                .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
 
         Ok(ReductionFASToILP {
             target,

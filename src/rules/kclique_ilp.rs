@@ -61,7 +61,7 @@ impl crate::rules::AggregateReductionResult for ReductionKCliqueToILP {}
     max_constraint_magnitude_bits = "k + 1",
     num_vars = "num_vertices",
     num_constraints = "num_vertices^2 + 1",
-    num_nonzeros = "num_vertices * (num_vertices^2 + 1)",
+    num_nonzeros = "num_vertices^2",
 })]
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToILP;

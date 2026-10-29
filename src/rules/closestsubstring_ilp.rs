@@ -125,7 +125,7 @@ fn decode_one_hot(
     },
     upper_bound {
         max_constraint_magnitude_bits = "substring_length + 1",
-        num_nonzeros = "(alphabet_size * substring_length + total_num_windows + 1) * (substring_length + num_strings + total_num_windows + 1)",
+        num_nonzeros = "alphabet_size * substring_length + 1 + total_num_windows * (substring_length + 3)",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for ClosestSubstring {

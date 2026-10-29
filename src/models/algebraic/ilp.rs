@@ -690,9 +690,41 @@ crate::declare_variants! {
     ILP<i64, f64> => "num_vars^num_vars",
 }
 
+impl crate::solvers::BruteForceProblem for ILP<bool> {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars()]
+    }
+}
+
+crate::decision_problem_meta!(ILP<bool>, "DecisionILP");
+crate::register_decision_variant!(without_turing;
+    ILP<bool>, "DecisionILP", "2^num_vars", &[],
+    "Does a binary ILP have a feasible solution meeting its objective bound?",
+    category: crate::registry::ProblemCategory::Algebraic,
+    dims: [
+        VariantDimension::new("variable", "bool", &["bool"]),
+        VariantDimension::new("coefficient", "i64", &["i64"]),
+        VariantDimension::new("bounds", "general", &["general"]),
+    ],
+    fields: [
+        FieldInfo { name: "variables", type_name: "Vec<IntegerVariable>", description: "Binary variable bounds [0, 1]" },
+        FieldInfo { name: "constraints", type_name: "Vec<LinearConstraint<i64>>", description: "Sparse integer linear constraints" },
+        FieldInfo { name: "objective", type_name: "Vec<(usize, i64)>", description: "Sparse integer objective coefficients" },
+        FieldInfo { name: "sense", type_name: "ObjectiveSense", description: "Optimization direction" },
+        FieldInfo { name: "bound", type_name: "i64", description: "Upper bound for minimization, lower bound for maximization" },
+    ],
+    decode: |_, indices: Vec<usize>| indices.into_iter().map(|bit| i64::try_from(bit).expect("binary coordinate fits i64")).collect::<Vec<_>>()
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "decision_ilp",
+            instance: Box::new(canonical_decision_example()),
+            optimal_config: serde_json::json!([0, 0, 1]),
+            optimal_value: serde_json::json!(true),
+        },
         crate::example_db::specs::ModelExampleSpec {
             id: "ilp",
             instance: Box::new(
@@ -733,3 +765,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/ilp.rs"]
 mod tests;
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_decision_example() -> crate::models::Decision<ILP<bool>> {
+    crate::models::Decision::new(
+        ILP::new(
+            3,
+            vec![LinearConstraint::eq(vec![(0, 1), (1, 1), (2, 1)], 1)],
+            vec![(0, 3), (1, 2), (2, 1)],
+            ObjectiveSense::Minimize,
+        )
+        .unwrap(),
+        1,
+    )
+}

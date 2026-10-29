@@ -58,7 +58,7 @@ impl ReductionResult for ReductionMFVSToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * num_vertices + 1",
-        num_nonzeros = "(2 * num_vertices) * (num_arcs + 2 * num_vertices)",
+        num_nonzeros = "2 * num_vertices + 4 * num_arcs",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackVertexSet<i64> {

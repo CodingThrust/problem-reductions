@@ -4,11 +4,11 @@
   "scripts": {
     "build:frontend": "node scripts/build_frontend.mjs",
     "typecheck": "tsc --project tsconfig.json",
-    "lint:frontend": "eslint docs/website/src scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs scripts/test_website_growth.mjs scripts/website_contracts.mjs",
+    "lint:frontend": "eslint docs/website/src scripts/build_frontend.mjs scripts/generate_website_contracts.mjs scripts/validate_website_data.mjs scripts/test_website_contracts.mjs scripts/test_website_growth.mjs scripts/test_website_structure.mjs scripts/website_contracts.mjs",
     "generate:reduction-graph-layout": "node scripts/generate_reduction_graph_layout.js",
     "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js",
     "generate:frontend-contracts": "cargo run --locked -p problemreductions-web --features schema-export --example export_frontend_schema | node scripts/generate_website_contracts.mjs",
-    "test:frontend-contracts": "node --test scripts/test_website_contracts.mjs scripts/test_website_growth.mjs",
+    "test:frontend-contracts": "node --test scripts/test_website_contracts.mjs scripts/test_website_growth.mjs scripts/test_website_structure.mjs",
     "pretypecheck": "npm run generate:frontend-contracts",
     "pretest:frontend-contracts": "npm run generate:frontend-contracts"
   },
@@ -16,8 +16,6 @@
     "@typescript-eslint/parser": "8.71.2",
     "ajv": "8.20.0",
     "axe-core": "4.14.0",
-    "cytoscape": "3.33.1",
-    "cytoscape-fcose": "2.2.0",
     "elkjs": "0.9.3",
     "eslint": "10.12.0",
     "json-schema-to-typescript": "16.0.0",

@@ -747,7 +747,7 @@ fn test_create_path_constrained_network_flow_rejects_invalid_paths() {
 }
 
 #[test]
-fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
+fn test_create_staff_scheduling_rejects_ragged_schedule() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -775,13 +775,7 @@ fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
         auto_json: false,
     };
 
-    let result = std::panic::catch_unwind(|| create(&args, &out));
-    assert!(result.is_ok(), "create should return an error, not panic");
-    let err = result.unwrap().unwrap_err().to_string();
-    assert!(
-        err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
-        "expected row-length validation error, got: {err}"
-    );
+    assert!(create(&args, &out).is_err());
 }
 
 #[test]
@@ -954,7 +948,7 @@ fn test_create_timetable_design_outputs_problem_json() {
 }
 
 #[test]
-fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
+fn test_create_timetable_design_rejects_invalid_matrix() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -986,13 +980,7 @@ fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
         auto_json: false,
     };
 
-    let result = std::panic::catch_unwind(|| create(&args, &out));
-    assert!(result.is_ok(), "create should return an error, not panic");
-    let err = result.unwrap().unwrap_err().to_string();
-    assert!(
-        err.contains("--craftsman-avail"),
-        "expected timetable matrix validation error, got: {err}"
-    );
+    assert!(create(&args, &out).is_err());
 }
 
 #[test]

@@ -810,8 +810,8 @@ fn default_variant_for_ksat_uses_declared_default() {
     let variant = default.unwrap();
     assert_eq!(
         variant.get("k").map(|s| s.as_str()),
-        Some("KN"),
-        "default KSatisfiability variant should use KN"
+        Some("K3"),
+        "default KSatisfiability variant should use K3"
     );
 }
 

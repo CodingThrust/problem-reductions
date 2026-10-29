@@ -411,3 +411,169 @@ fn simple_graph_create_contracts_propagate_edge_validation() {
     }
     assert_eq!(checked, names.into_iter().collect());
 }
+
+#[test]
+fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
+    use crate::models::algebraic::QUBO;
+    use crate::models::graph::OptimalLinearArrangement;
+    use crate::models::misc::{
+        CyclicOrdering, SequencingWithReleaseTimesAndDeadlines, ShortestCommonSuperstring,
+        StackerCrane, StaffScheduling, ThreePartition,
+    };
+    use crate::models::Decision;
+    use crate::rules::{ReduceTo, ReductionResult};
+    use crate::topology::SimpleGraph;
+    use crate::Problem;
+
+    fn check<S: Problem + ReduceTo<T> + 'static, T: Problem>(source: S, budget: u64) {
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|entry| {
+                entry.source_name == S::NAME
+                    && entry.source_variant() == S::variant()
+                    && entry.target_name == T::NAME
+                    && entry.target_variant() == T::variant()
+            })
+            .unwrap();
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let reduced = <S as ReduceTo<T>>::reduce_to(&source).unwrap();
+        let actual = reduced.target_problem().parameters();
+        assert!(
+            actual.get("num_quadratic_terms").unwrap()
+                <= predicted.get("num_quadratic_terms").unwrap()
+        );
+        assert!(
+            predicted.get("num_quadratic_terms").unwrap() <= budget,
+            "{}: sparse support budget exceeded",
+            S::NAME
+        );
+    }
+    // Budget clique plus separate per-period surplus blocks, two bits for W = 3:
+    // binom(8, 2) + 3 * (2^2 * 3 + binom(2, 2)).
+    check::<_, Decision<QUBO<i64>>>(
+        StaffScheduling::new(
+            2,
+            vec![
+                vec![true, true, false],
+                vec![false, true, true],
+                vec![true, false, true],
+            ],
+            vec![2, 2, 2],
+            3,
+        ),
+        67,
+    );
+    // Three tasks with at most three start times each: binom(9, 2) couplings.
+    check::<_, Decision<QUBO<i64>>>(
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        36,
+    );
+    // Triangle terms, path/cycle transitions, and eligible value-triple multiplicities.
+    // Vanishing factors must remain nonnegative and valid on empty/singleton inputs.
+    for n in 1..=2 {
+        check::<_, Decision<QUBO<i64>>>(CyclicOrdering::new(n, vec![]), 0);
+    }
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(0, vec![])),
+        0,
+    );
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(1, vec![])),
+        0,
+    );
+    check::<_, QUBO<i64>>(ShortestCommonSuperstring::new(1, vec![vec![]]), 0);
+    check::<_, QUBO<i64>>(StackerCrane::new(0, vec![], vec![], vec![], vec![]), 0);
+    check::<_, QUBO<i64>>(
+        StackerCrane::new(1, vec![(0, 0)], vec![], vec![1], vec![]),
+        0,
+    );
+    check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 3], 6), 1);
+    check::<_, Decision<QUBO<i64>>>(CyclicOrdering::new(5, vec![(0, 1, 2)]), 30);
+    check::<_, QUBO<i64>>(
+        OptimalLinearArrangement::new(SimpleGraph::new(5, vec![(0, 1), (1, 2)])),
+        30,
+    );
+    check::<_, QUBO<i64>>(
+        ShortestCommonSuperstring::new(2, vec![vec![0, 0], vec![0, 1], vec![1, 0], vec![1, 1]]),
+        84,
+    );
+    check::<_, QUBO<i64>>(
+        StackerCrane::new(3, vec![(0, 1), (1, 2), (2, 0)], vec![], vec![1; 3], vec![]),
+        36,
+    );
+    check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 6], 6), 15);
+}
+
+#[test]
+fn ilp_nonzero_bounds_hold_on_dense_sources() {
+    use crate::models::{
+        ConsecutiveOnesSubmatrix, DirectedHamiltonianPath, LongestCircuit, SteinerTree,
+        SubgraphIsomorphism,
+    };
+    use crate::topology::{SimpleDigraph, SimpleGraph};
+    use crate::traits::Problem;
+
+    // Dense inputs exercise every constraint family at full size, so a family
+    // missing from a per-family nonzero count shows up as an exceeded bound.
+    fn check<P: Problem + 'static>(source: P) {
+        let variant = P::variant();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|e| {
+                e.source_name == P::NAME && e.target_name == "ILP" && e.source_variant() == variant
+            })
+            .unwrap();
+        let reduced = entry.reduce_fn.unwrap()(&source).unwrap();
+        let actual = ReductionGraph::compute_problem_parameters(
+            "ILP",
+            &ReductionGraph::variant_to_map(&entry.target_variant()),
+            reduced.target_problem_any(),
+        );
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let (predicted, actual) = (
+            predicted.get("num_nonzeros").unwrap(),
+            actual.get("num_nonzeros").unwrap(),
+        );
+        assert!(
+            predicted >= actual,
+            "{}: predicted {predicted:?} nonzeros, measured {actual:?}",
+            P::NAME
+        );
+    }
+    let complete = |n: usize| {
+        (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect::<Vec<_>>()
+    };
+
+    check(ConsecutiveOnesSubmatrix::new(vec![vec![true; 4]; 3], 4));
+    check(DirectedHamiltonianPath::new(SimpleDigraph::new(
+        4,
+        (0..4)
+            .flat_map(|u| (0..4).filter(move |&v| v != u).map(move |v| (u, v)))
+            .collect(),
+    )));
+    check(SubgraphIsomorphism::new(
+        SimpleGraph::new(4, complete(4)),
+        SimpleGraph::new(3, complete(3)),
+    ));
+    check(SteinerTree::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+        vec![0, 2, 4],
+    ));
+    check(LongestCircuit::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+    ));
+}
