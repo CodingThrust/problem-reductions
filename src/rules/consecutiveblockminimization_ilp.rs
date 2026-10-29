@@ -43,11 +43,15 @@ impl ReductionResult for ReductionCBMToILP {
 impl crate::rules::AggregateReductionResult for ReductionCBMToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "num_rows * num_cols + 1",
-        num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
-        num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
-        num_nonzeros = "2 * num_cols^2 + num_rows * num_cols^2 + 5 * num_rows * num_cols",
+    transform = {
+        exact {
+            num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
+        },
+        upper_bound {
+            max_constraint_magnitude_bits = "num_rows * num_cols + 1",
+            num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+            num_nonzeros = "2 * num_cols^2 + num_rows * num_cols^2 + 5 * num_rows * num_cols",
+        },
     },
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {

@@ -80,11 +80,15 @@ impl ReductionResult for ReductionUFLBToILP {
 impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
-        num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
-        num_nonzeros = "13 * num_edges",
+    transform = {
+        exact {
+            num_vars = "3 * num_edges",
+        },
+        upper_bound {
+            max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
+            num_constraints = "5 * num_edges + num_vertices + 1",
+            num_nonzeros = "13 * num_edges",
+        },
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {

@@ -229,7 +229,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_overhead_num_rows_equals_num_vertices() {
-    // Spot-check the exact parameter relation: target.num_rows == source.num_vertices.
+    // Nonnegative weights add no auxiliary rows.
     for n in [1usize, 2, 5, 8] {
         let edges: Vec<(usize, usize)> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
         let weights: Vec<i64> = vec![1; edges.len()];
@@ -241,12 +241,98 @@ fn test_overhead_num_rows_equals_num_vertices() {
 }
 
 #[test]
-fn test_negative_weight_is_rejected() {
-    // The reduction only handles nonnegative weights.
-    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-1]);
+fn test_maxcut_to_minimummatrixcover_closed_loop_negative_weights() {
+    // Mixed signs: a negative edge rewards keeping its endpoints together.
+    for (n, edges, weights) in [
+        (2, vec![(0, 1)], vec![-1_i64]),
+        (3, vec![(0, 1), (1, 2), (0, 2)], vec![-2, 3, 1]),
+        (4, vec![(0, 1), (1, 2), (2, 3), (0, 3)], vec![-1, -1, 2, 2]),
+        (3, vec![(0, 1), (1, 2), (0, 2)], vec![-1, -1, -1]),
+    ] {
+        let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges), weights);
+        let reduction =
+            ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &reduction,
+            "MaxCut with negative weights -> MinimumMatrixCover",
+        );
+    }
+}
+
+#[test]
+fn test_negative_edge_gadget_layout() {
+    // Edge {0, 1} with w = -2 adds vertex 2: weight 3 to v = 1 and 2 to u = 0.
+    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![-2]);
+    let reduction =
+        ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
+    let expected: Vec<Vec<i64>> = vec![vec![0, 0, 2], vec![0, 0, 3], vec![2, 3, 0]];
+    assert_eq!(reduction.target_problem().matrix(), expected.as_slice());
+    // Auxiliary bits are dropped on extraction.
+    assert_eq!(
+        reduction
+            .extract_solution(&vec![true, true, false])
+            .unwrap(),
+        vec![true, true]
+    );
+}
+
+#[test]
+fn test_minimum_negative_weight_overflows() {
+    let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![i64::MIN]);
     let error = ReduceTo::<MinimumMatrixCover>::reduce_to(&source).unwrap_err();
     assert!(matches!(
         error,
-        crate::rules::ReductionError::InvalidTarget { .. }
+        crate::rules::ReductionError::IntegerOverflow { .. }
     ));
+}
+
+#[test]
+fn test_unrepresentable_matrix_objective_is_rejected() {
+    for (n, edges, weights) in [
+        (2, vec![(0, 1)], vec![-3_000_000_000_000_000_000]),
+        (2, vec![(0, 1)], vec![-((i64::MAX - 2) / 4 + 1)]),
+        (2, vec![(0, 1)], vec![i64::MAX / 2 + 1]),
+        (3, vec![(0, 1), (1, 2)], vec![-2_000_000_000_000_000_000; 2]),
+        (
+            3,
+            vec![(0, 1), (1, 2)],
+            vec![-1_000_000_000_000_000_000, 3_000_000_000_000_000_000],
+        ),
+    ] {
+        let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges), weights);
+        // Every source configuration is evaluable, including its optimum.
+        let optimum = BruteForce::new().solve(&source).unwrap().unwrap();
+        assert!(source.evaluate(&optimum).unwrap().0.is_some());
+        assert!(matches!(
+            ReduceTo::<MinimumMatrixCover>::reduce_to(&source),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_representable_matrix_objective_boundaries() {
+    for (weight, expected) in [(-((i64::MAX - 2) / 4), 0), (i64::MAX / 2, i64::MAX / 2)] {
+        let source =
+            MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![weight]);
+        let reduction = ReduceTo::<MinimumMatrixCover>::reduce_to(&source).unwrap();
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &reduction,
+            "MaxCut at the matrix objective boundary",
+        );
+        let target = reduction.target_problem();
+        assert_eq!(
+            target.evaluate(&vec![false; target.num_rows()]).unwrap(),
+            Min(Some(i64::MAX - 1))
+        );
+        let target_optimum = BruteForce::new().solve(target).unwrap().unwrap();
+        assert_eq!(
+            target.evaluate(&target_optimum).unwrap(),
+            Min(Some(-(i64::MAX - 1)))
+        );
+        let extracted = reduction.extract_solution(&target_optimum).unwrap();
+        assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(expected)));
+    }
 }

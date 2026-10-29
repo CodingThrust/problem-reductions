@@ -46,11 +46,15 @@ impl ReductionResult for ReductionCOSToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionCOSToILP {}
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "bound + num_cols + 1",
-    num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
-    num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
-    num_nonzeros = "2 * num_cols + 2 * num_cols * bound + num_rows * num_cols * bound + 2 * num_rows * bound^2 + 21 * num_rows * bound",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "bound + num_cols + 1",
+        num_constraints = "2 + num_cols + bound + 3 * num_rows + 8 * num_rows * bound",
+        num_nonzeros = "2 * num_cols + 2 * num_cols * bound + num_rows * num_cols * bound + 2 * num_rows * bound^2 + 21 * num_rows * bound",
+    },
 })]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     type Result = ReductionCOSToILP;
@@ -58,7 +62,7 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
-        let k = self.bound() as usize;
+        let k = self.bound();
 
         // Variable layout (all binary):
         // s_c: n vars at [0, n)  — column selection
