@@ -93,6 +93,67 @@ class WebsiteTests(unittest.TestCase):
                     ['aria-allowed-role', 'heading-order', 'landmark-no-duplicate-banner', 'landmark-unique']]
         self.assertEqual(blocking, [], json.dumps(blocking, indent=2))
 
+    def test_graph_route_status_preserves_variants_and_qualifies_both_modes(self):
+        nodes = [
+            {'name': name, 'category': 'formula', 'variant': variant, 'default': default}
+            for name, variant, default in [
+                ('Satisfiability', {}, True), ('KSatisfiability', {'k': 'K3'}, True),
+                ('KSatisfiability', {'k': 'K2'}, False), ('Bridge', {'side': 'in'}, True),
+                ('Bridge', {'side': 'out'}, False), ('ILP', {}, True), ('QUBO', {}, True),
+                ('OnlyTuring', {}, True)]]
+        links = [(0, 1), (1, 3), (2, 0), (4, 5), (5, 6), (6, 5)]
+        edge = lambda a, b: {'source': a, 'target': b, 'witness': True,
+                             'aggregate': False, 'turing': False, 'fields': {}}
+        edges = [edge(a, b) for a, b in links]
+        edges.append({**edge(0, 7), 'witness': False, 'turing': True})
+        edges.append({**edge(7, 5), 'witness': False, 'aggregate': True})
+        names = list(dict.fromkeys(node['name'] for node in nodes))
+        scene = {'nodes': nodes, 'edges': edges, 'aliases': {},
+                 'layout': {name: {'x': i * 100, 'y': i % 2 * 70} for i, name in enumerate(names)}}
+        self.page.route('**/graph-scene.json.gz', lambda route: route.fulfill(
+            body=gzip.compress(json.dumps(scene).encode()), content_type='application/gzip'))
+        self.page.route('**/path-worker.js', lambda route: route.fulfill(
+            body='self.onmessage = () => {};', content_type='text/javascript'))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('.panel')).to_have_class(re.compile(r'\bcollapsed\b'))
+        def select(name):
+            self.page.locator('#find').fill(name)
+            self.page.locator(f'#explore-body .row[data-name="{name}"]').click()
+        status = self.page.locator('.place-meta .status')
+        select('KSatisfiability')
+        expect(status).to_have_text('Route from SAT')
+        self.page.get_by_role('button', name='K2', exact=True).click()
+        expect(status).to_have_text('No SAT / ILP route')
+        expect(self.page.locator('.place-meta')).not_to_contain_text('step')
+        select('Bridge')
+        expect(status).to_have_text('Route from SAT')
+        self.page.get_by_role('button', name='out', exact=True).click()
+        expect(status).to_have_text('Route to ILP')
+        mixed = self.page.locator('#status-legend .status-item').filter(has_text='Varies by variant')
+        expect(mixed.locator('b')).to_have_text('2')
+        select('OnlyTuring')
+        expect(status).to_have_text('No SAT / ILP route')
+        qualification = self.page.locator('.route-note')
+        expect(qualification).to_be_visible()
+        expect(qualification).to_contain_text('Routes alone do not establish complexity or solver availability')
+        self.page.locator('.identity').get_by_role('button', name='Directions', exact=True).click()
+        expect(self.page.locator('#view-directions')).to_be_visible()
+        expect(qualification).to_be_visible()
+        expect(self.page.get_by_role('button', name='NP-hard only')).to_have_count(0)
+        self.assertNotIn('NP-hard', self.page.locator('body').inner_text())
+
+    def test_graph_scene_error_is_visible_in_each_start_mode(self):
+        self.page.route('**/graph-scene.json.gz', lambda route: route.fulfill(status=404, body='Missing'))
+        self.page.route('**/path-worker.js', lambda route: route.fulfill(
+            body='self.onmessage = () => {};', content_type='text/javascript'))
+        for suffix in ['', '#directions']:
+            with self.subTest(mode=suffix or 'explore'):
+                self.page.goto(self.base + 'graph.html' + suffix)
+                expect(self.page.get_by_role('alert')).to_be_visible()
+                expect(self.page.get_by_role('alert')).to_contain_text('Cannot load graph')
+                self.page.wait_for_function('() => !document.querySelector("#graph-error").hidden')
+                self.assertEqual(self.page.workers, [])
+
     def test_accessibility_atlas(self):
         self.visit('atlas')
         expect(self.page.locator('.atlas-row').first).to_be_visible()
@@ -179,12 +240,12 @@ class WebsiteTests(unittest.TestCase):
         self.page.get_by_role('button', name='Without ILP & QUBO').click()
         expect(ilp).to_have_class(re.compile(r'\boff\b'))
         expect(self.page.locator('[data-node="Satisfiability"]')).not_to_have_attribute('transform', before)
-        self.page.get_by_role('button', name='NP-hard only').click()
+        self.page.get_by_role('button', name='With routes from SAT').click()
         expect(ilp).not_to_have_class(re.compile(r'\boff\b'))
         self.page.get_by_role('button', name='All rules').click()
         expect(self.page.locator('[data-node="Satisfiability"]')).to_have_attribute('transform', before, timeout=4000)
         self.page.locator('[data-node="QUBO"]').click()
-        expect(self.page.locator('.place-meta .status')).to_have_text('Solver hub')
+        expect(self.page.locator('.place-meta .status')).to_have_text('Route from SAT · Route to ILP')
 
     def test_graph_selected_route_is_a_straight_chain_and_explore_restores_the_map(self):
         self.page.goto(self.base + 'graph.html')

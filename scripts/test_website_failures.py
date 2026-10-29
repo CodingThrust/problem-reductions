@@ -272,6 +272,12 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         expect(self.page.locator('#drawer-body article')).to_contain_text('wireless network scheduling')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
 
+    def test_graph_scene_failure_is_visible_in_default_explore_mode(self):
+        (self.assets / 'graph-scene.json.gz').unlink()
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#graph-error')).to_be_visible(timeout=1000)
+        expect(self.page.get_by_role('alert')).to_contain_text('Cannot load graph')
+
     def test_graph_scene_failure_releases_worker_and_reload_recovers(self):
         resource = self.assets / 'graph-scene.json.gz'
         original = resource.read_bytes()
@@ -281,7 +287,8 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         self.page.goto(self.base + 'graph.html#directions')
         self.assertTrue(self.engine_requested.wait(timeout=1), 'The eager engine never requested its WASM')
         self.scene_release.set()
-        expect(self.page.locator('#results')).to_contain_text('Cannot load graph', timeout=1000)
+        expect(self.page.locator('#graph-error')).to_be_visible(timeout=1000)
+        expect(self.page.locator('#graph-error')).to_contain_text('Cannot load graph')
         deadline = time.monotonic() + 1
         while self.page.workers and time.monotonic() < deadline:
             self.page.wait_for_timeout(10)
