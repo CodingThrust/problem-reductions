@@ -286,3 +286,53 @@ fn test_minimum_negative_weight_overflows() {
         crate::rules::ReductionError::IntegerOverflow { .. }
     ));
 }
+
+#[test]
+fn test_unrepresentable_matrix_objective_is_rejected() {
+    for (n, edges, weights) in [
+        (2, vec![(0, 1)], vec![-3_000_000_000_000_000_000]),
+        (2, vec![(0, 1)], vec![-((i64::MAX - 2) / 4 + 1)]),
+        (2, vec![(0, 1)], vec![i64::MAX / 2 + 1]),
+        (3, vec![(0, 1), (1, 2)], vec![-2_000_000_000_000_000_000; 2]),
+        (
+            3,
+            vec![(0, 1), (1, 2)],
+            vec![-1_000_000_000_000_000_000, 3_000_000_000_000_000_000],
+        ),
+    ] {
+        let source = MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(n, edges), weights);
+        // Every source configuration is evaluable, including its optimum.
+        let optimum = BruteForce::new().solve(&source).unwrap().unwrap();
+        assert!(source.evaluate(&optimum).unwrap().0.is_some());
+        assert!(matches!(
+            ReduceTo::<MinimumMatrixCover>::reduce_to(&source),
+            Err(crate::rules::ReductionError::IntegerOverflow { .. })
+        ));
+    }
+}
+
+#[test]
+fn test_representable_matrix_objective_boundaries() {
+    for (weight, expected) in [(-((i64::MAX - 2) / 4), 0), (i64::MAX / 2, i64::MAX / 2)] {
+        let source =
+            MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(2, vec![(0, 1)]), vec![weight]);
+        let reduction = ReduceTo::<MinimumMatrixCover>::reduce_to(&source).unwrap();
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &reduction,
+            "MaxCut at the matrix objective boundary",
+        );
+        let target = reduction.target_problem();
+        assert_eq!(
+            target.evaluate(&vec![false; target.num_rows()]).unwrap(),
+            Min(Some(i64::MAX - 1))
+        );
+        let target_optimum = BruteForce::new().solve(target).unwrap().unwrap();
+        assert_eq!(
+            target.evaluate(&target_optimum).unwrap(),
+            Min(Some(-(i64::MAX - 1)))
+        );
+        let extracted = reduction.extract_solution(&target_optimum).unwrap();
+        assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(expected)));
+    }
+}
