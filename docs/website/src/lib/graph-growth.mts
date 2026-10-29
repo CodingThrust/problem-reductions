@@ -13,7 +13,9 @@ export function growth(field: GrowthField): Growth {
   const cached = memo.get(field);
   if (cached) return cached;
   let out: Growth = { degree: null, lead: 'unavailable' };
-  if (field.certificate != null) {
+  if (field.certificate === '0' && field.accuracy.kind === 'exact') {
+    out = { degree: 0n, lead: '0' };
+  } else if (field.certificate != null) {
     const terms = field.certificate.split(' + ').map(term => {
       const vars = [...term.matchAll(/([A-Za-z_]\w*)(?:\^([\d.]+))?/g)].map(match => ({
         // Every successful match includes the mandatory variable capture.
@@ -23,8 +25,10 @@ export function growth(field: GrowthField): Growth {
         txt: vars.map(variable => variable.v + (variable.e === 1n ? '' : sup(variable.e))).join('·') || '1' };
     });
     const degree = terms.reduce((max, term) => term.d > max ? term.d : max, 0n);
-    const lead = [...new Set(terms.filter(term => term.d === degree).map(term => term.txt))];
-    out = { degree, lead: (field.accuracy.kind === 'exact' ? 'Θ(' : 'O(') + lead.slice(0, 3).join(' + ')
+    // Removing signs and coefficients gives an upper bound, even for an exact formula.
+    // Keep every monomial: independent parameters need not grow at the same rate.
+    const lead = [...new Set(terms.map(term => term.txt))];
+    out = { degree, lead: 'O(' + lead.slice(0, 3).join(' + ')
       + (lead.length > 3 ? ' + …' : '') + ')' };
   }
   memo.set(field, out);

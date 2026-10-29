@@ -87,7 +87,6 @@ fn test_relationship_to_independent_set() {
     let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]];
     let sp_problem = MaximumSetPacking::<i64>::new(sets.clone());
 
-    // Build intersection graph
     let edges = sp_problem.overlapping_pairs();
     let n = sets.len();
     let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);

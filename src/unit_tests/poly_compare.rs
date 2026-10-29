@@ -66,15 +66,19 @@ fn witnesses_reject_negative_and_cancelled_top_faces() {
     }
     let f = poly("m^2-n");
     let g = poly("m-n");
-    assert!(Witness::on(curve.clone(), &f, &g, &[])
-        .unwrap()
-        .verify(&f, &g, &[]));
+    assert!(
+        Witness::on(curve.clone(), &f, &g, &[])
+            .unwrap()
+            .verify(&f, &g, &[])
+    );
     let zero = poly("m-n^2/2");
     assert!(Witness::on(curve.clone(), &f, &zero, &[]).is_none());
     let zero = poly("0");
-    assert!(Witness::on(curve, &f, &zero, &[])
-        .unwrap()
-        .verify(&f, &zero, &[]));
+    assert!(
+        Witness::on(curve, &f, &zero, &[])
+            .unwrap()
+            .verify(&f, &zero, &[])
+    );
     let c = pair("n^3-m", "n-m");
     let Direction::No(w) = c.forward else {
         panic!("n grows while m stays bounded, with both leading coefficients positive")

@@ -16,7 +16,6 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    // Solve the ILP target with the ILP solver
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");

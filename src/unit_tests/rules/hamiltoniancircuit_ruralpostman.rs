@@ -1,11 +1,11 @@
+use crate::Problem;
 use crate::models::graph::{HamiltonianCircuit, RuralPostman};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::types::Min;
-use crate::Problem;
 
 fn triangle_hc() -> HamiltonianCircuit<SimpleGraph> {
     HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]))
@@ -121,7 +121,6 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
         .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
-    // Verify source has no Hamiltonian circuit
     let source_witness = BruteForce::new().solve(&source).unwrap();
     assert!(source_witness.is_none(), "star graph should have no HC");
 

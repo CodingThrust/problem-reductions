@@ -68,7 +68,9 @@ fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
     let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
     let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(reduction
-        .extract_solution(&vec![false, true, false])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false, true, false])
+            .is_err()
+    );
 }

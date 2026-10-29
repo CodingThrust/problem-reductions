@@ -6,7 +6,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: argmax_p x_{j,p} for each task j
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MultiprocessorScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -63,7 +63,7 @@ impl crate::rules::AggregateReductionResult for ReductionMSToILP {}
         num_constraints = "num_tasks + num_processors",
     },
     upper_bound {
-        num_nonzeros = "(num_tasks * num_processors) * (num_tasks + num_processors)",
+        num_nonzeros = "2 * num_tasks * num_processors",
     },
 })]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
@@ -110,11 +110,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiprocessorscheduling_to_ilp",
         build: || {
-            // 3 tasks with lengths [4, 5, 3], 2 processors, deadline 7
-            // Assignment: task 0 → processor 0, task 1 → processor 1, task 2 → processor 1
-            // Loads: processor 0 = 4, processor 1 = 5+3 = 8 (wait, try different)
-            // Assignment: task 0 → processor 0, task 1 → processor 1, task 2 → processor 0
-            // Loads: processor 0 = 4+3=7, processor 1 = 5 ≤ 7. Feasible!
             let source = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 7);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

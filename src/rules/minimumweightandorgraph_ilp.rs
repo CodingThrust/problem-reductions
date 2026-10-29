@@ -1,5 +1,5 @@
 //! Gate selection and source reachability, including shared or cyclic subgraphs.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumWeightAndOrGraph;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

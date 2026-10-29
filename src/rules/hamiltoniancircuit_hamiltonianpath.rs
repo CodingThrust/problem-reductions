@@ -68,7 +68,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
                 _ => {
                     return Err(crate::rules::ExtractionError::invalid(
                         "target path does not have the required pendant endpoints",
-                    ))
+                    ));
                 }
             };
 
@@ -158,14 +158,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_hamiltonianpath",
         build: || {
-            // Square graph (4-cycle): 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
             crate::example_db::specs::rule_example_with_witness::<_, HamiltonianPath<SimpleGraph>>(
                 source,
                 SolutionPair {
-                    // HC solution: visit vertices in order 0, 1, 2, 3
                     source_config: serde_json::json!(vec![0, 1, 2, 3]),
-                    // HP solution on G' (7 vertices): s=5, 0, 1, 2, 3, v'=4, t=6
                     target_config: serde_json::json!(vec![5, 0, 1, 2, 3, 4, 6]),
                 },
             )

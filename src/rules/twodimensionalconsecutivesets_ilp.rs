@@ -1,6 +1,6 @@
 //! Distinct labels within a subset occupy an interval of that subset's size.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::set::TwoDimensionalConsecutiveSets;
 use crate::rules::ilp_helpers::{bounded_order_comparison, decode_usize_values};
 use crate::rules::traits::{ReduceTo, ReductionResult};

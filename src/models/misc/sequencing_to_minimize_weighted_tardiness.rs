@@ -32,8 +32,7 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Configurations use Lehmer code to encode permutations of the jobs.
-/// Decoding yields the job order processed by the single machine.
+/// A solution is a permutation of job indices in processing order.
 ///
 /// # Example
 ///
@@ -201,9 +200,9 @@ impl SequencingToMinimizeWeightedTardiness {
         Ok(total)
     }
 
-    /// Compute the total weighted tardiness of a Lehmer-encoded schedule.
+    /// Compute the total weighted tardiness of a job permutation.
     ///
-    /// Returns `Ok(None)` if the configuration is not a valid Lehmer code.
+    /// Returns `Ok(None)` if the configuration is not a valid permutation.
     pub fn total_weighted_tardiness(
         &self,
         config: &[usize],

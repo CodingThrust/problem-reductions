@@ -249,10 +249,12 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_r
     let target_solution = reduction.construct_target_solution(&source_solution);
 
     assert!(source.evaluate(&source_solution).unwrap());
-    assert!(reduction
-        .target_problem()
-        .evaluate(&target_solution)
-        .unwrap());
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+    );
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         source_solution
@@ -325,9 +327,11 @@ fn test_long_clauses_preserve_assignments() {
                 assert_eq!(result.extract_solution(&witness).unwrap(), assignment);
             }
         }
-        assert!(result
-            .extract_solution(&vec![0; layout.num_vertices])
-            .is_err());
+        assert!(
+            result
+                .extract_solution(&vec![0; layout.num_vertices])
+                .is_err()
+        );
         assert!(result.extract_solution(&vec![]).is_err());
     }
 }

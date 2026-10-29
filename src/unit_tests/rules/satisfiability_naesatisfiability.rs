@@ -91,14 +91,18 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
         error.to_string(),
         "target evaluation failed during extraction: invalid configuration: assignment length does not match the formula variables"
     );
-    assert!(reduction
-        .extract_solution(&vec![false, false, false, false])
-        .is_err());
-    assert!(crate::rules::DynReductionResult::target_solution_from_json(
-        &reduction,
-        serde_json::json!([false, 2, false])
-    )
-    .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false, false, false, false])
+            .is_err()
+    );
+    assert!(
+        crate::rules::DynReductionResult::target_solution_from_json(
+            &reduction,
+            serde_json::json!([false, 2, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

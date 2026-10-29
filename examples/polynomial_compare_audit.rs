@@ -5,7 +5,7 @@
 //! Each endpoint group is one generic batch, including every nonzero field certificate.
 //!
 //! cargo run --release --example polynomial_compare_audit
-use problemreductions::poly_compare::{compare_all, Direction, Profile, Reason, Verdict};
+use problemreductions::poly_compare::{Direction, Profile, Reason, Verdict, compare_all};
 use problemreductions::rules::{ReductionGraph, ReductionPath, ReductionStep};
 use std::collections::BTreeMap;
 use std::time::Instant;

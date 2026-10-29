@@ -104,7 +104,7 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
     // f1 sends flow into vertex 2 but not out
     let mut config = vec![0; 16];
     config[0] = 1; // f1 on arc 0 (0->2): flow into vertex 2
-                   // No outgoing flow from vertex 2 for commodity 1
+    // No outgoing flow from vertex 2 for commodity 1
     assert!(!problem.evaluate(&config).unwrap());
 }
 
@@ -183,11 +183,9 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    // Verify the known solution evaluates to true
     let config = vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
     assert!(problem.evaluate(&config).unwrap());
 
-    // Find all satisfying solutions and verify count
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());
 

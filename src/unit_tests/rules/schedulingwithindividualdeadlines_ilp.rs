@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -33,11 +33,13 @@ fn test_schedulingwithindividualdeadlines_to_ilp_structure() {
 fn test_schedulingwithindividualdeadlines_to_ilp_fixes_unused_slots() {
     let problem = SchedulingWithIndividualDeadlines::new(2, 2, vec![1, 2], vec![]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).unwrap();
-    assert!(!reduction
-        .target_problem()
-        .evaluate(&vec![1, 1, 1, 0])
-        .unwrap()
-        .is_valid());
+    assert!(
+        !reduction
+            .target_problem()
+            .evaluate(&vec![1, 1, 1, 0])
+            .unwrap()
+            .is_valid()
+    );
     let witnesses: Vec<Vec<i64>> = (0..16)
         .map(|bits| (0..4).map(|bit| i64::from((bits >> bit) & 1)).collect())
         .filter(|witness| {

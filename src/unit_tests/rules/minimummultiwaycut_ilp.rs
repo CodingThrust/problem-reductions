@@ -5,7 +5,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Build the canonical 5-vertex, 3-terminal example from issue #185.
+/// Build the canonical 5-vertex, 3-terminal example.
 fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i64> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5])
@@ -38,11 +38,9 @@ fn test_minimummultiwaycut_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve original with brute force
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = problem.evaluate(&extracted).unwrap();

@@ -177,9 +177,11 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_all_small_graphs()
                     Or(source_yes),
                     "n={n}, edges={edges:?}, K={bound}"
                 );
-                assert!(reduction
-                    .extract_solution(&vec![false; target.num_vertices() + 1])
-                    .is_err());
+                assert!(
+                    reduction
+                        .extract_solution(&vec![false; target.num_vertices() + 1])
+                        .is_err()
+                );
             }
         }
     }

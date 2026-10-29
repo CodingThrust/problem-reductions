@@ -66,7 +66,7 @@ impl CopyLine {
         // Vertical segment: from vstart to vstop
         for v in self.vstart..=self.vstop {
             let row = spacing * (v - 1) + padding + 1; // 0-indexed
-                                                       // Weight is 1 for regular positions
+            // Weight is 1 for regular positions
             locs.push((row, col, 1));
         }
 
@@ -74,7 +74,7 @@ impl CopyLine {
         let hrow = spacing * (self.hslot - 1) + padding + 1; // 0-indexed
         for h in (self.vslot + 1)..=self.hstop {
             let hcol = spacing * (h - 1) + padding; // 0-indexed
-                                                    // Avoid duplicate at the corner (vslot, hslot)
+            // Avoid duplicate at the corner (vslot, hslot)
             if hcol != col || hrow != spacing * (self.hslot - 1) + padding + 1 {
                 locs.push((hrow, hcol, 1));
             }
@@ -324,14 +324,12 @@ pub fn create_copylines(
         ));
     }
 
-    // Build adjacency set for edge lookup
     let mut has_edge = vec![vec![false; num_vertices]; num_vertices];
     for &(u, v) in edges {
         has_edge[u][v] = true;
         has_edge[v][u] = true;
     }
 
-    // Compute removal order
     let rmorder = remove_order(num_vertices, edges, vertex_order);
 
     // Phase 1: Assign hslots using slot reuse strategy
@@ -383,7 +381,6 @@ pub fn create_copylines(
         hstops[i] = *relevant_vslots.iter().max().unwrap_or(&1);
     }
 
-    // Build copylines indexed by vertex id
     let mut copylines = vec![
         CopyLine {
             vertex: 0,
@@ -465,7 +462,6 @@ pub fn copyline_weighted_locations_triangular(
     let mut weights = Vec::new();
     let mut nline = 0usize;
 
-    // Count segments and calculate lengths
     let has_up = line.vstart < line.hslot;
     let has_down = line.vstop > line.hslot;
     let has_right = line.hstop > line.vslot;

@@ -179,8 +179,10 @@ fn test_minimum_weight_decoding_target_mismatch() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<MinimumWeightDecoding>(
-        serde_json::json!({"matrix":[[true]],"target":[]})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<MinimumWeightDecoding>(
+            serde_json::json!({"matrix":[[true]],"target":[]})
+        )
+        .is_err()
+    );
 }

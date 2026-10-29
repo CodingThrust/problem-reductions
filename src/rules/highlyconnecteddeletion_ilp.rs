@@ -14,7 +14,7 @@
 //! deletion can restore all internal edges without losing connectivity, so an
 //! optimal source solution is represented. Self-loops are always kept.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::HighlyConnectedDeletion;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -152,9 +152,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "highlyconnecteddeletion_to_ilp",
         build: || {
-            // Canonical example: triangle {0,1,2} + leaf vertex 3.
-            // Optimum deletes only the leaf edge (2,3); ILP keeps the triangle
-            // cluster and the {3} singleton.
             let source = HighlyConnectedDeletion::new(SimpleGraph::new(
                 4,
                 vec![(0, 1), (0, 2), (1, 2), (2, 3)],

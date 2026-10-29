@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
-/// Issue example: 6 vertices, edges forming two triangles connected by 3 edges.
+/// Example: 6 vertices, edges forming two triangles connected by 3 edges.
 /// Optimal partition A={0,1,2}, B={3,4,5}, cut=3.
 fn issue_example() -> GraphPartitioning<SimpleGraph> {
     let graph = SimpleGraph::new(
@@ -28,7 +28,6 @@ fn issue_example() -> GraphPartitioning<SimpleGraph> {
 fn test_graphpartitioning_basic() {
     let problem = issue_example();
 
-    // Check dims: 6 binary variables
     assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
 
     // Evaluate a valid balanced partition: A={0,1,2}, B={3,4,5}
@@ -47,7 +46,6 @@ fn test_graphpartitioning_serialization() {
     assert_eq!(deserialized.graph().num_vertices(), 6);
     assert_eq!(deserialized.graph().num_edges(), 9);
 
-    // Verify evaluation is consistent after round-trip
     let config = vec![false, false, false, true, true, true];
     assert_eq!(
         problem.evaluate(&config).unwrap(),
@@ -136,11 +134,13 @@ fn test_graphpartitioning_unbalanced_invalid() {
 fn test_graphpartitioning_rejects_non_binary_configs() {
     let problem = issue_example();
 
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, false, true, true, true, 2])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, false, true, true, true, 2])
+        )
+        .is_err()
+    );
 }
 
 #[test]

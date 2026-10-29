@@ -147,9 +147,11 @@ mod all_problems_solvable {
         let solver = BruteForce::new();
         let satisfying = solver.find_all_witnesses(&problem).unwrap();
         assert_eq!(satisfying, vec![vec![false, false, true]]);
-        assert!(satisfying
-            .iter()
-            .all(|config| problem.evaluate(config).unwrap().0));
+        assert!(
+            satisfying
+                .iter()
+                .all(|config| problem.evaluate(config).unwrap().0)
+        );
     }
 
     #[test]

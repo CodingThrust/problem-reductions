@@ -277,7 +277,6 @@ fn is_spanning_tree<G: Graph>(graph: &G, config: &[bool]) -> bool {
         return false;
     }
 
-    // Build adjacency and BFS from vertex 0
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -315,7 +314,6 @@ fn check_capacity<G: Graph, W: WeightElement>(
     let n = graph.num_vertices();
     let edges = graph.edges();
 
-    // Build adjacency list with edge indices
     let mut adj: Vec<Vec<(usize, usize)>> = vec![vec![]; n]; // (neighbor, edge_idx)
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -344,7 +342,6 @@ fn check_capacity<G: Graph, W: WeightElement>(
         }
     }
 
-    // Compute subtree sums bottom-up
     let mut subtree_sum: Vec<W::Sum> = requirements.iter().map(|r| r.to_sum()).collect();
     for &v in order.iter().rev() {
         if v != root {
@@ -422,14 +419,12 @@ where
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected {
-                    if let Some(w) = self.weights.get(idx) {
-                        total = W::checked_add_to_sum(
-                            total,
-                            w.to_sum(),
-                            "summing capacitated spanning tree edge weights",
-                        )?;
-                    }
+                if selected && let Some(w) = self.weights.get(idx) {
+                    total = W::checked_add_to_sum(
+                        total,
+                        w.to_sum(),
+                        "summing capacitated spanning tree edge weights",
+                    )?;
                 }
             }
             Min(Some(total))
@@ -473,15 +468,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (3, 4),
                 ],
             ),
-            vec![2, 1, 4, 3, 1, 2, 3, 1], // edge weights
-            0,                            // root
-            vec![0, 1, 1, 1, 1],          // requirements (root=0)
-            3,                            // capacity
+            vec![2, 1, 4, 3, 1, 2, 3, 1],
+            0,
+            vec![0, 1, 1, 1, 1],
+            3,
         )),
-        // Optimal: edges {(0,1),(0,2),(1,4),(3,4)} = indices {0,1,4,7}
-        // Weight = 2+1+1+1 = 5
-        // Subtree sums: subtree(1)={1,4}->req=2<=3, subtree(2)={2}->req=1<=3,
-        //   subtree(4)={4}->req=1<=3, subtree(3)={3}->req=1<=3
         optimal_config: serde_json::json!(vec![true, true, false, false, true, false, false, true]),
         optimal_value: serde_json::json!(5),
     }]

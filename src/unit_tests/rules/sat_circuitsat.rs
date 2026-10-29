@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::formula::{CNFClause, CircuitSAT, Satisfiability};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 
 #[test]

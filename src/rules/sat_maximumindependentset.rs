@@ -136,13 +136,11 @@ impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiabil
         for clause in self.clauses() {
             let clause_start = literals.len();
 
-            // Add vertices for each literal in this clause
             for &lit in &clause.literals {
                 literals.push(BoolVar::from_literal(lit));
             }
 
             let vertex_count = literals.len();
-            // Add clique edges within this clause
             for i in clause_start..vertex_count {
                 for j in (i + 1)..vertex_count {
                     edges.push((i, j));

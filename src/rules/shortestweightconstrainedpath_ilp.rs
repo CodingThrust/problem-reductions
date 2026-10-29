@@ -6,7 +6,7 @@
 //! bound constraint enforces the weight limit, and the objective minimizes
 //! total path length.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::ShortestWeightConstrainedPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -64,7 +64,7 @@ impl ReductionResult for ReductionSWCPToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
-        num_nonzeros = "(2 * num_edges + num_vertices) * (5 * num_edges + 4 * num_vertices + 2)",
+        num_nonzeros = "20 * num_edges + num_vertices + 1",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for ShortestWeightConstrainedPath<SimpleGraph, i64> {
@@ -235,10 +235,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestweightconstrainedpath_to_ilp",
         build: || {
-            // 3-vertex path: 0 -- 1 -- 2, s=0, t=2
-            // edge_lengths = [2, 3], edge_weights = [1, 2]
-            // weight_bound = 4
-            // The only s-t path uses both edges: length=5, weight=3 <= 4 => feasible
             let source = ShortestWeightConstrainedPath::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 3],

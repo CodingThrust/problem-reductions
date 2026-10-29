@@ -25,13 +25,17 @@ fn test_consecutive_sets_evaluation() {
         6,
     );
     // YES: w = [0, 4, 2, 5, 1, 3]
-    assert!(problem
-        .evaluate(&vec![Some(0), Some(4), Some(2), Some(5), Some(1), Some(3)])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![Some(0), Some(4), Some(2), Some(5), Some(1), Some(3)])
+            .unwrap()
+    );
     // NO: identity string [0, 1, 2, 3, 4, 5] — {0,4} not adjacent
-    assert!(!problem
-        .evaluate(&vec![Some(0), Some(1), Some(2), Some(3), Some(4), Some(5)])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![Some(0), Some(1), Some(2), Some(3), Some(4), Some(5)])
+            .unwrap()
+    );
     // NO: all unused (empty string can't satisfy non-empty subsets)
     assert!(!problem.evaluate(&vec![None; 6]).unwrap());
 }
@@ -81,17 +85,21 @@ fn test_consecutive_sets_rejects_internal_unused() {
     // Internal "unused" symbol should be rejected
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
     // [0, 3, 1, 3] has "unused" (3) at position 1, which is internal
-    assert!(!problem
-        .evaluate(&vec![Some(0), None, Some(1), None])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![Some(0), None, Some(1), None])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_consecutive_sets_accepts_shorter_string_with_trailing_unused() {
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
-    assert!(problem
-        .evaluate(&vec![Some(0), Some(1), None, None])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![Some(0), Some(1), None, None])
+            .unwrap()
+    );
 }
 
 #[test]

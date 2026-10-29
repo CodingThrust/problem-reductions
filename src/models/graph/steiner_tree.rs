@@ -214,7 +214,6 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[boo
         return false;
     }
 
-    // Build adjacency list from selected edges
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     let mut selected_count = 0usize;
     let mut involved = vec![false; n];
@@ -297,14 +296,12 @@ where
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected {
-                    if let Some(w) = self.edge_weights.get(idx) {
-                        total = W::checked_add_to_sum(
-                            total,
-                            w.to_sum(),
-                            "summing Steiner tree edge weights",
-                        )?;
-                    }
+                if selected && let Some(w) = self.edge_weights.get(idx) {
+                    total = W::checked_add_to_sum(
+                        total,
+                        w.to_sum(),
+                        "summing Steiner tree edge weights",
+                    )?;
                 }
             }
             Min(Some(total))
@@ -365,19 +362,30 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "steiner_tree_simplegraph",
-        instance: Box::new(SteinerTree::new(
-            SimpleGraph::new(
-                5,
-                vec![(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-            ),
-            vec![2, 5, 2, 1, 5, 6, 1],
-            vec![0, 2, 4],
-        )),
-        optimal_config: serde_json::json!(vec![true, false, true, true, false, false, true]),
-        optimal_value: serde_json::json!(6),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "steiner_tree_simplegraph",
+            instance: Box::new(SteinerTree::new(
+                SimpleGraph::new(
+                    5,
+                    vec![(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+                ),
+                vec![2, 5, 2, 1, 5, 6, 1],
+                vec![0, 2, 4],
+            )),
+            optimal_config: serde_json::json!(vec![true, false, true, true, false, false, true]),
+            optimal_value: serde_json::json!(6),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "steiner_tree_one",
+            instance: Box::new(SteinerTree::<SimpleGraph, One>::unit_weights(
+                SimpleGraph::path(3),
+                vec![0, 2],
+            )),
+            optimal_config: serde_json::json!([true, true]),
+            optimal_value: serde_json::json!(2),
+        },
+    ]
 }
 
 #[cfg(test)]

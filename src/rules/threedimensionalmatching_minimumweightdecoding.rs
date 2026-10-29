@@ -141,9 +141,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "threedimensionalmatching_to_minimumweightdecoding",
         build: || {
-            // q = 2, T = [(0,0,0), (1,1,1), (0,1,0), (1,0,1)].
-            // Perfect matchings: {t_0, t_1} and {t_2, t_3} -- both attain
-            // target minimum weight = q = 2.
             crate::example_db::specs::rule_example_with_witness::<_, MinimumWeightDecoding>(
                 ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)]),
                 SolutionPair {

@@ -6,7 +6,7 @@
 //! - Constraints: partition (each vertex in exactly one component) + edge-cut linking
 //! - Objective: minimize total weight of cut edges
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -64,7 +64,7 @@ impl ReductionResult for ReductionMMCToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_terminals * num_vertices + num_edges) * (num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals)",
+        num_nonzeros = "num_terminals * num_terminals + num_terminals * num_vertices + 6 * num_terminals * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {

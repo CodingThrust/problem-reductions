@@ -18,7 +18,7 @@
 //!
 //! Objective: maximize sum(z_v)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -62,7 +62,7 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 2",
-        num_nonzeros = "(3 * num_edges + num_vertices) * (3 * num_vertices + 2 * num_edges + 1)",
+        num_nonzeros = "11 * num_edges + 2 * num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MaximumLeafSpanningTree<SimpleGraph> {

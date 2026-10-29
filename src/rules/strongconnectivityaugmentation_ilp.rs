@@ -4,7 +4,7 @@
 //! sending flow both from a root to every vertex and back again.
 //! See the paper entry for the full formulation.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -50,9 +50,9 @@ impl crate::rules::AggregateReductionResult for ReductionSCAToILP {}
 #[reduction(transform = {
     exact {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
+        num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
     },
     upper_bound {
-        num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + num_potential_arcs + 2 * num_arcs + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
         num_nonzeros = "2 * num_potential_arcs + num_vertices * (4 * num_arcs + 8 * num_potential_arcs)",
     },
@@ -202,7 +202,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "strongconnectivityaugmentation_to_ilp",
         build: || {
-            // Path 0→1→2, candidates: (2,0,1),(1,0,2), bound=2
             let source = StrongConnectivityAugmentation::new(
                 SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![(2, 0, 1), (1, 0, 2)],

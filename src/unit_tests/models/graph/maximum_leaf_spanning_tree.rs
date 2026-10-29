@@ -19,7 +19,7 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
-/// Issue #897 example: 6 vertices, 9 edges.
+/// Example: 6 vertices, 9 edges.
 /// Edges: (0,1),(0,2),(0,3),(1,4),(2,4),(2,5),(3,5),(4,5),(1,3)
 fn example_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
     let graph = SimpleGraph::new(
@@ -70,7 +70,6 @@ fn test_maximum_leaf_spanning_tree_evaluate_optimal() {
 fn test_maximum_leaf_spanning_tree_evaluate_valid_suboptimal() {
     let problem = example_instance();
     // A path tree: (0,1),(1,3),(0,2),(2,4),(4,5) = indices 0,8,1,4,7
-    // Wait, edge 8 is (1,3). So: indices 0,1,4,7,8 = [1,1,0,0,1,0,0,1,1]
     // Degrees: 0->2, 1->2, 2->2, 3->1, 4->2, 5->1 => 2 leaves
     let config = vec![true, true, false, false, true, false, false, true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));

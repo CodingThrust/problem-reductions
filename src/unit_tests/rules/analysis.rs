@@ -1,4 +1,4 @@
-use super::{check_connectivity, check_reachability_from_3sat, UnreachableReason};
+use super::{UnreachableReason, check_connectivity, check_reachability_from_3sat};
 use crate::rules::ReductionGraph;
 
 // ---- Connectivity checks ----
@@ -121,7 +121,6 @@ fn test_reachability_missing_proof_chains_filter() {
     for p in &missing {
         assert_eq!(p.reason, UnreachableReason::MissingProofChain);
     }
-    // Count should match manual filter
     let manual_count = report
         .unreachable
         .iter()

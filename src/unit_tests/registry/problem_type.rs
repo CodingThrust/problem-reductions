@@ -1,6 +1,6 @@
 use crate::registry::{
-    find_problem_type, find_problem_type_by_alias, parse_catalog_problem_ref, problem_types,
-    ProblemCategory, ProblemRef, ProblemSchemaEntry,
+    ProblemCategory, ProblemRef, ProblemSchemaEntry, find_problem_type, find_problem_type_by_alias,
+    parse_catalog_problem_ref, problem_types,
 };
 use std::collections::{BTreeSet, HashMap};
 
@@ -61,9 +61,11 @@ fn problem_types_returns_all_registered() {
         types.len()
     );
     // Should include MIS
-    assert!(types
-        .iter()
-        .any(|t| t.canonical_name == "MaximumIndependentSet"));
+    assert!(
+        types
+            .iter()
+            .any(|t| t.canonical_name == "MaximumIndependentSet")
+    );
 }
 
 #[test]
@@ -251,7 +253,6 @@ fn catalog_dimensions_cover_all_declared_variants() {
     use crate::registry::variant::VariantEntry;
 
     for entry in inventory::iter::<ProblemSchemaEntry> {
-        // Collect all variant entries for this problem
         let variants: Vec<_> = inventory::iter::<VariantEntry>
             .into_iter()
             .filter(|v| v.name == entry.name)

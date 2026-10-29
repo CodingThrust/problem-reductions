@@ -1,5 +1,5 @@
 use crate::models::algebraic::{Comparison, LinearConstraint, ObjectiveSense};
-use crate::models::{Decision, Satisfiability, ILP};
+use crate::models::{Decision, ILP, Satisfiability};
 use crate::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -33,9 +33,11 @@ fn test_decisionilp_to_sat_closed_loop() {
                 reduction.extract_value(sat.evaluate(&witness).unwrap()),
                 Or(true)
             );
-            assert!(reduction
-                .extract_solution(&witness[..witness.len() - 1].to_vec())
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&witness[..witness.len() - 1].to_vec())
+                    .is_err()
+            );
             let invalid = vec![false; sat.num_vars()];
             assert!(reduction.extract_solution(&invalid).is_err());
         } else {

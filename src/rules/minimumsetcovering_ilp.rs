@@ -5,7 +5,7 @@
 //! - Constraints: For each element e: sum_{j: e in set_j} x_j >= 1 (element must be covered)
 //! - Objective: Minimize the sum of weights of selected sets
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::set::MinimumSetCovering;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -63,7 +63,6 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
         // This ensures each element is covered by at least one selected set
         let constraints: Vec<LinearConstraint> = (0..self.universe_size())
             .map(|element| {
-                // Find all sets containing this element
                 let terms: Vec<(usize, i64)> = self
                     .sets()
                     .iter()

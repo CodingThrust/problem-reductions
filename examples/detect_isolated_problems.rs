@@ -2,8 +2,8 @@
 //!
 //! Run with: `cargo run --example detect_isolated_problems`
 
-use problemreductions::rules::analysis::check_connectivity;
 use problemreductions::rules::ReductionGraph;
+use problemreductions::rules::analysis::check_connectivity;
 
 fn main() {
     let graph = ReductionGraph::new();

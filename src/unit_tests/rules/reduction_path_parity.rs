@@ -6,8 +6,8 @@ use crate::models::algebraic::Bounded;
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
-use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::rules::ReductionGraph;
+use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
@@ -51,7 +51,6 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
-    // Verify target is SpinGlass
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
@@ -132,7 +131,6 @@ fn test_jl_parity_factoring_to_spinglass_path() {
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
-    // Verify reduction produces a valid SpinGlass problem
     assert!(
         target.num_variables() > 0,
         "SpinGlass should have variables"

@@ -51,7 +51,7 @@ fn path_text_preserves_variant_conversion_steps() {
 
 #[test]
 fn polynomial_comparison_default_layout_and_opt_in_proofs() {
-    // The feedback-arc route adds a quadratic-size candidate; retain both equivalent set-packing routes.
+    // The first two clique routes are equivalent; set-packing and feedback-arc routes add comparisons.
     let args = ["path", "MIS", "QUBO", "--compare", "--limit", "4"];
     let output = pred().args(args).output().unwrap();
     assert!(output.status.success());
@@ -63,15 +63,17 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     assert!(semantics < pairs && pairs < unresolved && unresolved < front);
     assert!(text.contains("Path 1") && text.contains("num_vars"));
     assert!(!text.contains("[upper bound]") && !text.contains("[exact]"));
-    assert!(text[pairs..unresolved]
-        .contains("1 dominated, 1 equivalent, 4 proven incomparable, 0 unresolved"));
+    assert!(
+        text[pairs..unresolved]
+            .contains("2 dominated, 1 equivalent, 3 proven incomparable, 0 unresolved")
+    );
     assert!(!text.contains("worst case:") && !text.contains("Generic candidate front"));
-    assert!(text.contains("Paths 1, 2: proven incomparable"));
-    assert!(text.contains("Paths 2, 4: Path 2 ≡ Path 4"));
+    assert!(text.contains("Paths 1, 3: proven incomparable"));
+    assert!(text.contains("Paths 1, 2: Path 1 ≡ Path 2"));
     assert!(
         text.contains("Ignores exact-cancellation families") && text.contains("bounded strata")
     );
-    assert!(text.contains("4 proven incomparable, 0 unresolved"));
+    assert!(text.contains("3 proven incomparable, 0 unresolved"));
     assert!(
         !text.contains("Field proofs") && !text.contains("Witness {") && !text.contains("f/g → ∞")
     );
@@ -80,8 +82,8 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(
-        text.contains("Paths 1, 2: proven incomparable")
-            && text.contains("Paths 2, 4: Path 2 ≡ Path 4")
+        text.contains("Paths 1, 3: proven incomparable")
+            && text.contains("Paths 1, 2: Path 1 ≡ Path 2")
     );
     assert!(text.contains("Field proofs") && text.contains("f/g → ∞"));
     assert!(text.contains("f ≡ g after expansion"));
@@ -90,27 +92,52 @@ fn polynomial_comparison_default_layout_and_opt_in_proofs() {
     let output = pred().args(args).arg("--json").output().unwrap();
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    for (route, step, name) in [
+        (0, 0, "MaximumClique"),
+        (1, 1, "MaximumClique"),
+        (2, 1, "MaximumSetPacking"),
+        (3, 2, "MinimumFeedbackArcSet"),
+    ] {
+        assert_eq!(json["paths"][route]["path"][step]["to"]["name"], name);
+    }
     let view = &json["polynomial_comparison"];
     assert_eq!(view["schema_version"], 5);
     assert_eq!(view["mode"], "generic");
-    assert_eq!(view["counts"]["Incomparable"], 4);
+    assert_eq!(view["counts"]["Incomparable"], 3);
     assert!(view.get("generic_counts").is_none());
     assert!(view.get("generic_candidate_front").is_none());
     assert!(view["pairs"][0]["fields"]["num_vars"]["forward"]["certificate"].is_object());
-    let identity = &view["pairs"][4]["fields"]["num_vars"]["forward"]["certificate"];
+    let identity = &view["pairs"][0]["fields"]["num_vars"]["forward"]["certificate"];
     assert_eq!(identity["kind"], "identity");
     assert_eq!(identity.as_object().unwrap().len(), 1);
-    assert!(view["pairs"][4]["fields"]["num_vars"]
-        .get("generic")
-        .is_none());
+    assert!(
+        view["pairs"][0]["fields"]["num_vars"]
+            .get("generic")
+            .is_none()
+    );
     let output = pred()
         .args(["path", "MIS", "QUBO", "--proofs"])
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8(output.stderr)
-        .unwrap()
-        .contains("--compare"));
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("--compare")
+    );
+}
+
+#[test]
+fn test_parse_error_appends_subcommand_workflow_help() {
+    let output = pred().args(["solve", "--pred solve"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("unexpected argument '--pred solve'"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("pred create"), "{stderr}");
+    assert!(stderr.contains("brute-force"), "{stderr}");
 }
 
 fn extract_target_config(
@@ -242,15 +269,21 @@ fn test_list_json_respects_category_filter() {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let variants = json["variants"].as_array().unwrap();
     assert_eq!(json["num_types"], 10);
-    assert!(variants
-        .iter()
-        .all(|variant| variant["name"] != "MaximumIndependentSet"));
-    assert!(variants
-        .iter()
-        .all(|variant| variant["category"] == "formula"));
-    assert!(variants
-        .iter()
-        .any(|variant| variant["name"] == "KSatisfiability/K3"));
+    assert!(
+        variants
+            .iter()
+            .all(|variant| variant["name"] != "MaximumIndependentSet")
+    );
+    assert!(
+        variants
+            .iter()
+            .all(|variant| variant["category"] == "formula")
+    );
+    assert!(
+        variants
+            .iter()
+            .any(|variant| variant["name"] == "KSatisfiability/K3")
+    );
 }
 
 #[test]
@@ -476,11 +509,13 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
     assert_eq!(json["solver"]["kind"], "ilp");
-    assert!(json["solver"]["reduction_path"]
-        .as_array()
-        .and_then(|path| path.last())
-        .and_then(|step| step.as_str())
-        .is_some_and(|step| step.starts_with("ILP<")));
+    assert!(
+        json["solver"]["reduction_path"]
+            .as_array()
+            .and_then(|path| path.last())
+            .and_then(|step| step.as_str())
+            .is_some_and(|step| step.starts_with("ILP<"))
+    );
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
         json["solution"]
@@ -633,9 +668,11 @@ fn test_path_save() {
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(json.get("path").is_none());
-    assert!(json["paths"]
-        .as_array()
-        .is_some_and(|paths| !paths.is_empty()));
+    assert!(
+        json["paths"]
+            .as_array()
+            .is_some_and(|paths| !paths.is_empty())
+    );
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -660,8 +697,10 @@ fn test_path_rejects_limit_above_maximum() {
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("limit must be an integer from 1 to 999 or 'all'"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("limit must be an integer from 1 to 999 or 'all'")
+    );
 }
 
 #[test]
@@ -689,8 +728,10 @@ fn test_path_rejects_zero_limit() {
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("limit must be an integer from 1 to 999 or 'all'"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("limit must be an integer from 1 to 999 or 'all'")
+    );
 }
 
 #[test]
@@ -778,9 +819,11 @@ fn test_show_inputs_follow_the_selected_variant() {
             "{spec}"
         );
         assert!(result["schema"].get("fields").is_none());
-        assert!(inputs
-            .iter()
-            .all(|input| !input["type_name"].as_str().unwrap().contains("<W>")));
+        assert!(
+            inputs
+                .iter()
+                .all(|input| !input["type_name"].as_str().unwrap().contains("<W>"))
+        );
     }
 }
 
@@ -1814,9 +1857,11 @@ fn test_path_set_envelope_has_only_per_item_paths() {
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
 
-    assert!(json["paths"]
-        .as_array()
-        .is_some_and(|paths| !paths.is_empty()));
+    assert!(
+        json["paths"]
+            .as_array()
+            .is_some_and(|paths| !paths.is_empty())
+    );
 
     assert!(json.get("path").is_none());
     let path = json["paths"][0]["path"]
@@ -5703,8 +5748,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "MinimumVertexCover/SimpleGraph/One",
-            "LongestCommonSubsequence",
+            "SubsetSum",
+            "DecisionOpenShopScheduling",
             "--limit",
             "1",
             "--json",
@@ -5716,22 +5761,117 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap();
-    let relations = fields
+    let machines = fields
         .iter()
-        .map(|field| {
-            (
-                field["field"].as_str().unwrap(),
-                field["relation"].as_str().unwrap(),
-            )
-        })
-        .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["alphabet_size"], "exact");
-    assert_eq!(relations["cross_frequency_product"], "unavailable");
-    let unavailable = fields
-        .iter()
-        .find(|field| field["relation"] == "unavailable")
+        .find(|field| field["field"] == "num_machines")
         .unwrap();
-    assert!(!unavailable["reason"].as_str().unwrap().is_empty());
+    assert_eq!(machines["relation"], "exact");
+    let horizon = fields
+        .iter()
+        .find(|field| field["field"] == "schedule_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(
+        horizon["reason"]
+            .as_str()
+            .is_some_and(|reason| !reason.is_empty())
+    );
+}
+
+#[test]
+fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
+    let dir =
+        std::env::temp_dir().join(format!("pred_vertex_cover_lcs_mis_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("source.json");
+    let route = dir.join("route.json");
+    let bundle = dir.join("bundle.json");
+    let created = pred()
+        .args([
+            "create",
+            "MinimumVertexCover/SimpleGraph/One",
+            "--graph",
+            "0-1,1-2",
+            "-o",
+            source.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    write_named_route(
+        "MinimumVertexCover/SimpleGraph/One",
+        "MaximumIndependentSet/SimpleGraph/One",
+        &[
+            "MinimumVertexCover",
+            "LongestCommonSubsequence",
+            "MaximumIndependentSet",
+        ],
+        &route,
+    );
+    let selected: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&route).unwrap()).unwrap();
+    assert!(
+        selected["overall_parameters"]["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|field| field["relation"] != "unavailable")
+    );
+    let reduced = pred()
+        .args([
+            "reduce",
+            source.to_str().unwrap(),
+            "--via",
+            route.to_str().unwrap(),
+            "-o",
+            bundle.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    let solved = pred()
+        .args([
+            "solve",
+            bundle.to_str().unwrap(),
+            "--solver",
+            "ilp",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(result["evaluation"], "Min(1)");
+    let evaluated = pred()
+        .args([
+            "evaluate",
+            source.to_str().unwrap(),
+            "--config",
+            &result["solution"].to_string(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        evaluated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&evaluated.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+    assert_eq!(value["result"], "Min(1)");
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -9762,7 +9902,7 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
 
 #[test]
 fn test_decision_extract_checks_bound_while_solve_recovers_no() {
-    use problemreductions::models::{graph::MinimumVertexCover, Decision};
+    use problemreductions::models::{Decision, graph::MinimumVertexCover};
     use problemreductions::rules::{ReduceTo, ReductionResult};
     use problemreductions::topology::SimpleGraph;
     use serde_json::json;
@@ -9855,7 +9995,7 @@ fn test_decision_extract_checks_bound_while_solve_recovers_no() {
 
 #[test]
 fn test_extract_rejects_infeasible_target_even_when_decoded_source_is_feasible() {
-    use problemreductions::models::{OpenShopScheduling, ILP};
+    use problemreductions::models::{ILP, OpenShopScheduling};
     use problemreductions::rules::{ReduceTo, ReductionResult};
     use serde_json::json;
 
@@ -10022,7 +10162,9 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
 
     let extract_out = extract_target_config(
         &bundle_file,
-        serde_json::json!([false, false, false, false, false, false, false, false, false]),
+        serde_json::json!([
+            false, false, false, false, false, false, false, false, false
+        ]),
     );
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();

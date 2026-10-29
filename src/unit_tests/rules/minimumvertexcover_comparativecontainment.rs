@@ -35,10 +35,12 @@ fn test_minimumvertexcover_to_comparativecontainment_closed_loop() {
         0,
     );
     let reduction = ReduceTo::<ComparativeContainment<i64>>::reduce_to(&source).unwrap();
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -77,11 +79,13 @@ fn test_signed_containment_all_small_graphs_and_witnesses() {
                     assert_eq!(target.universe_size(), n);
                     assert!(target.num_r_sets() <= n + 1);
                     assert!(target.num_s_sets() <= n + edges.len() + 1);
-                    assert!(target
-                        .r_weights()
-                        .iter()
-                        .chain(target.s_weights())
-                        .all(|&w| w > 0));
+                    assert!(
+                        target
+                            .r_weights()
+                            .iter()
+                            .chain(target.s_weights())
+                            .all(|&w| w > 0)
+                    );
                     for mask in 0..(1usize << n) {
                         let witness: Vec<_> = (0..n).map(|v| mask & (1 << v) != 0).collect();
                         let valid = source.evaluate(&witness).unwrap().0;

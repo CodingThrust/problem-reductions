@@ -250,7 +250,6 @@ impl Problem for AdditionalKey {
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                // Check config length
                 if config.len() != self.relation_attrs.len() {
                     return Err(crate::traits::EvaluationError::InvalidConfiguration(
                         "attribute-selection length does not match the relation".into(),
@@ -261,7 +260,7 @@ impl Problem for AdditionalKey {
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| self.relation_attrs[i])
                     .collect();
 
@@ -270,14 +269,12 @@ impl Problem for AdditionalKey {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Compute closure of selected attributes
                 let mut attr_set = vec![false; self.num_attributes];
                 for &a in &selected {
                     attr_set[a] = true;
                 }
                 let closure = self.compute_closure(&attr_set);
 
-                // Check closure covers all relation_attrs
                 if !self.relation_attrs.iter().all(|&a| closure[a]) {
                     return Ok(crate::types::Or(false));
                 }

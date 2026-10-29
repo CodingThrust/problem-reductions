@@ -4,7 +4,7 @@
 //! connectivity flow constraints to encode an Eulerian connected subgraph
 //! covering all required edges within the length bound.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -234,7 +234,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ruralpostman_to_ilp",
         build: || {
-            // Triangle: 3 vertices, 3 edges, require edge 0
             let source = RuralPostman::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],

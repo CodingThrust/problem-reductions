@@ -284,7 +284,6 @@ impl Problem for RectilinearPictureCompression {
                         "rectangle-selection length does not match the maximal rectangles".into(),
                     ));
                 }
-                // Count selected rectangles.
                 let selected_count = config.iter().filter(|&&selected| selected).count();
                 let selected_count = i64::try_from(selected_count).map_err(|_| {
                     crate::traits::EvaluationError::IntegerOverflow(
@@ -295,7 +294,6 @@ impl Problem for RectilinearPictureCompression {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check that all 1-entries are covered.
                 let m = self.num_rows();
                 let n = self.num_cols();
                 let mut covered = vec![vec![false; n]; m];
@@ -342,9 +340,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "rectilinear_picture_compression",
-        // Config: select both maximal rectangles (the two 2x2 blocks).
-        // The maximal rectangles for this matrix are exactly:
-        // (0,0,1,1) and (2,2,3,3), so config [1,1] selects both.
         instance: Box::new(RectilinearPictureCompression::new(
             vec![
                 vec![true, true, false, false],

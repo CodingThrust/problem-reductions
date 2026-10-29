@@ -7,7 +7,7 @@
 //! - abs_diff_le constraints: z_{u,v} >= p_u - p_v, z_{u,v} >= p_v - p_u
 //! - Minimize: sum z_{u,v}
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::OptimalLinearArrangement;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -56,7 +56,7 @@ impl ReductionResult for ReductionOLAToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_vertices^2 + num_vertices + num_edges) * (2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges)",
+        num_nonzeros = "4 * num_vertices^2 + 2 * num_vertices + 7 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for OptimalLinearArrangement<SimpleGraph> {
@@ -159,7 +159,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "optimallineararrangement_to_ilp",
         build: || {
-            // Path P4: 0-1-2-3 (identity permutation achieves cost 3)
             let source =
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)

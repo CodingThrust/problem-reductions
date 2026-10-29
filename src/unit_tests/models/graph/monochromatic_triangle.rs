@@ -33,22 +33,28 @@ fn test_monochromatic_triangle_evaluate_valid() {
     //   Triangle (0,1,3): edges 0,2,4 -> 0,1,0 -> mixed
     //   Triangle (0,2,3): edges 1,2,5 -> 0,1,1 -> mixed
     //   Triangle (1,2,3): edges 3,4,5 -> 1,0,1 -> mixed
-    assert!(problem
-        .evaluate(&vec![false, false, true, true, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, true, true, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_monochromatic_triangle_evaluate_invalid() {
     let problem = k4_instance();
     // All edges color 0: every triangle is monochromatic
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
     // All edges color 1: every triangle is monochromatic
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]

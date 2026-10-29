@@ -6,7 +6,7 @@
 //!
 //! The pair-count equalities are linearized with standard McCormick constraints.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ConsistencyOfDatabaseFrequencyTables;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -116,12 +116,12 @@ impl ReductionResult for ReductionCDFTToILP {
                         (None, _) => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "object {object}, attribute {attribute} has no selected value"
-                            )))
+                            )));
                         }
                         (Some(_), Some(_)) => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "object {object}, attribute {attribute} has multiple selected values"
-                            )))
+                            )));
                         }
                     };
                     source_solution.push(value);

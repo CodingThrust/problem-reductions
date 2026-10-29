@@ -49,25 +49,29 @@ fn test_set_basis_evaluation() {
     let problem = issue_example_problem(3);
 
     assert!(problem.evaluate(&canonical_solution()).unwrap());
-    assert!(!problem
-        .evaluate(&vec![
-            vec![true, true, false, false],
-            vec![false; 4],
-            vec![false, false, true, false],
-        ])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![
+                vec![true, true, false, false],
+                vec![false; 4],
+                vec![false, false, true, false],
+            ])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_set_basis_no_solution_for_k_two() {
     let problem = issue_example_problem(2);
 
-    assert!(!problem
-        .evaluate(&vec![
-            vec![true, true, false, false],
-            vec![false, false, true, false],
-        ])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![
+                vec![true, true, false, false],
+                vec![false, false, true, false],
+            ])
+            .unwrap()
+    );
 
     let solver = BruteForce::new();
     assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
@@ -83,9 +87,11 @@ fn test_set_basis_solver() {
     assert_eq!(solutions.len(), 12);
     assert_eq!(solution_set.len(), 12);
     assert!(solution_set.contains(&canonical_solution()));
-    assert!(solutions
-        .iter()
-        .all(|solution| problem.evaluate(solution).unwrap().0));
+    assert!(
+        solutions
+            .iter()
+            .all(|solution| problem.evaluate(solution).unwrap().0)
+    );
 }
 
 #[test]
@@ -115,11 +121,13 @@ fn test_set_basis_paper_example() {
 #[test]
 fn test_set_basis_invalid_config_values() {
     let problem = issue_example_problem(3);
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([[2, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([[2, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
+        )
+        .is_err()
+    );
 }
 
 #[test]

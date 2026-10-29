@@ -97,3 +97,14 @@ test('depth is the fewest reductions from any root, and unreachable problems sta
   assert.deepEqual([...depths], [['SAT', 0], ['A', 1], ['B', 1], ['C', null], ['Z', null]]);
   assert.equal(depthsFrom(['X'], [], ['Missing']).get('X'), null);
 });
+
+
+test('concrete route depths do not join sibling variants or seed the entire SAT family', () => {
+  // 0=SAT, 1=3SAT, 2=2SAT, 3=A(default), 4=A(other), 5=ILP.
+  // A family-level graph would incorrectly invent SAT -> A(other) -> ILP.
+  const ids = [0, 1, 2, 3, 4, 5], links = [link(0, 1), link(1, 3), link(2, 0), link(4, 5)];
+  assert.deepEqual([...depthsFrom(ids, links, [0])], [[0, 0], [1, 1], [2, null], [3, 2], [4, null], [5, null]]);
+  const toIlp = depthsFrom(ids, links.map(e => link(e.target, e.source)), [5]);
+  assert.equal(toIlp.get(3), null);
+  assert.equal(toIlp.get(4), 1);
+});

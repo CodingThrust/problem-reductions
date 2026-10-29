@@ -411,11 +411,10 @@ impl Problem for FeasibleBasisExtension {
             let s = self.num_required();
             let needed = m - s;
 
-            // Count selected free columns
             let selected_free: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(i, _)| free_cols[i])
                 .collect();
 
@@ -450,7 +449,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "feasible_basis_extension",
-        // 3x6 matrix, rhs=[7,5,3], required={0,1}, select col 2 -> B={0,1,2}, x=(4,5,3)>=0
         instance: Box::new(FeasibleBasisExtension::new(
             vec![
                 vec![1, 0, 1, 2, -1, 0],
@@ -460,7 +458,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![7, 5, 3],
             vec![0, 1],
         )),
-        optimal_config: serde_json::json!(vec![true, false, false, false]), // select col 2 (first free column)
+        optimal_config: serde_json::json!(vec![true, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

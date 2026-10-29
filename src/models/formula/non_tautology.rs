@@ -114,11 +114,7 @@ impl NonTautology {
     fn literal_is_true(lit: i64, assignment: &[bool]) -> bool {
         let var = lit.unsigned_abs() as usize - 1;
         let value = assignment.get(var).copied().unwrap_or(false);
-        if lit > 0 {
-            value
-        } else {
-            !value
-        }
+        if lit > 0 { value } else { !value }
     }
 
     /// Check if all disjuncts are false (the formula evaluates to false).

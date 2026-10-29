@@ -225,18 +225,15 @@ fn matching_decoding_threshold_handles_empty_and_unsatisfiable_instances() {
 }
 
 #[test]
-fn sat_cover_threshold_supports_short_and_empty_clauses() {
+fn sat_cover_threshold_supports_repeated_literals() {
     for clauses in [
         vec![],
-        vec![vec![]],
-        vec![vec![1]],
-        vec![vec![1], vec![-1]],
+        vec![vec![1, 1, 1]],
+        vec![vec![1, 1, 1], vec![-1, -1, -1]],
         vec![vec![1, -1, 1]],
     ] {
-        let source = KSatisfiability::<K3>::new_allow_less(
-            1,
-            clauses.into_iter().map(CNFClause::new).collect(),
-        );
+        let source =
+            KSatisfiability::<K3>::new(1, clauses.into_iter().map(CNFClause::new).collect());
         check_decision::<
             _,
             crate::models::decision::Decision<MinimumVertexCover<SimpleGraph, crate::types::One>>,
@@ -302,11 +299,11 @@ fn sat_empty_conjunction_and_empty_clause_preserve_opposite_answers() {
     use crate::models::graph::KColoring;
     use crate::models::misc::TimetableDesign;
     for clauses in [vec![], vec![CNFClause::new(vec![])]] {
-        let source = Satisfiability::new(0, clauses.clone());
+        let source = Satisfiability::new(0, clauses);
         check_decision::<_, KSatisfiability<K3>>(&source);
         check_decision::<_, KColoring<K3, SimpleGraph>>(&source);
-        check_decision::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(0, clauses));
     }
+    check_decision::<_, TimetableDesign>(&KSatisfiability::<K3>::new(0, vec![]));
 }
 
 #[test]

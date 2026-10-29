@@ -155,15 +155,17 @@ fn test_length_bounded_disjoint_paths_rejects_reused_direct_edge() {
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_non_binary_entries() {
     let problem = sample_problem();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([
-            [true, true, false, 2, false, false],
-            vec![false; 6],
-            vec![false; 6]
-        ])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([
+                [true, true, false, 2, false, false],
+                vec![false; 6],
+                vec![false; 6]
+            ])
+        )
+        .is_err()
+    );
 }
 
 #[test]

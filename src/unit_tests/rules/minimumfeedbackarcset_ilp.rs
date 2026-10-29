@@ -20,10 +20,12 @@ fn feedback_arc_set_solves_through_integer_binary_ilp_and_qubo() {
         .unwrap();
     let binary_solution = qubo.extract_solution(&optimum).unwrap();
     let integer_solution = binary.extract_solution(&binary_solution).unwrap();
-    assert!(integer
-        .target_problem()
-        .is_feasible(&integer_solution)
-        .unwrap());
+    assert!(
+        integer
+            .target_problem()
+            .is_feasible(&integer_solution)
+            .unwrap()
+    );
     let solution = integer.extract_solution(&integer_solution).unwrap();
     assert_eq!(source.evaluate(&solution).unwrap(), Min(Some(2)));
 }
@@ -62,11 +64,9 @@ fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted).unwrap();

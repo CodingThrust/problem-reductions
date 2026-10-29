@@ -59,10 +59,12 @@ fn test_ksatisfiability_to_kernel_unsatisfiable_instance_has_no_kernel() {
     );
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -79,18 +81,15 @@ fn test_ksatisfiability_to_kernel_extract_solution_reads_variable_gadgets() {
 }
 
 #[test]
-fn test_ksatisfiability_to_kernel_native_clause_domain() {
+fn test_ksatisfiability_to_kernel_one_variable_clause_domain() {
     use crate::traits::Problem;
-    let mut clauses = vec![vec![]];
-    for len in 1..=3 {
-        for mask in 0..(1 << len) {
-            clauses.push(
-                (0..len)
-                    .map(|j| if mask & (1 << j) == 0 { 1 } else { -1 })
-                    .collect(),
-            );
-        }
-    }
+    let clauses: Vec<Vec<i64>> = (0..8)
+        .map(|mask| {
+            (0..3)
+                .map(|j| if mask & (1 << j) == 0 { 1 } else { -1 })
+                .collect()
+        })
+        .collect();
     let mut formulas = vec![vec![]];
     for first in &clauses {
         formulas.push(vec![first.clone()]);
@@ -99,20 +98,16 @@ fn test_ksatisfiability_to_kernel_native_clause_domain() {
         }
     }
     for formula in formulas {
-        let source = KSatisfiability::<K3>::try_new_allow_less(
+        let source = KSatisfiability::<K3>::try_new(
             1,
             formula.iter().cloned().map(CNFClause::new).collect(),
         )
         .unwrap();
         let reduction = ReduceTo::<Kernel>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
-        let active = usize::from(formula.iter().any(|clause| !clause.is_empty()));
-        let occurrences: usize = formula.iter().map(Vec::len).sum();
+        let active = usize::from(!formula.is_empty());
         assert_eq!(target.num_vertices(), 2 * active + 3 * formula.len());
-        assert_eq!(
-            target.num_arcs(),
-            2 * active + 3 * formula.len() + occurrences
-        );
+        assert_eq!(target.num_arcs(), 2 * active + 6 * formula.len());
         let mut witnessed = [false; 2];
         for mask in 0..(1usize << target.num_vertices()) {
             let config = (0..target.num_vertices())
@@ -139,10 +134,14 @@ fn test_ksatisfiability_to_kernel_native_clause_domain() {
 #[test]
 fn test_ksatisfiability_to_kernel_sparse_inverse() {
     use crate::traits::Problem;
-    for literals in [vec![5], vec![-5], vec![5, -2], vec![5, -5, 2]] {
+    for literals in [
+        vec![5, 5, 5],
+        vec![-5, -5, -5],
+        vec![5, -2, -2],
+        vec![5, -5, 2],
+    ] {
         let source =
-            KSatisfiability::<K3>::try_new_allow_less(6, vec![CNFClause::new(literals.clone())])
-                .unwrap();
+            KSatisfiability::<K3>::try_new(6, vec![CNFClause::new(literals.clone())]).unwrap();
         let reduction = ReduceTo::<Kernel>::reduce_to(&source).unwrap();
         let target = reduction.target_problem();
         let mut found = false;

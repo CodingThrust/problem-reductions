@@ -2,9 +2,9 @@
 use super::canonical_rule_example_specs;
 use crate::models::misc::IntegerExpressionMembership;
 use crate::models::misc::SubsetSum;
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
@@ -52,9 +52,11 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
             .unwrap(),
         issue_example_source_config()
     );
-    assert!(reduction
-        .extract_solution(&vec![true, false, false, true])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![true, false, false, true])
+            .is_err()
+    );
 }
 
 #[test]
@@ -64,10 +66,12 @@ fn test_subsetsum_to_integerexpressionmembership_unsatisfiable_instance_stays_un
         .expect("reduction should succeed");
 
     assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[cfg(feature = "example-db")]

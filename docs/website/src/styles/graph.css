@@ -383,6 +383,9 @@ h2.eyebrow { margin: 0 0 10px; }
 /* Idle: the panel folds to its search bar and the map takes the page. */
 .panel.collapsed { bottom: auto; }
 .panel.collapsed :is(.tabs, .explore-body) { display: none; }
+.panel.collapsed .route-note { display: none; }
+.route-note { flex: none; padding: 8px 20px; margin: 0; color: var(--ink-2); font-size: 12px; border-top: 1px solid var(--line); }
+#graph-error { padding: 12px 20px; }
 .panel.collapsed .search-row { padding-bottom: 16px; }
 
 @media (max-width: 760px) {
@@ -400,7 +403,7 @@ h2.eyebrow { margin: 0 0 10px; }
   .mapbar::-webkit-scrollbar { display: none; }
 }
 
-/* Node colour is the problem's status; the legend sits in the free corner of the map. */
+/* Node colour summarizes variant routes; the legend sits in the free corner of the map. */
 .status-legend { position: fixed; z-index: 2; left: 392px; bottom: 16px; display: none; flex-wrap: wrap; gap: 6px 16px; max-width: calc(100vw - 470px);
   padding: 9px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }

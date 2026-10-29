@@ -7,10 +7,10 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
-use crate::variant::{KValue, K2, K3, KN};
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use crate::variant::{K2, K3, KValue};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
-use super::{sat::validate_cnf_literals, CNFClause};
+use super::{CNFClause, sat::validate_cnf_literals};
 
 pub(crate) fn first_n_odd_primes(count: usize) -> Vec<u64> {
     let mut primes = Vec::with_capacity(count);
@@ -53,7 +53,7 @@ inventory::submit! {
         name: "KSatisfiability",
         display_name: "K-Satisfiability",
         aliases: &["KSAT"],
-        dimensions: &[VariantDimension::new("k", "KN", &["KN", "K2", "K3"])],
+        dimensions: &[VariantDimension::new("k", "K3", &["K3", "K2"])],
         category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
@@ -124,63 +124,24 @@ impl<K: KValue> KSatisfiability<K> {
     /// Create a new K-SAT problem.
     ///
     /// # Panics
-    /// Panics if any clause does not have exactly K literals (when K is a
-    /// concrete value like K2, K3). When K is KN (arbitrary), no clause-length
-    /// validation is performed.
+    /// Panics if any clause does not have exactly K literals.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
         Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
     }
 
-    /// Create a K-SAT problem after validating its clauses.
+    /// Create a K-SAT problem after validating that every clause has exactly
+    /// K literals.
     pub fn try_new(
         num_vars: usize,
         clauses: Vec<CNFClause>,
     ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
-        if let Some(k) = K::K {
-            for (i, clause) in clauses.iter().enumerate() {
-                if clause.len() != k {
-                    return Err(
-                        format!("Clause {i} has {} literals, expected {k}", clause.len()).into(),
-                    );
-                }
-            }
-        }
-        Ok(Self {
-            num_vars,
-            clauses,
-            _phantom: std::marker::PhantomData,
-        })
-    }
-
-    /// Create a new K-SAT problem allowing clauses with fewer than K literals.
-    ///
-    /// This is useful when the reduction algorithm produces clauses with
-    /// fewer literals (e.g., when allow_less is true in the Julia implementation).
-    ///
-    /// # Panics
-    /// Panics if any clause has more than K literals (when K is a concrete
-    /// value like K2, K3). When K is KN (arbitrary), no clause-length
-    /// validation is performed.
-    pub fn new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
-        Self::try_new_allow_less(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
-    }
-
-    /// Create a K-SAT problem with shorter clauses after validation.
-    pub fn try_new_allow_less(
-        num_vars: usize,
-        clauses: Vec<CNFClause>,
-    ) -> Result<Self, crate::registry::ConstructionError> {
-        validate_cnf_literals(num_vars, &clauses)?;
-        if let Some(k) = K::K {
-            for (i, clause) in clauses.iter().enumerate() {
-                if clause.len() > k {
-                    return Err(format!(
-                        "Clause {i} has {} literals, expected at most {k}",
-                        clause.len()
-                    )
-                    .into());
-                }
+        let k = K::K.ok_or("KSatisfiability requires a fixed clause width K")?;
+        for (i, clause) in clauses.iter().enumerate() {
+            if clause.len() != k {
+                return Err(
+                    format!("Clause {i} has {} literals, expected {k}", clause.len()).into(),
+                );
             }
         }
         Ok(Self {
@@ -273,13 +234,11 @@ impl<K: KValue> crate::solvers::BruteForceProblem for KSatisfiability<K> {
 }
 
 crate::declare_variants! {
-    default KSatisfiability<KN> => "2^num_vars",
+    default KSatisfiability<K3> => "1.307^num_vars" aliases ["3SAT"],
     KSatisfiability<K2> => "num_vars + num_clauses" aliases ["2SAT"],
-    KSatisfiability<K3> => "1.307^num_vars" aliases ["3SAT"],
 }
 
 crate::register_brute_force! {
-    KSatisfiability<KN> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     KSatisfiability<K2> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
     KSatisfiability<K3> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }

@@ -270,11 +270,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 
 #[cfg(any(feature = "example-db", test))]
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    if u <= v { (u, v) } else { (v, u) }
 }
 
 crate::declare_variants! {

@@ -7,7 +7,7 @@
 //!   literal expressions, ensuring z_j = 1 only if the clause is satisfied
 //! - Objective: maximize the sum of clause indicators
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::formula::Maximum2Satisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -47,7 +47,7 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_nonzeros = "(num_vars + num_clauses) * num_clauses",
+        num_nonzeros = "3 * num_clauses",
     },
 })]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
@@ -130,16 +130,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![3, 4]),
                 ],
             );
-            // Optimal source config: [1,1,0,1] satisfies 6 of 7 clauses.
-            // ILP target config: first 4 are truth vars, next 7 are clause indicators.
-            // Clause satisfaction with [1,1,0,1] (x1=T, x2=T, x3=F, x4=T):
-            //   C0: (x1 OR x2)     = T  -> z4=1
-            //   C1: (x1 OR ~x2)    = T  -> z5=1
-            //   C2: (~x1 OR x3)    = F  -> z6=0
-            //   C3: (~x1 OR ~x3)   = T  -> z7=1
-            //   C4: (x2 OR x4)     = T  -> z8=1
-            //   C5: (~x3 OR ~x4)   = T  -> z9=1
-            //   C6: (x3 OR x4)     = T  -> z10=1
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

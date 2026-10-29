@@ -5,7 +5,7 @@
 //! within the length bound. Uses connectivity flow constraints on both
 //! forward and reverse directions.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -46,7 +46,7 @@ impl ReductionResult for ReductionMCPToILP {
     max_constraint_magnitude_bits = "(num_arcs + num_edges + 1) * (num_vertices + 1) + 1",
     num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
     num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
-    num_nonzeros = "(num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1) * (num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2)",
+    num_nonzeros = "26 * num_arcs + 53 * num_edges + 18 * num_vertices + 1",
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;
@@ -75,7 +75,6 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
 
         let l = m + 2 * q; // total available arcs
 
-        // Build available arc list with lengths
         let mut avail_arcs: Vec<(usize, usize)> = Vec::with_capacity(l);
         let mut avail_lengths: Vec<i64> = Vec::with_capacity(l);
 
@@ -397,7 +396,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "mixedchinesepostman_to_ilp",
         build: || {
-            // Simple instance: 3 vertices, 1 arc, 2 edges
             let source = MixedChinesePostman::new(
                 MultiMixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
                 vec![1],

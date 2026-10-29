@@ -8,7 +8,7 @@
 //!   y_{ij} ≤ x_i, y_{ij} ≤ x_j, y_{ij} ≥ x_i + x_j - 1
 
 use crate::models::algebraic::MinimumMatrixCover;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -158,14 +158,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimum_matrix_cover_to_ilp",
         build: || {
-            // Use a small 2×2 instance for the rule example
             let source = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
-            // Config [0,1] → f=(-1,+1) → value = 0·1 + 3·(-1) + 2·(-1) + 0·1 = -5
-            // Config [1,0] → f=(+1,-1) → value = 0·1 + 3·(-1) + 2·(-1) + 0·1 = -5
-            // Config [0,0] → f=(-1,-1) → value = 0+3+2+0 = 5
-            // Config [1,1] → f=(+1,+1) → value = 0+3+2+0 = 5
-            // Optimal is [0,1] or [1,0] with value -5
-            // Source config [0,1], target config: x_0=0, x_1=1, y_{01}=0
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

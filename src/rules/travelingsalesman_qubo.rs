@@ -189,7 +189,6 @@ impl ReduceTo<QUBO<i64>> for TravelingSalesman<SimpleGraph, i64> {
             .map_err(|_| overflow("computing the tour penalty constant"))?;
         let feasible_energy_upper = i128::from(a) - omitted_constant;
 
-        // Build n^2 x n^2 upper-triangular QUBO matrix
         let mut matrix = vec![vec![0i64; dim]; dim];
 
         // Helper: add value to upper-triangular position

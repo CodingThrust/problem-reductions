@@ -9,8 +9,8 @@
 
 use problemreductions::rules::unitdiskmapping::{
     _internal::{
-        create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular, CopyLine,
-        MappingGrid,
+        CopyLine, MappingGrid, create_copylines, mis_overhead_copyline,
+        mis_overhead_copyline_triangular,
     },
     ksg, triangular,
 };
@@ -110,21 +110,21 @@ fn extract_grid_nodes(grid: &MappingGrid) -> Vec<GridNodeExport> {
     let (rows, cols) = grid.size();
     for r in 0..rows {
         for c in 0..cols {
-            if let Some(cell) = grid.get(r, c) {
-                if !cell.is_empty() {
-                    let state = match cell {
-                        CellState::Occupied { .. } => "O",
-                        CellState::Doubled { .. } => "D",
-                        CellState::Connected { .. } => "C",
-                        CellState::Empty => ".",
-                    };
-                    nodes.push(GridNodeExport {
-                        row: r as i64, // 0-indexed - DO NOT change!
-                        col: c as i64, // 0-indexed - DO NOT change!
-                        weight: cell.weight(),
-                        state: state.to_string(),
-                    });
-                }
+            if let Some(cell) = grid.get(r, c)
+                && !cell.is_empty()
+            {
+                let state = match cell {
+                    CellState::Occupied { .. } => "O",
+                    CellState::Doubled { .. } => "D",
+                    CellState::Connected { .. } => "C",
+                    CellState::Empty => ".",
+                };
+                nodes.push(GridNodeExport {
+                    row: r as i64, // 0-indexed - DO NOT change!
+                    col: c as i64, // 0-indexed - DO NOT change!
+                    weight: cell.weight(),
+                    state: state.to_string(),
+                });
             }
         }
     }
@@ -159,21 +159,20 @@ fn crossat_triangular(
 
 fn get_vertex_order_from_julia(graph_name: &str) -> Option<Vec<usize>> {
     let path = format!("tests/data/{}_triangular_trace.json", graph_name);
-    if let Ok(content) = fs::read_to_string(&path) {
-        if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(copy_lines) = data["copy_lines"].as_array() {
-                let mut lines: Vec<_> = copy_lines
-                    .iter()
-                    .filter_map(|cl| {
-                        let vertex = cl["vertex"].as_u64()? as usize;
-                        let vslot = cl["vslot"].as_u64()? as usize;
-                        Some((vertex - 1, vslot)) // Convert to 0-indexed
-                    })
-                    .collect();
-                lines.sort_by_key(|(_, vslot)| *vslot);
-                return Some(lines.into_iter().map(|(v, _)| v).collect());
-            }
-        }
+    if let Ok(content) = fs::read_to_string(&path)
+        && let Ok(data) = serde_json::from_str::<serde_json::Value>(&content)
+        && let Some(copy_lines) = data["copy_lines"].as_array()
+    {
+        let mut lines: Vec<_> = copy_lines
+            .iter()
+            .filter_map(|cl| {
+                let vertex = cl["vertex"].as_u64()? as usize;
+                let vslot = cl["vslot"].as_u64()? as usize;
+                Some((vertex - 1, vslot)) // Convert to 0-indexed
+            })
+            .collect();
+        lines.sort_by_key(|(_, vslot)| *vslot);
+        return Some(lines.into_iter().map(|(v, _)| v).collect());
     }
     None
 }

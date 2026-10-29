@@ -22,7 +22,7 @@ use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 pub struct ReductionMMMToAchromatic {
     target: MaximumAchromaticNumber<SimpleGraph>,
     /// Source edges in unified vertex coordinates, in the same order as
-    /// `source.graph().edges()` (which determines the source `dims()`).
+    /// `source.graph().edges()` (which determines the source solution's edge order).
     source_edges: Vec<(usize, usize)>,
 }
 
@@ -70,7 +70,6 @@ impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<B
         let n = self.graph().num_vertices();
         let source_edges = self.graph().edges();
 
-        // Build adjacency lookup over unified coordinates.
         let source_edge_set: std::collections::HashSet<(usize, usize)> = source_edges
             .iter()
             .map(|&(u, v)| if u < v { (u, v) } else { (v, u) })
@@ -102,50 +101,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummaximalmatching_to_maximumachromaticnumber",
         build: || {
-            // "T" tree (spider with three legs at the centre v1):
-            //   v0 -- v1 -- v2 -- v3
-            //         |
-            //         v4
-            //
-            // Five vertices and four edges. Bipartite with
-            // A = {v0, v2, v4} and B = {v1, v3}.
-            //
-            // BipartiteGraph encoding (left_size = 3, right_size = 2):
-            //   left  local 0 -> v0, local 1 -> v2, local 2 -> v4
-            //   right local 0 -> v1, local 1 -> v3
-            //   edges (left_idx, right_idx):
-            //     (v0, v1) -> (0, 0)
-            //     (v1, v2) -> (1, 0)
-            //     (v2, v3) -> (1, 1)
-            //     (v1, v4) -> (2, 0)
-            //
-            // Unified vertex labels:
-            //   0 = v0 (left 0), 1 = v2 (left 1), 2 = v4 (left 2),
-            //   3 = v1 (right 0), 4 = v3 (right 1).
-            //
-            // Unified edges from Graph::edges() (in source order):
-            //   (0, 3), (1, 3), (1, 4), (2, 3).
-            //
-            // Maximal matchings of G:
-            //   - {(v1, v2)}                 size 1   <-- mm(G) = 1
-            //   - {(v0, v1), (v2, v3)}       size 2   (suboptimal 1)
-            //   - {(v1, v4), (v2, v3)}       size 2   (suboptimal 2)
-            // So the canonical example exhibits >=2 suboptimal maximal
-            // matchings besides the optimum.
-            //
-            // Canonical optimum: pick the central edge (v1, v2), which is
-            // source edge index 1. source_config = [0, 1, 0, 0].
-            //
-            // complement(G) on K_5: 10 - 4 = 6 edges, namely
-            //   (0, 1), (0, 2), (0, 4), (1, 2), (2, 4), (3, 4).
-            //
-            // Canonical achromatic 4-coloring of complement(G):
-            //   v0 (idx 0) -> color 1
-            //   v2 (idx 1) -> color 0  (paired with v1 = G-edge (v1, v2))
-            //   v4 (idx 2) -> color 3
-            //   v1 (idx 3) -> color 0
-            //   v3 (idx 4) -> color 2
-            // target_config = [1, 0, 3, 0, 2]; psi(H) = |V| - mm(G) = 4.
+            // Include suboptimal maximal matchings so the example exercises optimization.
             let source = MinimumMaximalMatching::new(BipartiteGraph::new(
                 3,
                 2,

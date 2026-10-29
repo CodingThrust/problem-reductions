@@ -48,27 +48,29 @@ D.edges.forEach((e) => {
 });
 const multi = (name: string) => families.get(name)!.variants.length > 1;
 
-/* What the library knows about each problem, over solution-mapping rules: proven NP-hard when a chain reaches it
-   from SAT, solvable when a chain carries it to ILP. Colour carries this status, never a filter-dependent view. */
-type Status = "both" | "solver" | "hard" | "none";
+/* Route existence is measured on concrete variants, independent of display filters.
+   It does not certify polynomial reductions or registered solver capabilities. */
+type Status = "both" | "toilp" | "fromsat" | "none";
+type FamilyStatus = Status | "mixed";
 const HUBS = new Set(["ILP", "QUBO"]);
-const STATUS: Record<Status, { color: string; label: string; detail: string }> = {
-  both: { color: "#6aa64f", label: "NP-hard, reaches ILP", detail: "Proven NP-hard and solvable through ILP" },
-  solver: { color: "#4c93cf", label: "Reaches ILP", detail: "Solvable through ILP; no hardness chain from SAT yet" },
-  hard: { color: "#d4688a", label: "NP-hard, no solver route", detail: "Proven NP-hard; no rule chain to ILP yet" },
-  none: { color: "#5b665e", label: "Neither yet", detail: "No hardness chain from SAT and no route to ILP yet" },
+const STATUS: Record<FamilyStatus, { color: string; label: string; detail: string }> = {
+  both: { color: "#6aa64f", label: "Route from SAT · Route to ILP", detail: "A route leads from SAT to this variant and from this variant to ILP" },
+  toilp: { color: "#4c93cf", label: "Route to ILP", detail: "A route leads to ILP; no route from SAT is registered" },
+  fromsat: { color: "#d4688a", label: "Route from SAT", detail: "A route leads from SAT; no route to ILP is registered" },
+  none: { color: "#5b665e", label: "No SAT / ILP route", detail: "No route from SAT or to ILP is registered" },
+  mixed: { color: "#a39ac2", label: "Varies by variant", detail: "Variants have different routes; select a variant to inspect them" },
 };
 const HUB_COLOR = "#e8d56b";
-const statusOf = (() => {
-  const names = [...families.keys()], links = new Map<string, {source: string; target: string}>();
-  D.edges.forEach(e => {
-    const source = D.nodes[e.source]!.name, target = D.nodes[e.target]!.name;
-    if (e.witness && source !== target) links.set(source + "→" + target, { source, target });
-  });
-  const hard = depthsFrom(names, [...links.values()], ["Satisfiability", "KSatisfiability"]);
-  const solver = depthsFrom(names, [...links.values()].map(l => ({ source: l.target, target: l.source })), ["ILP"]);
-  return new Map(names.map(n => [n, (hard.get(n) != null ? solver.get(n) != null ? "both" : "hard" : solver.get(n) != null ? "solver" : "none") as Status]));
-})();
+const variantIds = D.nodes.map((_, i) => i), witnessLinks = D.edges.filter(e => e.witness && !e.turing);
+const fromSat = depthsFrom(variantIds, witnessLinks, variantIds.filter(i => D.nodes[i]!.name === "Satisfiability"));
+const toIlp = depthsFrom(variantIds, witnessLinks.map(e => ({ source: e.target, target: e.source })), variantIds.filter(i => D.nodes[i]!.name === "ILP"));
+const variantStatus = new Map(variantIds.map(i => [i,
+  (fromSat.get(i) != null ? toIlp.get(i) != null ? "both" : "fromsat" : toIlp.get(i) != null ? "toilp" : "none") as Status]));
+// A family gets a single status only when all its variants agree.
+const familyStatus = new Map([...families.values()].map(f => {
+  const statuses = new Set(f.variants.map(i => variantStatus.get(i)!));
+  return [f.name, statuses.size === 1 ? variantStatus.get(f.variants[0]!)! : "mixed"] as [string, FamilyStatus];
+}));
 const keyOf = (node: Endpoint) => node.name + "|" + Object.entries(node.variant).sort().map(([k, v]) => k + "=" + v).join(",");
 const indexOf = new Map(D.nodes.map((n, i) => [keyOf(n), i]));
 
@@ -86,7 +88,7 @@ const nodeSize = (deg: number) => Math.max(6, Math.min(22, 6 + 2.4 * Math.sqrt(d
 const pos = new Map<string, {x: number; y: number}>();
 for (const f of families.values()) pos.set(f.name, { x: D.layout[f.name]!.x * 1.6, y: D.layout[f.name]!.y * 1.6 });
 const scene = new GraphScene($("#cy"), [...families.values()].map(f => ({id: f.name, label: display(f.name),
-  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: HUBS.has(f.name) ? HUB_COLOR : STATUS[statusOf.get(f.name)!].color, ...pos.get(f.name)!})), [...famEdges.values()]);
+  size: nodeSize(f.nbrs.size), deg: f.nbrs.size, color: HUBS.has(f.name) ? HUB_COLOR : STATUS[familyStatus.get(f.name)!].color, ...pos.get(f.name)!})), [...famEdges.values()]);
 scene.classes(scene.nodes.filter(n => HUBS.has(n.id)), "", "hub-node");
 performance.mark("graph:renderer-created");
 performance.mark("graph:constructed");
@@ -678,7 +680,7 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
   const onFront = new Set(c?.front);
   const front = c ? shown.filter((n) => onFront.has(n)) : shown, slower = c ? shown.filter((n) => !onFront.has(n)) : [];
   const s = el("div", "summary"), left = el("span");
-  if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
+  if (c) left.append(el("strong", "", `${front.length} size-bound candidate${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
   s.append(left);
   if (state.busy) {
@@ -689,11 +691,12 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     s.append(more);
   }
   box.append(s);
+  if (c) box.append(el("p", "note", "Size bounds compare the routes found for general parameter growth. Special inputs can change the order."));
   front.forEach((n) => box.append(pathRow(n, false)));
   if (slower.length && !front.length) slower.forEach((n) => box.append(pathRow(n, true)));
   else if (slower.length) {
     const selectedSlower = !onFront.has(state.selected!), open = state.showSlower || selectedSlower;
-    const t = el("button", "link more", open ? "Hide slower routes" : `Show ${slower.length} slower routes`); t.type = "button";
+    const t = el("button", "link more", open ? "Hide other routes" : `Show ${slower.length} other route${slower.length === 1 ? "" : "s"}`); t.type = "button";
     t.addEventListener("click", () => { state.showSlower = !open; if (!state.showSlower && selectedSlower) { select(front[0]!); return; } renderResults(); });
     box.append(t);
     if (open) slower.forEach((n) => box.append(pathRow(n, true)));
@@ -713,19 +716,18 @@ const stepGrowth = (step: Step) => {
 type Reach = "direct" | "down" | "up";
 type Selection = { kind: "problem"; variant: number; reach: Reach; dir?: "out" | "in" } | { kind: "rules"; key: string; from?: number; index?: number } | null;
 /* `open`: the browse lists are showing; `view`: which problems the map lays out. */
-type View = "all" | "nohub" | "hard";
+type View = "all" | "nohub" | "fromsat";
 interface Explore { turing: boolean; limit: ClassId; tab: "problems" | "rules"; query: string; sel: Selection; all: boolean; open: boolean; view: View }
 const ex: Explore = { turing: false, limit: "unknown", tab: "problems", query: "", sel: null, all: false, open: false, view: "all" };
 const VIEWS: Record<View, { label: string; keep: (name: string) => boolean }> = {
   all: { label: "All rules", keep: () => true },
   nohub: { label: "Without ILP & QUBO", keep: name => !HUBS.has(name) },
-  hard: { label: "NP-hard only", keep: name => ["both", "hard"].includes(statusOf.get(name)!) },
+  fromsat: { label: "With routes from SAT", keep: name => families.get(name)!.variants.some(i => fromSat.get(i) != null) },
 };
 const inView = (name: string) => VIEWS[ex.view].keep(name);
 /* With nothing to show, the panel folds to its search bar and the graph takes the page. */
 const collapsed = () => exploring && !ex.open && !ex.sel && !ex.query.trim();
 const classOrder = CLASSES.map(c => c.id);
-const roots = ["Satisfiability", "KSatisfiability"];
 const CLEAN = "turing dim route start end nbr off reach sel hub lit quiet near " + classOrder.map(c => "e-" + c).join(" ");
 const vtext = (i: number) => Object.entries(D.nodes[i]!.variant).map(([k, v]) => k + ": " + v).join("  ") || "default";
 const badge = (cls: ClassId) => {
@@ -753,8 +755,7 @@ function buildModel() {
   const degree = new Map<string, number>();
   fam.forEach(f => { degree.set(f.source, (degree.get(f.source) ?? 0) + 1); degree.set(f.target, (degree.get(f.target) ?? 0) + 1); });
   const core = new Set([...degree].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([n]) => n));
-  const depth = depthsFrom([...families.keys()], [...fam.values()], roots);
-  return { active, links, fam, groups, counts, out, inn, degree, depth, core };
+  return { active, links, fam, groups, counts, out, inn, degree, core };
 }
 let model = buildModel();
 const ruleClass = (i: number) => edgeGrowth(rules[i]!).cls;
@@ -934,15 +935,15 @@ function renderViews() {
     const b = el("button", "", VIEWS[id].label); b.type = "button"; b.setAttribute("aria-pressed", String(ex.view === id));
     b.addEventListener("click", () => setView(id)); return b;
   }));
-  const counts = new Map<Status, number>();
-  statusOf.forEach((st, name) => { if (!HUBS.has(name)) counts.set(st, (counts.get(st) ?? 0) + 1); });
+  const counts = new Map<FamilyStatus, number>();
+  familyStatus.forEach((st, name) => { if (!HUBS.has(name)) counts.set(st, (counts.get(st) ?? 0) + 1); });
   const swatch = (color: string, label: string, n: number | null, title: string) => {
     const item = el("span", "status-item"); item.title = title; item.style.setProperty("--c", color);
     item.append(el("i"), label); if (n != null) item.append(el("b", "", String(n))); return item;
   };
   $("#status-legend").replaceChildren(
-    ...(Object.keys(STATUS) as Status[]).map(st => swatch(STATUS[st].color, STATUS[st].label, counts.get(st) ?? 0, STATUS[st].detail)),
-    swatch(HUB_COLOR, "Solver hub", null, "ILP and QUBO, the targets most rules reduce to"));
+    ...(Object.keys(STATUS) as FamilyStatus[]).map(st => swatch(STATUS[st].color, STATUS[st].label, counts.get(st) ?? 0, st === "mixed" ? STATUS[st].detail : "Every variant: " + STATUS[st].detail)),
+    swatch(HUB_COLOR, "Common targets", null, "ILP and QUBO; inspect each variant for its routes"));
 }
 function renderLegend() {
   renderViews();
@@ -1073,12 +1074,12 @@ function placeCard(body: HTMLElement, sel: Extract<Selection, { kind: "problem" 
   topbar(body, ex.tab === "problems" ? "Problems" : "Reductions", clearSelection);
   const head = el("header", "identity");
   head.append(el("h1", "place-name", display(name)));
-  const depth = model.depth.get(name), meta = el("p", "place-meta");
+  const depth = fromSat.get(v), meta = el("p", "place-meta");
   const alias = (aliasMap[name] ?? [])[0]; if (alias) meta.append(el("code", "", alias));
-  const st = statusOf.get(name)!, badge = el("span", "status", HUBS.has(name) ? "Solver hub" : STATUS[st].label);
-  badge.style.setProperty("--c", HUBS.has(name) ? HUB_COLOR : STATUS[st].color); badge.title = STATUS[st].detail;
+  const st = variantStatus.get(v)!, badge = el("span", "status", STATUS[st].label);
+  badge.style.setProperty("--c", STATUS[st].color); badge.title = STATUS[st].detail;
   meta.prepend(badge);
-  if (depth !== undefined) meta.append(depth === null ? "Not reachable from SAT" : depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`);
+  if (depth != null) meta.append(depth === 0 ? "SAT" : `${pluralize(depth, "step")} from SAT`);
   head.append(meta);
   const acts = el("div", "acts");
   const go = el("button", "act primary", "Directions"); go.type = "button";
@@ -1233,5 +1234,7 @@ document.fonts?.ready.then(() => {
 })().catch(() => {
   graphStartup.worker?.terminate();
   graphStartup.worker = null;
-  document.querySelector('#results')!.textContent = 'Cannot load graph. Reload this release and try again.';
+  const error = document.querySelector<HTMLElement>('#graph-error')!;
+  error.textContent = 'Cannot load graph. Reload this release and try again.';
+  error.hidden = false;
 });

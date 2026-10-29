@@ -29,7 +29,7 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ClosestSubstring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -125,7 +125,7 @@ fn decode_one_hot(
     },
     upper_bound {
         max_constraint_magnitude_bits = "substring_length + 1",
-        num_nonzeros = "(alphabet_size * substring_length + total_num_windows + 1) * (substring_length + num_strings + total_num_windows + 1)",
+        num_nonzeros = "alphabet_size * substring_length + 1 + total_num_windows * (substring_length + 3)",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for ClosestSubstring {
@@ -224,10 +224,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closestsubstring_to_ilp",
         build: || {
-            // Canonical issue #1033 instance: binary alphabet, length-3
-            // windows on three length-5 strings. Optimum radius is 1; one
-            // optimal center is 010 with windows (0, 1, 0) selecting 000,
-            // 010, 110 from s_1, s_2, s_3 respectively.
             let source = ClosestSubstring::new(
                 2,
                 vec![

@@ -17,9 +17,11 @@ fn map_weights_adds_one_weight_per_source_vertex() {
     let mapped = map_weights(&result, &[0.5, 0.3, 0.7]).unwrap();
 
     assert_eq!(mapped.len(), result.positions.len());
-    assert!(mapped
-        .iter()
-        .all(|weight| weight.is_finite() && *weight > 0.0));
+    assert!(
+        mapped
+            .iter()
+            .all(|weight| weight.is_finite() && *weight > 0.0)
+    );
 }
 
 #[test]

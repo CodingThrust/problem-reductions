@@ -8,9 +8,9 @@
 //! - Maximize: sum l_e y_e
 //! - Multi-commodity flow connectivity from a root chosen on the circuit
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::graph::LongestCircuit;
 use crate::models::Decision;
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::graph::LongestCircuit;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
@@ -63,7 +63,7 @@ impl ReductionResult for ReductionLongestCircuitToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (2 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+        num_nonzeros = "num_vertices^2 + 12 * num_edges * num_vertices + 6 * num_vertices + 3 * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
@@ -217,7 +217,7 @@ impl crate::rules::AggregateReductionResult for ReductionDecisionLongestCircuitT
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_length_bits + num_edges + 1",
-        num_nonzeros = "(num_edges + 2 * num_vertices + 2 * num_edges * num_vertices) * (3 + num_vertices + 2 * num_vertices^2 + 2 * num_edges * num_vertices)",
+        num_nonzeros = "num_vertices^2 + 12 * num_edges * num_vertices + 6 * num_vertices + 4 * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for Decision<LongestCircuit<SimpleGraph, i64>> {
@@ -267,7 +267,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "longestcircuit_to_ilp",
             build: || {
-                // Triangle with unit lengths
                 let source = LongestCircuit::new(
                     SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                     vec![1, 1, 1],

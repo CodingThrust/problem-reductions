@@ -4,9 +4,9 @@
 //! hundreds of binary variables, so closed-loop brute-force solving is
 //! infeasible. The tests below verify:
 //!
-//! - Structural sizes (vertex counts, rank, k_f) on the example from
-//!   the issue body (1 source variable; smallest power-of-two padding).
-//! - Structural sizes on the four-variable example from the issue body
+//! - Structural sizes (vertex counts, rank, k_f) on the one-variable example
+//!   (smallest power-of-two padding).
+//! - Structural sizes on the four-variable example
 //!   (n = 4, m = 2 source clauses; reduction adds 8 exactly-one
 //!   clauses for m = 10 normalized clauses).
 //! - The construction terminates and produces a valid `BipartiteGraph`
@@ -22,7 +22,7 @@ use crate::models::graph::BicliqueCover;
 use crate::traits::Problem;
 use crate::variant::K3;
 
-/// Issue body Section 1 example: one source variable, one source clause.
+/// One source variable and one source clause.
 /// Normalized counts: `n = 2` (t_1, f_1), `ell = 1`, `m = 3` clauses
 /// (1 translated + 2 exactly-one), `k_f = 4 + 4 + 6 = 14`, rank `= 18`.
 #[test]
@@ -48,14 +48,9 @@ fn test_ksatisfiability_to_bicliquecover_structure_single_variable() {
     assert_eq!(target.k(), rank);
 }
 
-/// Issue body Example section: `n = 4`, `m_source = 2`, `ell = 2`,
+/// Four-variable example: `n = 4`, `m_source = 2`, `ell = 2`,
 /// `m_normalized = 2 + 4 = 6`, `k_f = 4*2 + 2*ceil(log2 6) + 6 = 18`,
 /// `rank = 18 + 4 + 2 = 24`.
-///
-/// (The issue example computes `m = 2`, `k_f = 16`, `rank = 22` *if*
-/// you skip the exactly-one normalization clauses. Our implementation
-/// faithfully emits them so the rank rises from 22 to 24 — both are
-/// admissible polynomial upper bounds for the same reduction.)
 #[test]
 fn test_ksatisfiability_to_bicliquecover_structure_issue_example() {
     let source = KSatisfiability::<K3>::new(
@@ -72,7 +67,7 @@ fn test_ksatisfiability_to_bicliquecover_structure_issue_example() {
     let n = 8; // next power of two of 2*4 = 8
     let ell = 3; // log2 8
     let m = 2 + 2 * (n / 2); // 2 source + 2 per normalized var = 2 + 8 = 10
-                             // k_f = 4*3 + 2*ceil(log2 10) + 6 = 12 + 8 + 6 = 26
+    // k_f = 4*3 + 2*ceil(log2 10) + 6 = 12 + 8 + 6 = 26
     let k_f = 4 * ell + 2 * 4 + 6;
     let rank = k_f + 2 * ell + 2;
 
@@ -207,7 +202,7 @@ fn test_ksatisfiability_to_bicliquecover_construct_two_vars_no_panic() {
 fn test_ksatisfiability_to_bicliquecover_sparse_variable_inverse() {
     // The only used variable has a high source index. Its normalized gadget
     // equals the canonical one-variable gadget; unused variables map to false.
-    let source = KSatisfiability::<K3>::new_allow_less(7, vec![CNFClause::new(vec![7])]);
+    let source = KSatisfiability::<K3>::new(7, vec![CNFClause::new(vec![7, 7, 7])]);
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
     assert_eq!(reduction.source_variables, vec![6]);
     assert_eq!(reduction.normalized_n, 2);
@@ -237,30 +232,25 @@ fn test_ksatisfiability_to_bicliquecover_sparse_variable_inverse() {
 }
 
 #[test]
-fn test_ksatisfiability_to_bicliquecover_empty_conjunction_and_clause() {
+fn test_ksatisfiability_to_bicliquecover_empty_conjunction() {
     for n in [0, 3] {
         let yes = KSatisfiability::<K3>::new(n, vec![]);
         let reduction = ReduceTo::<BicliqueCover>::reduce_to(&yes).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 0);
         assert_eq!(reduction.extract_solution(&vec![]).unwrap(), vec![false; n]);
         assert!(yes.evaluate(&vec![false; n]).unwrap().0);
-        let no = KSatisfiability::<K3>::new_allow_less(n, vec![CNFClause::new(vec![])]);
-        let reduction = ReduceTo::<BicliqueCover>::reduce_to(&no).unwrap();
-        assert!(reduction
-            .target_problem()
-            .evaluate(&vec![])
-            .unwrap()
-            .0
-            .is_none());
-        assert!(reduction.extract_solution(&vec![]).is_err());
-        assert!(!no.evaluate(&vec![false; n]).unwrap().0);
     }
 }
 
 #[test]
-fn test_ksatisfiability_to_bicliquecover_normalization_preserves_short_clauses() {
-    for literals in [vec![2], vec![-2], vec![2, -5], vec![-2, 5, 5]] {
-        let source = KSatisfiability::<K3>::new_allow_less(6, vec![CNFClause::new(literals)]);
+fn test_ksatisfiability_to_bicliquecover_normalization_preserves_repeated_literals() {
+    for literals in [
+        vec![2, 2, 2],
+        vec![-2, -2, -2],
+        vec![2, -5, -5],
+        vec![-2, 5, 5],
+    ] {
+        let source = KSatisfiability::<K3>::new(6, vec![CNFClause::new(literals)]);
         let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
         let (n, clauses) = super::normalize(&source, &reduction.source_variables).unwrap();
         let normalized =

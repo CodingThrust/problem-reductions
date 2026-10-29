@@ -56,7 +56,7 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {}
 
-#[reduction(transform = upper_bound {
+#[reduction(transform = exact {
     left_size = "num_vertices + k * (k - 1) / 2",
     right_size = "num_edges + num_vertices - k",
     k = "num_vertices + k * (k - 1) / 2 - k",
@@ -129,19 +129,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kclique_to_balancedcompletebipartitesubgraph",
         build: || {
-            // 4-vertex graph with edges {0,1}, {0,2}, {1,2}, {2,3}, k=3
-            // Known 3-clique: {0, 1, 2}
             let source = KClique::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]), 3);
-            // Source config: vertices {0,1,2} selected = [1,1,1,0]
-            // Target: left_size=7, right_size=5, k'=4
-            // Left side: NOT selecting clique vertices -> select {3,4,5,6}
-            // target_config for left: [0,0,0,1,1,1,1]
-            // Right side: select edge elements for clique edges + padding
-            //   e0={0,1}, e1={0,2}, e2={1,2} are clique edges -> select them
-            //   e3={2,3} is not a clique edge -> don't select
-            //   w0 is padding -> select
-            // target_config for right: [1,1,1,0,1]
-            // Full target config: [0,0,0,1,1,1,1, 1,1,1,0,1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 BalancedCompleteBipartiteSubgraph,

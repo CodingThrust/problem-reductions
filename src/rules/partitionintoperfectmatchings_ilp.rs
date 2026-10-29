@@ -1,5 +1,5 @@
 //! Group labels with exact same-group edge indicators and degree one.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::PartitionIntoPerfectMatchings;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
@@ -27,11 +27,15 @@ impl ReductionResult for ReductionPartitionIntoPerfectMatchingsToILP {
 }
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPartitionIntoPerfectMatchingsToILP {}
-#[crate::reduction(transform = upper_bound {
-    num_vars = "num_vertices + 2 * num_edges",
-    num_constraints = "num_vertices + 4 * num_edges",
-    num_nonzeros = "16 * num_edges",
-    max_constraint_magnitude_bits = "num_matchings",
+#[crate::reduction(transform = {
+    exact {
+        num_vars = "num_vertices + 2 * num_edges",
+        num_constraints = "num_vertices + 4 * num_edges",
+    },
+    upper_bound {
+        num_nonzeros = "16 * num_edges",
+        max_constraint_magnitude_bits = "num_matchings",
+    },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for PartitionIntoPerfectMatchings<SimpleGraph> {
     type Result = ReductionPartitionIntoPerfectMatchingsToILP;

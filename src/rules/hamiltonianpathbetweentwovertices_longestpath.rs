@@ -115,7 +115,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltonianpathbetweentwovertices_to_longestpath",
         build: || {
-            // Path graph 0-1-2-3-4 with s=0, t=4
             let source = HamiltonianPathBetweenTwoVertices::new(
                 SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
                 0,

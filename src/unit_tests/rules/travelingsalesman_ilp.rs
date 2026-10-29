@@ -43,7 +43,6 @@ fn test_reduction_c4_closed_loop() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Verify extracted solution is valid on source problem
     let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid(), "Extracted solution must be valid");
     assert_eq!(metric, Min(Some(4)));
@@ -54,7 +53,6 @@ fn test_reduction_k4_weighted_closed_loop() {
     // K4 weighted: find minimum weight Hamiltonian cycle
     let problem = k4_tsp();
 
-    // Solve via ILP reduction
     let reduction: ReductionTSPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
@@ -62,7 +60,6 @@ fn test_reduction_k4_weighted_closed_loop() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Solve via brute force for cross-check
     let bf = BruteForce::new();
     let bf_solution = bf.solve(&problem).unwrap().unwrap();
     let bf_metric = problem.evaluate(&bf_solution).unwrap();
@@ -187,9 +184,11 @@ fn simple_graphs_with_fewer_than_three_vertices_produce_infeasible_ilps() {
                 graph.num_vertices(),
                 graph.num_edges()
             );
-            assert!(reduction
-                .extract_solution(&vec![0; target.num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; target.num_vars()])
+                    .is_err()
+            );
         }
     }
 }

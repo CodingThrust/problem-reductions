@@ -132,7 +132,7 @@ fn test_minimum_decision_tree_two_objects() {
         1,
     );
     assert_eq!(problem.dimensions().len(), 1); // 2^(2-1) - 1 = 1 slot
-                                               // Test at root, both objects go to leaves at depth 1
+    // Test at root, both objects go to leaves at depth 1
     assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(2))); // depth 1 + depth 1
     assert_eq!(problem.evaluate(&vec![1]).unwrap(), Min(None)); // sentinel=1 is leaf at root, both objects at same leaf
 }

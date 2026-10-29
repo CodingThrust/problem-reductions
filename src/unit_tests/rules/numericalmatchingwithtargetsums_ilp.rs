@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ILP, ObjectiveSense};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
@@ -81,12 +81,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_single_pair() {
 
 #[test]
 fn test_numericalmatchingwithtargetsums_to_ilp_compatible_triples_only() {
-    // Verify that only compatible triples generate variables
-    // m=2, sizes_x=[1,2], sizes_y=[3,4], targets=[4,6]
     // Compatible: (0,0,0): 1+3=4, (1,1,1): 2+4=6
-    // Also (0,1,1): 1+4=5≠6, (1,0,0): 2+3=5≠4 — NOT compatible
-    // Wait: (0,1,0): 1+4=5≠4, (1,0,1): 2+3=5≠6 — also not
-    // So only 2 variables
     let problem = NumericalMatchingWithTargetSums::new(vec![1, 2], vec![3, 4], vec![4, 6]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();

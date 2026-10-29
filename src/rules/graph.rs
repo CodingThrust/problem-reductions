@@ -154,13 +154,17 @@ pub enum ExecutePathsError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    #[error(
+        "concrete path {path_index} has no registered edge from {source_problem} to {target_problem}"
+    )]
     MissingEdge {
         path_index: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    #[error(
+        "concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable"
+    )]
     NotWitnessExecutable {
         path_index: usize,
         source_problem: String,
@@ -184,20 +188,22 @@ pub enum PathParameterError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error(
-        "reduction path contains no registered edge from {source_problem} to {target_problem}"
-    )]
+    #[error("reduction path contains no registered edge from {source_problem} to {target_problem}")]
     MissingEdge {
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model"
+    )]
     TuringEdge {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}"
+    )]
     InvalidContract {
         step: usize,
         source_problem: String,
@@ -205,15 +211,15 @@ pub enum PathParameterError {
         #[source]
         error: Box<ParameterContractError>,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform"
+    )]
     Unavailable {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error(
-        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
-    )]
+    #[error("cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}")]
     Step {
         step: usize,
         source_problem: String,
@@ -417,7 +423,6 @@ impl ReductionGraph {
             }
         };
 
-        // Collect declared default variants from VariantEntry inventory
         let mut default_variants: HashMap<String, BTreeMap<String, String>> = HashMap::new();
 
         // Phase 1: Build nodes from VariantEntry inventory
@@ -968,11 +973,11 @@ impl ReductionGraph {
             })
             .unwrap_or_default();
         variants.sort();
-        if let Some(default) = self.default_variants.get(name) {
-            if let Some(index) = variants.iter().position(|variant| variant == default) {
-                let default = variants.remove(index);
-                variants.insert(0, default);
-            }
+        if let Some(default) = self.default_variants.get(name)
+            && let Some(index) = variants.iter().position(|variant| variant == default)
+        {
+            let default = variants.remove(index);
+            variants.insert(0, default);
         }
         variants
     }
@@ -1266,14 +1271,12 @@ impl ReductionGraph {
     pub(crate) fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
 
-        // Build the model-owned metadata lookup from ProblemSchemaEntry inventory.
         let schema_metadata: HashMap<&str, (&str, crate::registry::ProblemCategory)> =
             inventory::iter::<ProblemSchemaEntry>
                 .into_iter()
                 .map(|entry| (entry.name, (entry.module_path, entry.category)))
                 .collect();
 
-        // Build sorted node list from the internal nodes
         let mut json_nodes: Vec<(usize, NodeJson)> = self
             .nodes
             .iter()
@@ -1310,7 +1313,6 @@ impl ReductionGraph {
 
         let nodes: Vec<NodeJson> = json_nodes.into_iter().map(|(_, n)| n).collect();
 
-        // Build edges from the graph
         let mut edges: Vec<EdgeJson> = Vec::new();
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
@@ -1344,7 +1346,6 @@ impl ReductionGraph {
             }
             let parameter_contract_error = contract.as_ref().err().map(ToString::to_string);
 
-            // Find the doc_path from the matching ReductionEntry
             let src_name = self.nodes[src_node_id].name;
             let dst_name = self.nodes[dst_node_id].name;
             let src_variant = &self.nodes[src_node_id].variant;
@@ -1546,14 +1547,13 @@ pub(crate) fn recover_completed_result(
             .aggregate_view
             .map(|view| view(step.result)?.extract_value_dyn(value.clone()))
             .transpose()?;
-        if let Some(mapped_value) = &mapped {
-            if step
+        if let Some(mapped_value) = &mapped
+            && step
                 .source
                 .aggregate_witness_evaluation(mapped_value)?
                 .is_none()
-            {
-                return Ok(None);
-            }
+        {
+            return Ok(None);
         }
         witness = step.result.extract_solution_dyn(witness.as_ref())?;
         value = step
@@ -1769,7 +1769,6 @@ impl ReductionGraph {
         if path.steps.len() < 2 {
             return Ok(None);
         }
-        // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         let mut aggregate_views = Vec::new();
         for window in path.steps.windows(2) {

@@ -17,7 +17,6 @@ fn test_integralflowhomologousarcs_to_ilp_closed_loop() {
         2,
         vec![(0, 1)],
     );
-    // Verify source is satisfiable via brute force
     let direct = BruteForce::new()
         .solve(&source)
         .unwrap()

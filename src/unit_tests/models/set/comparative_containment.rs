@@ -88,11 +88,13 @@ fn test_comparative_containment_rejects_invalid_configs() {
         problem.evaluate(&vec![true, false, false]),
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([true, false, false, 2])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([true, false, false, 2])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -158,74 +160,56 @@ fn test_comparative_containment_weight_sums() {
 
 #[test]
 fn test_comparative_containment_rejects_mismatched_r_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![1, 2],
-        vec![1]
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1, 2], vec![1])
+            .is_err()
+    );
 }
 
 #[test]
 fn test_comparative_containment_rejects_mismatched_s_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![1],
-        vec![1, 2]
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1], vec![1, 2])
+            .is_err()
+    );
 }
 
 #[test]
 fn test_comparative_containment_rejects_nonpositive_i64_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![0],
-        vec![1]
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![0], vec![1])
+            .is_err()
+    );
 }
 
 #[test]
 fn test_comparative_containment_rejects_nonpositive_i64_s_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![1],
-        vec![0]
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1], vec![0])
+            .is_err()
+    );
 }
 
 #[test]
 fn test_comparative_containment_rejects_non_finite_f64_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![f64::NAN],
-        vec![1.0],
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(
+            2,
+            vec![vec![0]],
+            vec![vec![0]],
+            vec![f64::NAN],
+            vec![1.0],
+        )
+        .is_err()
+    );
 }
 
 #[test]
 fn test_comparative_containment_rejects_nonpositive_f64_weights() {
-    assert!(ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![1.0],
-        vec![0.0]
-    )
-    .is_err());
+    assert!(
+        ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1.0], vec![0.0])
+            .is_err()
+    );
 }
 
 #[test]

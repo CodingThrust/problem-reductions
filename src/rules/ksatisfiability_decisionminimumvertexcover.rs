@@ -68,9 +68,9 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
 impl crate::rules::AggregateReductionResult for Reduction3SATToDecisionMVC {}
 
 #[reduction(
-    transform = {
-        exact { num_vertices = "2 * num_vars + 3 * num_clauses" },
-        upper_bound { num_edges = "num_vars + 6 * num_clauses" },
+    transform = exact {
+        num_vertices = "2 * num_vars + 3 * num_clauses",
+        num_edges = "num_vars + 6 * num_clauses",
     }
 )]
 impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiability<K3> {
@@ -99,12 +99,7 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
             edges.push((base, base + 2));
 
             // Communication edges: connect triangle vertex k to the literal vertex
-            for k in 0..3 {
-                if clause.literals.is_empty() {
-                    continue;
-                }
-                // Repeating a literal pads a short clause without changing it.
-                let lit = clause.literals[k % clause.literals.len()];
+            for (k, &lit) in clause.literals.iter().enumerate() {
                 let var_idx = lit.unsigned_abs() as usize - 1; // 0-indexed variable
                 let literal_vertex = if lit > 0 {
                     2 * var_idx // positive literal vertex
@@ -122,18 +117,10 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
         Ok(Reduction3SATToDecisionMVC {
             target: Decision::new(
                 target,
-                if self
-                    .clauses()
-                    .iter()
-                    .any(|clause| clause.literals.is_empty())
-                {
-                    -1 // No nonnegative vertex-cover size can satisfy an empty clause.
-                } else {
-                    <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
-                        n + 2 * m,
-                        "computing the cover bound",
-                    )?
-                },
+                <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
+                    n + 2 * m,
+                    "computing the cover bound",
+                )?,
             ),
             source_num_vars: n,
         })
@@ -161,15 +148,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    // x1=0, x2=0, x3=1 satisfies both clauses
                     source_config: serde_json::json!(vec![false, false, true]),
-                    // Literal vertices: u1(0), ~u1(1), u2(2), ~u2(3), u3(4), ~u3(5)
-                    // Clause 0 triangle: v6, v7, v8 (literals x1, x2, x3)
-                    // Clause 1 triangle: v9, v10, v11 (literals ~x1, ~x2, x3)
-                    // VC: from truth-setting, pick ~u1(1), ~u2(3), u3(4)
-                    // Clause 0: u1,u2 not in cover -> pick v6,v7; u3 in cover -> v8 free
-                    // Clause 1: ~u1,~u2,u3 all in cover -> pick any 2: v9,v10
-                    // Total cover size = 3 + 2 + 2 = 7 = n + 2m
                     target_config: serde_json::json!(vec![
                         false, true, false, true, true, false, true, true, false, true, true, false
                     ]),

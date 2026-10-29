@@ -6,8 +6,8 @@ use rmcp::tool;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, solve_result_json, solver_capabilities_view, solver_request, BundleReplay,
-    ProblemJson, ProblemJsonOutput, ReductionBundle,
+    BundleReplay, ProblemJson, ProblemJsonOutput, ReductionBundle, load_problem, solve_result_json,
+    solver_capabilities_view, solver_request,
 };
 use crate::problem_name::{aliases_for, resolve_catalog_problem_ref, resolve_problem_ref};
 
@@ -254,16 +254,16 @@ impl McpServer {
                 load_problem(&problem.problem_type, &problem.variant, problem.data)
             })
             .transpose()?;
-        if let Some(loaded) = &loaded {
-            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
-                anyhow::bail!(
-                    "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
-                    src_ref.name,
-                    src_ref.variant,
-                    loaded.problem_name(),
-                    loaded.variant_map(),
-                );
-            }
+        if let Some(loaded) = &loaded
+            && (loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant)
+        {
+            anyhow::bail!(
+                "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
+                src_ref.name,
+                src_ref.variant,
+                loaded.problem_name(),
+                loaded.variant_map(),
+            );
         }
 
         let batch = crate::commands::graph::find_path_batch(
@@ -314,7 +314,6 @@ impl McpServer {
                 )
             })?;
 
-        // Check for random generation
         let is_random = params
             .get("random")
             .and_then(|v| v.as_bool())
@@ -363,7 +362,6 @@ impl McpServer {
     pub fn inspect_problem_inner(&self, problem_json: &str) -> anyhow::Result<String> {
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
 
-        // Detect if it's a bundle or a problem
         if json.get("source").is_some()
             && json.get("target").is_some()
             && json.get("path").is_some()
@@ -442,7 +440,6 @@ impl McpServer {
         let timeout_secs = u64::try_from(timeout.unwrap_or(0))
             .map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
 
-        // Detect if it's a bundle or a problem
         let is_bundle = json.get("source").is_some()
             && json.get("target").is_some()
             && json.get("path").is_some();
@@ -715,9 +712,11 @@ mod tests {
             let shown: serde_json::Value =
                 serde_json::from_str(&server.show_problem_inner(name).unwrap()).unwrap();
             let inputs = shown["inputs"].as_array().unwrap();
-            assert!(inputs
-                .iter()
-                .any(|input| input["name"] == "bound" && input["type_name"] == "i64"));
+            assert!(
+                inputs
+                    .iter()
+                    .any(|input| input["name"] == "bound" && input["type_name"] == "i64")
+            );
             assert!(!inputs.iter().any(|input| input["name"] == "weights"));
             let output = server.create_problem_inner(name, &data).unwrap();
             let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();

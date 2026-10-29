@@ -30,10 +30,12 @@ fn test_threedimensionalmatching_to_threepartition_q1_overhead_and_bounds() {
     let bound = i128::from(target.bound());
     let total_sum: i128 = target.sizes().iter().map(|&size| i128::from(size)).sum();
     assert_eq!(total_sum, bound * target.num_groups() as i128);
-    assert!(target
-        .sizes()
-        .iter()
-        .all(|&size| 4 * i128::from(size) > bound && 2 * i128::from(size) < bound));
+    assert!(
+        target
+            .sizes()
+            .iter()
+            .all(|&size| 4 * i128::from(size) > bound && 2 * i128::from(size) < bound)
+    );
 }
 
 #[test]
@@ -61,10 +63,12 @@ fn empty_triple_sets_preserve_empty_and_nonempty_universe_truth() {
             );
         } else {
             assert!(BruteForce::new().solve(&source).unwrap().is_none());
-            assert!(BruteForce::new()
-                .solve(reduction.target_problem())
-                .unwrap()
-                .is_none());
+            assert!(
+                BruteForce::new()
+                    .solve(reduction.target_problem())
+                    .unwrap()
+                    .is_none()
+            );
         }
     }
 }

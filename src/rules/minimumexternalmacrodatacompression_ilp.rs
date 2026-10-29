@@ -13,7 +13,7 @@
 //! **Objective:** minimize |D| + |C_literals| + h * |C_pointers|
 //! = sum d_used[j] + sum lit[i] + h * sum ptr[i][l][d_start]
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumExternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -95,7 +95,7 @@ impl VarLayout {
         self.ptr_triples
             .iter()
             .enumerate()
-            .filter(|(_, &(pi, pl, _))| pi == i && pl == l)
+            .filter(|&(_, &(pi, pl, _))| pi == i && pl == l)
             .map(|(idx, _)| self.ptr_offset + idx)
             .collect()
     }
@@ -132,7 +132,6 @@ impl ReductionResult for ReductionEMDCToILP {
             let k = self.alphabet_size;
             let empty = k; // empty marker
 
-            // Build D-slots
             let mut d_slots = vec![empty; n];
             for j in 0..n {
                 let symbols: Vec<_> = (0..k)
@@ -144,12 +143,12 @@ impl ReductionResult for ReductionEMDCToILP {
                         [] => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "dictionary slot {j} is active without a symbol"
-                            )))
+                            )));
                         }
                         _ => {
                             return Err(crate::rules::ExtractionError::invalid(format!(
                                 "dictionary slot {j} selects multiple symbols"
-                            )))
+                            )));
                         }
                     }
                 } else if !symbols.is_empty() {
@@ -391,10 +390,6 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    // s = "ab" (len 2), alphabet {a,b} (size 2), h=2
-    // Optimal: uncompressed, D="" C="ab", cost = 0+2+0 = 2
-    // Config: D-slots=[2,2], C-slots=[0,1]
-    // ILP target_config: all d and d_used = 0, lit[0]=1, lit[1]=1, all ptr = 0
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumexternalmacrodatacompression_to_ilp",
         build: || {
@@ -405,15 +400,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let n = 2;
             let k = 2;
 
-            // Build target config: all zeros, then set lit[0]=1, lit[1]=1
             let mut target_config = vec![0_i64; layout.total_vars];
             target_config[layout.lit_var(0)] = 1;
             target_config[layout.lit_var(1)] = 1;
 
-            // Verify this is correct
             let source_config = reduction.extract_solution(&target_config).unwrap();
-            debug_assert_eq!(source_config[..n], [k, k]); // D empty
-            debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"
+            debug_assert_eq!(source_config[..n], [k, k]);
+            debug_assert_eq!(source_config[n..], [0, 1]);
 
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,

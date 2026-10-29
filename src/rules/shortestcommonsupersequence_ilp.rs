@@ -5,7 +5,7 @@
 //! is matched to position p. Monotonicity forces strictly increasing match
 //! positions per string.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ShortestCommonSupersequence;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -49,11 +49,15 @@ impl ReductionResult for ReductionSCSToILP {
 // contribute b(a+1)+3Lb terms, order rows <=2Lb, padding <=2b.
 // Zero positional coefficients disappear. Coefficients <=max(1,b-1)
 // require at most ceil(b/2+1) bits, including b=0.
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "max_length / 2 + 1",
-    num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
-    num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
-    num_nonzeros = "max_length * (alphabet_size + 3) + 5 * total_length * max_length",
+#[reduction(transform = {
+    exact {
+        num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "max_length / 2 + 1",
+        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+        num_nonzeros = "max_length * (alphabet_size + 3) + 5 * total_length * max_length",
+    },
 })]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;
@@ -159,7 +163,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestcommonsupersequence_to_ilp",
         build: || {
-            // Alphabet {0,1}, strings [0,1] and [1,0]
             let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
             let reduction: ReductionSCSToILP =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");

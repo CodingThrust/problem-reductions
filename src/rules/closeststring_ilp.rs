@@ -21,7 +21,7 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ClosestString;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -153,9 +153,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "closeststring_to_ilp",
         build: || {
-            // Canonical issue #1032 instance: binary alphabet, the four length-3
-            // strings 000, 011, 101, 110. Optimum radius is 2 (achieved by any
-            // binary length-3 center, e.g. 000).
             let source = ClosestString::new(
                 2,
                 vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],

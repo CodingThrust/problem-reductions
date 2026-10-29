@@ -30,8 +30,7 @@ fn small_asymmetric() -> OpenShopScheduling {
     OpenShopScheduling::new(1, vec![vec![2], vec![3]])
 }
 
-/// Issue #506 example: 4 jobs × 3 machines, true optimal makespan = 8.
-/// (The issue body incorrectly claimed 11 was optimal; brute-force confirms 8.)
+/// Example: 4 jobs × 3 machines, true optimal makespan = 8.
 fn issue_example() -> OpenShopScheduling {
     OpenShopScheduling::new(
         3,
@@ -241,11 +240,13 @@ fn test_open_shop_scheduling_construction_paths_reject_invalid_matrices() {
         (2, vec![vec![i64::MAX, 1]]),
     ] {
         assert!(OpenShopScheduling::try_new(machines, times.clone()).is_err());
-        assert!(OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
-            num_processors: machines,
-            processing_times: times.clone(),
-        })
-        .is_err());
+        assert!(
+            OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
+                num_processors: machines,
+                processing_times: times.clone(),
+            })
+            .is_err()
+        );
         assert!(
             serde_json::from_value::<OpenShopScheduling>(serde_json::json!({
                 "num_machines": machines, "processing_times": times,

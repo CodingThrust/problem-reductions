@@ -1,11 +1,11 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, exact_growth, mul, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm,
-    VariableGrowth, ANTICHAIN_CAP,
+    ANTICHAIN_CAP, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm, VariableGrowth, add,
+    exact_growth, mul,
 };
 use crate::expr::{
-    evaluate_approximate, expression_from_approximation, AlgebraicAnalysis, Expr, ExprNode,
+    AlgebraicAnalysis, Expr, ExprNode, evaluate_approximate, expression_from_approximation,
 };
 use crate::registry::variant_entries;
 use num_rational::BigRational;
@@ -420,8 +420,6 @@ fn test_growth_reports_nested_and_numeric_failures() {
     assert_eq!(exact_growth(Vec::new()).to_expr(), Some(Expr::integer(1)));
 }
 
-// --- Additional coverage ---
-
 /// Pure constants, constant factors, and constant division are all O(1) / dropped.
 #[test]
 fn test_growth_constants_are_o1() {
@@ -622,8 +620,7 @@ fn test_growth_rejects_large_unproved_exponential_antichain() {
 // --- Randomized property tests ---
 //
 // These cross-validate the symbolic growth domain against the numeric ground
-// truth (`Expr::eval`) over a large, seeded input space, in the spirit of the
-// repo's `/verify-reduction` adversarial culture. Three contracts are exercised
+// truth (`Expr::eval`) over a large, seeded input space. Three contracts are exercised
 // ≥ 5000 times each with a hand-rolled, deterministic RNG (no wall-clock, no
 // entropy — CI must be byte-reproducible across platforms):
 //
@@ -725,11 +722,7 @@ fn gen_linear(rng: &mut SplitMix64) -> Expr {
 fn gen_lin_term(rng: &mut SplitMix64) -> Expr {
     let v = gen_var(rng);
     let c = 1 + rng.below(3);
-    if c == 1 {
-        v
-    } else {
-        Expr::integer(c) * v
-    }
+    if c == 1 { v } else { Expr::integer(c) * v }
 }
 
 /// A deliberately nonlinear exponent, driving `2^(·)` to `Growth::Unknown`.

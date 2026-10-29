@@ -2,8 +2,8 @@
 use crate::models::algebraic::QUBO;
 use crate::models::decision::Decision;
 use crate::models::misc::DynamicStorageAllocation;
-use crate::rules::qubo_helpers::decode_rows;
 use crate::rules::qubo_helpers::QuboBuilder;
+use crate::rules::qubo_helpers::decode_rows;
 use crate::rules::traits::validate_target_witness;
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 #[derive(Debug, Clone)]

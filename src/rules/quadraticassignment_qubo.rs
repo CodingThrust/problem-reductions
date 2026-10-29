@@ -1,7 +1,7 @@
 //! Direct quadratic encoding of QuadraticAssignment.
-use crate::models::algebraic::QuadraticAssignment;
 use crate::models::algebraic::QUBO;
-use crate::rules::qubo_helpers::{decode_rows, ObjectiveEncoding, QuboBuilder};
+use crate::models::algebraic::QuadraticAssignment;
+use crate::rules::qubo_helpers::{ObjectiveEncoding, QuboBuilder, decode_rows};
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;
 

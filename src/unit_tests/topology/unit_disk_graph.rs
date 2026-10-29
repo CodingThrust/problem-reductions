@@ -92,8 +92,6 @@ fn test_udg_grid_diagonal() {
     // With radius > sqrt(2), diagonals are also connected
     let udg = UnitDiskGraph::grid(2, 2, 1.0, 1.5).unwrap();
     assert_eq!(udg.num_vertices(), 4);
-    // All pairs are connected (4 edges: 0-1, 0-2, 0-3, 1-2, 1-3, 2-3)
-    // Actually: 0-1 (1.0), 0-2 (1.0), 1-3 (1.0), 2-3 (1.0), 0-3 (sqrt(2)≈1.41), 1-2 (sqrt(2)≈1.41)
     assert_eq!(udg.num_edges(), 6);
 }
 
@@ -124,7 +122,6 @@ fn test_udg_vertex_distance_invalid() {
 
 #[test]
 fn test_udg_graph_trait() {
-    // Test the Graph trait implementation
     let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (1.0, 0.0), (0.5, 0.5)], 1.0).unwrap();
     // Use Graph trait methods
     assert_eq!(Graph::num_vertices(&udg), 3);

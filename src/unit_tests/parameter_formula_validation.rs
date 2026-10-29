@@ -1,7 +1,7 @@
 use crate::parameters::ParameterRelation;
 use crate::registry::DynProblem;
-use crate::rules::{registry::ReductionEntry, ReductionGraph};
-use serde_json::{json, Value};
+use crate::rules::{ReductionGraph, registry::ReductionEntry};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);
@@ -106,10 +106,10 @@ fn source_for(
             .flat_map(|(_, examples)| examples),
     );
     for example in examples {
-        if let Ok(source) = (registered.factory)(example.clone()) {
-            if let Ok(actual) = target_parameters(entry, source.as_ref()) {
-                return Ok((source, actual));
-            }
+        if let Ok(source) = (registered.factory)(example.clone())
+            && let Ok(actual) = target_parameters(entry, source.as_ref())
+        {
+            return Ok((source, actual));
         }
     }
     // Geometric variants without canonical instances use the existing seeded
@@ -414,15 +414,16 @@ fn simple_graph_create_contracts_propagate_edge_validation() {
 
 #[test]
 fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
+    use crate::Problem;
+    use crate::models::Decision;
     use crate::models::algebraic::QUBO;
     use crate::models::graph::OptimalLinearArrangement;
     use crate::models::misc::{
-        CyclicOrdering, ShortestCommonSuperstring, StackerCrane, StaffScheduling, ThreePartition,
+        CyclicOrdering, SequencingWithReleaseTimesAndDeadlines, ShortestCommonSuperstring,
+        StackerCrane, StaffScheduling, ThreePartition,
     };
-    use crate::models::Decision;
     use crate::rules::{ReduceTo, ReductionResult};
     use crate::topology::SimpleGraph;
-    use crate::Problem;
 
     fn check<S: Problem + ReduceTo<T> + 'static, T: Problem>(source: S, budget: u64) {
         let entry = crate::rules::registry::reduction_entries()
@@ -452,7 +453,8 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
             S::NAME
         );
     }
-    // Budget clique plus separate per-period surplus blocks, at most 63 bits per integer.
+    // Budget clique plus separate per-period surplus blocks, two bits for W = 3:
+    // binom(8, 2) + 3 * (2^2 * 3 + binom(2, 2)).
     check::<_, Decision<QUBO<i64>>>(
         StaffScheduling::new(
             2,
@@ -464,7 +466,12 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
             vec![2, 2, 2],
             3,
         ),
-        73_206,
+        67,
+    );
+    // Three tasks with at most three start times each: binom(9, 2) couplings.
+    check::<_, Decision<QUBO<i64>>>(
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        36,
     );
     // Triangle terms, path/cycle transitions, and eligible value-triple multiplicities.
     // Vanishing factors must remain nonnegative and valid on empty/singleton inputs.
@@ -500,4 +507,73 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
         36,
     );
     check::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![2; 6], 6), 15);
+}
+
+#[test]
+fn ilp_nonzero_bounds_hold_on_dense_sources() {
+    use crate::models::{
+        ConsecutiveOnesSubmatrix, DirectedHamiltonianPath, LongestCircuit, SteinerTree,
+        SubgraphIsomorphism,
+    };
+    use crate::topology::{SimpleDigraph, SimpleGraph};
+    use crate::traits::Problem;
+
+    // Dense inputs exercise every constraint family at full size, so a family
+    // missing from a per-family nonzero count shows up as an exceeded bound.
+    fn check<P: Problem + 'static>(source: P) {
+        let variant = P::variant();
+        let entry = crate::rules::registry::reduction_entries()
+            .into_iter()
+            .find(|e| {
+                e.source_name == P::NAME && e.target_name == "ILP" && e.source_variant() == variant
+            })
+            .unwrap();
+        let reduced = entry.reduce_fn.unwrap()(&source).unwrap();
+        let actual = ReductionGraph::compute_problem_parameters(
+            "ILP",
+            &ReductionGraph::variant_to_map(&entry.target_variant()),
+            reduced.target_problem_any(),
+        );
+        let contract = entry.parameter_contract().unwrap();
+        let predicted = contract
+            .transform()
+            .unwrap()
+            .evaluate(&source.parameters())
+            .unwrap();
+        let (predicted, actual) = (
+            predicted.get("num_nonzeros").unwrap(),
+            actual.get("num_nonzeros").unwrap(),
+        );
+        assert!(
+            predicted >= actual,
+            "{}: predicted {predicted:?} nonzeros, measured {actual:?}",
+            P::NAME
+        );
+    }
+    let complete = |n: usize| {
+        (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect::<Vec<_>>()
+    };
+
+    check(ConsecutiveOnesSubmatrix::new(vec![vec![true; 4]; 3], 4));
+    check(DirectedHamiltonianPath::new(SimpleDigraph::new(
+        4,
+        (0..4)
+            .flat_map(|u| (0..4).filter(move |&v| v != u).map(move |v| (u, v)))
+            .collect(),
+    )));
+    check(SubgraphIsomorphism::new(
+        SimpleGraph::new(4, complete(4)),
+        SimpleGraph::new(3, complete(3)),
+    ));
+    check(SteinerTree::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+        vec![0, 2, 4],
+    ));
+    check(LongestCircuit::new(
+        SimpleGraph::new(5, complete(5)),
+        vec![1_i64; 10],
+    ));
 }

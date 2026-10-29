@@ -73,9 +73,11 @@ fn test_bcnf_creation() {
 fn test_bcnf_evaluate_violation() {
     let problem = canonical_problem();
     // X = {2}: closure = {2, 3}. In A' \ X = {0,1,3,4,5}: 3 ∈ closure, 0 ∉ closure → violation.
-    assert!(problem
-        .evaluate(&vec![false, false, true, false, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, true, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -83,18 +85,22 @@ fn test_bcnf_evaluate_no_violation_empty_x() {
     let problem = canonical_problem();
     // X = {} (all zeros): A' \ X = all attributes, closure of {} = {}.
     // Nothing in closure → no violation.
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_bcnf_evaluate_no_violation_x_covers_all() {
     let problem = canonical_problem();
     // X = all attributes: A' \ X = {} → no attributes to test → no violation.
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -113,11 +119,13 @@ fn test_bcnf_evaluate_invalid_config_length() {
 #[test]
 fn test_bcnf_evaluate_invalid_config_values() {
     let problem = canonical_problem();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, false, 2, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, false, 2, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -231,7 +239,7 @@ fn test_bcnf_fds_outside_target_subset() {
 
 #[test]
 fn test_bcnf_cyclic_keys_no_violation() {
-    // Issue example: 4 attributes, cyclic keys — every non-trivial subset is a superkey.
+    // Cyclic keys make every subset containing a key pair a superkey.
     // FDs: {0,1}→{2,3}, {2,3}→{0,1}, {0,2}→{1,3}, {1,3}→{0,2}.
     // All 2-element subsets containing a key pair have full closure → no BCNF violation.
     let problem = BoyceCoddNormalFormViolation::new(
@@ -257,7 +265,9 @@ fn test_bcnf_multi_step_transitive_closure() {
     // X={0,1}: {0,1}→{2} then {2}→{3} (two-step chain).
     // A' \ X = {2,3,4,5}. closure = {0,1,2,3}. 2∈closure, 4∉closure → violation.
     let problem = canonical_problem();
-    assert!(problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    );
 }

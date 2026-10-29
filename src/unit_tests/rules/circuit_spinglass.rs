@@ -245,7 +245,6 @@ fn test_reduction_result_methods() {
     let reduction = ReduceTo::<Decision<SpinGlass<SimpleGraph, i64>>>::reduce_to(&problem)
         .expect("reduction should succeed");
 
-    // Test target_problem and extract_solution work
     let sg = reduction.target_problem().inner();
     assert!(sg.num_spins() >= 2); // At least c and x
 }

@@ -4,7 +4,7 @@
 //! and all feasibility conditions are already linear: availability forcing,
 //! per-period exclusivity, and exact pairwise work requirements.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -126,7 +126,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "timetabledesign_to_ilp",
         build: || {
-            // Small 2-craftsman, 2-task, 2-period instance
             let source = TimetableDesign::new(
                 2,
                 2,

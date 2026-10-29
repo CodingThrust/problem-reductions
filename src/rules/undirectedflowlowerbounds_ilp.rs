@@ -23,7 +23,7 @@
 //!
 //! Size upper bound: 3*|E| variables, 5*|E| + |V| + 1 constraints.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;
@@ -80,11 +80,15 @@ impl ReductionResult for ReductionUFLBToILP {
 impl crate::rules::AggregateReductionResult for ReductionUFLBToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
-        num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
-        num_nonzeros = "(3 * num_edges) * (5 * num_edges + num_vertices + 1)",
+    transform = {
+        exact {
+            num_vars = "3 * num_edges",
+        },
+        upper_bound {
+            max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
+            num_constraints = "5 * num_edges + num_vertices + 1",
+            num_nonzeros = "13 * num_edges",
+        },
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedFlowLowerBounds {
@@ -203,8 +207,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "undirectedflowlowerbounds_to_ilp",
         build: || {
-            // 3-vertex graph: edge (0,1) cap=2 lower=1, edge (1,2) cap=2 lower=1
-            // source=0, sink=2, requirement=1
             let source = UndirectedFlowLowerBounds::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 2],

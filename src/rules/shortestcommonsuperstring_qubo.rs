@@ -1,8 +1,8 @@
 //! Direct exact quadratic encoding of ShortestCommonSuperstring.
 use crate::models::algebraic::QUBO;
 use crate::models::misc::ShortestCommonSuperstring;
-use crate::rules::qubo_helpers::{decode_rows, invert_permutation};
 use crate::rules::qubo_helpers::{ObjectiveEncoding, QuboBuilder};
+use crate::rules::qubo_helpers::{decode_rows, invert_permutation};
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;
 #[derive(Debug, Clone)]

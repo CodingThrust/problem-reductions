@@ -207,15 +207,13 @@ where
 
 /// Check if a configuration forms a valid clique.
 fn is_clique_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
-    // Collect all selected vertices
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v)
+        .filter(|&(_, &v)| v)
         .map(|(i, _)| i)
         .collect();
 
-    // Check all pairs of selected vertices are adjacent
     for i in 0..selected.len() {
         for j in (i + 1)..selected.len() {
             if !graph.has_edge(selected[i], selected[j]) {
@@ -286,15 +284,13 @@ pub(crate) fn is_clique<G: Graph>(graph: &G, selected: &[bool]) -> bool {
         "selected length must match num_vertices"
     );
 
-    // Collect selected vertices
     let selected_vertices: Vec<usize> = selected
         .iter()
         .enumerate()
-        .filter(|(_, &s)| s)
+        .filter(|&(_, &s)| s)
         .map(|(i, _)| i)
         .collect();
 
-    // Check all pairs of selected vertices are adjacent
     for i in 0..selected_vertices.len() {
         for j in (i + 1)..selected_vertices.len() {
             if !graph.has_edge(selected_vertices[i], selected_vertices[j]) {

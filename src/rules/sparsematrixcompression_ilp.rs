@@ -3,7 +3,7 @@
 //! Assign each row one shift value and forbid any pair of shifted 1-entries
 //! from colliding in the storage vector.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, SparseMatrixCompression, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense, SparseMatrixCompression};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
@@ -47,11 +47,15 @@ impl crate::rules::AggregateReductionResult for ReductionSMCToILP {}
 
 // Assignments contribute r*k terms. Each unordered row pair and pair
 // of columns emits at most k two-term collision rows; empty columns add none.
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_vars = "num_rows * bound_k",
-    num_constraints = "num_rows + num_rows * (num_rows - 1) * num_cols^2 * bound_k / 2",
-    num_nonzeros = "num_rows * bound_k + num_rows * (num_rows - 1) * num_cols^2 * bound_k",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_rows * bound_k",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "1",
+        num_constraints = "num_rows + num_rows * (num_rows - 1) * num_cols^2 * bound_k / 2",
+        num_nonzeros = "num_rows * bound_k + num_rows * (num_rows - 1) * num_cols^2 * bound_k",
+    },
 })]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;

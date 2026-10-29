@@ -1,4 +1,4 @@
-use crate::models::algebraic::{QuadraticAssignment, QUBO};
+use crate::models::algebraic::{QUBO, QuadraticAssignment};
 use crate::models::decision::Decision;
 use crate::models::graph::OptimalLinearArrangement;
 use crate::models::misc::{
@@ -85,9 +85,11 @@ where
             Min(Some(expected))
         );
     }
-    assert!(reduction
-        .extract_solution_dyn(&vec![false; bits + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution_dyn(&vec![false; bits + 1])
+            .is_err()
+    );
 }
 
 pub(super) fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
@@ -122,9 +124,11 @@ where
             Or(true)
         );
     }
-    assert!(reduction
-        .extract_solution_dyn(&vec![false; bits + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution_dyn(&vec![false; bits + 1])
+            .is_err()
+    );
 }
 
 #[test]
@@ -245,6 +249,58 @@ fn test_interval_sequencing_to_qubo_closed_loop() {
         SequencingWithinIntervals::new(vec![0], vec![0], vec![1]).unwrap(),
         false,
         0,
+    );
+}
+
+#[test]
+fn test_interval_sequencing_rejects_unrepresentable_allocations() {
+    use crate::rules::{ReduceTo, ReductionError};
+
+    let max_slots = usize::try_from(isize::MAX).unwrap() / std::mem::size_of::<(usize, i64, i64)>();
+    let mut counts = vec![i64::try_from(max_slots + 1).unwrap()];
+    if usize::try_from(i64::MAX).is_ok() {
+        counts.push(i64::MAX);
+    }
+    for count in counts {
+        let source = SequencingWithinIntervals::new(vec![0], vec![count - 1], vec![0]).unwrap();
+        assert_eq!(source.evaluate(&vec![0]).unwrap(), Or(true));
+        assert!(matches!(
+            <_ as ReduceTo<Decision<QUBO<i64>>>>::reduce_to(&source),
+            Err(ReductionError::IntegerOverflow { .. })
+        ));
+    }
+
+    // Each task's slots fit individually, but their combined tuple array does not.
+    let deadline = i64::try_from(max_slots / 2).unwrap();
+    let source = SequencingWithinIntervals::new(vec![0; 2], vec![deadline; 2], vec![0; 2]).unwrap();
+    assert_eq!(source.evaluate(&vec![0; 2]).unwrap(), Or(true));
+    assert!(matches!(
+        <_ as ReduceTo<Decision<QUBO<i64>>>>::reduce_to(&source),
+        Err(ReductionError::IntegerOverflow { .. })
+    ));
+}
+
+#[test]
+fn test_interval_sequencing_allows_representable_time_boundaries() {
+    feasible(
+        SequencingWithinIntervals::new(vec![], vec![], vec![]).unwrap(),
+        true,
+        0,
+    );
+    feasible(
+        SequencingWithinIntervals::new(vec![i64::MAX - 2], vec![i64::MAX], vec![0]).unwrap(),
+        true,
+        3,
+    );
+    feasible(
+        SequencingWithinIntervals::new(
+            vec![i64::MAX - 2, i64::MAX - 1, i64::MAX],
+            vec![i64::MAX - 1, i64::MAX, i64::MAX],
+            vec![1, 1, 0],
+        )
+        .unwrap(),
+        true,
+        3,
     );
 }
 

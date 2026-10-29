@@ -174,7 +174,6 @@ fn is_feasible_deletion<G: Graph>(graph: &G, config: &[bool]) -> bool {
         }
     }
 
-    // Find connected components by BFS.
     let mut visited = vec![false; n];
     for start in 0..n {
         if visited[start] {
@@ -316,11 +315,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
             }
         }
     }
-    if best == usize::MAX {
-        0
-    } else {
-        best
-    }
+    if best == usize::MAX { 0 } else { best }
 }
 
 crate::declare_variants! {
@@ -339,7 +334,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             vec![(0, 1), (0, 2), (1, 2), (2, 3)],
         ))),
-        // Edges in input order; deleting only edge index 3 = (2,3) leaves K3 + {3}.
         optimal_config: serde_json::json!(vec![false, false, false, true]),
         optimal_value: serde_json::json!(1),
     }]

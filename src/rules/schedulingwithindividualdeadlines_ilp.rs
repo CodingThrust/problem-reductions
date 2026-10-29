@@ -11,7 +11,7 @@
 //!   4. Precedence: Σ_t t·x_{j,t} ≥ Σ_t t·x_{i,t} + 1 for each (i,j)
 //! - Objective: Minimize 0 (feasibility)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SchedulingWithIndividualDeadlines;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
@@ -64,7 +64,7 @@ impl crate::rules::AggregateReductionResult for ReductionSWIDToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + max_deadline + 1",
-        num_nonzeros = "(num_tasks * max_deadline) * (num_tasks + max_deadline + num_precedences + 1)",
+        num_nonzeros = "2 * num_tasks * max_deadline + 2 * max_deadline * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
@@ -162,7 +162,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "schedulingwithindividualdeadlines_to_ilp",
         build: || {
-            // 3 tasks, 2 processors, deadlines [2, 2, 3], precedence (0, 2)
             let source = SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

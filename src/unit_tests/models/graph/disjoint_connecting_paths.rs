@@ -116,19 +116,23 @@ fn test_disjoint_connecting_paths_rejects_wrong_length_config() {
 #[test]
 fn test_disjoint_connecting_paths_rejects_non_binary_entries() {
     let problem = issue_yes_problem();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([1, 0, 1, 2, 1, 0, 1]),
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([1, 0, 1, 2, 1, 0, 1]),
+        )
+        .is_err()
+    );
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_branching_subgraph() {
     let problem = issue_yes_problem();
-    assert!(!problem
-        .evaluate(&vec![true, false, true, true, true, false, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, true, true, true, false, true])
+            .unwrap()
+    );
 }
 
 #[test]

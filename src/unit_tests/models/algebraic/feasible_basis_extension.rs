@@ -22,7 +22,7 @@ fn create_spec_validates_matrix_shape() {
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
-/// Issue #530 example: 3x6 matrix, rhs=[7,5,3], S={0,1}.
+/// Example: 3x6 matrix, rhs=[7,5,3], S={0,1}.
 fn issue_example() -> FeasibleBasisExtension {
     FeasibleBasisExtension::new(
         vec![
@@ -53,7 +53,6 @@ fn test_feasible_basis_extension_creation() {
 fn test_feasible_basis_extension_evaluate_satisfying() {
     let problem = issue_example();
     // Free columns are [2, 3, 4, 5]. Select col 2 (index 0 in free list).
-    // B = {0, 1, 2}. A_B = I_3. x = (7, 5, 3) but actually A_B = [[1,0,1],[0,1,0],[0,0,1]]
     // A_B^{-1} a_bar: solve [[1,0,1],[0,1,0],[0,0,1]] x = [7,5,3] => x = (4, 5, 3) >= 0
     assert!(problem.evaluate(&vec![true, false, false, false]).unwrap());
 }
@@ -106,11 +105,13 @@ fn test_feasible_basis_extension_evaluate_wrong_config_length() {
 #[test]
 fn test_feasible_basis_extension_evaluate_invalid_variable_value() {
     let problem = issue_example();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -129,7 +130,7 @@ fn test_feasible_basis_extension_brute_force_all() {
     let problem = issue_example();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
-    // From the issue: B={0,1,2} and B={0,1,3} are feasible, so 2 solutions
+    // B={0,1,2} and B={0,1,3} are feasible, so 2 solutions
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
@@ -251,8 +252,10 @@ fn test_feasible_basis_extension_duplicate_required() {
 
 #[test]
 fn json_rejects_invalid_instance() {
-    assert!(serde_json::from_value::<FeasibleBasisExtension>(
-        serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<FeasibleBasisExtension>(
+            serde_json::json!({"matrix":[[1]],"rhs":[1],"required_columns":[]})
+        )
+        .is_err()
+    );
 }

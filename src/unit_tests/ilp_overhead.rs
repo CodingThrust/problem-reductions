@@ -7,8 +7,8 @@ use crate::rules::{ReduceTo, ReductionGraph, ReductionPath, ReductionResult, Red
 use crate::solvers::{BruteForce, BruteForceProblem, ILPSolver};
 use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};
 use crate::{
-    types::{Min, One},
     Problem, ProblemParameters,
+    types::{Min, One},
 };
 
 type BoundedILP = ILP<i64, i64, Bounded>;
@@ -205,27 +205,24 @@ fn nae_support_ignores_repeated_literals_and_bounds_cancellation() {
 fn timetable_counts_core_edges_and_their_available_colors() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::variant::K3;
-    let source = KSatisfiability::<K3>::new_allow_less(
+    let source = KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     );
-    // Six two-list variable edges each supply three edges with two colors;
-    // the two singleton clause edges each supply one available assignment.
     check_counts::<_, TimetableDesign>(
         &source,
         &[
-            ("num_nonzero_requirements", 20, 48),
-            ("num_available_assignments", 38, 96),
-            ("period_count_bits", 3, 5),
-            ("num_craftsmen", 10, 23),
-            ("num_tasks", 10, 24),
+            ("num_nonzero_requirements", 128, 132),
+            ("num_available_assignments", 258, 264),
+            ("period_count_bits", 5, 9),
+            ("num_craftsmen", 61, 63),
+            ("num_tasks", 62, 64),
         ],
     );
-    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(0, vec![]));
-    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new_allow_less(
-        0,
-        vec![CNFClause::new(vec![])],
-    ));
+    check_contract::<_, TimetableDesign>(&KSatisfiability::<K3>::new(0, vec![]));
 }
 
 #[test]
@@ -396,9 +393,12 @@ fn ensemble_terms_include_ordering_and_target_matches() {
 fn changed_predictions_bound_real_intermediate_targets() {
     use crate::models::formula::{CNFClause, KSatisfiability, NAESatisfiability, Satisfiability};
     use crate::variant::K3;
-    let source = KSatisfiability::<K3>::new_allow_less(
+    let source = KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     );
     for intermediate in [
         step::<TimetableDesign>(),
@@ -432,8 +432,6 @@ fn changed_predictions_bound_real_intermediate_targets() {
             }
         }
     }
-    // Includes empty clauses, repeated literals and a fresh sentinel through
-    // the new incoming support contract and a real solve/extract workflow.
     for literals in [vec![], vec![1, 1], vec![1, -1]] {
         check_path(
             Satisfiability::new(1, vec![CNFClause::new(literals)]),
@@ -583,20 +581,14 @@ fn sentinel_literal_pairs_count_each_clause_once() {
 fn unit_schedule_bits_and_precedences_count_layers() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::variant::K3;
-    // Capacities [1,3,3,6], seven processors, filler sizes [6,4,4,1].
-    // 4 variable links + 21 literal links + 24+16+4 filler links.
     check_counts::<_, PreemptiveScheduling>(
-        &KSatisfiability::<K3>::new_allow_less(1, vec![CNFClause::new(vec![1])]),
+        &KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]),
         &[
             ("num_precedences", 69, 388),
             ("max_schedule_magnitude_bits", 5, 8),
         ],
     );
-    for clauses in [vec![], vec![CNFClause::new(vec![])]] {
-        check_contract::<_, PreemptiveScheduling>(&KSatisfiability::<K3>::new_allow_less(
-            0, clauses,
-        ));
-    }
+    check_contract::<_, PreemptiveScheduling>(&KSatisfiability::<K3>::new(0, vec![]));
 }
 
 #[test]
@@ -693,7 +685,7 @@ fn hamiltonian_edge_bound_includes_normalization_and_fixed_outputs() {
 
 #[test]
 fn integer_knapsack_and_open_shop_bit_predictions_reach_qubo() {
-    use crate::models::{set::IntegerKnapsack, Decision};
+    use crate::models::{Decision, set::IntegerKnapsack};
     for capacity in [0, 2, 5] {
         check_qubo::<_, BoundedILP>(
             IntegerKnapsack::new(vec![2, 3], vec![3, 5], capacity).unwrap(),
@@ -773,7 +765,7 @@ fn partition_knapsack_qubo_predictions_and_solution_recovery() {
 
 #[test]
 fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
-    use crate::models::{algebraic::ClosestVectorProblem, Decision};
+    use crate::models::{Decision, algebraic::ClosestVectorProblem};
     for (sizes, target) in [(vec![1], 1), (vec![2], 1)] {
         let source = SubsetSum::new(sizes.clone(), target);
         // The carry lattices have unit selected determinants. Squared column
@@ -910,9 +902,11 @@ where
         let result = ILPSolver::new().solve(ilp);
         if matches!(result, Err(crate::solvers::ILPSolveError::Infeasible)) {
             assert!(expected.is_none());
-            assert!(chain
-                .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
-                .is_err());
+            assert!(
+                chain
+                    .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
+                    .is_err()
+            );
             return;
         }
         let assignment = result.unwrap();

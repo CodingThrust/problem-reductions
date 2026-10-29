@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::models::graph::MaximumLeafSpanningTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -13,7 +13,7 @@ fn small_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
     MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 2)]))
 }
 
-/// Issue #897 canonical instance: 6 vertices, 9 edges.
+/// Canonical instance: 6 vertices, 9 edges.
 fn canonical_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
     MaximumLeafSpanningTree::new(SimpleGraph::new(
         6,

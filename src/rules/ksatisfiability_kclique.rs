@@ -1,10 +1,8 @@
 //! Karp's literal-compatibility construction with a universal vertex.
 //!
-//! Use actual literal occurrences, including shorter clauses accepted by
-//! KSatisfiability::new_allow_less. For m clauses and t occurrences, create
-//! max(t,m)+1 vertices and request a clique of size m+1. Vertex t is adjacent
-//! to all literal vertices; remaining padding vertices are isolated. This
-//! uniformly represents empty formulas and formulas containing empty clauses.
+//! For m clauses, create one vertex per literal occurrence plus an anchor
+//! (3m+1 vertices) and request a clique of size m+1. The anchor is adjacent to
+//! every literal vertex, so the empty formula maps to the one-vertex clique.
 
 use crate::models::formula::KSatisfiability;
 use crate::models::graph::KClique;
@@ -57,18 +55,19 @@ impl ReductionResult for Reduction3SATToKClique {
 impl crate::rules::AggregateReductionResult for Reduction3SATToKClique {}
 
 #[reduction(
-    transform = upper_bound {
-        num_vertices = "3 * num_clauses + 1",
-        k = "num_clauses + 1",
-        num_edges = "9 * num_clauses^2 + 3 * num_clauses",
+    transform = {
+        exact {
+            k = "num_clauses + 1",
+            num_vertices = "3 * num_clauses + 1",
+        },
+        upper_bound { num_edges = "9 * num_clauses^2 + 3 * num_clauses" },
     }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToKClique;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let (num_vertices, k) =
-            clique_sizes(self.num_clauses(), self.clauses().iter().map(|c| c.len()))?;
+        let (num_vertices, k) = clique_sizes(self.num_clauses())?;
         // CNFClause::variables performs the formal literal-to-index conversion;
         // the source constructor has already validated its range and polarity.
         let positions: Vec<_> = self
@@ -101,22 +100,18 @@ impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     }
 }
 
-/// Check occurrence and output counts before allocating the compatibility graph.
-fn clique_sizes(
-    m: usize,
-    lengths: impl IntoIterator<Item = usize>,
-) -> Result<(usize, usize), crate::rules::ReductionError> {
-    let overflow = || {
-        crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, KClique<SimpleGraph>>(
-            "counting SAT clique occurrences and auxiliary vertices",
-        )
-    };
-    let t = lengths
-        .into_iter()
-        .try_fold(0usize, |sum, len| sum.checked_add(len))
-        .ok_or_else(overflow)?;
-    let vertices = t.max(m).checked_add(1).ok_or_else(overflow)?;
-    // m+1 <= max(t,m)+1, whose representability was checked above.
+/// Check the vertex and clique sizes before allocating the compatibility graph.
+fn clique_sizes(m: usize) -> Result<(usize, usize), crate::rules::ReductionError> {
+    let vertices = m
+        .checked_mul(3)
+        .and_then(|t| t.checked_add(1))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                KClique<SimpleGraph>,
+            >("counting SAT clique literal and anchor vertices")
+        })?;
+    // m+1 <= 3m+1, whose representability was checked above.
     Ok((vertices, m + 1))
 }
 
@@ -128,7 +123,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_kclique",
         build: || {
-            // (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ ¬x2 ∨ x3), n=3, m=2
             let source = KSatisfiability::<K3>::new(
                 3,
                 vec![
@@ -136,10 +130,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, -2, 3]),
                 ],
             );
-            // x1=F, x2=F, x3=T satisfies both clauses.
-            // Clause 0: pick literal x3 (position 2) → vertex 2
-            // Clause 1: pick literal ¬x1 (position 0) → vertex 3
-            // Select literal vertices 2 and 3 and the universal vertex 6.
             crate::example_db::specs::rule_example_with_witness::<_, KClique<SimpleGraph>>(
                 source,
                 SolutionPair {

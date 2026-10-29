@@ -68,11 +68,11 @@ fn test_solution_extraction() {
     // record 0 -> sector 0, record 1 -> sector 1
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1
     let mut ilp_solution = vec![0_i64; 4 + 16]; // n + n^2
-                                                // x vars
+    // x vars
     ilp_solution[0] = 1; // x_{0,0}
     ilp_solution[3] = 1; // x_{1,1}
-                         // z vars: z_{r,s,r',s'} at offset 4 + (r*2+s)*4 + (r'*2+s')
-                         // z_{0,0,0,0} = x_{0,0}*x_{0,0} = 1: offset 4 + 0*4 + 0 = 4
+    // z vars: z_{r,s,r',s'} at offset 4 + (r*2+s)*4 + (r'*2+s')
+    // z_{0,0,0,0} = x_{0,0}*x_{0,0} = 1: offset 4 + 0*4 + 0 = 4
     ilp_solution[4] = 1;
     // z_{1,1,1,1} = x_{1,1}*x_{1,1} = 1: offset 4 + 3*4 + 3 = 4+15=19
     ilp_solution[19] = 1;

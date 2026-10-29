@@ -1,6 +1,6 @@
 //! Bottleneck TSP to ILP using cyclic positions and a selected maximum edge.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -191,7 +191,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bottlenecktravelingsalesman_to_ilp",
         build: || {
-            // C4 with varying weights
             let source = BottleneckTravelingSalesman::new(
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],
