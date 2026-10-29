@@ -180,9 +180,8 @@ impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
 
 crate::declare_variants! {
     // Information set decoding exponents are average-case over random codes. Worst case:
-    // the cheaper of coset enumeration, 2^(m - r), and weight-<=r enumeration,
-    // 2^(m h(r/m)) for binary entropy h, with r = rank(H); the two balance at r/m ~ 0.2271.
-    default MinimumWeightDecoding => "2^(0.773 * num_cols)" create MinimumWeightDecodingCreateSpec,
+    // meet-in-the-middle over the two column halves of H is exact in 2^(m/2).
+    default MinimumWeightDecoding => "2^(0.5 * num_cols)" create MinimumWeightDecodingCreateSpec,
 }
 
 crate::register_brute_force! {
