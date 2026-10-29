@@ -390,7 +390,7 @@ class WebsiteTests(unittest.TestCase):
         self.page.locator('.act.primary').click()
         self.page.locator('#target').fill('QUBO')
         self.page.locator('#suggest button', has_text='QUBO').first.click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
 
     def test_accessibility_graph_desktop_drawer(self):
         self.page.goto(self.base + 'graph.html#directions')
@@ -525,7 +525,7 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.path')).to_have_count(0)
         self.choose_endpoint('source', 'SAT')
         self.choose_endpoint('target', 'QUBO')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         route = self.copy_route()
         self.assertEqual(route['path'][0]['from']['name'], 'Satisfiability')
         self.assertEqual(route['path'][-1]['to']['name'], 'QUBO')
