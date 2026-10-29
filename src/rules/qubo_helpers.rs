@@ -89,6 +89,24 @@ impl<S: Problem, T: Problem> QuboBuilder<S, T> {
         Ok((low, high))
     }
 
+    /// Add (sum(weight * bit) - required)^2 without narrowing intermediate products.
+    pub(super) fn affine_square(
+        &mut self,
+        terms: &[(usize, i64)],
+        required: i64,
+    ) -> Result<(), ReductionError> {
+        let r = i128::from(required);
+        self.add_constant(r * r)?;
+        for (position, &(a, weight)) in terms.iter().enumerate() {
+            let w = i128::from(weight);
+            self.add(a, a, w * w - 2 * r * w)?;
+            for &(b, other) in &terms[position + 1..] {
+                self.add(a, b, 2 * w * i128::from(other))?;
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn penalty(&self) -> Result<(i64, i64, i64), ReductionError> {
         let (low, high) = self.bounds()?;
         let penalty = high

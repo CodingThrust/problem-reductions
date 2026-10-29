@@ -4,8 +4,8 @@
 //! scheduling instance. Since every task has length 1, preemption is inert:
 //! the constructed instance is a valid preemptive scheduling problem whose
 //! optimal makespan hits the threshold `T = num_vars + 3` iff a nontrivial
-//! 3-SAT instance is satisfiable. Empty formulas and empty clauses use a
-//! one-task instance with bound 1 and 0 respectively.
+//! 3-SAT instance is satisfiable. The empty formula uses a one-task instance
+//! with bound 1.
 //!
 //! Reference: Jeffrey D. Ullman, "NP-complete scheduling problems", JCSS 10,
 //! 1975; Garey & Johnson, Appendix A5.2.
@@ -147,8 +147,7 @@ fn build_ullman_construction(source: &KSatisfiability<K3>) -> UllmanConstruction
     for (clause_index, clause) in source.clauses().iter().enumerate() {
         for (pattern_index, &clause_job) in clause_jobs[clause_index].iter().enumerate() {
             let pattern = pattern_index + 1;
-            // Repeating literals preserves shorter nonempty disjunctions.
-            for (position, &literal) in clause.literals.iter().cycle().take(3).enumerate() {
+            for (position, &literal) in clause.literals.iter().enumerate() {
                 let bit_is_one = ((pattern >> (2 - position)) & 1) == 1;
                 precedences.push((
                     literal_endpoint(
@@ -202,7 +201,7 @@ fn clause_pattern_for_assignment(
     assignment: &[bool],
 ) -> usize {
     let mut pattern = 0usize;
-    for (position, &literal) in clause.literals.iter().cycle().take(3).enumerate() {
+    for (position, &literal) in clause.literals.iter().enumerate() {
         let variable = literal.unsigned_abs() as usize - 1;
         let value = assignment[variable];
         let literal_true = if literal > 0 { value } else { !value };
@@ -219,11 +218,8 @@ fn construct_schedule_from_assignment(
     assignment: &[bool],
     source: &KSatisfiability<K3>,
 ) -> Option<Vec<Vec<bool>>> {
-    if source.num_clauses() == 0 || source.clauses().iter().any(|c| c.literals.is_empty()) {
-        return crate::traits::Problem::evaluate(source, &assignment.to_vec())
-            .unwrap()
-            .0
-            .then(|| vec![vec![true]]);
+    if source.num_clauses() == 0 {
+        return (assignment.len() == source.num_vars()).then(|| vec![vec![true]]);
     }
     let construction = build_ullman_construction(source);
     if assignment.len() != source.num_vars() || target.num_tasks() != construction.num_jobs {
@@ -383,14 +379,13 @@ impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
     type Result = Reduction3SATToPreemptiveScheduling;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let has_empty_clause = self.clauses().iter().any(|c| c.literals.is_empty());
-        if self.num_clauses() == 0 || has_empty_clause {
-            // A one-task schedule meets bound 1, but cannot meet bound 0.
+        if self.num_clauses() == 0 {
+            // The empty conjunction is YES: a one-task schedule meets bound 1.
             return Ok(Reduction3SATToPreemptiveScheduling {
                 target: PreemptiveScheduling::new(vec![1], 1, vec![])
                     .map_err(<Self as ReduceTo<PreemptiveScheduling>>::target_construction)?,
                 positive_start_jobs: vec![0; self.num_vars()],
-                threshold: usize::from(!has_empty_clause),
+                threshold: 1,
             });
         }
         let construction = build_ullman_construction(self);

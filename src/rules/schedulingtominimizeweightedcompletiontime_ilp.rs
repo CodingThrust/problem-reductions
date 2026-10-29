@@ -69,7 +69,7 @@ impl ReductionResult for ReductionSMWCTToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 2",
-        num_nonzeros = "(num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2) * (num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2)",
+        num_nonzeros = "2 * num_tasks * num_processors + 2 * num_tasks + num_tasks * (num_tasks - 1) * (10 * num_processors + 1) / 2",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SchedulingToMinimizeWeightedCompletionTime {

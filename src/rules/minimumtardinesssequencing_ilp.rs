@@ -111,7 +111,7 @@ fn build_common_constraints(
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + 1",
-        num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks)",
+        num_nonzeros = "3 * num_tasks^2 + num_tasks + 2 * num_tasks * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
@@ -167,7 +167,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 1",
-        num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + num_precedences + num_tasks * num_tasks)",
+        num_nonzeros = "4 * num_tasks^2 + 2 * num_tasks * num_precedences + num_tasks^3 * (num_tasks - 1) / 2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
@@ -187,7 +187,12 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
         })?;
         let big_m = total_length;
         let positions = (0..n)
-            .map(|position| Self::exact_i64(position, "representing a task position in ILP rows"))
+            .map(|position| {
+                <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                    position,
+                    "representing a task position in ILP rows",
+                )
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
@@ -226,7 +231,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
 
         Ok(ReductionMTSWeightedToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-                .map_err(Self::target_construction)?,
+                .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?,
             num_tasks: n,
         })
     }

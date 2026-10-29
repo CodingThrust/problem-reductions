@@ -2,8 +2,8 @@
 //!
 //! This is Chvatal's 1973 construction using variable digons and clause
 //! 3-cycles with arcs to literal vertices. Appearing variables are compacted
-//! with an inverse map; native clauses of length zero through three keep
-//! their original occurrence arcs, including the empty clause's kernel-free cycle.
+//! with an inverse map; each clause keeps its three occurrence arcs, including
+//! repeated literals.
 
 use crate::models::formula::KSatisfiability;
 use crate::models::graph::Kernel;

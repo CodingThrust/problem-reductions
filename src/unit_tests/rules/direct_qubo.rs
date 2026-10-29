@@ -13,7 +13,7 @@ use crate::types::One;
 use crate::types::{Min, Or};
 use crate::{BruteForce, Problem};
 
-fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionResult> {
+pub(super) fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionResult> {
     let entry = reduction_entries()
         .into_iter()
         .find(|entry| {
@@ -26,7 +26,7 @@ fn direct<S: Problem + 'static, T: Problem>(source: &S) -> Box<dyn DynReductionR
     entry.reduce_fn.unwrap()(source).unwrap()
 }
 
-fn optimum<S: Problem<Value = Min<i64>> + 'static>(source: S, expected: i64, bits: usize)
+pub(super) fn optimum<S: Problem<Value = Min<i64>> + 'static>(source: S, expected: i64, bits: usize)
 where
     S::Solution: 'static,
 {
@@ -90,7 +90,7 @@ where
         .is_err());
 }
 
-fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
+pub(super) fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
 where
     S::Solution: 'static,
 {
@@ -207,7 +207,25 @@ fn test_linear_arrangement_to_qubo_closed_loop() {
     optimum(
         OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         2,
-        9,
+        3,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 3), (0, 1), (2, 3)])),
+        3,
+        6,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        )),
+        10,
+        6,
+    );
+    optimum(
+        OptimalLinearArrangement::new(SimpleGraph::new(1, vec![])),
+        0,
+        0,
     );
 }
 
@@ -361,7 +379,7 @@ fn test_direct_qubo_signed_and_degenerate_inputs() {
     optimum(
         OptimalLinearArrangement::new(SimpleGraph::new(3, vec![])),
         0,
-        9,
+        3,
     );
     feasible(
         SequencingWithinIntervals::new(vec![0, 0], vec![1, 1], vec![0, 1]).unwrap(),

@@ -197,6 +197,8 @@ fn test_is_valid_solution() {
     assert!(problem.is_valid_solution(&[false, true, false]));
     // Invalid: {0} doesn't cover edge (1,2)
     assert!(!problem.is_valid_solution(&[true, false, false]));
+    assert!(!problem.is_valid_solution(&[false, true]));
+    assert!(!problem.is_valid_solution(&[false, true, false, true]));
 }
 
 #[test]

@@ -48,11 +48,11 @@ impl ReductionResult for ReductionMatchingToILP {
 #[reduction(transform = {
     exact {
         num_vars = "num_edges",
+        num_nonzeros = "2 * num_edges",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
         num_constraints = "num_vertices",
-        num_nonzeros = "2 * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {

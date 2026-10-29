@@ -56,7 +56,7 @@ impl crate::rules::AggregateReductionResult for ReductionRCSToILP {}
     max_constraint_magnitude_bits = "max_resource_bits + num_tasks",
     num_vars = "num_tasks^2",
     num_constraints = "num_tasks * (num_resources + 2)",
-    num_nonzeros = "num_tasks^3 * (num_resources + 2)",
+    num_nonzeros = "num_tasks^2 * (num_resources + 2)",
 })]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
