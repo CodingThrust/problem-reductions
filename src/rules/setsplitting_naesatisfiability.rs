@@ -48,7 +48,7 @@ impl crate::rules::AggregateReductionResult for ReductionSetSplittingToNAESAT {}
         num_clauses = "num_subsets",
     },
     upper_bound {
-        num_clause_variables = "universe_size * (universe_size + 1)",
+        num_clause_variables = "universe_size * num_subsets",
         num_literals = "2 * universe_size * num_subsets",
         num_literal_pairs = "2 * universe_size * num_subsets * (2 * universe_size * num_subsets + 1)",
     },
@@ -58,38 +58,32 @@ impl ReduceTo<NAESatisfiability> for SetSplitting {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
+        crate::rules::sat_helpers::SatVariableAllocator::new(
+            "SetSplitting -> NAESatisfiability",
+            universe_size,
+        )
+        .map_err(<Self as ReduceTo<NAESatisfiability>>::target_construction)?;
         let mut clauses = Vec::with_capacity(self.num_subsets());
 
         for subset in self.subsets() {
             let mut distinct: Vec<i64> = Vec::new();
             for &element in subset {
-                if element >= universe_size {
-                    return Err(<Self as ReduceTo<NAESatisfiability>>::target_construction(
-                        format!(
-                            "subset element {element} is outside universe of size {universe_size}"
-                        )
-                        .into(),
-                    ));
-                }
-                let literal = (element + 1) as i64;
+                // SetSplitting validates element < universe_size; the allocator
+                // above checks that every resulting SAT variable fits i64.
+                let literal = i64::try_from(element + 1).expect("validated SAT variable");
                 if !distinct.contains(&literal) {
                     distinct.push(literal);
                 }
             }
-            match distinct.len() {
-                1 => distinct.push(distinct[0]),
-                0 => {
-                    return Err(<Self as ReduceTo<NAESatisfiability>>::target_construction(
-                        crate::registry::ConstructionError::from(
-                            "empty subset cannot be split".to_string(),
-                        ),
-                    ))
-                }
-                _ => {}
+            // Source construction rejects empty subsets, but permits repeated
+            // occurrences of a single element. Such a subset is unsplittable.
+            if distinct.len() == 1 {
+                distinct.push(distinct[0]);
             }
             clauses.push(CNFClause::new(distinct));
         }
-        let target = NAESatisfiability::new(universe_size, clauses);
+        let target = NAESatisfiability::try_new(universe_size, clauses)
+            .map_err(<Self as ReduceTo<NAESatisfiability>>::target_construction)?;
         Ok(ReductionSetSplittingToNAESAT {
             target,
             source_universe_size: universe_size,
