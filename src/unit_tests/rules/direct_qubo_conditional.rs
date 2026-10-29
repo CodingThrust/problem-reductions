@@ -3,12 +3,13 @@ use crate::models::{algebraic::QUBO, misc::*};
 use crate::BruteForce;
 
 #[test]
-fn test_deferred_ordering_rules_retain_ilp_without_direct_qubo_edges() {
+fn test_deferred_qubo_rules_retain_ilp_routes() {
     let entries = crate::rules::registry::reduction_entries();
     for source in [
         "SequencingToMinimizeWeightedTardiness",
         "FeasibleRegisterAssignment",
         "Betweenness",
+        "ShortestCommonSupersequence",
     ] {
         assert!(entries
             .iter()
@@ -99,38 +100,6 @@ fn test_dynamic_storage_to_decision_qubo_closed_loop() {
 }
 
 #[test]
-fn test_supersequence_to_qubo_closed_loop() {
-    optimum(
-        ShortestCommonSupersequence::new(2, vec![vec![0], vec![1]]),
-        2,
-        10,
-    );
-    optimum(
-        ShortestCommonSupersequence::new(1, vec![vec![], vec![0], vec![0]]),
-        1,
-        8,
-    );
-    optimum(
-        ShortestCommonSupersequence::new(0, vec![vec![], vec![]]),
-        0,
-        0,
-    );
-    optimum(ShortestCommonSupersequence::new(2, vec![vec![0, 1]]), 2, 10);
-    optimum(
-        ShortestCommonSupersequence::new(1, vec![vec![0], vec![0, 0]]),
-        2,
-        15,
-    );
-    let source = ShortestCommonSupersequence::new(1, vec![vec![1]]);
-    assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    let r = direct::<_, QUBO<i64>>(&source);
-    let q = r.target_problem_any().downcast_ref::<QUBO<i64>>().unwrap();
-    for bits in BruteForce::new().find_all_witnesses(q).unwrap() {
-        assert!(r.extract_solution_dyn(&bits).is_err());
-    }
-}
-
-#[test]
 fn test_start_encodings_check_source_arithmetic_and_extreme_windows() {
     use crate::models::decision::Decision;
     use crate::rules::{ReduceTo, ReductionError};
@@ -175,14 +144,6 @@ fn test_conditional_encodings_preserve_completed_no_values() {
         r.extract_value(target.evaluate(&optimum).unwrap()),
         Min(None)
     );
-    let source = ShortestCommonSupersequence::new(1, vec![vec![1]]);
-    let r = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
-    let target = ReductionResult::target_problem(&r);
-    let optimum = BruteForce::new().solve(target).unwrap().unwrap();
-    assert_eq!(
-        r.extract_value(target.evaluate(&optimum).unwrap()),
-        Min(None)
-    );
 }
 
 #[test]
@@ -218,14 +179,4 @@ fn test_release_encoding_rejects_overflowing_source_finish_times() {
             Err(ReductionError::IntegerOverflow { .. })
         ));
     }
-}
-
-#[test]
-fn test_supersequence_rejects_unrepresentable_symbol_row_allocation() {
-    use crate::rules::{ReduceTo, ReductionError};
-    let source = ShortestCommonSupersequence::new(usize::MAX - 2, vec![vec![0]]);
-    assert!(matches!(
-        ReduceTo::<QUBO<i64>>::reduce_to(&source),
-        Err(ReductionError::IntegerOverflow { .. })
-    ));
 }

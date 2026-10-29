@@ -56,7 +56,7 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for ReductionKCliqueToBCBS {}
 
-#[reduction(transform = upper_bound {
+#[reduction(transform = exact {
     left_size = "num_vertices + k * (k - 1) / 2",
     right_size = "num_edges + num_vertices - k",
     k = "num_vertices + k * (k - 1) / 2 - k",

@@ -77,7 +77,7 @@ impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
-        num_nonzeros = "(6 * num_edges) * (7 * num_edges + num_conservation_constraints + 2)",
+        num_nonzeros = "22 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {

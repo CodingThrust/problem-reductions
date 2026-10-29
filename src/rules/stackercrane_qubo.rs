@@ -38,7 +38,7 @@ impl crate::rules::AggregateReductionResult for ReductionStackerCraneToQUBO {
         self.encoding.value(value)
     }
 }
-#[crate::reduction(transform = { exact { num_vars = "num_arcs^2" }, upper_bound { num_quadratic_terms = "num_arcs^4" } })]
+#[crate::reduction(transform = { exact { num_vars = "num_arcs^2" }, upper_bound { num_quadratic_terms = "2 * num_arcs^2 * (num_arcs - 1)" } })]
 impl ReduceTo<QUBO<i64>> for StackerCrane {
     type Result = ReductionStackerCraneToQUBO;
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {

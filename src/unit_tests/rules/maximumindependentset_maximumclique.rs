@@ -28,7 +28,6 @@ fn test_maximumindependentset_to_maximumclique_closed_loop() {
 
 #[test]
 fn test_maximumindependentset_to_maximumclique_weighted() {
-    // Triangle with weights
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![10, 20, 30],
@@ -37,18 +36,13 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Complement of K3 has 0 edges (empty graph)
-    assert_eq!(target.num_vertices(), 3);
-    assert_eq!(target.num_edges(), 0);
-    assert_eq!(target.weights().to_vec(), vec![10, 20, 30]);
-
-    // In empty graph, max clique is a single vertex. Best is vertex 2 (weight 30).
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(target).unwrap();
+    assert_eq!(best, vec![vec![false, false, true]]);
     for sol in &best {
         let extracted = reduction.extract_solution(sol).unwrap();
         let metric = source.evaluate(&extracted).unwrap();
-        assert!(metric.is_valid());
+        assert_eq!(metric, crate::types::Max(Some(30)));
     }
 }
 

@@ -492,6 +492,19 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Optimiza
     }
 }
 
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue
+    for Extremum<V>
+{
+    type Inner = V;
+
+    fn meets_bound(value: &Self, bound: &V) -> bool {
+        match value.sense {
+            ExtremumSense::Minimize => matches!(&value.value, Some(v) if v <= bound),
+            ExtremumSense::Maximize => matches!(&value.value, Some(v) if v >= bound),
+        }
+    }
+}
+
 /// Additive fold value.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Sum<W>(pub W);
