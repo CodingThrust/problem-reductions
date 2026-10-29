@@ -92,6 +92,41 @@ class WebsiteTests(unittest.TestCase):
                     ['aria-allowed-role', 'heading-order', 'landmark-no-duplicate-banner', 'landmark-unique']]
         self.assertEqual(blocking, [], json.dumps(blocking, indent=2))
 
+    def test_graph_growth_labels_are_conservative_for_exact_signed_formulas(self):
+        nodes = [{'name': name, 'category': 'formula', 'variant': {}, 'default': True}
+                 for name in ['Satisfiability', 'QUBO', 'KSatisfiability']]
+        links = [(0, 1), (0, 2), (2, 1)]
+        scene = {'nodes': nodes, 'edges': [{'source': a, 'target': b} for a, b in links],
+                 'aliases': {}, 'layout': {node['name']: {'x': i * 100, 'y': i % 2 * 70}
+                                          for i, node in enumerate(nodes)}}
+        self.page.route('**/graph-scene.json.gz', lambda route: route.fulfill(
+            body=gzip.compress(json.dumps(scene).encode()), content_type='application/gzip'))
+        endpoint = lambda i: {'name': nodes[i]['name'], 'variant': {}}
+        step = lambda a, b: {'from': endpoint(a), 'to': endpoint(b)}
+        paths = {'truncated': False, 'paths': [{'steps': 1, 'path': [step(0, 1)]},
+                                              {'steps': 2, 'path': [step(0, 2), step(2, 1)]}]}
+        field = lambda text: {'certificate': text, 'accuracy': {'kind': 'exact'}}
+        profile = {'source_coordinates': ['num_vertices', 'num_edges'], 'fields': {
+            'num_zero': field('0'),
+            'num_edges': field('2^-1 * num_vertices^2 + -1 * 2^-1 * num_vertices + -1 * num_edges'),
+            'num_vars': field('num_vertices^2 + num_edges')}}
+        comparison = {'profiles': [profile, profile], 'front': [1],
+                      'counts': {'Dominated': 1, 'Equivalent': 0, 'Incomparable': 0, 'Unknown': 0}}
+        # Exercise the production UI with fixed worker replies; native comparison is tested separately.
+        worker = 'self.onmessage = () => {' + ''.join('self.postMessage(' + json.dumps(reply) + ');'
+            for reply in [{'phase': 'paths', 'result': paths}, {'phase': 'comparison', 'result': comparison}]) + '};'
+        self.page.route('**/path-worker.js', lambda route: route.fulfill(body=worker, content_type='text/javascript'))
+        self.page.goto(self.base + 'graph.html')
+        expect(self.page.locator('#results .summary strong')).to_have_text('1 size-bound candidate')
+        expect(self.page.locator('#results .note')).to_contain_text('Special inputs can change the order')
+        summaries = self.page.locator('.growth').evaluate('''dl => Object.fromEntries(
+            [...dl.querySelectorAll('dt')].map(term => [term.textContent, term.nextElementSibling.textContent]))''')
+        self.assertEqual(summaries, {'zero': '0', 'edges': 'O(vertices² + vertices + edges)',
+                                    'vars': 'O(vertices² + edges)'})
+        self.page.get_by_role('button', name='Show 1 other route', exact=True).click()
+        expect(self.page.locator('.path')).to_have_count(2)
+        expect(self.page.get_by_role('button', name='Hide other routes', exact=True)).to_be_visible()
+
     def test_accessibility_atlas(self):
         self.visit('atlas')
         expect(self.page.locator('.atlas-row').first).to_be_visible()
@@ -132,19 +167,19 @@ class WebsiteTests(unittest.TestCase):
 
     def test_accessibility_graph(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assert_accessible('graph')
 
     def test_accessibility_graph_empty_suggestions(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('#source').fill('NoSuchRegisteredProblem')
         expect(self.page.locator('#suggest')).to_contain_text('No matching problem')
         self.assert_accessible('graph-empty-suggestions')
 
     def test_accessibility_graph_popover(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.scene-node[data-node="Satisfiability"]').focus()
         self.page.keyboard.press('Enter')
         self.assert_accessible('graph-popover')
@@ -165,7 +200,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_combobox_clears_active_option_on_close_and_empty_results(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         source = self.page.locator('#source')
         source.fill('MIS')
         expect(source).to_have_attribute('aria-activedescendant', 'opt-0')
@@ -178,9 +213,9 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_endpoint_variant_repaint_preserves_keyboard_focus(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.choose_endpoint('source', 'MIS')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         weight = self.page.locator('#source-options [aria-label="weight"]').get_by_role('button', name='i64', exact=True)
         weight.focus()
         weight.press('Enter')
@@ -189,7 +224,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_popover_metadata_has_readable_contrast(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').focus()
         self.page.keyboard.press('Enter')
         expect(self.page.locator('#pop')).to_be_visible()
@@ -635,7 +670,7 @@ class WebsiteTests(unittest.TestCase):
         self.page.set_default_timeout(3000)
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         controls = self.page.get_by_role('navigation', name='Graph navigation', exact=True)
         expect(controls).to_be_visible(timeout=500)
         panel = self.page.locator('.panel').bounding_box()
@@ -658,7 +693,7 @@ class WebsiteTests(unittest.TestCase):
     def test_graph_small_mobile_popover_controls_remain_reachable(self):
         self.page.set_viewport_size({'width': 320, 'height': 640})
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.scene-node[data-node="MaximumIndependentSet"]').focus()
         self.page.keyboard.press('Enter')
         details = self.page.locator('#pop .pop-details')
@@ -749,7 +784,7 @@ class WebsiteTests(unittest.TestCase):
         self.choose_endpoint('source', 'MVC')
         self.page.locator('#source-options [aria-label="weight"]').get_by_role('button', name='One', exact=True).click()
         self.choose_endpoint('target', 'LongestCommonSubsequence')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route', timeout=3000)
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate', timeout=3000)
         expect(self.page.locator('.path').first.locator('.size')).to_have_text('?', timeout=500)
 
     def test_graph_engine_download_starts_before_graph_script_finishes(self):
@@ -824,7 +859,7 @@ class WebsiteTests(unittest.TestCase):
             for name, field in actual_profile['fields'].items():
                 self.assertEqual(field['certificate'], expected_profile['fields'][name]['certificate'])
                 self.assertEqual(field['accuracy'], expected_profile['fields'][name]['accuracy'])
-        slower = self.page.get_by_role('button', name=re.compile('^Show .* slower routes$'))
+        slower = self.page.get_by_role('button', name=re.compile('^Show .* other routes?$'))
         if slower.count():
             slower.click()
         nodes = self.scene_data()['nodes']
@@ -1025,25 +1060,25 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_node_names_track_route_and_endpoint_state(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         sat = self.page.locator('.scene-node[data-node="Satisfiability"]')
         expect(sat).to_have_attribute('aria-label', re.compile('start of the route'), timeout=500)
         self.choose_endpoint('source', 'MIS')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         expect(self.page.locator('.scene-node[data-node="MaximumIndependentSet"]')).to_have_attribute(
             'aria-label', re.compile('start of the route'), timeout=500)
         expect(sat).not_to_have_attribute('aria-label', re.compile('start of the route'), timeout=500)
 
     def test_graph_click_activation_without_pointer_events_opens_controls(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.scene-node[data-node="Satisfiability"]').dispatch_event('click', {'detail': 0})
         expect(self.page.locator('#pop .b-start')).to_be_focused(timeout=500)
         expect(self.page.get_by_role('dialog', name='Satisfiability', exact=True)).to_be_visible(timeout=500)
 
     def test_graph_space_activation_waits_for_key_release(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.scene-node[data-node="Satisfiability"]').focus()
         self.page.keyboard.down('Space')
         expect(self.page.locator('#pop')).to_be_hidden(timeout=500)
@@ -1052,7 +1087,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_keyboard_visits_disconnected_families_and_both_ends(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         graph = self.scene_data()
         names = list(dict.fromkeys(node['name'] for node in graph['nodes']))
         linked = {graph['nodes'][edge[side]]['name'] for edge in graph['edges'] for side in ['source', 'target']
@@ -1072,7 +1107,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_keyboard_focus_reveals_a_node_hidden_by_the_search_panel(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.get_by_role('button', name='Show whole graph', exact=True).click()
         node = self.page.locator('.scene-node[data-node="BinPacking"]')
         dot = node.locator('.node-disc')
@@ -1090,7 +1125,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_keyboard_variant_selection_keeps_focus_in_the_same_group(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         node = self.page.locator('.scene-node[data-node="MaximumIndependentSet"]')
         node.focus()
         node.press('Enter')
@@ -1104,7 +1139,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_keyboard_popover_enters_controls_and_returns_to_node(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         node = self.page.locator('.scene-node[data-node="Satisfiability"]')
         node.focus()
         node.press('Enter')
@@ -1116,7 +1151,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_details_from_keyboard_popover_returns_to_visible_node(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         node = self.page.locator('.scene-node[data-node="Satisfiability"]')
         node.focus()
         node.press('Enter')
@@ -1134,7 +1169,7 @@ class WebsiteTests(unittest.TestCase):
                 document.querySelector('.scene-node[data-node="Satisfiability"]').focus();
         };""")
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         expect(self.page.locator('.scene-node[data-node="Satisfiability"]')).to_be_focused(timeout=500)
 
     def test_graph_startup_camera_keeps_a_focused_isolated_node_visible(self):
@@ -1145,7 +1180,7 @@ class WebsiteTests(unittest.TestCase):
                 document.querySelector('.scene-node[data-node="BinPacking"]').focus();
         };''')
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         expect(self.page.locator('.scene-node[data-node="BinPacking"]')).to_be_focused(timeout=500)
         obscured = self.page.evaluate('''async () => {
             const node = document.querySelector('.scene-node[data-node="BinPacking"]');
@@ -1164,7 +1199,7 @@ class WebsiteTests(unittest.TestCase):
     def test_graph_mobile_drawer_isolates_background_and_restores_focus(self):
         self.page.set_viewport_size({'width': 390, 'height': 844})
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         opener = self.page.locator('.steps button').first
         opener.focus()
         opener.press('Enter')
@@ -1188,7 +1223,7 @@ class WebsiteTests(unittest.TestCase):
 
     def test_graph_drawer_changes_modal_behavior_when_resized(self):
         self.page.goto(self.base + 'graph.html')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.page.locator('.steps .name').first.click()
         self.assertIsNone(self.page.locator('#details-drawer').get_attribute('aria-modal'))
         self.page.locator('#source').focus()
