@@ -251,7 +251,6 @@ fn catalog_dimensions_cover_all_declared_variants() {
     use crate::registry::variant::VariantEntry;
 
     for entry in inventory::iter::<ProblemSchemaEntry> {
-        // Collect all variant entries for this problem
         let variants: Vec<_> = inventory::iter::<VariantEntry>
             .into_iter()
             .filter(|v| v.name == entry.name)

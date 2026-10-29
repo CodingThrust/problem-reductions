@@ -314,7 +314,6 @@ impl McpServer {
                 )
             })?;
 
-        // Check for random generation
         let is_random = params
             .get("random")
             .and_then(|v| v.as_bool())
@@ -363,7 +362,6 @@ impl McpServer {
     pub fn inspect_problem_inner(&self, problem_json: &str) -> anyhow::Result<String> {
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
 
-        // Detect if it's a bundle or a problem
         if json.get("source").is_some()
             && json.get("target").is_some()
             && json.get("path").is_some()
@@ -442,7 +440,6 @@ impl McpServer {
         let timeout_secs = u64::try_from(timeout.unwrap_or(0))
             .map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
 
-        // Detect if it's a bundle or a problem
         let is_bundle = json.get("source").is_some()
             && json.get("target").is_some()
             && json.get("path").is_some();

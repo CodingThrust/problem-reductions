@@ -133,7 +133,6 @@ fn test_kth_largest_m_tuple_zero_size_panics() {
 
 #[test]
 fn test_kth_largest_m_tuple_paper_example() {
-    // Issue example: m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14
     // 14 of 18 tuples have sum >= 12 -> YES (boundary case: count == K)
     let p = example_problem(14);
     let solver = BruteForce::new();

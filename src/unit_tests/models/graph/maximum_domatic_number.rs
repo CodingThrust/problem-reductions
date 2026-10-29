@@ -17,7 +17,6 @@ fn test_maximum_domatic_number_creation() {
 
 #[test]
 fn test_maximum_domatic_number_evaluate_optimal() {
-    // Graph from issue: 6 vertices
     // Edges: (0,1), (0,2), (0,3), (1,4), (2,5), (3,4), (3,5), (4,5)
     // Config: [0, 1, 2, 0, 2, 1] → 3 non-empty dominating sets → Max(3)
     let graph = SimpleGraph::new(

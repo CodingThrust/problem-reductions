@@ -187,15 +187,12 @@ fn test_extremum_reports_invalid_combinations() {
 fn test_one() {
     let one = One;
 
-    // Test Display
     assert_eq!(format!("{}", one), "One");
 
-    // Test Clone, Copy, Default
     let one2 = one;
     let _one3 = one2; // Copy works (no clone needed)
     let _one4: One = Default::default();
 
-    // Test PartialEq
     assert_eq!(One, One);
 
     assert_eq!(One::unit(), One);
@@ -263,7 +260,6 @@ fn test_weight_element_one() {
     let one = One;
     assert_eq!(one.to_sum(), 1);
 
-    // Verify associated type
     fn assert_weight_element<T: WeightElement>() {}
     assert_weight_element::<One>();
 }

@@ -66,7 +66,7 @@ fn test_maximum_common_edge_subgraph_creation() {
 fn test_maximum_common_edge_subgraph_evaluate_optimum() {
     let problem = issue_instance();
 
-    // Issue optimum: x = (0, 1, 2, 3, 4) with 4 = bottom (|V2| = 4).
+    // Optimum: x = (0, 1, 2, 3, 4) with 4 = bottom (|V2| = 4).
     // Preserved arcs: (0,a,1), (1,b,2), (0,c,2), (2,a,3), (1,d,3); the last
     // source arc (3,b,4) is skipped because vertex 4 is unmatched.
     assert!(problem.is_valid_solution(&[0, 1, 2, 3, 4]));

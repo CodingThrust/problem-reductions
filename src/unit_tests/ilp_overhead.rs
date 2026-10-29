@@ -432,8 +432,6 @@ fn changed_predictions_bound_real_intermediate_targets() {
             }
         }
     }
-    // Includes empty clauses, repeated literals and a fresh sentinel through
-    // the new incoming support contract and a real solve/extract workflow.
     for literals in [vec![], vec![1, 1], vec![1, -1]] {
         check_path(
             Satisfiability::new(1, vec![CNFClause::new(literals)]),

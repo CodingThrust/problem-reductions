@@ -17,11 +17,9 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted).unwrap();
@@ -30,7 +28,6 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
     assert_eq!(bf_size, Min(Some(2)));
     assert_eq!(ilp_size, Min(Some(2)));
 
-    // Verify the ILP solution is valid for the original problem
     assert!(
         problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
@@ -45,7 +42,6 @@ fn test_minimummetricdimension_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check ILP structure
     assert_eq!(ilp.num_vars(), 3, "Should have one variable per vertex");
     // C(3,2) = 3 pairs
     assert_eq!(
@@ -126,7 +122,6 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![true, false, false]);
 
-    // Verify this is a valid resolving set
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 

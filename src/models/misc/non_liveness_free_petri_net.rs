@@ -246,7 +246,6 @@ impl NonLivenessFreePetriNet {
                 new_marking[p] -= 1;
             }
         }
-        // Add tokens to output places
         for &(t, p) in &self.transition_to_place {
             if t == transition {
                 new_marking[p] = new_marking[p].checked_add(1).ok_or_else(|| {

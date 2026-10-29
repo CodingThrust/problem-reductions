@@ -5,7 +5,7 @@ use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical 4-vertex diamond instance from issue #1031.
+/// Canonical 4-vertex diamond instance.
 ///
 /// Max-flow value = 3, min cost among value-3 flows = 7.
 fn canonical_source() -> MinimumCostMaximumFlow {

@@ -121,7 +121,6 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
         .expect("reduction should succeed");
     let target = reduction.target_problem().inner();
 
-    // Verify source has no Hamiltonian circuit
     let source_witness = BruteForce::new().solve(&source).unwrap();
     assert!(source_witness.is_none(), "star graph should have no HC");
 

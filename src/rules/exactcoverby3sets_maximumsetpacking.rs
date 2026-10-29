@@ -95,8 +95,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "exactcoverby3sets_to_maximumsetpacking",
         build: || {
-            // Universe {0,1,2,3,4,5}, subsets [{0,1,2}, {0,1,3}, {3,4,5}, {2,4,5}, {1,3,5}]
-            // Exact cover: S0={0,1,2} + S2={3,4,5}
             let source = ExactCoverBy3Sets::new(
                 6,
                 vec![[0, 1, 2], [0, 1, 3], [3, 4, 5], [2, 4, 5], [1, 3, 5]],

@@ -115,7 +115,6 @@ fn test_sequencing_to_minimize_tardy_task_weight_brute_force_small() {
     let value = problem.evaluate(&solution).unwrap();
     assert!(value.is_valid());
 
-    // Check it's truly optimal by brute-forcing all permutations
     let permutations: Vec<Vec<usize>> = vec![
         vec![0, 1, 2],
         vec![0, 2, 1],

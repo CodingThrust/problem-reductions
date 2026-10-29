@@ -101,8 +101,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "pathconstrainednetworkflow_to_ilp",
         build: || {
-            // Simple graph: s=0, t=2, arcs 0->1->2 and 0->2
-            // Two paths: [0,1] (0->1->2) and [2] (0->2)
             let source = PathConstrainedNetworkFlow::new(
                 MultiDigraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],

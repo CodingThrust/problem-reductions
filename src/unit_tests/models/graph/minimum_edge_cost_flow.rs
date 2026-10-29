@@ -25,7 +25,7 @@ use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// 5-vertex network from issue #810.
+/// 5-vertex network.
 /// s=0, t=4, R=3. Prices: [3,1,2,0,0,0], capacities all 2.
 /// Arcs: (0,1),(0,2),(0,3),(1,4),(2,4),(3,4)
 /// Optimal: route via v2 (1 unit) and v3 (2 units) → cost = 1 + 2 = 3

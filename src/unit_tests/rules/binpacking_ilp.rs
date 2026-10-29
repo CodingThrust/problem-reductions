@@ -30,11 +30,9 @@ fn test_binpacking_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve original with brute force
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = problem.evaluate(&extracted).unwrap();

@@ -7,7 +7,6 @@ use num_bigint::BigUint;
 
 #[test]
 fn test_ksatisfiability_to_subsetsum_closed_loop() {
-    // Issue example: (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ ¬x2 ∨ x3), n=3, m=2
     let ksat = KSatisfiability::<K3>::new(
         3,
         vec![
@@ -83,7 +82,6 @@ fn test_ksatisfiability_to_subsetsum_single_clause() {
 
 #[test]
 fn test_ksatisfiability_to_subsetsum_structure() {
-    // Verify sizes match the issue's example table
     let ksat = KSatisfiability::<K3>::new(
         3,
         vec![
@@ -95,7 +93,6 @@ fn test_ksatisfiability_to_subsetsum_structure() {
     let target = reduction.target_problem();
     let sizes = target.sizes();
 
-    // From the issue:
     // y1=10010, z1=10001, y2=01010, z2=01001, y3=00111, z3=00100
     // g1=00010, h1=00020, g2=00001, h2=00002
     assert_eq!(sizes[0], BigUint::from(10010u32)); // y1
@@ -131,7 +128,6 @@ fn test_ksatisfiability_to_subsetsum_all_negated() {
 
 #[test]
 fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
-    // Verify the specific example from the issue:
     // x1=T, x2=T, x3=T → select y1, y2, y3 + slack to reach target 11144
     let ksat = KSatisfiability::<K3>::new(
         3,

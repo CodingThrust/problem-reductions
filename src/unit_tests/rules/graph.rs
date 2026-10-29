@@ -1267,7 +1267,6 @@ fn test_to_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // Check nodes
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
     assert!(json
@@ -1279,7 +1278,6 @@ fn test_to_json() {
         .iter()
         .any(|n| n.category == ProblemCategory::Algebraic));
 
-    // Check edges
     assert!(json.edges.len() >= 10);
 
     // Check that IS -> VC and VC -> IS both exist as separate directed edges
@@ -1498,7 +1496,6 @@ fn test_to_json_file() {
     assert!(content.contains("\"edges\""));
     assert!(content.contains("MaximumIndependentSet"));
 
-    // Parse as generic JSON to verify validity
     let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(!parsed["nodes"].as_array().unwrap().is_empty());
     assert!(!parsed["edges"].as_array().unwrap().is_empty());
@@ -1604,9 +1601,7 @@ fn test_to_json_nodes_have_variants() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // Check that nodes have variant information
     for node in &json.nodes {
-        // Verify node has a name
         assert!(!node.name.is_empty());
     }
 }
@@ -1870,7 +1865,6 @@ fn test_reduction_chain_with_variant_reductions() {
         })
         .expect("explicit SAT route");
 
-    // Create a 3-SAT formula
     let ksat = KSatisfiability::<crate::variant::K3>::new(
         3,
         vec![

@@ -159,7 +159,7 @@ impl LabelledDigraph {
 ///
 /// # Configuration encoding
 ///
-/// `dims()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
+/// `BruteForceProblem::dimensions()` returns `vec![graph_2.num_vertices + 1; graph_1.num_vertices]`.
 /// For each source vertex `u in V1`, `config[u]` is either an index in
 /// `0..graph_2.num_vertices` (the matched target vertex) or the sentinel
 /// value `graph_2.num_vertices` denoting `bottom` (unmatched). Feasibility
@@ -357,8 +357,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ],
             ),
         )),
-        // 4 encodes bottom because |V2| = 4. The map 0->0, 1->1, 2->2, 3->3,
-        // 4->bottom preserves the first five source arcs.
         optimal_config: serde_json::json!(vec![0, 1, 2, 3, 4]),
         optimal_value: serde_json::json!(5),
     }]

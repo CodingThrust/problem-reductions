@@ -1259,7 +1259,6 @@ pub fn neighbors(
         TraversalFlow::Both => "both directions",
     };
 
-    // Build tree structure via BFS with parent tracking
     let tree = graph.k_neighbor_tree(&spec_name, &variant, max_hops, direction);
 
     out.emit(

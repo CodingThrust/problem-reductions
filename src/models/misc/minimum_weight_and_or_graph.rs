@@ -315,7 +315,6 @@ impl Problem for MinimumWeightAndOrGraph {
                 }
             }
 
-            // Compute total weight of selected arcs
             let total_weight = selected
                 .iter()
                 .enumerate()
@@ -350,27 +349,7 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 7 vertices: source=0 (AND), v1 (OR), v2 (OR), v3-v6 (leaves)
-    // Arcs: (0,1,1), (0,2,2), (1,3,3), (1,4,1), (2,5,4), (2,6,2)
-    // Optimal: AND at 0 requires both arcs to 1 and 2 (cost 1+2=3).
-    // OR at 1: pick arc to 4 (cost 1). OR at 2: pick arc to 6 (cost 2).
-    // Total = 1+2+1+2 = 6... but actually we should check: is there a cheaper?
-    // arc0(0->1,w=1), arc1(0->2,w=2), arc3(1->4,w=1), arc5(2->6,w=2) => 1+2+1+2=6
-    // arc0(0->1,w=1), arc1(0->2,w=2), arc2(1->3,w=3), arc5(2->6,w=2) => 1+2+3+2=8
-    // arc0(0->1,w=1), arc1(0->2,w=2), arc3(1->4,w=1), arc4(2->5,w=4) => 1+2+1+4=8
-    // So optimal is config [1,1,0,1,0,1] with value 6... but wait, let me also check
-    // if val=5 is achievable: 1+2+1+1=5 impossible because OR at 2 must pick at least one.
-    // Actually optimal = 1(arc0) + 2(arc1) + 1(arc3) + 2(arc5) = 6
-    // Hmm, let me reconsider: is there a solution with value 5?
-    // Source is AND, so both arcs 0 and 1 must be selected (cost 1+2=3).
-    // Then OR at 1: cheapest outgoing arc is arc3 (w=1), OR at 2: cheapest is arc5 (w=2).
-    // Total = 3+1+2 = 6. Can't do better since source AND forces both.
-    // Wait — check: what if we change arc weights. The issue says value 5 might be optimal.
-    // Let me re-read: issue example says Config [1,1,0,1,0,1] -> weight 1+2+1+2 = 6 -> Min(6).
-    // So 6 is the correct optimal. But let me verify: is there any config with value < 6?
-    // No — source is AND so arcs 0,1 are forced (cost 3), then OR nodes each need at least one.
-    // Min at OR-1 is 1 (arc3), min at OR-2 is 2 (arc5). Total = 3+1+2 = 6.
-    // Optimal config: [1,1,0,1,0,1]
+    // The AND source forces both branches; each OR node's cheapest arc attains the lower bound.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_and_or_graph",
         instance: Box::new(MinimumWeightAndOrGraph::new(

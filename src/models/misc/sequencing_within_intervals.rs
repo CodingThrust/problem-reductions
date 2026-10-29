@@ -244,7 +244,6 @@ impl Problem for SequencingWithinIntervals {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                // Check no two tasks overlap
                 for i in 0..n {
                     for j in (i + 1)..n {
                         // Tasks overlap if neither finishes before the other starts

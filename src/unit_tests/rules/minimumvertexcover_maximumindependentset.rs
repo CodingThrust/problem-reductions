@@ -5,7 +5,6 @@ include!("../jl_helpers.rs");
 
 #[test]
 fn test_minimumvertexcover_to_maximumindependentset_closed_loop() {
-    // Test with weighted problems
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)

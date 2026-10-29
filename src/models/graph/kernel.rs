@@ -103,7 +103,6 @@ impl Problem for Kernel {
         Ok({
             let n = self.graph.num_vertices();
 
-            // Collect selected vertices
             let selected = config;
 
             // Independence: no arc between any two selected vertices

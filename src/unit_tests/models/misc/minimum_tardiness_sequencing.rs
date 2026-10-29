@@ -214,7 +214,6 @@ fn test_minimum_tardiness_sequencing_weighted_basic() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_weighted_evaluate() {
-    // Issue example: 5 tasks, lengths [3,2,2,1,2], deadlines [4,3,8,3,6], prec (0→2, 1→3)
     // Schedule: t0,t4,t2,t1,t3
     let problem = MinimumTardinessSequencing::<i64>::with_lengths(
         vec![3, 2, 2, 1, 2],
@@ -283,7 +282,7 @@ fn test_minimum_tardiness_sequencing_weighted_zero_length() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_paper_example() {
-    // Issue example (unit-length): 4 tasks, deadlines [2,3,1,4], prec (0→2)
+    // Unit-length example: 4 tasks, deadlines [2,3,1,4], prec (0→2)
     // t0: finish=1≤2✓, t1: finish=2≤3✓, t2: finish=3>1✗, t3: finish=4≤4✓ → 1 tardy
     let problem = MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]);
     assert_eq!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap(), Min(Some(1)));

@@ -6,7 +6,7 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical issue #1032 instance: binary alphabet, four length-3 strings
+/// Canonical instance: binary alphabet, four length-3 strings
 /// 000, 011, 101, 110. Every binary length-3 center attains radius exactly 2;
 /// no center attains radius 1.
 fn issue_instance() -> ClosestString {
