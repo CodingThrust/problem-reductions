@@ -171,30 +171,11 @@ impl LongestCommonSubsequence {
     pub fn num_transitions(&self) -> usize {
         self.max_length.saturating_sub(1)
     }
-
-    /// Returns the cross-frequency product: the sum over each alphabet symbol
-    /// of the product of that symbol's frequency across all input strings.
-    ///
-    /// Formally: Σ_{c ∈ 0..alphabet_size} Π_{i=1..k} count(c, strings\[i\])
-    /// where count(c, s) is the number of occurrences of symbol c in string s.
-    ///
-    /// This equals the exact number of match-node vertices in the LCS → MaxIS
-    /// reduction graph.
-    pub fn cross_frequency_product(&self) -> usize {
-        (0..self.alphabet_size)
-            .map(|c| {
-                self.strings
-                    .iter()
-                    .map(|s| s.iter().filter(|&&sym| sym == c).count())
-                    .product::<usize>()
-            })
-            .sum()
-    }
 }
 
 /// Check whether `candidate` is a subsequence of `target` using greedy
 /// left-to-right matching.
-fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
+pub(crate) fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
     let mut it = target.iter();
     for &symbol in candidate {
         loop {
@@ -215,7 +196,6 @@ impl Problem for LongestCommonSubsequence {
 
     crate::problem_parameters![
         ("alphabet_size", alphabet_size),
-        ("cross_frequency_product", cross_frequency_product),
         ("max_length", max_length),
         ("num_strings", num_strings),
         ("num_transitions", num_transitions),

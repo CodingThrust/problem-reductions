@@ -14038,9 +14038,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
 #let lcs_mis_sol = lcs_mis.solutions.at(0)
+#let lcs_mis_length = lcs_mis_sol.source_config.filter(x => x != none).len()
+#let lcs_mis_slots = lcs_mis_sol.source_config.len()
 #reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
   example: true,
-  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  example-caption: [Two conflicting match tuples for strings with opposite symbol order],
   extra: [
     #pred-commands(
       "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
@@ -14048,22 +14050,27 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
     )
-    Source LCS: config $(#fmt-values(lcs_mis_sol.source_config))$ \
-    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x).len()) \
-    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x).len()$ #sym.checkmark
+    The strings #fmt-values(lcs_mis.source.instance.strings.at(0)) and #fmt-values(lcs_mis.source.instance.strings.at(1)) leave one embedding string after normalization, and the source witness has length #lcs_mis_slots. The graph has #lcs_mis.target.instance.graph.num_vertices vertices and #lcs_mis.target.instance.graph.edges.len() edges. Source witness $(#fmt-values(lcs_mis_sol.source_config))$ decodes from target vertices ${#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$, with MIS size $= #lcs_mis_sol.target_config.filter(x => x).len() = #lcs_mis_length$.
   ],
 )[
-  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+  Use a match-tuple graph when it has neither more vertices nor more edges than a reward-anchored graph; otherwise use the anchored graph. Let $k$ be the number of input strings, $T$ their total length, $L$ the shortest string length (zero for no strings), $S=sum_r |s_r|(|s_r|+1)\/2$, and $A=L(L+1)\/2$. The target satisfies
+  $ V <= L(k+T-L), quad E <= A(S-A)+L(k-1). $
 ][
-  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+  _Construction._ Choose the first shortest string as the anchor and delete its symbols absent from any input string. Write $a$ for this filtered anchor and $h=|a|$. Filter every other string to the symbols of $a$, omit strings containing $a$ as a subsequence, and remove duplicates, leaving $m$ embedding strings.
 
-  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+  _Anchored encoding._ Create one reward vertex $z_p$ for each anchor position $p$. For each embedding string $s_r$ and position $p$, create a clique $Y_(r,p)$ containing one vertex per position $j$ with $s_r[j]=a[p]$, plus a skip vertex. Join $z_p$ to that skip. Between slots $p<q$ in the same string, join matching vertices $j,j'$ exactly when $j>=j'$. There are no other edges.
 
-  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+  _Tuple encoding and selection._ A vertex is a tuple of equal-symbol positions, one in $a$ and one in each embedding string. Two vertices are adjacent unless all coordinates are strictly increasing in the same direction. Its vertex count is $V_t=sum_p product_r |{j:s_r[j]=a[p]}|$; form these tuples only if $V_t<=V_a$. Choose the tuple graph precisely when also $E_t<=E_a$, where subscripts denote the tuple and anchored graphs. Otherwise choose the anchored graph.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+  _Correctness._ Every common subsequence uses only symbols present in all input strings, so filtering the anchor preserves the feasible words. Filtering other strings, removing duplicates, and omitting strings containing the filtered anchor also preserve these words. Tuple independent sets, sorted by anchor position, are exactly common-subsequence embeddings, so their maximum size is $"LCS"$. For the anchored encoding:
 
-  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+  ($arrow.r.double$) A common subsequence of length $ell$ selects its reward vertices and increasing matching positions in each embedding string, using skips at the other slots. This gives an independent set of size $h m+ell$.
+
+  ($arrow.l.double$) An independent set with $q$ rewards and $d$ empty embedding groups has size $h m+q-d$. A selected reward missing a match in some string has an empty group, because its skip is adjacent to the reward. Discard these rewards; each discarded slot accounts for a distinct empty group. The remaining $ell>=q-d$ symbols form a common subsequence, so the independent-set size is at most $h m+ell<=h m+"LCS"$. The forward construction attains equality, and every optimum decodes an optimal common subsequence. In particular, empty embedding groups are permitted. The two objectives differ, so the reduction registers witness extraction without an aggregate value map.
+
+  _Solution extraction._ Validate independence once. Order tuple vertices by anchor position and anchored rewards by anchor slot. Read the symbol of each selected vertex that has a selected match in every embedding string; tuples have no embedding strings, so every selected tuple is read. Pad the result to the original length $L$. This also maps nonoptimal independent sets to feasible common subsequences. With no embedding strings the tuple graph has $h$ isolated vertices and is always selected.
+
+  _Overhead._ For $k>=1$, the anchored graph has $h(m+1)+F$ vertices, where $F$ counts retained equal-symbol position pairs. Since $h<=L$, $m<=k-1$, and $F<=L(T-L)$, the vertex bound follows. For one embedding string of length $n$, within-slot cliques contribute at most $h n(n+1)\/2$ edges. Each of the $h(h-1)\/2$ slot pairs contributes at most $n(n+1)\/2$ crossing edges, counting all pairs $j>=j'$. Together these are at most $A n(n+1)\/2$ edges, plus at most $L$ reward-to-skip edges. Summing over a subset of the original non-anchor strings gives $E<=A(S-A)+L(k-1)$. Empty input has $V=E=L=0$ and satisfies both formulas. Dominance transfers both bounds to the tuple branch. All bounds use only registered source parameters.
 ]
 
 #let cs_ilp_str = load-example(
