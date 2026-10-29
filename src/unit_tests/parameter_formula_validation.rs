@@ -417,7 +417,8 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
     use crate::models::algebraic::QUBO;
     use crate::models::graph::OptimalLinearArrangement;
     use crate::models::misc::{
-        CyclicOrdering, ShortestCommonSuperstring, StackerCrane, StaffScheduling, ThreePartition,
+        CyclicOrdering, SequencingWithReleaseTimesAndDeadlines, ShortestCommonSuperstring,
+        StackerCrane, StaffScheduling, ThreePartition,
     };
     use crate::models::Decision;
     use crate::rules::{ReduceTo, ReductionResult};
@@ -452,7 +453,8 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
             S::NAME
         );
     }
-    // Budget clique plus separate per-period surplus blocks, at most 63 bits per integer.
+    // Budget clique plus separate per-period surplus blocks, two bits for W = 3:
+    // binom(8, 2) + 3 * (2^2 * 3 + binom(2, 2)).
     check::<_, Decision<QUBO<i64>>>(
         StaffScheduling::new(
             2,
@@ -464,7 +466,12 @@ fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
             vec![2, 2, 2],
             3,
         ),
-        73_206,
+        67,
+    );
+    // Three tasks with at most three start times each: binom(9, 2) couplings.
+    check::<_, Decision<QUBO<i64>>>(
+        SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        36,
     );
     // Triangle terms, path/cycle transitions, and eligible value-triple multiplicities.
     // Vanishing factors must remain nonnegative and valid on empty/singleton inputs.
