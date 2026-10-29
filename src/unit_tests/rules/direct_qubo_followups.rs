@@ -76,8 +76,19 @@ fn test_exact_cover_to_qubo_closed_loop() {
 }
 #[test]
 fn test_three_partition_to_qubo_closed_loop() {
-    feasible(ThreePartition::new(vec![2, 2, 2], 6), true, 3);
-    feasible(ThreePartition::new(vec![4, 4, 4, 6, 6, 6], 15), false, 12);
+    feasible(ThreePartition::new(vec![2, 2, 2], 6), true, 1);
+    feasible(ThreePartition::new(vec![4, 4, 4, 6, 6, 6], 15), false, 0);
+    feasible(ThreePartition::new(vec![2; 6], 6), true, 2);
+    feasible(
+        ThreePartition::new(vec![6, 4, 5, 6, 4, 5, 6, 4, 5], 15),
+        true,
+        3,
+    );
+    feasible(
+        ThreePartition::new(vec![1_000_000_000; 3], 3_000_000_000),
+        true,
+        1,
+    );
 }
 #[test]
 fn test_three_dimensional_matching_to_qubo_closed_loop() {
@@ -299,7 +310,6 @@ fn test_source_and_target_arithmetic_boundaries() {
         vec![1u32],
         num_bigint::BigUint::from(1u32) << 130,
     ));
-    overflow::<_, Decision<QUBO<i64>>>(ThreePartition::new(vec![1_000_000_000; 3], 3_000_000_000));
     // Opposing parallel costs cancel in the polynomial but source removal prefixes overflow.
     overflow::<_, QUBO<i64>>(MinimumFeedbackArcSet::new(
         MultiDigraph::new(2, vec![(0, 1), (0, 1), (1, 0), (1, 0)]),

@@ -278,8 +278,8 @@ fn add_3sat_clause_penalty(
 }
 
 /// Expand clause penalties and retain the constant omitted by QUBO.
-/// K3 reserves one auxiliary per clause, including free auxiliaries for short
-/// clauses; K2 reserves none. The source constructor validates clause widths.
+/// K3 reserves one auxiliary per clause; K2 reserves none. The source
+/// constructor guarantees every clause has exactly K literals.
 fn build_qubo_matrix(
     num_vars: usize,
     clauses: &[crate::models::formula::CNFClause],
@@ -301,20 +301,15 @@ fn build_qubo_matrix(
             .map(|(variable, &literal)| (variable, literal < 0))
             .collect();
         let offset = match literals.as_slice() {
-            [] => 1,
-            &[(v, neg)] => {
-                add_coefficient(&mut matrix, v, v, if neg { 1 } else { -1 })?;
-                i64::from(!neg)
-            }
-            &[(_, n1), (_, n2)] => {
+            [(_, n1), (_, n2)] => {
                 add_2sat_clause_penalty(&mut matrix, &literals)?;
                 i64::from(!n1 && !n2)
             }
-            &[(_, n1), (_, n2), _] => {
+            [(_, n1), (_, n2), _] => {
                 add_3sat_clause_penalty(&mut matrix, &literals, num_vars + idx)?;
                 2 * i64::from(!n1 && !n2)
             }
-            _ => unreachable!("the source validates clause width at most three"),
+            _ => unreachable!("the source validates clause width two or three"),
         };
         constant = constant
             .checked_add(offset)

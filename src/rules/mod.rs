@@ -1,5 +1,7 @@
 //! Reduction rules between NP-hard problems.
 
+pub(crate) mod decisionilp_sat;
+
 pub mod analysis;
 pub mod registry;
 pub use registry::{
@@ -66,7 +68,6 @@ pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
 pub(crate) mod ksatisfiability_bicliquecover;
-mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
 pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
@@ -329,6 +330,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         .extend(decisionminimumdominatingset_minimumsummulticenter::canonical_rule_example_specs());
     specs.extend(decisionminimumvertexcover_hamiltoniancircuit::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
+    specs.extend(staffscheduling_qubo::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
@@ -345,6 +347,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(stackercrane_qubo::canonical_rule_example_specs());
     specs.extend(shortestcommonsuperstring_qubo::canonical_rule_example_specs());
     specs.extend(maximumlikelihoodranking_qubo::canonical_rule_example_specs());
+    specs.extend(minimumtardinesssequencingweighted_qubo::canonical_rule_example_specs());
+    specs.extend(sequencingwithreleasetimesanddeadlines_qubo::canonical_rule_example_specs());
+    specs.extend(dynamicstorageallocation_qubo::canonical_rule_example_specs());
     specs.extend(minimumtardinesssequencing_qubo::canonical_rule_example_specs());
     specs.extend(quadraticassignment_qubo::canonical_rule_example_specs());
     specs.extend(sumofsquarespartition_qubo::canonical_rule_example_specs());
@@ -491,6 +496,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::models::algebraic::quadratic_assignment::decision_canonical_rule_example_specs(),
     );
     specs.extend(crate::models::algebraic::qubo::decision_canonical_rule_example_specs());
+    specs.extend(decisionilp_sat::canonical_rule_example_specs());
     specs.extend(
         crate::models::formula::maximum_2_satisfiability::decision_canonical_rule_example_specs(),
     );
@@ -734,3 +740,18 @@ pub(crate) mod subsetsum_qubo;
 pub(crate) mod threedimensionalmatching_qubo;
 pub(crate) mod threepartition_qubo;
 mod unit_schedule_qubo;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/direct_qubo_conditional.rs"]
+mod direct_qubo_conditional_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/staffscheduling_qubo.rs"]
+mod staffscheduling_qubo_tests;
+
+pub(crate) mod staffscheduling_qubo;
+
+pub(crate) mod dynamicstorageallocation_qubo;
+pub(crate) mod minimumtardinesssequencingweighted_qubo;
+pub(crate) mod sequencingwithreleasetimesanddeadlines_qubo;
+mod start_time_qubo;

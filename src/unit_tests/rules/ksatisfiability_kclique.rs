@@ -48,7 +48,7 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
 }
 
 #[test]
-fn test_kclique_empty_formulas_and_short_clauses() {
+fn test_kclique_empty_formulas_and_repeated_literals() {
     for n in [0, 3, 4] {
         let source = KSatisfiability::<K3>::new(n, vec![]);
         let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&source).unwrap();
@@ -65,16 +65,11 @@ fn test_kclique_empty_formulas_and_short_clauses() {
         );
     }
     for clauses in [
-        vec![vec![]],
-        vec![vec![], vec![]],
-        vec![vec![], vec![1]],
-        vec![vec![1], vec![-1]],
-        vec![vec![1], vec![2, -1]],
+        vec![vec![1, 1, 1], vec![-1, -1, -1]],
+        vec![vec![1, 1, 1], vec![2, -1, -1]],
     ] {
-        let source = KSatisfiability::<K3>::new_allow_less(
-            2,
-            clauses.into_iter().map(CNFClause::new).collect(),
-        );
+        let source =
+            KSatisfiability::<K3>::new(2, clauses.into_iter().map(CNFClause::new).collect());
         let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&source).unwrap();
         let sat = BruteForce::new().solve(&source).unwrap().is_some();
         let solutions = BruteForce::new()
@@ -94,28 +89,25 @@ fn test_kclique_empty_formulas_and_short_clauses() {
 
 #[test]
 fn test_kclique_all_two_clause_formulas_and_target_selections() {
-    // All ordered clauses of width 0..3 on one variable, including repetitions
+    // All ordered three-literal clauses on one variable, including repetitions
     // and tautologies; every ordered pair and every raw target bitvector.
-    let mut clauses = vec![vec![]];
-    for width in 1..=3 {
-        for mask in 0..(1usize << width) {
-            clauses.push(
-                (0..width)
-                    .map(|p| if mask & (1 << p) == 0 { 1 } else { -1 })
-                    .collect(),
-            );
-        }
-    }
+    let clauses: Vec<Vec<i64>> = (0..8usize)
+        .map(|mask| {
+            (0..3)
+                .map(|p| if mask & (1 << p) == 0 { 1 } else { -1 })
+                .collect()
+        })
+        .collect();
     for a in &clauses {
         for b in &clauses {
-            let source = KSatisfiability::<K3>::new_allow_less(
+            let source = KSatisfiability::<K3>::new(
                 1,
                 vec![CNFClause::new(a.clone()), CNFClause::new(b.clone())],
             );
             let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&source).unwrap();
             let target = reduction.target_problem();
             let t = a.len() + b.len();
-            assert_eq!(target.num_vertices(), t.max(2) + 1);
+            assert_eq!(target.num_vertices(), t + 1);
             assert_eq!(target.k(), 3);
             let mut source_yes = false;
             for value in [false, true] {
@@ -157,17 +149,20 @@ fn test_kclique_all_two_clause_formulas_and_target_selections() {
 
 #[test]
 fn test_kclique_rejects_malformed_or_non_clique_selections() {
-    let source = KSatisfiability::<K3>::new_allow_less(
+    let source = KSatisfiability::<K3>::new(
         3,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
+        vec![
+            CNFClause::new(vec![1, 2, 2]),
+            CNFClause::new(vec![-1, 3, 3]),
+        ],
     );
     let reduction = ReduceTo::<KClique<SimpleGraph>>::reduce_to(&source).unwrap();
     for bad in [
         vec![],
-        vec![true; 6],
-        vec![false; 5],
-        vec![true, true, false, false, true],
-        vec![true, false, true, false, true],
+        vec![true; 8],
+        vec![false; 7],
+        vec![true, true, false, false, false, false, true],
+        vec![true, false, false, true, false, false, true],
     ] {
         assert!(reduction.extract_solution(&bad).is_err());
     }
@@ -175,22 +170,17 @@ fn test_kclique_rejects_malformed_or_non_clique_selections() {
 
 #[test]
 fn test_kclique_count_boundaries() {
-    assert_eq!(clique_sizes(0, []).unwrap(), (1, 1));
-    assert_eq!(clique_sizes(3, [0, 0, 1]).unwrap(), (4, 4));
-    assert_eq!(clique_sizes(2, [3, 3]).unwrap(), (7, 3));
-    for (m, lengths) in [
-        (2, vec![usize::MAX, 1]),
-        (1, vec![usize::MAX]),
-        (usize::MAX, vec![]),
-    ] {
+    assert_eq!(clique_sizes(0).unwrap(), (1, 1));
+    assert_eq!(clique_sizes(2).unwrap(), (7, 3));
+    let largest = (usize::MAX - 1) / 3;
+    assert_eq!(
+        clique_sizes(largest).unwrap(),
+        (3 * largest + 1, largest + 1)
+    );
+    for m in [largest + 1, usize::MAX] {
         assert!(matches!(
-            clique_sizes(m, lengths),
+            clique_sizes(m),
             Err(crate::rules::ReductionError::IntegerOverflow { .. })
         ));
     }
-    assert_eq!(
-        clique_sizes(usize::MAX - 1, []).unwrap(),
-        (usize::MAX, usize::MAX)
-    );
-    assert_eq!(clique_sizes(1, [usize::MAX - 1]).unwrap(), (usize::MAX, 2));
 }

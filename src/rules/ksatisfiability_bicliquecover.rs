@@ -5,8 +5,7 @@
 //!
 //! 1. **Normalize** the source 3-CNF formula:
 //!    - Compact the variables appearing in clauses, retaining the inverse map.
-//!      Repeat literals to pad nonempty short clauses to three positions.
-//!      Empty formulas and empty clauses map to fixed YES and NO targets.
+//!      The empty formula maps to a fixed YES target.
 //!    - For each appearing variable `x_i`, create two normalized variables
 //!      `t_i` and `f_i`. Replace literal `x_i` by `t_i`, replace literal
 //!      `¬x_i` by `f_i`. Add exactly-one clauses
@@ -205,9 +204,6 @@ fn normalize(
                 translated.push(f_lit(compact)?);
             }
         }
-        // Nonempty short clauses are equivalent after repeating a literal.
-        // Empty clauses are handled by the fixed NO construction before here.
-        translated.resize(3, translated[0]);
         clauses.push(translated);
     }
 
@@ -233,7 +229,7 @@ fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
 // With s source variables and m source clauses, the normalized counts
 // satisfy n <= 4(s+1), M <= m+4(s+1), ell <= s+1, ceil(log2 M) <= M.
 // Hence each partition is <= 31s+5m+39 and rank <= 14s+2m+22.
-// The declared coarser bounds also cover the fixed YES and NO targets.
+// The declared coarser bounds also cover the fixed YES target.
 #[crate::aggregate_reduction]
 impl crate::rules::AggregateReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     type Source = KSatisfiability<K3>;
@@ -261,21 +257,10 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         // ---------------- Stage 1: normalize ----------------
         let source_num_vars = self.num_vars();
-        let has_empty_clause = self
-            .clauses()
-            .iter()
-            .any(|clause| clause.literals.is_empty());
-        if has_empty_clause || self.clauses().is_empty() {
-            // The empty conjunction is YES; a conjunction with an empty
-            // disjunction is NO. Zero bicliques cover only the empty graph.
-            let size = usize::from(has_empty_clause);
-            let edges = if has_empty_clause {
-                vec![(0, 0)]
-            } else {
-                vec![]
-            };
+        if self.clauses().is_empty() {
+            // The empty conjunction is YES: zero bicliques cover the empty graph.
             return Ok(ReductionKSatisfiabilityToBicliqueCover {
-                target: BicliqueCover::new(BipartiteGraph::new(size, size, edges), 0),
+                target: BicliqueCover::new(BipartiteGraph::new(0, 0, vec![]), 0),
                 source_num_vars,
                 normalized_n: 0,
                 s1_left_offset: 0,

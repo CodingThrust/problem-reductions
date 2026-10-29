@@ -52,7 +52,7 @@ impl ReductionResult for ReductionSTMMCCToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_cost_bits + num_tasks",
-        num_nonzeros = "(num_tasks^2 + 1) * (num_tasks^2 + 3 * num_tasks + num_precedences + 1)",
+        num_nonzeros = "3 * num_tasks^2 + 2 * num_tasks * num_precedences + num_tasks^2 * (num_tasks + 1) / 2 + num_tasks + 1",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeMaximumCumulativeCost {

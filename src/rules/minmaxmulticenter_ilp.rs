@@ -133,7 +133,7 @@ fn weighted_distances_mmc(
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * max_numeric_magnitude_bits + num_vertices",
-        num_nonzeros = "(num_vertices + num_vertices^2 + 1) * (2 * num_vertices^2 + 3 * num_vertices + 2)",
+        num_nonzeros = "5 * num_vertices^2 + 3 * num_vertices + 1",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MinMaxMulticenter<SimpleGraph, i64> {
