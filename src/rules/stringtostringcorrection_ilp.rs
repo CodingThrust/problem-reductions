@@ -4,7 +4,7 @@
 //! emptiness bits e_{t,p}, and operation selectors (delete, swap, no-op) at
 //! each of K stages.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::StringToStringCorrection;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -98,12 +98,12 @@ impl ReductionResult for ReductionSTSCToILP {
                     [] => {
                         return Err(crate::rules::ExtractionError::invalid(format!(
                             "edit step {t} has no selected operation"
-                        )))
+                        )));
                     }
                     _ => {
                         return Err(crate::rules::ExtractionError::invalid(format!(
                             "edit step {t} has multiple selected operations"
-                        )))
+                        )));
                     }
                 }
             }

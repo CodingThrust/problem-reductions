@@ -1,11 +1,11 @@
+use crate::Problem;
 use crate::models::graph::{HamiltonianCircuit, LongestCircuit};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::rules::ReductionResult;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::Max;
-use crate::Problem;
 
 fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
     HamiltonianCircuit::new(SimpleGraph::cycle(4))
@@ -161,9 +161,11 @@ fn test_hamiltoniancircuit_extraction_matches_all_small_target_configurations() 
                     assert!(source.evaluate(&order).unwrap().0);
                 }
             }
-            assert!(reduction
-                .extract_solution(&vec![false; target.num_edges() + 1])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![false; target.num_edges() + 1])
+                    .is_err()
+            );
         }
     }
 }

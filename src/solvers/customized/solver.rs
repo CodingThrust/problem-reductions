@@ -1,8 +1,8 @@
 //! Exact customized solvers and their exact-variant registrations.
 
 use super::fd_subset_search::{
-    self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
-    is_minimal_key, is_superkey, BranchDecision,
+    self, BranchDecision, compute_closure, find_essential_attributes,
+    find_essential_attributes_restricted, is_minimal_key, is_superkey,
 };
 use crate::models::graph::{
     MinimumCostCirculation, MinimumIntersectionGraphBasis, PartialFeedbackEdgeSet,

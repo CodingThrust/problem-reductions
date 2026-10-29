@@ -12,7 +12,7 @@
 //! Objective: Minimize 0 (feasibility).
 //! Extraction: Direct 2*|A| variables.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

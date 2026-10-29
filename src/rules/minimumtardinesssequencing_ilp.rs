@@ -4,7 +4,7 @@
 //! with binary tardy indicator u_j. Precedence constraints and a
 //! length-aware tardy indicator with big-M linearization.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumTardinessSequencing;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;

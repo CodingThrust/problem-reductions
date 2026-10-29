@@ -1,8 +1,8 @@
 use super::*;
 use crate::models::decision::Decision;
 use crate::models::graph::{HamiltonianPathBetweenTwoVertices, LongestPath};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::types::One;
@@ -168,9 +168,11 @@ fn test_hamiltonian_path_extraction_for_all_small_graphs_and_endpoints() {
                             assert!(source.evaluate(&order).unwrap().0);
                         }
                     }
-                    assert!(reduction
-                        .extract_solution(&vec![false; edges.len() + 1])
-                        .is_err());
+                    assert!(
+                        reduction
+                            .extract_solution(&vec![false; edges.len() + 1])
+                            .is_err()
+                    );
                 }
             }
         }

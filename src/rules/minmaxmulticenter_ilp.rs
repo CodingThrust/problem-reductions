@@ -24,7 +24,7 @@
 //! Note: All-pairs shortest-path distances are computed using weighted shortest
 //! paths over `edge_lengths`. Unreachable assignment variables are forced to 0.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinMaxMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

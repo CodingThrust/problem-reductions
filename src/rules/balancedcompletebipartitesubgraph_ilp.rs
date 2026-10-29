@@ -4,7 +4,7 @@
 //! Cardinality: Σ x_l = k, Σ y_r = k.
 //! Non-edge forbidding: x_l + y_r ≤ 1 for every non-edge (l, r).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BalancedCompleteBipartiteSubgraph;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

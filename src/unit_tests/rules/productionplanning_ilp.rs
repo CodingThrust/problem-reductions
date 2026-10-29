@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    solvers::{BruteForce, ILPSolveError, ILPSolver},
     Problem,
+    solvers::{BruteForce, ILPSolveError, ILPSolver},
 };
 
 #[test]

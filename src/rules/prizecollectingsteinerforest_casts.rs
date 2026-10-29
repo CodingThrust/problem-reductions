@@ -2,7 +2,7 @@
 
 use crate::impl_variant_reduction;
 use crate::models::graph::PrizeCollectingSteinerForest;
-use crate::rules::{weight_casts::exact_float_weights, ReductionError};
+use crate::rules::{ReductionError, weight_casts::exact_float_weights};
 use crate::topology::SimpleGraph;
 use crate::types::i64_to_exact_f64;
 

@@ -1,6 +1,6 @@
 use super::direct_qubo_tests::{direct, feasible, optimum};
-use crate::models::{algebraic::QUBO, misc::*};
 use crate::BruteForce;
+use crate::models::{algebraic::QUBO, misc::*};
 
 #[test]
 fn test_deferred_qubo_rules_retain_ilp_routes() {
@@ -11,9 +11,11 @@ fn test_deferred_qubo_rules_retain_ilp_routes() {
         "Betweenness",
         "ShortestCommonSupersequence",
     ] {
-        assert!(entries
-            .iter()
-            .any(|e| e.source_name == source && e.target_name == "ILP"));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.source_name == source && e.target_name == "ILP")
+        );
         assert!(
             !entries.iter().any(
                 |e| e.source_name == source && matches!(e.target_name, "QUBO" | "DecisionQUBO")
@@ -133,9 +135,9 @@ fn test_start_encodings_check_source_arithmetic_and_extreme_windows() {
 
 #[test]
 fn test_conditional_encodings_preserve_completed_no_values() {
+    use crate::Problem;
     use crate::rules::{AggregateReductionResult, ReduceTo, ReductionResult};
     use crate::types::Min;
-    use crate::Problem;
     let source = MinimumTardinessSequencing::with_lengths(vec![1], vec![1], vec![(0, 0)]);
     let r = ReduceTo::<QUBO<i64>>::reduce_to(&source).unwrap();
     let target = ReductionResult::target_problem(&r);

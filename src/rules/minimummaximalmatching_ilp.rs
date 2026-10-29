@@ -7,7 +7,7 @@
 //!   (if edge j is not selected, at least one edge adjacent to it must be)
 //! - Objective: Minimize sum e_i
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumMaximalMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

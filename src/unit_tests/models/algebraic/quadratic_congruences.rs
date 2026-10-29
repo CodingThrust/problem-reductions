@@ -104,9 +104,10 @@ fn test_quadratic_congruences_brute_force_finds_all_witnesses() {
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&yes_problem()).unwrap();
     assert_eq!(all.len(), 3);
-    assert!(all
-        .iter()
-        .all(|sol| yes_problem().evaluate(sol).unwrap() == Or(true)));
+    assert!(
+        all.iter()
+            .all(|sol| yes_problem().evaluate(sol).unwrap() == Or(true))
+    );
     let decoded = all
         .iter()
         .cloned()

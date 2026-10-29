@@ -178,19 +178,19 @@ fn test_jl_parity_rule_qubo_to_spinglass() {
     .unwrap();
     let q_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/qubo.json")).unwrap();
-    let jl_matrix: Vec<Vec<f64>> = jl_find_instance_by_label(&q_data, "rule_3x3")["instance"]
-        ["matrix"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|row| {
-            row.as_array()
-                .unwrap()
-                .iter()
-                .map(|v| v.as_f64().unwrap())
-                .collect()
-        })
-        .collect();
+    let jl_matrix: Vec<Vec<f64>> =
+        jl_find_instance_by_label(&q_data, "rule_3x3")["instance"]["matrix"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                row.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect()
+            })
+            .collect();
     let n = jl_matrix.len();
     let mut rust_matrix = vec![vec![0.0f64; n]; n];
     for i in 0..n {

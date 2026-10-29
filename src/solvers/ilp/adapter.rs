@@ -5,9 +5,9 @@
 //! Optimality and infeasibility follow HiGHS numerical tolerances, not exact proofs.
 
 use crate::models::algebraic::{
-    BoundsPolicy, Comparison, ILPCoefficient, ObjectiveSense, VariableDomain, ILP,
+    BoundsPolicy, Comparison, ILP, ILPCoefficient, ObjectiveSense, VariableDomain,
 };
-use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
+use crate::types::{MAX_EXACT_F64_INTEGER, i64_to_exact_f64};
 use highs::{HighsModelStatus, HighsSolutionStatus, RowProblem, Sense};
 
 use super::solver::ILPSolveError;

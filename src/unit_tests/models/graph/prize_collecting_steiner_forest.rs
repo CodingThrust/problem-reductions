@@ -208,14 +208,16 @@ fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
 
 #[test]
 fn test_prize_collecting_steiner_forest_rejects_non_finite_weight() {
-    assert!(PrizeCollectingSteinerForest::<SimpleGraph, f64>::new(
-        SimpleGraph::new(1, vec![]),
-        vec![f64::NAN],
-        vec![],
-        1.0,
-        1.0,
-    )
-    .is_err());
+    assert!(
+        PrizeCollectingSteinerForest::<SimpleGraph, f64>::new(
+            SimpleGraph::new(1, vec![]),
+            vec![f64::NAN],
+            vec![],
+            1.0,
+            1.0,
+        )
+        .is_err()
+    );
 }
 #[test]
 fn create_specs_default_prizes_and_costs_to_one() {
@@ -251,22 +253,26 @@ fn test_prize_collecting_steiner_forest_rejects_negative_inputs() {
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
     for values in [[-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]] {
         let [prize, cost, beta, omega] = values;
-        assert!(PrizeCollectingSteinerForest::new(
-            graph.clone(),
-            vec![prize, 0],
-            vec![cost],
-            beta,
-            omega
-        )
-        .is_err());
-        assert!(PrizeCollectingSteinerForest::new(
-            graph.clone(),
-            vec![prize as f64, 0.0],
-            vec![cost as f64],
-            beta as f64,
-            omega as f64
-        )
-        .is_err());
+        assert!(
+            PrizeCollectingSteinerForest::new(
+                graph.clone(),
+                vec![prize, 0],
+                vec![cost],
+                beta,
+                omega
+            )
+            .is_err()
+        );
+        assert!(
+            PrizeCollectingSteinerForest::new(
+                graph.clone(),
+                vec![prize as f64, 0.0],
+                vec![cost as f64],
+                beta as f64,
+                omega as f64
+            )
+            .is_err()
+        );
     }
     let valid = serde_json::to_value(canonical_problem()).unwrap();
     for (field, value) in [

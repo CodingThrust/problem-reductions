@@ -104,7 +104,7 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
     // f1 sends flow into vertex 2 but not out
     let mut config = vec![0; 16];
     config[0] = 1; // f1 on arc 0 (0->2): flow into vertex 2
-                   // No outgoing flow from vertex 2 for commodity 1
+    // No outgoing flow from vertex 2 for commodity 1
     assert!(!problem.evaluate(&config).unwrap());
 }
 

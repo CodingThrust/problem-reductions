@@ -204,10 +204,12 @@ fn test_maximum_likelihood_ranking_rejects_invalid_json() {
         vec![vec![0, 1, 2], vec![1, 0, 1], vec![2, 1, 0]],
         vec![vec![0, i64::MAX], vec![1, 0]],
     ] {
-        assert!(serde_json::from_value::<MaximumLikelihoodRanking>(
-            serde_json::json!({ "matrix": matrix })
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<MaximumLikelihoodRanking>(
+                serde_json::json!({ "matrix": matrix })
+            )
+            .is_err()
+        );
     }
     let problem: MaximumLikelihoodRanking =
         serde_json::from_value(serde_json::json!({ "matrix": [[0, i64::MAX], [0, 0]] })).unwrap();

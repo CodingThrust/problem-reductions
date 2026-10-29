@@ -227,9 +227,11 @@ fn test_problem_parameters_deserialization_rejects_duplicate_names() {
         "components": [["vertices", 10], ["vertices", 20]]
     }))
     .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("duplicate problem parameter `vertices`"));
+    assert!(
+        error
+            .to_string()
+            .contains("duplicate problem parameter `vertices`")
+    );
 }
 
 #[test]

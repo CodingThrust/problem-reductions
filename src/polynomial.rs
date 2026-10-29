@@ -286,11 +286,7 @@ pub(crate) fn pow_rational(mut base: BigRational, exponent: &BigInt) -> BigRatio
             base = &base * &base;
         }
     }
-    if negative {
-        result.recip()
-    } else {
-        result
-    }
+    if negative { result.recip() } else { result }
 }
 
 #[cfg(test)]

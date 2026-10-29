@@ -1,7 +1,7 @@
 //! Shared one-hot starts for nonnegative-duration schedules.
-use super::qubo_helpers::{decode_rows, QuboBuilder};
-use crate::rules::{ExtractionResult, ReductionError};
+use super::qubo_helpers::{QuboBuilder, decode_rows};
 use crate::Problem;
+use crate::rules::{ExtractionResult, ReductionError};
 
 #[derive(Debug, Clone)]
 pub(super) struct StartChoices {

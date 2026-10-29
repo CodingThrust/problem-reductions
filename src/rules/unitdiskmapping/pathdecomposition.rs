@@ -14,9 +14,9 @@
 //! Experimental evaluation of a branch and bound algorithm for computing pathwidth.
 //! <https://doi.org/10.1007/978-3-319-07959-2_5>
 
+use rand::SeedableRng;
 use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use rand::SeedableRng;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Default seed used when no explicit seed is passed to [`pathwidth`].
@@ -289,7 +289,7 @@ fn greedy_step<R: rand::Rng + ?Sized>(
     let best_indices: Vec<usize> = costs
         .iter()
         .enumerate()
-        .filter(|(_, &c)| c == best_cost)
+        .filter(|&(_, &c)| c == best_cost)
         .map(|(i, _)| i)
         .collect();
 

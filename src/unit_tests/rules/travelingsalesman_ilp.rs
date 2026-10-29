@@ -184,9 +184,11 @@ fn simple_graphs_with_fewer_than_three_vertices_produce_infeasible_ilps() {
                 graph.num_vertices(),
                 graph.num_edges()
             );
-            assert!(reduction
-                .extract_solution(&vec![0; target.num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; target.num_vars()])
+                    .is_err()
+            );
         }
     }
 }

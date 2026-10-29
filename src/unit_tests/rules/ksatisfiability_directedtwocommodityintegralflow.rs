@@ -63,8 +63,8 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_structure() {
 }
 
 #[test]
-fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_matches_truth_table(
-) {
+fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_matches_truth_table()
+ {
     let source = issue_example();
     let reduction =
         ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)

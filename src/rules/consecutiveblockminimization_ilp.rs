@@ -4,7 +4,7 @@
 //! by detecting each 0-to-1 transition after permutation.
 
 use crate::models::algebraic::{
-    ConsecutiveBlockMinimization, LinearConstraint, ObjectiveSense, ILP,
+    ConsecutiveBlockMinimization, ILP, LinearConstraint, ObjectiveSense,
 };
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};

@@ -228,14 +228,18 @@ mod maximum_independent_set {
         let problem =
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-        assert!(problem
-            .evaluate(&vec![true, false, true])
-            .unwrap()
-            .is_valid());
-        assert!(problem
-            .evaluate(&vec![false, true, false])
-            .unwrap()
-            .is_valid());
+        assert!(
+            problem
+                .evaluate(&vec![true, false, true])
+                .unwrap()
+                .is_valid()
+        );
+        assert!(
+            problem
+                .evaluate(&vec![false, true, false])
+                .unwrap()
+                .is_valid()
+        );
         assert_eq!(
             problem.evaluate(&vec![true, true, false]).unwrap(),
             Max(None)
@@ -401,14 +405,18 @@ mod minimum_vertex_cover {
         let problem =
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-        assert!(problem
-            .evaluate(&vec![false, true, false])
-            .unwrap()
-            .is_valid());
-        assert!(problem
-            .evaluate(&vec![true, false, true])
-            .unwrap()
-            .is_valid());
+        assert!(
+            problem
+                .evaluate(&vec![false, true, false])
+                .unwrap()
+                .is_valid()
+        );
+        assert!(
+            problem
+                .evaluate(&vec![true, false, true])
+                .unwrap()
+                .is_valid()
+        );
         assert_eq!(
             problem.evaluate(&vec![true, false, false]).unwrap(),
             Min(None)

@@ -31,15 +31,15 @@ fn create_spec_rejects_deadline_count_mismatch() {
         SchedulingWithIndividualDeadlinesCreateSpec::FIELDS[2].name,
         "deadlines"
     );
-    assert!(SchedulingWithIndividualDeadlines::try_from(
-        SchedulingWithIndividualDeadlinesCreateSpec {
+    assert!(
+        SchedulingWithIndividualDeadlines::try_from(SchedulingWithIndividualDeadlinesCreateSpec {
             num_tasks: 2,
             num_processors: 1,
             deadlines: vec![1],
             precedences: None
-        }
-    )
-    .is_err());
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::traits::Problem;

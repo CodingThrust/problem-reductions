@@ -9,7 +9,7 @@
 //!
 //! Objective: feasibility (minimize 0).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::set::SetSplitting;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

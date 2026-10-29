@@ -14,7 +14,7 @@ pub mod types;
 
 use expr::{Expr, Symbol};
 use parameters::{ParameterRelation, ParameterTransform};
-use poly_compare::{compare_summary, Profile, Reason};
+use poly_compare::{Profile, Reason, compare_summary};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;

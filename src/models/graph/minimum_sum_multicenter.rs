@@ -422,8 +422,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_minimum_sum_multicenter_to_minimum_sum_multicenter",
         build: || {

@@ -146,9 +146,11 @@ fn cumulative_schedule_preserves_live_values_and_rejects_invalid_targets() {
             Err(error) => panic!("unexpected solver failure: {error}"),
         }
         if source.num_vertices() > 0 {
-            assert!(reduction
-                .extract_solution(&vec![0; reduction.target_problem().num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; reduction.target_problem().num_vars()])
+                    .is_err()
+            );
         }
     }
 }

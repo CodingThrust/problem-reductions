@@ -7,7 +7,7 @@
 //! - For each edge (u,v): pos_u - pos_v <= B, pos_v - pos_u <= B
 //! - Objective: minimize B
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumGraphBandwidth;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -42,7 +42,7 @@ mod graph;
 pub(crate) mod minimumweightandorgraph_ilp;
 pub(crate) mod partitionintoperfectmatchings_ilp;
 pub(crate) mod twodimensionalconsecutivesets_ilp;
-pub(crate) use graph::{recover_completed_result, RecoveryStep};
+pub(crate) use graph::{RecoveryStep, recover_completed_result};
 mod binpacking_casts;
 mod comparativecontainment_casts;
 pub(crate) mod graph_helpers;
@@ -327,11 +327,11 @@ pub use graph::{
     PathParameterError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
     ReductionPath, ReductionStep, TraversalFlow,
 };
-pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
     AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
     ReductionError, ReductionResult, VariantReductionResult,
 };
+pub(crate) use traits::{DynReductionResult, validate_target_solution};
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {

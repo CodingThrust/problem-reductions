@@ -4,8 +4,8 @@ fn test_traits_compile() {
 }
 
 use crate::rules::traits::{
-    validate_target_solution, AggregateReductionResult, DynAggregateReductionResult, ReduceTo,
-    ReduceToAggregate, ReductionResult,
+    AggregateReductionResult, DynAggregateReductionResult, ReduceTo, ReduceToAggregate,
+    ReductionResult, validate_target_solution,
 };
 use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
@@ -270,10 +270,12 @@ fn test_dyn_aggregate_reduction_result_extracts_value() {
     };
     let dyn_result: &dyn DynAggregateReductionResult = &result;
 
-    assert!(dyn_result
-        .target_problem_any()
-        .downcast_ref::<AggregateTargetProblem>()
-        .is_some());
+    assert!(
+        dyn_result
+            .target_problem_any()
+            .downcast_ref::<AggregateTargetProblem>()
+            .is_some()
+    );
     assert_eq!(dyn_result.extract_value_dyn(json!(7)).unwrap(), json!(9));
     assert!(matches!(
         dyn_result.extract_value_dyn(json!("not a count")),
@@ -324,17 +326,21 @@ impl AggregateReductionResult for UnserializableReduction {
 #[test]
 fn dynamic_aggregate_serialization_failure_returns_an_error() {
     let reduction = UnserializableReduction(AggregateTargetProblem);
-    assert!(reduction
-        .extract_value_from_solution_dyn(&vec![0usize])
-        .is_err());
+    assert!(
+        reduction
+            .extract_value_from_solution_dyn(&vec![0usize])
+            .is_err()
+    );
     let error = reduction.extract_value_dyn(json!(0)).unwrap_err();
     assert!(matches!(
         error,
         crate::rules::ExtractionError::InvalidTargetSolution(_)
     ));
-    assert!(error
-        .to_string()
-        .contains("source aggregate serialization failed"));
+    assert!(
+        error
+            .to_string()
+            .contains("source aggregate serialization failed")
+    );
 }
 
 #[derive(Clone)]
@@ -534,7 +540,7 @@ impl Problem for CountedTarget {
 
 #[test]
 fn target_witness_validation_evaluates_once_and_preserves_rejection() {
-    use crate::rules::{traits::validate_target_witness, ExtractionError};
+    use crate::rules::{ExtractionError, traits::validate_target_witness};
     let target = CountedTarget(std::cell::Cell::new(0));
     validate_target_witness(
         &target,

@@ -190,9 +190,11 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
                 Or(true)
             );
         } else {
-            assert!(reduction
-                .extract_solution(&(0..target.num_cols()).collect())
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&(0..target.num_cols()).collect())
+                    .is_err()
+            );
         }
     }
 }

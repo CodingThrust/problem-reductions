@@ -28,7 +28,7 @@
 //! - `docs/paper/static/petersen_square_unweighted.json` - Unweighted King's subgraph
 //! - `docs/paper/static/petersen_triangular.json` - Weighted triangular lattice
 
-use problemreductions::rules::unitdiskmapping::{ksg, triangular, MappingResult};
+use problemreductions::rules::unitdiskmapping::{MappingResult, ksg, triangular};
 use serde::Serialize;
 use std::fs;
 use std::path::Path;

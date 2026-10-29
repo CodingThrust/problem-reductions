@@ -227,11 +227,13 @@ fn test_shortest_weight_constrained_path_rejects_invalid_configs() {
     let problem = issue_problem();
 
     assert_eq!(problem.is_valid_solution(&[false, true]).unwrap(), None);
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, true, false, true, false, true, false, 2])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, true, false, true, false, true, false, 2])
+        )
+        .is_err()
+    );
     assert_eq!(
         problem
             .is_valid_solution(&[false, false, false, false, false, false, false, false])

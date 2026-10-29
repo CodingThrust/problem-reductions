@@ -162,7 +162,7 @@ where
                 let selected: Vec<(usize, usize)> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| self.edge_list[i])
                     .collect();
 

@@ -54,11 +54,7 @@ fn add_edge_weight(weights: &mut BTreeMap<(usize, usize), i64>, u: usize, v: usi
 }
 
 fn literal_polarity(lit: i64) -> i64 {
-    if lit > 0 {
-        1
-    } else {
-        -1
-    }
+    if lit > 0 { 1 } else { -1 }
 }
 
 #[reduction(

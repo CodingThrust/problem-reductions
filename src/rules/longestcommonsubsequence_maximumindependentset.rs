@@ -4,7 +4,7 @@
 //! The target optimum is LCS for tuples, or h * m + LCS for h slots and m strings.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::models::misc::{is_subsequence, LongestCommonSubsequence};
+use crate::models::misc::{LongestCommonSubsequence, is_subsequence};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

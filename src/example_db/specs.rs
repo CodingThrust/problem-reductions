@@ -5,7 +5,7 @@
 
 use crate::export::{ProblemSide, RuleExample, SolutionPair};
 use crate::models::algebraic::{
-    Bounded, BoundsPolicy, General, ILPCoefficient, VariableDomain, ILP,
+    Bounded, BoundsPolicy, General, ILP, ILPCoefficient, VariableDomain,
 };
 use crate::prelude::{Problem, ReduceTo, ReductionResult};
 use crate::registry::DynProblem;

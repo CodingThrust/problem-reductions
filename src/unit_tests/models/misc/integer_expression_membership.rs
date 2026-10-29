@@ -99,11 +99,10 @@ fn test_integer_expression_membership_evaluate_wrong_config() {
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
     // Invalid value
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false, false]))
+            .is_err()
+    );
 }
 
 #[test]

@@ -9,7 +9,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
-use super::{sat::validate_cnf_literals, CNFClause};
+use super::{CNFClause, sat::validate_cnf_literals};
 
 inventory::submit! {
     ProblemSchemaEntry {

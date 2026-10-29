@@ -3,7 +3,7 @@
 //! Assign each row one shift value and forbid any pair of shifted 1-entries
 //! from colliding in the storage vector.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, SparseMatrixCompression, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense, SparseMatrixCompression};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

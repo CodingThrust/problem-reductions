@@ -20,10 +20,12 @@ fn feedback_arc_set_solves_through_integer_binary_ilp_and_qubo() {
         .unwrap();
     let binary_solution = qubo.extract_solution(&optimum).unwrap();
     let integer_solution = binary.extract_solution(&binary_solution).unwrap();
-    assert!(integer
-        .target_problem()
-        .is_feasible(&integer_solution)
-        .unwrap());
+    assert!(
+        integer
+            .target_problem()
+            .is_feasible(&integer_solution)
+            .unwrap()
+    );
     let solution = integer.extract_solution(&integer_solution).unwrap();
     assert_eq!(source.evaluate(&solution).unwrap(), Min(Some(2)));
 }

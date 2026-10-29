@@ -67,7 +67,7 @@ fn test_ksatisfiability_to_bicliquecover_structure_issue_example() {
     let n = 8; // next power of two of 2*4 = 8
     let ell = 3; // log2 8
     let m = 2 + 2 * (n / 2); // 2 source + 2 per normalized var = 2 + 8 = 10
-                             // k_f = 4*3 + 2*ceil(log2 10) + 6 = 12 + 8 + 6 = 26
+    // k_f = 4*3 + 2*ceil(log2 10) + 6 = 12 + 8 + 6 = 26
     let k_f = 4 * ell + 2 * 4 + 6;
     let rank = k_f + 2 * ell + 2;
 

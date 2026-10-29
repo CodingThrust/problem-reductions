@@ -1,8 +1,8 @@
-use crate::models::{algebraic::QUBO, misc::StaffScheduling, Decision};
+use crate::Problem;
+use crate::models::{Decision, algebraic::QUBO, misc::StaffScheduling};
+use crate::rules::ReductionError;
 use crate::rules::direct_qubo_tests::{direct, feasible};
 use crate::rules::registry::reduction_entries;
-use crate::rules::ReductionError;
-use crate::Problem;
 
 #[test]
 fn test_staffscheduling_to_qubo_closed_loop() {

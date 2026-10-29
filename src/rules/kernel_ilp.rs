@@ -1,6 +1,6 @@
 //! Binary independence and absorption constraints for a directed graph kernel.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::Kernel;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

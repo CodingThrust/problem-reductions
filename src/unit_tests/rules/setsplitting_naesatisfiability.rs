@@ -48,10 +48,12 @@ fn test_setsplitting_to_naesatisfiability_repeated_members() {
         ReduceTo::<NAESatisfiability>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().clauses()[0].literals, [1, 1]);
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(
+        BruteForce::new()
+            .solve(reduction.target_problem())
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

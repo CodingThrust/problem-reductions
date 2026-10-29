@@ -236,7 +236,7 @@ fn is_k_clique_config(graph: &SimpleGraph, config: &[bool], k: usize) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &selected)| selected)
+        .filter(|&(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
     if selected.len() != k {

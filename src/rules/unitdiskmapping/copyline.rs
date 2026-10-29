@@ -66,7 +66,7 @@ impl CopyLine {
         // Vertical segment: from vstart to vstop
         for v in self.vstart..=self.vstop {
             let row = spacing * (v - 1) + padding + 1; // 0-indexed
-                                                       // Weight is 1 for regular positions
+            // Weight is 1 for regular positions
             locs.push((row, col, 1));
         }
 
@@ -74,7 +74,7 @@ impl CopyLine {
         let hrow = spacing * (self.hslot - 1) + padding + 1; // 0-indexed
         for h in (self.vslot + 1)..=self.hstop {
             let hcol = spacing * (h - 1) + padding; // 0-indexed
-                                                    // Avoid duplicate at the corner (vslot, hslot)
+            // Avoid duplicate at the corner (vslot, hslot)
             if hcol != col || hrow != spacing * (self.hslot - 1) + padding + 1 {
                 locs.push((hrow, hcol, 1));
             }

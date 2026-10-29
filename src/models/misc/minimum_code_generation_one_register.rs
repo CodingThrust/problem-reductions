@@ -74,6 +74,14 @@ struct MinimumCodeGenerationOneRegisterData {
     num_leaves: usize,
 }
 
+fn add_instructions(count: i64, additional: i64) -> Result<i64, crate::traits::EvaluationError> {
+    count.checked_add(additional).ok_or_else(|| {
+        crate::traits::EvaluationError::IntegerOverflow(
+            "counting one-register instructions".to_string(),
+        )
+    })
+}
+
 impl TryFrom<MinimumCodeGenerationOneRegisterData> for MinimumCodeGenerationOneRegister {
     type Error = crate::registry::ConstructionError;
     fn try_from(data: MinimumCodeGenerationOneRegisterData) -> Result<Self, Self::Error> {
@@ -276,15 +284,12 @@ impl MinimumCodeGenerationOneRegister {
             // 1. Register holds a value
             // 2. That value is still needed in the future
             // 3. That value is not already in memory
-            if let Some(r) = register {
-                if !in_memory[r] && future_uses[r] > 0 {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // STORE
-                    in_memory[r] = true;
-                }
+            if let Some(r) = register
+                && !in_memory[r]
+                && future_uses[r] > 0
+            {
+                instructions = add_instructions(instructions, 1)?; // STORE
+                in_memory[r] = true;
             }
 
             // Now compute v
@@ -294,33 +299,17 @@ impl MinimumCodeGenerationOneRegister {
                 let one_in_register = (register == Some(c0) && in_memory[c1])
                     || (register == Some(c1) && in_memory[c0]);
                 if one_in_register {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // OP v
+                    instructions = add_instructions(instructions, 1)?; // OP v
                 } else {
                     // Need to LOAD one operand, OP with the other from memory
-                    instructions = instructions.checked_add(2).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // LOAD + OP
+                    instructions = add_instructions(instructions, 2)?; // LOAD + OP
                 }
             } else if operands.len() == 1 {
                 let c0 = operands[0];
                 if register == Some(c0) {
-                    instructions = instructions.checked_add(1).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // OP v
+                    instructions = add_instructions(instructions, 1)?; // OP v
                 } else {
-                    instructions = instructions.checked_add(2).ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "counting one-register instructions".to_string(),
-                        )
-                    })?; // LOAD + OP
+                    instructions = add_instructions(instructions, 2)?; // LOAD + OP
                 }
             }
 

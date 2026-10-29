@@ -3,9 +3,9 @@
 //! Each rule converts one registered graph or weight representation.
 
 use crate::impl_variant_reduction;
-use crate::models::graph::MaximumIndependentSet;
 use crate::models::Decision;
-use crate::rules::{weight_casts::exact_float_weights, ReduceTo, ReductionResult};
+use crate::models::graph::MaximumIndependentSet;
+use crate::rules::{ReduceTo, ReductionResult, weight_casts::exact_float_weights};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::One;
 

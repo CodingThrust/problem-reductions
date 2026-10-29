@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, Comparison, ILP, ObjectiveSense};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::MultiDigraph;
 use crate::traits::Problem;

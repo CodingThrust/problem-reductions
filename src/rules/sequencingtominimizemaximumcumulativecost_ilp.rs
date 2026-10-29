@@ -4,7 +4,7 @@
 //! Permutation constraints, precedence constraints, and prefix cumulative-cost
 //! bounds at every position.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingToMinimizeMaximumCumulativeCost;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;

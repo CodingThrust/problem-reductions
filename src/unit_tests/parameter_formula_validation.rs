@@ -1,7 +1,7 @@
 use crate::parameters::ParameterRelation;
 use crate::registry::DynProblem;
-use crate::rules::{registry::ReductionEntry, ReductionGraph};
-use serde_json::{json, Value};
+use crate::rules::{ReductionGraph, registry::ReductionEntry};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 type SourceKey = (String, BTreeMap<String, String>);
@@ -106,10 +106,10 @@ fn source_for(
             .flat_map(|(_, examples)| examples),
     );
     for example in examples {
-        if let Ok(source) = (registered.factory)(example.clone()) {
-            if let Ok(actual) = target_parameters(entry, source.as_ref()) {
-                return Ok((source, actual));
-            }
+        if let Ok(source) = (registered.factory)(example.clone())
+            && let Ok(actual) = target_parameters(entry, source.as_ref())
+        {
+            return Ok((source, actual));
         }
     }
     // Geometric variants without canonical instances use the existing seeded
@@ -414,16 +414,16 @@ fn simple_graph_create_contracts_propagate_edge_validation() {
 
 #[test]
 fn direct_qubo_sparse_support_bounds_avoid_dense_cliques() {
+    use crate::Problem;
+    use crate::models::Decision;
     use crate::models::algebraic::QUBO;
     use crate::models::graph::OptimalLinearArrangement;
     use crate::models::misc::{
         CyclicOrdering, SequencingWithReleaseTimesAndDeadlines, ShortestCommonSuperstring,
         StackerCrane, StaffScheduling, ThreePartition,
     };
-    use crate::models::Decision;
     use crate::rules::{ReduceTo, ReductionResult};
     use crate::topology::SimpleGraph;
-    use crate::Problem;
 
     fn check<S: Problem + ReduceTo<T> + 'static, T: Problem>(source: S, budget: u64) {
         let entry = crate::rules::registry::reduction_entries()

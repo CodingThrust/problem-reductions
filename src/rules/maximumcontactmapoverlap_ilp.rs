@@ -14,7 +14,7 @@
 //! Andonov, Malod-Dognin, and Yanev (J. Comput. Biol., 2011) and by
 //! Xie and Sahinidis (J. Comput. Biol., 2007).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumContactMapOverlap;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

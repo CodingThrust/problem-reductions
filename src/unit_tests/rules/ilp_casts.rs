@@ -59,10 +59,12 @@ fn test_ilp_cast_rechecks_source_feasibility() {
     let reduction = ReduceTo::<ILP<i64, f64>>::reduce_to(&source).unwrap();
     let target_solution = vec![rhs + 1];
 
-    assert!(reduction
-        .target_problem()
-        .is_feasible(&target_solution)
-        .unwrap());
+    assert!(
+        reduction
+            .target_problem()
+            .is_feasible(&target_solution)
+            .unwrap()
+    );
     assert!(reduction.extract_solution(&target_solution).is_err());
 }
 

@@ -1,4 +1,4 @@
-use crate::models::algebraic::{QuadraticAssignment, QUBO};
+use crate::models::algebraic::{QUBO, QuadraticAssignment};
 use crate::models::decision::Decision;
 use crate::models::graph::OptimalLinearArrangement;
 use crate::models::misc::{
@@ -85,9 +85,11 @@ where
             Min(Some(expected))
         );
     }
-    assert!(reduction
-        .extract_solution_dyn(&vec![false; bits + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution_dyn(&vec![false; bits + 1])
+            .is_err()
+    );
 }
 
 pub(super) fn feasible<S: Problem<Value = Or> + 'static>(source: S, expected: bool, bits: usize)
@@ -122,9 +124,11 @@ where
             Or(true)
         );
     }
-    assert!(reduction
-        .extract_solution_dyn(&vec![false; bits + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution_dyn(&vec![false; bits + 1])
+            .is_err()
+    );
 }
 
 #[test]

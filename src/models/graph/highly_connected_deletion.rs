@@ -315,11 +315,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
             }
         }
     }
-    if best == usize::MAX {
-        0
-    } else {
-        best
-    }
+    if best == usize::MAX { 0 } else { best }
 }
 
 crate::declare_variants! {

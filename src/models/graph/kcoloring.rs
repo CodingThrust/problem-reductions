@@ -7,7 +7,7 @@ use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::variant::{KValue, VariantParam, K2, K3, KN};
+use crate::variant::{K2, K3, KN, KValue, VariantParam};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {

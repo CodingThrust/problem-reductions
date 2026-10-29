@@ -86,9 +86,11 @@ fn unknown_and_field_certificates_use_typed_reasons() {
     assert_eq!(upper.to_string(), "<= n");
     assert_eq!(field("n").to_string(), "= n");
     let missing = field("log(n)");
-    assert!(missing
-        .to_string()
-        .starts_with("unavailable: not polynomial"));
+    assert!(
+        missing
+            .to_string()
+            .starts_with("unavailable: not polynomial")
+    );
     let json = serde_json::to_value(&missing).unwrap();
     assert_eq!(json["accuracy"]["reason"]["kind"], "not_polynomial");
     assert_eq!(
@@ -106,10 +108,11 @@ fn signed_coverage_and_regular_refutations_serialize_as_single_directions() {
     assert_eq!(json.as_object().unwrap().len(), 2);
     assert_eq!(json["forward"]["certificate"]["kind"], "newton");
     let c = compare(&field("n"), &field("n^2"), &BTreeSet::new());
-    assert!(c
-        .reverse
-        .to_string()
-        .contains("regular and positive across the batch"));
+    assert!(
+        c.reverse
+            .to_string()
+            .contains("regular and positive across the batch")
+    );
     let json = serde_json::to_value(c).unwrap();
     assert_eq!(json["forward"]["certificate"]["kind"], "newton");
     assert_eq!(json["reverse"]["certificate"]["kind"], "witness");

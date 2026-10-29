@@ -301,7 +301,7 @@ impl MinimumEdgeCostFlow {
         config
             .iter()
             .enumerate()
-            .filter(|(_, &flow)| flow > 0)
+            .filter(|&(_, &flow)| flow > 0)
             .try_fold(0_i64, |total, (arc, _)| {
                 total.checked_add(self.prices[arc]).ok_or_else(|| {
                     crate::traits::EvaluationError::IntegerOverflow(

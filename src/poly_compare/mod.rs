@@ -702,10 +702,10 @@ fn direction(
     } else {
         None
     };
-    if let Some(proof) = immediate {
-        if proof.verify(f.poly, g.poly) {
-            return Direction::Yes(proof);
-        }
+    if let Some(proof) = immediate
+        && proof.verify(f.poly, g.poly)
+    {
+        return Direction::Yes(proof);
     }
     let lp = CoverageLp::new(&g.support, vars);
     let coverage: Result<Option<Vec<_>>, _> =

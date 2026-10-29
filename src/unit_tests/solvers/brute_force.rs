@@ -621,10 +621,12 @@ fn cartesian_indices_empty_dimensions_have_one_candidate() {
 
 #[test]
 fn cartesian_indices_zero_dimension_has_no_candidates() {
-    assert!(CartesianIndices::new(vec![2, 0, 3])
-        .unwrap()
-        .next()
-        .is_none());
+    assert!(
+        CartesianIndices::new(vec![2, 0, 3])
+            .unwrap()
+            .next()
+            .is_none()
+    );
 }
 
 #[test]

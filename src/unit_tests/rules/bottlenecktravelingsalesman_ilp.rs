@@ -181,9 +181,11 @@ fn test_bottleneck_ilp_signed_full_range_and_simple_cycles() {
             invalid[variable] = 2;
             assert!(result.extract_solution(&invalid).is_err());
         }
-        assert!(result
-            .extract_solution(&witness[..witness.len() - 1].to_vec())
-            .is_err());
+        assert!(
+            result
+                .extract_solution(&witness[..witness.len() - 1].to_vec())
+                .is_err()
+        );
     }
 }
 

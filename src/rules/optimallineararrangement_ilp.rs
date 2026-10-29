@@ -7,7 +7,7 @@
 //! - abs_diff_le constraints: z_{u,v} >= p_u - p_v, z_{u,v} >= p_v - p_u
 //! - Minimize: sum z_{u,v}
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::OptimalLinearArrangement;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

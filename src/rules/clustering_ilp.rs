@@ -5,7 +5,7 @@
 //! cluster, and conflict constraints forbid any pair with distance above the
 //! diameter bound from sharing a cluster.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::Clustering;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

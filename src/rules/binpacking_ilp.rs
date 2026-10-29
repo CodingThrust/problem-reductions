@@ -6,7 +6,7 @@
 //! - Constraints: assignment (each item in exactly one bin) + capacity/linking
 //! - Objective: minimize number of bins used
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::BinPacking;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;

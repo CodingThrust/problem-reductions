@@ -1,5 +1,5 @@
 //! A bounded-depth tree rooted at a vertex or the two ends of a center edge.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BoundedDiameterSpanningTree;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;

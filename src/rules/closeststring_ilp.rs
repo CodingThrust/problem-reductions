@@ -21,7 +21,7 @@
 //! substring problems," Journal of the ACM 49(2):157-171, 2002.
 //! <https://doi.org/10.1145/506147.506150>
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ClosestString;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

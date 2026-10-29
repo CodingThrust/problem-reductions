@@ -8,7 +8,7 @@
 //! ∀ (ForAll) or ∃ (Exists) and E is a Boolean expression in CNF,
 //! determine whether F is true.
 
-use crate::models::formula::{sat::validate_cnf_literals, CNFClause};
+use crate::models::formula::{CNFClause, sat::validate_cnf_literals};
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};

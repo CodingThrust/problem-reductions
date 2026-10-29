@@ -1,7 +1,7 @@
 //! Unit-task starts with exact capacities and pairwise precedence conflicts.
-use crate::models::{algebraic::QUBO, decision::Decision};
-use crate::rules::{qubo_helpers::QuboBuilder, ReductionError};
 use crate::Problem;
+use crate::models::{algebraic::QUBO, decision::Decision};
+use crate::rules::{ReductionError, qubo_helpers::QuboBuilder};
 
 pub(super) fn encode<S: Problem>(
     deadlines: &[i64],

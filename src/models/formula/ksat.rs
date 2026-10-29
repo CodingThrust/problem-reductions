@@ -7,10 +7,10 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
-use crate::variant::{KValue, K2, K3};
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+use crate::variant::{K2, K3, KValue};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
-use super::{sat::validate_cnf_literals, CNFClause};
+use super::{CNFClause, sat::validate_cnf_literals};
 
 pub(crate) fn first_n_odd_primes(count: usize) -> Vec<u64> {
     let mut primes = Vec::with_capacity(count);

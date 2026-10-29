@@ -56,11 +56,10 @@ fn test_exact_cover_by_3_sets_rejects_wrong_config_length() {
 #[test]
 fn test_exact_cover_by_3_sets_rejects_non_binary_config_values() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([true, true, 2])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([true, true, 2]))
+            .is_err()
+    );
 }
 
 #[test]

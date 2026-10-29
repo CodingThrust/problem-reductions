@@ -9,7 +9,7 @@
 //! precedence edge: the matrix has 6*A + 2*p + 2*n nonzeros for A admissible
 //! activity slots, p precedence edges, and n tasks.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::PreemptiveScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

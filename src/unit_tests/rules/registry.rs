@@ -91,10 +91,12 @@ fn aggregate_registration_matches_exact_endpoints_and_rejects_conflicts() {
         vec![turing],
         vec![entries[1]],
     ] {
-        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            attach_aggregate_mapping(&mut invalid, &mapping);
-        }))
-        .is_err());
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                attach_aggregate_mapping(&mut invalid, &mapping);
+            }))
+            .is_err()
+        );
     }
 }
 
@@ -174,21 +176,27 @@ fn parameter_contract_errors_and_entry_debug_are_transparent() {
         [("x", Expr::variable("n")), ("x", Expr::variable("m"))],
     )
     .unwrap_err();
-    assert!(ParameterContractError::from(transform_error)
+    assert!(
+        ParameterContractError::from(transform_error)
+            .to_string()
+            .starts_with("invalid parameter transform:")
+    );
+    assert!(
+        ParameterContractError::DuplicateClassification {
+            edge: "A -> B".into(),
+            field: "x".into(),
+        }
         .to_string()
-        .starts_with("invalid parameter transform:"));
-    assert!(ParameterContractError::DuplicateClassification {
-        edge: "A -> B".into(),
-        field: "x".into(),
-    }
-    .to_string()
-    .contains("classifies target field `x` more than once"));
-    assert!(ParameterContractError::EmptyUnavailableReason {
-        edge: "A -> B".into(),
-        field: "x".into(),
-    }
-    .to_string()
-    .contains("unavailable without a reason"));
+        .contains("classifies target field `x` more than once")
+    );
+    assert!(
+        ParameterContractError::EmptyUnavailableReason {
+            edge: "A -> B".into(),
+            field: "x".into(),
+        }
+        .to_string()
+        .contains("unavailable without a reason")
+    );
 
     let entry = entry_with(ReductionParameterDeclarations::default);
     let debug = format!("{entry:?}");

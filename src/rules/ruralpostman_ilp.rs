@@ -4,7 +4,7 @@
 //! connectivity flow constraints to encode an Eulerian connected subgraph
 //! covering all required edges within the length bound.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

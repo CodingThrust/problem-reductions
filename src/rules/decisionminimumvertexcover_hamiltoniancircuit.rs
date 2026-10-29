@@ -269,7 +269,7 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
                 ConstructionKind::FixedNo => {
                     return Err(crate::rules::ExtractionError::invalid(
                         "the fixed negative target instance has no extractable witness",
-                    ))
+                    ));
                 }
                 ConstructionKind::Theorem(construction) => {
                     construction.decode_solution(target_solution)?

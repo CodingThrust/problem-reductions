@@ -5,10 +5,10 @@ use crate::traits::Problem;
 
 #[test]
 fn test_cosine_product_integration_deserialization_rejects_empty_coefficients() {
-    assert!(serde_json::from_value::<CosineProductIntegration>(
-        serde_json::json!({"coefficients": []})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<CosineProductIntegration>(serde_json::json!({"coefficients": []}))
+            .is_err()
+    );
 }
 
 #[test]

@@ -16,6 +16,15 @@ fn test_json_enforces_construction_constraints() {
 }
 
 use super::*;
+
+#[test]
+fn test_maximum_matching_evaluate_weight_overflow() {
+    let problem =
+        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![i64::MAX, 1]);
+    assert!(matches!(problem.evaluate(&vec![true, true]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(message))
+        if message == "summing selected matching-edge weights"));
+}
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;

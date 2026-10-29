@@ -1,9 +1,9 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use crate::models::misc::{Partition, SubsetSum};
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;

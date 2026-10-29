@@ -139,9 +139,11 @@ fn test_bounded_component_spanning_forest_creation() {
 fn test_bounded_component_spanning_forest_yes_instance() {
     let problem = yes_instance();
     assert!(problem.evaluate(&vec![0, 0, 1, 1, 1, 2, 2, 0]).unwrap());
-    assert!(problem
-        .is_valid_solution(&[0, 0, 1, 1, 1, 2, 2, 0])
-        .unwrap());
+    assert!(
+        problem
+            .is_valid_solution(&[0, 0, 1, 1, 1, 2, 2, 0])
+            .unwrap()
+    );
 }
 
 #[test]
