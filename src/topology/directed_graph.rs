@@ -171,7 +171,6 @@ impl DirectedGraph {
         let n = self.num_vertices();
         let arcs = self.arcs();
 
-        // Build adjacency list for the subgraph
         let mut adj = vec![vec![]; n];
         let mut in_degree = vec![0usize; n];
         for (i, &(u, v)) in arcs.iter().enumerate() {

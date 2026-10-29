@@ -152,7 +152,6 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
             matrix[j][j] -= 2.0 * j_val;
         }
 
-        // Convert h fields to diagonal
         for (i, &h) in self.fields().iter().enumerate() {
             // h_i * s_i -> 2*h_i*x_i
             matrix[i][i] += 2.0 * h;

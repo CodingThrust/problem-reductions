@@ -277,8 +277,6 @@ impl<'de> Deserialize<'de> for IntegerKnapsack {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 items: sizes [3,4,5,2,7], values [4,5,7,3,9], capacity 15
-    // Optimal: c=(0,0,1,5,0) → total_size=5+10=15, total_value=7+15=22
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "integer-knapsack",
         instance: Box::new(

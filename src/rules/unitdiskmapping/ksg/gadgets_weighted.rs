@@ -1092,7 +1092,6 @@ pub fn apply_weighted_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i:
         *count_map.entry((r, c)).or_insert(0) += 1;
     }
 
-    // Set cells with proper weights
     for (&(r, c), &total_weight) in &weight_map {
         let grid_r = i + r - 1; // Convert 1-indexed to 0-indexed
         let grid_c = j + c - 1;
@@ -1257,7 +1256,6 @@ fn pattern_matches_weighted(
         return false;
     }
 
-    // Check that source weights match the grid weights
     let (locs, _, _) = pattern.source_graph_boxed();
     let source_weights = pattern.source_weights_boxed();
 

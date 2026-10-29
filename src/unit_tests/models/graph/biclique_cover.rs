@@ -153,7 +153,6 @@ fn test_evaluate() {
         Min(Some(2))
     );
 
-    // Invalid cover returns Invalid
     assert_eq!(
         problem
             .evaluate(&vec![vec![true, false, false, false]])

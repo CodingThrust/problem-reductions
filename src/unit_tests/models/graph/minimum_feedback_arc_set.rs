@@ -32,7 +32,6 @@ use crate::traits::Problem;
 
 #[test]
 fn test_minimum_feedback_arc_set_creation() {
-    // 6 vertices, 9 arcs (example from issue)
     let graph = DirectedGraph::new(
         6,
         vec![
@@ -121,7 +120,6 @@ fn test_minimum_feedback_arc_set_solver_simple_cycle() {
 
 #[test]
 fn test_minimum_feedback_arc_set_solver_issue_example() {
-    // Example from issue #213: 6 vertices, 9 arcs
     let graph = DirectedGraph::new(
         6,
         vec![
@@ -143,7 +141,6 @@ fn test_minimum_feedback_arc_set_solver_issue_example() {
     let fas_size: usize = solution.iter().filter(|&&selected| selected).count();
     assert_eq!(fas_size, 2);
 
-    // Verify the solution is valid
     assert!(problem.is_valid_solution(&solution));
 }
 

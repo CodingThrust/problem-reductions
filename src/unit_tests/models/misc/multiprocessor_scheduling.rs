@@ -153,7 +153,6 @@ fn test_multiprocessor_scheduling_brute_force_infeasible() {
 
 #[test]
 fn test_multiprocessor_scheduling_find_all_witnesses() {
-    // Issue #212 example: 5 tasks [4,5,3,2,6], m=2, D=10
     // Search space = 2^5 = 32
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     let solver = BruteForce::new();
@@ -161,7 +160,7 @@ fn test_multiprocessor_scheduling_find_all_witnesses() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
     }
-    // The issue witness {t1,t5} on P0 and {t2,t3,t4} on P1 must be among solutions
+    // The assignment {t1,t5} on P0 and {t2,t3,t4} on P1 must be among solutions
     assert!(solutions.contains(&vec![0, 1, 1, 1, 0]));
     // Only 2 feasible partitions: {t1,t5}/{t2,t3,t4} and its mirror
     assert_eq!(solutions.len(), 2);

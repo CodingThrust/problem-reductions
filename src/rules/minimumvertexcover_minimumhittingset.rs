@@ -65,7 +65,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumvertexcover_to_minimumhittingset",
         build: || {
-            // 6-vertex graph from the issue example
             let source = MinimumVertexCover::new(
                 SimpleGraph::new(
                     6,

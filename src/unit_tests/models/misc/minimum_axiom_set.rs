@@ -21,7 +21,6 @@ fn test_minimum_axiom_set_validates_persisted_input() {
 }
 use crate::traits::Problem;
 
-/// Helper: build the canonical 8-sentence example from the issue.
 fn canonical_instance() -> MinimumAxiomSet {
     MinimumAxiomSet::new(
         8,
@@ -174,7 +173,6 @@ fn test_minimum_axiom_set_paper_example() {
     // The canonical 8-sentence example
     let problem = canonical_instance();
 
-    // Verify the issue's expected outcome: config [1,1,0,0,0,0,0,0] → Min(2)
     let result = problem
         .evaluate(&vec![true, true, false, false, false, false, false, false])
         .unwrap();

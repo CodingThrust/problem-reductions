@@ -50,7 +50,6 @@ fn test_disjoint_sets() {
 
 #[test]
 fn test_reduction_structure() {
-    // Test IS to SP structure
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i64; 4]);
     let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
@@ -60,7 +59,6 @@ fn test_reduction_structure() {
     // SP should have same number of sets as vertices in IS
     assert_eq!(sp.num_sets(), 4);
 
-    // Test SP to IS structure
     let sets = vec![vec![0, 1], vec![2, 3]];
     let sp_problem = MaximumSetPacking::new(sets);
     let reduction2: ReductionSPToIS<i64> =

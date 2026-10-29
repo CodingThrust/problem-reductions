@@ -344,7 +344,6 @@ fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
-    // Verify optimality: customized solver returns same value as brute force
     let brute_val = problem.evaluate(brute.as_ref().unwrap()).unwrap();
     let custom_val = problem.evaluate(custom.as_ref().unwrap()).unwrap();
     assert_eq!(

@@ -76,7 +76,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltonianpath_to_isomorphicspanningtree",
         build: || {
-            // Path graph 0-1-2-3-4 has a trivial Hamiltonian path
             let source = HamiltonianPath::new(SimpleGraph::path(5));
             crate::example_db::specs::rule_example_with_witness::<
                 _,

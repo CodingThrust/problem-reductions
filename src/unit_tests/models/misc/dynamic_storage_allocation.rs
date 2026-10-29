@@ -32,7 +32,7 @@ fn test_dynamic_storage_allocation_basic() {
 #[test]
 fn test_dynamic_storage_allocation_evaluate_feasible() {
     let problem = example_problem();
-    // Solution from the issue: σ = [0, 2, 5, 2, 0] (0-indexed)
+    // Solution: σ = [0, 2, 5, 2, 0] (0-indexed)
     assert_eq!(problem.evaluate(&vec![0, 2, 5, 2, 0]).unwrap(), Or(true));
 }
 

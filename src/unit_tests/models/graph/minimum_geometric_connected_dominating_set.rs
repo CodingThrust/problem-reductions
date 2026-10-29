@@ -114,7 +114,6 @@ fn test_ladder_example() {
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 4);
 
-    // Verify with brute force
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap().unwrap();
     let best_value = problem.evaluate(&witness).unwrap().unwrap();

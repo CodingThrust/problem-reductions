@@ -75,7 +75,6 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
 
         let l = m + 2 * q; // total available arcs
 
-        // Build available arc list with lengths
         let mut avail_arcs: Vec<(usize, usize)> = Vec::with_capacity(l);
         let mut avail_lengths: Vec<i64> = Vec::with_capacity(l);
 
@@ -397,7 +396,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "mixedchinesepostman_to_ilp",
         build: || {
-            // Simple instance: 3 vertices, 1 arc, 2 edges
             let source = MixedChinesePostman::new(
                 MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
                 vec![1],

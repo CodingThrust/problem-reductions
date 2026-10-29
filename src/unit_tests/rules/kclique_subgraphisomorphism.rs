@@ -46,7 +46,6 @@ fn test_kclique_to_subgraphisomorphism_complete_graph() {
     assert_eq!(target.num_pattern_vertices(), 3);
     assert_eq!(target.num_pattern_edges(), 3);
 
-    // Solve the target and extract back to source
     let bf = BruteForce::new();
     let witness = bf.solve(target).unwrap().expect("K4 should contain K3");
     let extracted = reduction.extract_solution(&witness).unwrap();

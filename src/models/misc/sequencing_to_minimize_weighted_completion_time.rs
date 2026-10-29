@@ -35,7 +35,8 @@ inventory::submit! {
 /// and minimizes `sum_t w(t) * C(t)`, where `C(t)` is the completion time of
 /// task `t`.
 ///
-/// Configurations use Lehmer code with `dims() = [n, n-1, ..., 1]`.
+/// A solution is a permutation of task indices. Lehmer codes are used only by
+/// the reference solver to enumerate task orders.
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeWeightedCompletionTime {
     lengths: Vec<i64>,

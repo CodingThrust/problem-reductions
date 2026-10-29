@@ -4,7 +4,7 @@ use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
-/// Canonical 3-player game from the issue.
+/// Canonical 3-player game.
 /// F1 = x1*x2*x3, F2 = (1-x1)*x2, F3 = x1*(1-x3), M_i = {0, 1}.
 fn canonical_problem() -> EquilibriumPoint {
     let polynomials = vec![
@@ -17,12 +17,8 @@ fn canonical_problem() -> EquilibriumPoint {
 }
 
 /// Simple 2-player coordination game: F1 = F2 = x1*x2.
-/// Both (0,0) and (1,1) are equilibria (payoff 0 each with M_i = {0,1}).
-/// Actually F1(0,0)=0, dev to (1,0): F1(1,0)=0 — no strict improvement.
-/// So (0,0) is an equilibrium trivially (no player can strictly improve).
+/// Both (0,0) and (1,1) are equilibria: neither allows a strict payoff improvement.
 fn coordination_problem() -> EquilibriumPoint {
-    // F1 = x1*x2: factors [[0,1,0,0],[0,0,1,0]] (but only constant + 2 player coeffs).
-    // Wait: 2 players → factor len = 3.
     let polynomials = vec![
         vec![vec![0, 1, 0], vec![0, 0, 1]], // F1 = x1 * x2
         vec![vec![0, 1, 0], vec![0, 0, 1]], // F2 = x1 * x2
@@ -67,13 +63,7 @@ fn test_equilibrium_point_evaluate_canonical_equilibrium() {
 #[test]
 fn test_equilibrium_point_evaluate_non_equilibria() {
     let p = canonical_problem();
-    // (1,1,1): F1=1. Dev player1 to 0: F1(0,1,1)=0 < 1 — no. Dev player2 to 0: F1(1,0,1)=0 <1 — no. Dev player3 to 0: F1(1,1,0)=0 <1 — no.
-    // F2=(1-1)*1=0. Dev player2 to 0: F2(1,0,1)=0 — no improvement. Player1 dev to 0: F2(0,1,1)=1*1=1 > 0 → NOT equilibrium for player 1 in F2?
-    // Wait F2 is player-2's payoff. Let me recheck: player 1 can deviate but that changes F2 too.
-    // Actually equilibrium condition: for player i, no y'_i in M_i gives F_i(y) < F_i(y with y_i=y').
-    // At (1,1,1): F2(1,1,1)=(1-1)*1=0. Dev player2 to 0: F2(1,0,1)=(1-1)*0=0 — no improvement.
-    //             But dev player1 (player 1) only affects F1! F1(1,1,1)=1*1*1=1, dev to 0: F1(0,1,1)=0*1*1=0 — no improvement for player1.
-    // F3(1,1,1)=1*(1-1)=0. Dev player3 to 0: F3(1,1,0)=1*(1-0)=1 > 0 → player 3 can improve! NOT equilibrium.
+    // At (1,1,1), player 3 can switch to 0 and increase F3 from 0 to 1.
     assert_eq!(p.evaluate(&vec![1, 1, 1]).unwrap(), Or(false));
 
     // (0,0,0): F2(0,0,0)=(1-0)*0=0. Dev player2 to 1: F2(0,1,0)=(1-0)*1=1 > 0 → NOT equilibrium.

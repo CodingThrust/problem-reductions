@@ -266,9 +266,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // A = [[1,2,3,1],[2,1,1,3]], b = [5,4], m=4, n=2
-    // Config [1,1,0,0]: select columns 0,1. Submatrix [[1,2],[2,1]].
-    // Solve [1,2;2,1]y=[5,4] → y=(1,2). Consistent. Min(2).
     let matrix = vec![vec![1, 2, 3, 1], vec![2, 1, 1, 3]];
     let rhs = vec![5, 4];
     vec![crate::example_db::specs::ModelExampleSpec {

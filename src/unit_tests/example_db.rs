@@ -698,7 +698,6 @@ fn rule_specs_solution_pairs_are_consistent() {
         };
 
         for pair in &example.solutions {
-            // Verify configs produce feasible evaluations.
             let source_eval = source
                 .evaluate_dyn(&pair.source_config)
                 .unwrap_or_else(|error| {
@@ -814,9 +813,7 @@ fn rule_specs_solution_pairs_are_consistent() {
     }
 }
 
-// ---- Rule lookup tests for issue #974 ----
-
-// PR #777 rules
+// ---- Rule lookup tests ----
 
 #[test]
 fn test_find_rule_example_hamiltoniancircuit_to_hamiltonianpath() {
@@ -952,8 +949,6 @@ fn test_find_rule_example_naesatisfiability_to_satisfiability() {
     assert_eq!(example.source.problem, "NAESatisfiability");
     assert_eq!(example.target.problem, "Satisfiability");
 }
-
-// PR #779 rules
 
 #[test]
 fn test_find_rule_example_ksatisfiability_to_decisionminimumvertexcover() {
@@ -1104,8 +1099,6 @@ fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
     assert_eq!(example.source.problem, "HamiltonianCircuit");
     assert_eq!(example.target.problem, "DecisionQuadraticAssignment");
 }
-
-// PR #804 rules
 
 #[test]
 fn test_find_rule_example_minimumvertexcover_to_minimumhittingset() {
@@ -1300,8 +1293,6 @@ fn test_find_rule_example_paintshop_to_qubo() {
     assert_eq!(example.source.problem, "PaintShop");
     assert_eq!(example.target.problem, "QUBO");
 }
-
-// PR #972 rules
 
 #[test]
 fn test_find_rule_example_partition_to_binpacking() {

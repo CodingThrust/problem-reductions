@@ -291,7 +291,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             vec![0, 1, 2, 3, 4, 5],
         )),
-        // X={2}: closure={2,3}, y=3 in closure, z=0 not in closure -> violation
         optimal_config: serde_json::json!(vec![false, false, true, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]

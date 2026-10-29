@@ -177,7 +177,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bmf_to_ilp",
         build: || {
-            // 2x2 identity matrix, rank 2
             let source = BMF::new(vec![vec![true, false], vec![false, true]], 2);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

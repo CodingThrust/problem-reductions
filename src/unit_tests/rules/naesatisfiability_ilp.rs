@@ -56,22 +56,7 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_naesatisfiability_to_ilp_infeasible() {
-    // Single clause with one literal: (x1) — cannot be NAE (only one literal, never both T and F)
-    // NAESatisfiability requires ≥2 literals per clause, so use: (x1 ∨ x1)
-    // Actually we need a proper infeasible NAE instance.
-    // Simplest: (x1 ∨ x1) — both literals same variable: NAE requires T and F but both are x1.
-    // Wait, we can use a 1-variable, 1-clause with both polarities excluded:
-    // Use (x1 ∨ ¬x1): if x1=T → T,F ✓ NAE; if x1=F → F,T ✓ NAE. This is always satisfiable.
-    // True infeasible: ((x1 ∨ x2) ∧ (x1 ∨ ¬x2) ∧ (¬x1 ∨ x2) ∧ (¬x1 ∨ ¬x2))
-    // x1=T,x2=T: clause4 (F,F) — not NAE. x1=T,x2=F: clause3 (F,F) — not NAE.
-    // x1=F,x2=T: clause2 (F,T) — NAE ✓; clause4: (T,F) — NAE ✓;
-    //   clause1 (F,T) — NAE ✓; clause3 (T,T) — NOT NAE. So not infeasible.
-    // Use all-same-sign clause: (x1 ∨ x2) ∧ (¬x1 ∨ ¬x2) ∧ (x1 ∨ ¬x1) makes it tricky.
-    // Simplest provably infeasible NAE instance: 1 variable, clause (x1 ∨ x1)
-    // but NAESatisfiability requires ≥2 literals. Let's verify with ILP that it's infeasible.
-    // Known infeasible NAE: only one variable, clause (x1 ∨ x1) — requires x1=T (for one true)
-    // but then both are T so no false literal. Requires x1=F too — contradiction.
-    // But NAESat requires ≥2 literals per clause, so use (x1, x1):
+    // Repeated x1 literals always agree, so the clause cannot contain both truth values.
     use crate::models::formula::CNFClause;
     let problem = NAESatisfiability::new(1, vec![CNFClause::new(vec![1, 1])]);
     let reduction: ReductionNAESATToILP =

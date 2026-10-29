@@ -156,7 +156,6 @@ fn test_paper_example() {
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(3)));
 
-    // Verify optimality with brute force
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));

@@ -102,7 +102,9 @@ fn test_naesatisfiability_to_satisfiability_witness_and_near_witness() {
     let reduction = reduce(&canonical_source());
 
     assert_eq!(
-        reduction.extract_solution(&vec![false, false, true]).unwrap(),
+        reduction
+            .extract_solution(&vec![false, false, true])
+            .unwrap(),
         vec![false, false, true]
     );
     // [0,1,0] makes (¬x1, x2) all true, so the excluded all-true CNF clause fails.
