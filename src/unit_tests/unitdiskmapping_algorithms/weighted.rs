@@ -123,7 +123,6 @@ fn test_triangular_weighted_interface() {
 
     let (n, edges) = smallgraph("bull").unwrap();
     let result = triangular::map_weighted(n, &edges).unwrap();
-    // Test with uniform weights
     let ws = vec![0.5; n];
     let grid_weights = map_weights(&result, &ws).unwrap();
 
@@ -145,12 +144,10 @@ fn test_triangular_interface_full() {
     assert_eq!(grid_weights.len(), result.positions.len());
     assert!(grid_weights.iter().all(|&w| w >= 0.0));
 
-    // Test map_config_back
     let config = vec![0; result.positions.len()];
     let original_config = result.map_config_back(&config).unwrap();
     assert_eq!(original_config.len(), n);
 
-    // Verify trace_centers
     let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), n);
 }
@@ -161,7 +158,6 @@ fn test_triangular_interface_full() {
 fn test_triangular_copyline_weight_invariant() {
     let spacing = 6usize;
 
-    // Test various copyline configurations
     let configs = [
         (1, 1, 1, 2), // Simple case
         (1, 2, 1, 3), // With vertical segment
@@ -204,7 +200,6 @@ fn test_map_config_back_extracts_valid_is_triangular() {
 
     let (n, edges) = smallgraph("bull").unwrap();
     let result = triangular::map_weighted(n, &edges).unwrap();
-    // Get all zeros config
     let config = vec![0; result.positions.len()];
     let extracted = triangular::map_config_back(&result, &config).unwrap();
     // All zeros should extract to all zeros
@@ -242,7 +237,6 @@ fn test_trace_centers_consistency_with_config_back() {
 
     let (n, edges) = smallgraph("diamond").unwrap();
     let result = triangular::map_weighted(n, &edges).unwrap();
-    // Get centers
     let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), n);
 
@@ -632,7 +626,6 @@ fn test_weighted_map_config_back_standard_graphs() {
         // map_weights adds source weights at center locations (like Julia)
         let mapped_weights = map_weights(&result, &source_weights).unwrap();
 
-        // Solve weighted MIS with ILP
         let grid_edges = result.edges();
         let num_grid = result.positions.len();
 
@@ -665,10 +658,8 @@ fn test_weighted_map_config_back_standard_graphs() {
             }
         }
 
-        // Get traced center locations using triangular-specific trace_centers
         let centers = trace_centers(&result).unwrap();
 
-        // Extract config at centers
         let center_config: Vec<usize> = centers
             .iter()
             .map(|&(row, col)| {

@@ -113,15 +113,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "capacityassignment_to_ilp",
         build: || {
-            // 2 links, 2 capacity levels
-            // cost: [[1,3],[2,4]], delay: [[8,4],[7,3]]
-            // delay_budget=12
-            // Minimize cost subject to total_delay ≤ 12.
-            // link 0 → cap 0, link 1 → cap 0: cost=3, delay=15 > 12 — infeasible
-            // link 0 → cap 1, link 1 → cap 0: cost=5, delay=11 ≤ 12 — feasible
-            // link 0 → cap 0, link 1 → cap 1: cost=5, delay=11 ≤ 12 — feasible (tied)
-            // link 0 → cap 1, link 1 → cap 1: cost=7, delay=7 ≤ 12 — feasible
-            // Optimal: cost=5 at [1,0] or [0,1]
             let source = CapacityAssignment::new(
                 vec![1, 2],
                 vec![vec![1, 3], vec![2, 4]],

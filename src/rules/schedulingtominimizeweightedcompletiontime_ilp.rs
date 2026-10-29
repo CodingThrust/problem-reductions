@@ -216,7 +216,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "schedulingtominimizeweightedcompletiontime_to_ilp",
         build: || {
-            // 3 tasks, 2 processors: simple instance for canonical example
             let source =
                 SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2, 3], vec![4, 2, 1], 2);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)

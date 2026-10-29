@@ -34,11 +34,9 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted).unwrap();
@@ -47,7 +45,6 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     assert_eq!(bf_size, Min(Some(1)));
     assert_eq!(ilp_size, Min(Some(1)));
 
-    // Verify the ILP solution is valid for the original problem
     assert!(
         problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
@@ -56,7 +53,6 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
 
 #[test]
 fn test_cycle_of_triangles() {
-    // The example from issue #141: n=9, m=15, FVS=3
     let arcs = vec![
         (0, 1),
         (1, 2),
@@ -80,7 +76,6 @@ fn test_cycle_of_triangles() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Verify ILP structure
     assert_eq!(ilp.num_vars(), 18, "Should have 2*9 = 18 variables");
     assert_eq!(
         ilp.constraints().len(),
@@ -145,7 +140,6 @@ fn test_weighted() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<i64> = vec![0; ilp.num_vars()];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;

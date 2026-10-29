@@ -62,7 +62,6 @@ fn test_hamiltonian_path_brute_force() {
 fn test_hamiltonian_path_nontrivial() {
     use crate::traits::Problem;
 
-    // Instance 2 from issue: 6 vertices, 8 edges
     let problem = HamiltonianPath::new(SimpleGraph::new(
         6,
         vec![
@@ -132,7 +131,7 @@ fn test_parameter_getters() {
 fn test_hamiltonianpath_paper_example() {
     use crate::traits::Problem;
 
-    // Paper/issue #217: 6 vertices, 8 edges
+    // Paper example: 6 vertices, 8 edges
     let problem = HamiltonianPath::new(SimpleGraph::new(
         6,
         vec![
@@ -150,7 +149,6 @@ fn test_hamiltonianpath_paper_example() {
     // Hamiltonian path: 0→2→4→3→1→5
     assert!(problem.evaluate(&vec![0, 2, 4, 3, 1, 5]).unwrap());
 
-    // Verify with brute force
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());

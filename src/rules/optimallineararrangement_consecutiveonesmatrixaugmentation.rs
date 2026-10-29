@@ -113,9 +113,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             use crate::example_db::specs::assemble_rule_example;
 
-            // 6 vertices, 7 edges (path + two chords). Optimal arrangement
-            // [0,1,2,3,4,5] has total edge length 11; with k = 11 the target
-            // bound is 11 - 7 = 4 and the identity column permutation works.
             let source = Decision::new(
                 OptimalLinearArrangement::new(SimpleGraph::new(
                     6,
@@ -125,7 +122,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
                 .expect("reduction should succeed");
-            // Source arrangement f(v) = v <=> target column permutation = identity.
             let source_config = vec![0, 1, 2, 3, 4, 5];
             let target_config = vec![0, 1, 2, 3, 4, 5];
             assemble_rule_example(

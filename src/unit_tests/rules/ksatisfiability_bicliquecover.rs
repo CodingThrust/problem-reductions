@@ -4,9 +4,9 @@
 //! hundreds of binary variables, so closed-loop brute-force solving is
 //! infeasible. The tests below verify:
 //!
-//! - Structural sizes (vertex counts, rank, k_f) on the example from
-//!   the issue body (1 source variable; smallest power-of-two padding).
-//! - Structural sizes on the four-variable example from the issue body
+//! - Structural sizes (vertex counts, rank, k_f) on the one-variable example
+//!   (smallest power-of-two padding).
+//! - Structural sizes on the four-variable example
 //!   (n = 4, m = 2 source clauses; reduction adds 8 exactly-one
 //!   clauses for m = 10 normalized clauses).
 //! - The construction terminates and produces a valid `BipartiteGraph`
@@ -22,7 +22,7 @@ use crate::models::graph::BicliqueCover;
 use crate::traits::Problem;
 use crate::variant::K3;
 
-/// Issue body Section 1 example: one source variable, one source clause.
+/// One source variable and one source clause.
 /// Normalized counts: `n = 2` (t_1, f_1), `ell = 1`, `m = 3` clauses
 /// (1 translated + 2 exactly-one), `k_f = 4 + 4 + 6 = 14`, rank `= 18`.
 #[test]
@@ -48,14 +48,9 @@ fn test_ksatisfiability_to_bicliquecover_structure_single_variable() {
     assert_eq!(target.k(), rank);
 }
 
-/// Issue body Example section: `n = 4`, `m_source = 2`, `ell = 2`,
+/// Four-variable example: `n = 4`, `m_source = 2`, `ell = 2`,
 /// `m_normalized = 2 + 4 = 6`, `k_f = 4*2 + 2*ceil(log2 6) + 6 = 18`,
 /// `rank = 18 + 4 + 2 = 24`.
-///
-/// (The issue example computes `m = 2`, `k_f = 16`, `rank = 22` *if*
-/// you skip the exactly-one normalization clauses. Our implementation
-/// faithfully emits them so the rank rises from 22 to 24 — both are
-/// admissible polynomial upper bounds for the same reduction.)
 #[test]
 fn test_ksatisfiability_to_bicliquecover_structure_issue_example() {
     let source = KSatisfiability::<K3>::new(

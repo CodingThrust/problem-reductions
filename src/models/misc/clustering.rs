@@ -234,9 +234,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 6 elements in two tight groups {0,1,2} and {3,4,5}
-    // Intra-group distance = 1, inter-group distance = 3
-    // K=2, B=1
     let distances = vec![
         vec![0, 1, 1, 3, 3, 3],
         vec![1, 0, 1, 3, 3, 3],

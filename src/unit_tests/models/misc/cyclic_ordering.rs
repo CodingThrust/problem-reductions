@@ -31,12 +31,6 @@ fn test_cyclic_ordering_evaluate_satisfying() {
 #[test]
 fn test_cyclic_ordering_evaluate_unsatisfying() {
     let problem = example_problem();
-    // Identity permutation [0,1,2,3,4]:
-    // (0,1,2): 0<1<2 ✓  (2,3,0): f(2)=2, f(3)=3, f(0)=0 → need
-    // (2<3<0) or (3<0<2) or (0<2<3). 0<2<3 ✓
-    // (1,3,4): f(1)=1, f(3)=3, f(4)=4 → 1<3<4 ✓
-    // Actually identity works! Let me pick one that doesn't.
-    // [0,2,1,3,4]:
     // (0,1,2): f(0)=0, f(1)=2, f(2)=1 → (0<2<1)? no. (2<1<0)? no. (1<0<2)? no. → fails
     assert_eq!(problem.evaluate(&vec![0, 2, 1, 3, 4]).unwrap(), Or(false));
 }

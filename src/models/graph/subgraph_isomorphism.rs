@@ -199,7 +199,6 @@ crate::register_brute_force! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // Host: K4, Pattern: K3 → map [0,1,2] preserves all edges
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subgraph_isomorphism",
         instance: Box::new(SubgraphIsomorphism::new(

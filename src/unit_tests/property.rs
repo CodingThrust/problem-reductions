@@ -151,14 +151,12 @@ fn test_graph_strategy_sanity() {
     for _ in 0..10 {
         let (n, edges) = strategy.new_tree(&mut runner).unwrap().current();
 
-        // Check all edges are valid
         for (u, v) in &edges {
             assert!(*u < n, "Edge source out of bounds");
             assert!(*v < n, "Edge target out of bounds");
             assert!(u != v, "Self-loop detected");
         }
 
-        // Check no duplicate edges
         let unique: HashSet<_> = edges.iter().collect();
         assert_eq!(unique.len(), edges.len(), "Duplicate edges detected");
     }

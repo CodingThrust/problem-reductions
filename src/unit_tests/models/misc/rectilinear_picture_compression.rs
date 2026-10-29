@@ -41,7 +41,6 @@ fn two_block_matrix() -> Vec<Vec<bool>> {
 }
 
 fn issue_matrix() -> Vec<Vec<bool>> {
-    // 6x6 matrix from the issue description
     vec![
         vec![true, true, true, false, false, false],
         vec![true, true, true, false, false, false],

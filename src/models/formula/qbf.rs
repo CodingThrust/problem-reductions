@@ -222,10 +222,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(QuantifiedBooleanFormulas::new(
             2,
             vec![Quantifier::Exists, Quantifier::ForAll],
-            vec![
-                CNFClause::new(vec![1, 2]),  // u_1 OR u_2
-                CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
-            ],
+            vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![1, -2])],
         )),
         optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),

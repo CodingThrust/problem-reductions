@@ -202,7 +202,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "strongconnectivityaugmentation_to_ilp",
         build: || {
-            // Path 0→1→2, candidates: (2,0,1),(1,0,2), bound=2
             let source = StrongConnectivityAugmentation::new(
                 SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![(2, 0, 1), (1, 0, 2)],

@@ -89,7 +89,6 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
     assert!(target.graph().has_edge(3, 8));
     assert!(target.graph().has_edge(4, 9));
 
-    // Matching and gadget cross edges from the issue body
     assert!(target.graph().has_edge(0, 3));
     assert!(target.graph().has_edge(1, 4));
     assert!(target.graph().has_edge(0, 4));

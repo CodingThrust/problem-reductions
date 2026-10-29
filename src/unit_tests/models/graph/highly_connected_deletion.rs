@@ -5,7 +5,6 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-// Canonical instance from the issue:
 // V = {0,1,2,3}, E = {(0,1),(0,2),(1,2),(2,3)} — triangle on {0,1,2} with leaf 3.
 fn canonical_problem() -> HighlyConnectedDeletion<SimpleGraph> {
     HighlyConnectedDeletion::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]))
@@ -129,7 +128,6 @@ fn test_highly_connected_deletion_brute_force_double_triangle() {
         Min(Some(1))
     );
 
-    // Verify the named optimal config evaluates to 1.
     let bridge_only = vec![false, false, false, true, false, false, false];
     assert_eq!(problem.evaluate(&bridge_only).unwrap(), Min(Some(1)));
 

@@ -1479,7 +1479,6 @@ pub fn apply_simplifier_gadgets(grid: &mut MappingGrid, nrepeat: usize) -> Vec<K
     let mut tape = Vec::new();
     let (rows, cols) = grid.size();
 
-    // Get all rotations and reflections of KsgDanglingLeg
     let patterns = rotated_and_reflected_danglinleg();
 
     for _ in 0..nrepeat {
@@ -1565,7 +1564,6 @@ fn pattern_matches_weighted(
         }
     }
 
-    // Check other nodes have weight 2
     for (_idx, (loc_r, loc_c)) in locs.iter().enumerate().skip(1) {
         let grid_r = i + loc_r - 1;
         let grid_c = j + loc_c - 1;
@@ -1731,7 +1729,6 @@ pub fn apply_weighted_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i:
         *count_map.entry((r, c)).or_insert(0) += 1;
     }
 
-    // Set cells with proper weights
     for (&(r, c), &total_weight) in &weight_map {
         let grid_r = i + r - 1; // Convert 1-indexed to 0-indexed
         let grid_c = j + c - 1;

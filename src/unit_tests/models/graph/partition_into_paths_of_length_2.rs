@@ -135,7 +135,6 @@ fn test_partition_into_paths_serialization() {
     assert_eq!(deserialized.num_edges(), 4);
     assert_eq!(deserialized.num_groups(), 2);
 
-    // Verify evaluation is consistent
     let config = vec![0, 0, 0, 1, 1, 1];
     assert_eq!(
         problem.evaluate(&config).unwrap(),

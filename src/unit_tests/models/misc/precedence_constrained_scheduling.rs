@@ -48,7 +48,6 @@ fn test_precedence_constrained_scheduling_basic() {
 
 #[test]
 fn test_precedence_constrained_scheduling_evaluate_valid() {
-    // Issue example: 8 tasks, 3 processors, deadline 4
     // Precedences: 0<2, 0<3, 1<3, 1<4, 2<5, 3<6, 4<6, 5<7, 6<7
     let problem = PrecedenceConstrainedScheduling::new(
         8,

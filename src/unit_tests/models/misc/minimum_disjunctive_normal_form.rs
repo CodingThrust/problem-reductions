@@ -149,7 +149,7 @@ fn test_minimum_dnf_single_minterm() {
 
 #[test]
 fn test_minimum_dnf_tautology_minus_one() {
-    // f = all true except 000 and 111 (same as issue example)
+    // f is true except at 000 and 111.
     let problem = issue_instance();
     let solver = BruteForce::new();
     assert_eq!(

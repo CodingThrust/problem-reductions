@@ -6,7 +6,7 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical issue #1033 instance: binary alphabet, length-3 windows on three
+/// Canonical instance: binary alphabet, length-3 windows on three
 /// length-5 strings. Optimum radius is 1.
 fn issue_instance() -> ClosestSubstring {
     ClosestSubstring::new(
@@ -164,7 +164,7 @@ fn test_closestsubstring_to_ilp_ternary_alphabet() {
 #[test]
 fn test_closestsubstring_to_ilp_extract_known_solution() {
     // Build the ILP encoding of center 010 with chosen windows (0, 1, 0) on
-    // the canonical issue instance, by hand: x_{0,0}=x_{1,1}=x_{2,0}=1,
+    // the canonical instance, by hand: x_{0,0}=x_{1,1}=x_{2,0}=1,
     // y_{1,0}=y_{2,1}=y_{3,0}=1, R = 1. Then verify the extracted source
     // config matches and gives radius 1.
     let source = issue_instance();

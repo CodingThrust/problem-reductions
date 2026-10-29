@@ -5702,8 +5702,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "MinimumVertexCover/SimpleGraph/One",
-            "LongestCommonSubsequence",
+            "SubsetSum",
+            "DecisionOpenShopScheduling",
             "--limit",
             "1",
             "--json",
@@ -5715,22 +5715,113 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap();
-    let relations = fields
+    let machines = fields
         .iter()
-        .map(|field| {
-            (
-                field["field"].as_str().unwrap(),
-                field["relation"].as_str().unwrap(),
-            )
-        })
-        .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["alphabet_size"], "exact");
-    assert_eq!(relations["cross_frequency_product"], "unavailable");
-    let unavailable = fields
-        .iter()
-        .find(|field| field["relation"] == "unavailable")
+        .find(|field| field["field"] == "num_machines")
         .unwrap();
-    assert!(!unavailable["reason"].as_str().unwrap().is_empty());
+    assert_eq!(machines["relation"], "exact");
+    let horizon = fields
+        .iter()
+        .find(|field| field["field"] == "schedule_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(horizon["reason"]
+        .as_str()
+        .is_some_and(|reason| !reason.is_empty()));
+}
+
+#[test]
+fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
+    let dir =
+        std::env::temp_dir().join(format!("pred_vertex_cover_lcs_mis_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("source.json");
+    let route = dir.join("route.json");
+    let bundle = dir.join("bundle.json");
+    let created = pred()
+        .args([
+            "create",
+            "MinimumVertexCover/SimpleGraph/One",
+            "--graph",
+            "0-1,1-2",
+            "-o",
+            source.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    write_named_route(
+        "MinimumVertexCover/SimpleGraph/One",
+        "MaximumIndependentSet/SimpleGraph/One",
+        &[
+            "MinimumVertexCover",
+            "LongestCommonSubsequence",
+            "MaximumIndependentSet",
+        ],
+        &route,
+    );
+    let selected: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&route).unwrap()).unwrap();
+    assert!(selected["overall_parameters"]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|field| field["relation"] != "unavailable"));
+    let reduced = pred()
+        .args([
+            "reduce",
+            source.to_str().unwrap(),
+            "--via",
+            route.to_str().unwrap(),
+            "-o",
+            bundle.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    let solved = pred()
+        .args([
+            "solve",
+            bundle.to_str().unwrap(),
+            "--solver",
+            "ilp",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(result["evaluation"], "Min(1)");
+    let evaluated = pred()
+        .args([
+            "evaluate",
+            source.to_str().unwrap(),
+            "--config",
+            &result["solution"].to_string(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        evaluated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&evaluated.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+    assert_eq!(value["result"], "Min(1)");
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

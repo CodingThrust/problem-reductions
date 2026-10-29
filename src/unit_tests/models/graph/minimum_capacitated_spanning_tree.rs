@@ -41,7 +41,7 @@ fn create_spec_defaults_edge_weights() {
 }
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
-/// 5-vertex instance from issue #901.
+/// 5-vertex instance.
 /// Edges: (0,1,2), (0,2,1), (0,3,4), (1,2,3), (1,4,1), (2,3,2), (2,4,3), (3,4,1)
 /// Root=0, capacity=3, all requirements=1
 fn example_instance() -> MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
