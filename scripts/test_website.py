@@ -190,6 +190,45 @@ class WebsiteTests(unittest.TestCase):
         expect(self.page.locator('.path')).to_have_count(2)
         expect(self.page.get_by_role('button', name='Hide other routes', exact=True)).to_be_visible()
 
+    def test_typst_math_keeps_vector_glyphs_and_colors_in_both_themes(self):
+        self.visit('problem/KSatisfiability?variant=k=K3')
+        expect(self.page.locator('article.typst-detail')).to_be_visible()
+        formula = self.page.locator('.typst-math > svg').filter(has=self.page.locator('g + g use')).first
+        expect(formula).to_be_visible()
+        self.page.evaluate('document.fonts.ready')
+        # Include an intentional color and a fraction-like stroke alongside the real Typst glyphs.
+        formula.locator('use').first.evaluate("node => node.setAttribute('fill', '#e15759')")
+        formula.evaluate('''svg => {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            line.setAttribute('d', 'M0 .1H4'); line.setAttribute('stroke', '#000000');
+            line.setAttribute('stroke-width', '.1'); svg.append(line);
+        }''')
+        for theme, ink, paper in [('dark', '#eef3e9', '#0b110d'), ('light', '#112011', '#ffffff')]:
+            with self.subTest(theme=theme):
+                self.page.evaluate('''({ink, paper}) => {
+                    document.documentElement.style.setProperty('--ink', ink);
+                    document.documentElement.style.setProperty('--paper', paper);
+                }''', {'ink': ink, 'paper': paper})
+                expect(formula.locator('use').first).to_have_css('fill', 'rgb(225, 87, 89)')
+                actual = formula.screenshot()
+                # Reference the same vectors with explicit theme paint and no rasterizing filter.
+                saved = formula.evaluate('''(svg, ink) => {
+                    const painted = [...svg.querySelectorAll('[fill="#000000"], [stroke="#000000"]')];
+                    const saved = [svg.getAttribute('style'), painted.map(node => node.getAttribute('style'))];
+                    svg.style.filter = 'none';
+                    for (const node of painted) {
+                        if (node.getAttribute('fill') === '#000000') node.style.fill = ink;
+                        if (node.getAttribute('stroke') === '#000000') node.style.stroke = ink;
+                    }
+                    return saved;
+                }''', ink)
+                self.assertEqual(actual, formula.screenshot(), 'Theme styling changed the rendered math vectors')
+                formula.evaluate('''(svg, [style, paints]) => {
+                    const restore = (node, value) => value === null ? node.removeAttribute('style') : node.setAttribute('style', value);
+                    restore(svg, style);
+                    [...svg.querySelectorAll('[fill="#000000"], [stroke="#000000"]')].forEach((node, i) => restore(node, paints[i]));
+                }''', saved)
+
     def test_accessibility_atlas(self):
         self.visit('atlas')
         expect(self.page.locator('.atlas-row').first).to_be_visible()
