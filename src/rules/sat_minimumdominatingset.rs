@@ -156,7 +156,6 @@ impl ReduceTo<Decision<MinimumDominatingSet<SimpleGraph, i64>>> for Satisfiabili
         // These form a complete triangle (clique of 3)
         for i in 0..num_variables {
             let base = 3 * i;
-            // Add all edges of the triangle
             edges.push((base, base + 1));
             edges.push((base, base + 2));
             edges.push((base + 1, base + 2));

@@ -109,7 +109,6 @@ fn test_sat_to_3sat_single_literal() {
 
 #[test]
 fn test_sat_to_ksat_closed_loop() {
-    // Create a SAT formula and verify the 3-SAT version is equisatisfiable
     let sat = Satisfiability::new(
         3,
         vec![
@@ -123,7 +122,6 @@ fn test_sat_to_ksat_closed_loop() {
         ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
-    // Solve both problems - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
     let sat_solutions = solver.find_all_witnesses(&sat).unwrap();
@@ -135,7 +133,6 @@ fn test_sat_to_ksat_closed_loop() {
 
     assert_eq!(sat_satisfiable, ksat_satisfiable);
 
-    // Extract solutions should map back correctly
     if ksat_satisfiable {
         assert_satisfaction_round_trip_from_satisfaction_target(
             &sat,
@@ -153,11 +150,9 @@ fn test_sat_to_3sat_solution_extraction() {
         ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat).expect("reduction should succeed");
     let ksat = reduction.target_problem();
 
-    // Solve K-SAT - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
     let ksat_solutions = solver.find_all_witnesses(ksat).unwrap();
 
-    // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
         let sat_sol = reduction.extract_solution(ksat_sol).unwrap();
         // Should only have original 2 variables
@@ -183,7 +178,6 @@ fn test_3sat_to_sat() {
     assert_eq!(sat.num_vars(), 3);
     assert_eq!(sat.num_clauses(), 2);
 
-    // Verify clauses are preserved
     assert_eq!(sat.clauses()[0].literals, vec![1, 2, 3]);
     assert_eq!(sat.clauses()[1].literals, vec![-1, -2, 3]);
 }
@@ -216,7 +210,6 @@ fn test_roundtrip_sat_3sat_sat() {
     let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat).expect("reduction should succeed");
     let final_sat = to_sat.target_problem();
 
-    // Solve all three - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
     let orig_solutions = solver.find_all_witnesses(&original_sat).unwrap();
@@ -298,7 +291,6 @@ fn test_mixed_clause_sizes() {
         assert_eq!(clause.len(), 3);
     }
 
-    // Verify satisfiability is preserved - use find_all_witnesses for satisfaction problems
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &reduction,

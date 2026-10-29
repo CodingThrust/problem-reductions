@@ -104,7 +104,6 @@ fn test_minimum_metric_dimension_serialization() {
     assert_eq!(deserialized.num_vertices(), 3);
     assert_eq!(deserialized.num_edges(), 2);
 
-    // Verify evaluation is preserved
     let config = vec![true, false, false];
     assert_eq!(
         problem.evaluate(&config).unwrap(),

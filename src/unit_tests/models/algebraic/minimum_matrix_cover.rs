@@ -154,16 +154,13 @@ fn test_minimum_matrix_cover_paper_example() {
     let problem = MinimumMatrixCover::new(matrix);
     let solver = BruteForce::new();
 
-    // Verify the claimed optimal from the issue
     let value = problem.evaluate(&vec![false, true, true, false]).unwrap();
     assert_eq!(value, Min(Some(-20)));
 
-    // Verify it is truly optimal
     let optimal_value_solution = solver.solve(&problem).unwrap().unwrap();
     let optimal_value = problem.evaluate(&optimal_value_solution).unwrap();
     assert_eq!(optimal_value, Min(Some(-20)));
 
-    // Verify the witness is one of the optimal solutions
     let all_witnesses = solver.find_all_witnesses(&problem).unwrap();
     assert!(all_witnesses.contains(&vec![false, true, true, false]));
 }

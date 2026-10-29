@@ -21,7 +21,6 @@ pub(crate) fn solve(problem: &PartialFeedbackEdgeSet<SimpleGraph>) -> Option<Vec
         return Some(vec![false; m]);
     }
 
-    // Build adjacency list with edge indices
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     for (idx, &(u, v)) in edges.iter().enumerate() {
         adj[u].push((v, idx));
@@ -146,7 +145,6 @@ fn hitting_set_search(
         return;
     }
 
-    // Find the first uncovered cycle
     let uncovered = cycles[start_cycle..]
         .iter()
         .enumerate()

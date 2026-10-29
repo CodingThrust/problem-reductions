@@ -84,7 +84,7 @@ fn test_maximum_co_k_plex_creation() {
 fn test_maximum_co_k_plex_evaluate_feasible() {
     let problem = issue_instance();
 
-    // Optimum from the issue: x = (1,0,1,0,1), S = {0,2,4}.
+    // Optimum: x = (1,0,1,0,1), S = {0,2,4}.
     // Induced subgraph has only the edge (4,0); induced degrees (1,0,1) all <= 1.
     assert_eq!(
         problem

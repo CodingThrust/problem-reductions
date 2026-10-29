@@ -267,7 +267,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "longestcircuit_to_ilp",
             build: || {
-                // Triangle with unit lengths
                 let source = LongestCircuit::new(
                     SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                     vec![1, 1, 1],

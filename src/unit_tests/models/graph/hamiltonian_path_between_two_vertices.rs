@@ -57,7 +57,7 @@ fn test_hamiltonian_path_between_two_vertices_basic() {
 
 #[test]
 fn test_hamiltonian_path_between_two_vertices_no_solution() {
-    // C5 cycle: s=0, t=2 has no Hamiltonian s-t path (from issue #831)
+    // C5 cycle: s=0, t=2 has no Hamiltonian s-t path
     let problem = HamiltonianPathBetweenTwoVertices::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
         0,
@@ -75,7 +75,6 @@ fn test_hamiltonian_path_between_two_vertices_no_solution() {
 fn test_hamiltonian_path_between_two_vertices_brute_force() {
     use crate::traits::Problem;
 
-    // Issue #831 Example 1: 6 vertices, 8 edges, s=0, t=5
     let problem = HamiltonianPathBetweenTwoVertices::new(
         SimpleGraph::new(
             6,
@@ -102,7 +101,6 @@ fn test_hamiltonian_path_between_two_vertices_brute_force() {
     assert_eq!(sol[0], 0, "Path must start at source vertex 0");
     assert_eq!(sol[5], 5, "Path must end at target vertex 5");
 
-    // Issue says there are exactly 4 distinct Hamiltonian s-t paths
     let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4);
     for path in &all {
@@ -153,7 +151,6 @@ fn test_hamiltonian_path_between_two_vertices_serialization() {
 fn test_hamiltonian_path_between_two_vertices_paper_example() {
     use crate::traits::Problem;
 
-    // Instance from issue #831: 6 vertices, s=0, t=5
     let problem = HamiltonianPathBetweenTwoVertices::new(
         SimpleGraph::new(
             6,
@@ -172,15 +169,12 @@ fn test_hamiltonian_path_between_two_vertices_paper_example() {
         5,
     );
 
-    // Issue-specified solution: 0 -> 3 -> 2 -> 1 -> 4 -> 5
     assert!(problem.evaluate(&vec![0, 3, 2, 1, 4, 5]).unwrap());
 
-    // Verify edge-by-edge
     let path = [0usize, 3, 2, 1, 4, 5];
     assert_eq!(path[0], 0, "path starts at s=0");
     assert_eq!(path[5], 5, "path ends at t=5");
 
-    // Verify brute force confirms the problem
     let solver = BruteForce::new();
     let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4, "issue says 4 Hamiltonian s-t paths exist");

@@ -108,11 +108,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "exactcoverby3sets_to_staffscheduling",
         build: || {
-            // Universe {0,1,2,3,4,5}, subsets [{0,1,2}, {3,4,5}, {0,3,4}, {1,2,5}]
-            // Exact cover: S0 + S1
             let source =
                 ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]);
-            // In StaffScheduling, assigning 1 worker to schedule 0 and 1 worker to schedule 1
             crate::example_db::specs::rule_example_with_witness::<_, StaffScheduling>(
                 source,
                 SolutionPair {

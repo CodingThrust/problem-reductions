@@ -144,7 +144,6 @@ fn test_minimum_internal_macro_data_compression_serialization() {
 
 #[test]
 fn test_minimum_internal_macro_data_compression_paper_example() {
-    // Issue example: alphabet {a,b,c} (3), s="abcabcabc" (9), h=2
     // Optimal: C = [a, b, c, ptr(0), ptr(0), EOS, EOS, EOS, EOS]
     // active_len=5, pointers=2, cost = 5 + 1*2 = 7
     let problem = MinimumInternalMacroDataCompression::new(3, vec![0, 1, 2, 0, 1, 2, 0, 1, 2], 2);

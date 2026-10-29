@@ -118,7 +118,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "subgraphisomorphism_to_ilp",
         build: || {
-            // Host: C4, Pattern: P3 (path on 3 vertices embeddable in cycle)
             let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
             let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
             let source = SubgraphIsomorphism::new(host, pattern);

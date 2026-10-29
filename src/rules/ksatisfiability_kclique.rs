@@ -123,7 +123,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_kclique",
         build: || {
-            // (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ ¬x2 ∨ x3), n=3, m=2
             let source = KSatisfiability::<K3>::new(
                 3,
                 vec![
@@ -131,10 +130,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, -2, 3]),
                 ],
             );
-            // x1=F, x2=F, x3=T satisfies both clauses.
-            // Clause 0: pick literal x3 (position 2) → vertex 2
-            // Clause 1: pick literal ¬x1 (position 0) → vertex 3
-            // Select literal vertices 2 and 3 and the universal vertex 6.
             crate::example_db::specs::rule_example_with_witness::<_, KClique<SimpleGraph>>(
                 source,
                 SolutionPair {

@@ -57,7 +57,6 @@ fn test_directed_hamiltonian_path_brute_force() {
 
 #[test]
 fn test_directed_hamiltonian_path_issue_example() {
-    // 6-vertex example from issue #813
     // Arcs: [(0,1),(0,3),(1,3),(1,4),(2,0),(2,4),(3,2),(3,5),(4,5),(5,1)]
     // Hamiltonian path: [0, 1, 3, 2, 4, 5]
     let graph = SimpleDigraph::new(

@@ -185,24 +185,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "threepartition_to_sequencingwithreleasetimesanddeadlines",
         build: || {
-            // ThreePartition: sizes=[4,5,6,4,6,5], bound=15, m=2
-            // Groups: {4,5,6}=15, {4,6,5}=15
-            // Source config: [0,0,0,1,1,1] (elements 0,1,2 in group 0; 3,4,5 in group 1)
-            //
-            // Target: 6 element tasks + 1 filler = 7 tasks
-            // Schedule for source config [0,0,0,1,1,1]:
-            //   Slot 0 [0,15): tasks 0(len=4), 1(len=5), 2(len=6) -> times [0,4), [4,9), [9,15)
-            //   Filler [15,16): task 6(len=1)
-            //   Slot 1 [16,31): tasks 3(len=4), 4(len=6), 5(len=5) -> times [16,20), [20,26), [26,31)
-            // Permutation: [0,1,2,6,3,4,5]
-            // Lehmer code: [0,0,0,3,0,0,0]
-            //   remaining=[0,1,2,3,4,5,6], pick 0 -> 0, remaining=[1,2,3,4,5,6]
-            //   remaining=[1,2,3,4,5,6], pick 0 -> 1, remaining=[2,3,4,5,6]
-            //   remaining=[2,3,4,5,6], pick 0 -> 2, remaining=[3,4,5,6]
-            //   remaining=[3,4,5,6], pick 3 -> 6, remaining=[3,4,5]
-            //   remaining=[3,4,5], pick 0 -> 3, remaining=[4,5]
-            //   remaining=[4,5], pick 0 -> 4, remaining=[5]
-            //   remaining=[5], pick 0 -> 5
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 SequencingWithReleaseTimesAndDeadlines,

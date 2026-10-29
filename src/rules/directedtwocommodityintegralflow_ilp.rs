@@ -195,9 +195,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "directedtwocommodityintegralflow_to_ilp",
         build: || {
-            // 6-vertex network: s1=0, s2=1, t1=4, t2=5
-            // Arcs: (0,2),(0,3),(1,2),(1,3),(2,4),(2,5),(3,4),(3,5)
-            // f1 routes 0→2→4 (1 unit), f2 routes 1→3→5 (1 unit)
             let source = DirectedTwoCommodityIntegralFlow::new(
                 MultiDigraph::new(
                     6,

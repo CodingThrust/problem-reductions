@@ -218,7 +218,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "consecutiveonessubmatrix_to_ilp",
         build: || {
-            // Tucker matrix (3x4), K=3
             let source = ConsecutiveOnesSubmatrix::new(
                 vec![
                     vec![true, true, false, true],

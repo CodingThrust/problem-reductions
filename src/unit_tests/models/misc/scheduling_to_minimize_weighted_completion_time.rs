@@ -41,7 +41,6 @@ fn test_scheduling_min_wct_creation() {
 
 #[test]
 fn test_scheduling_min_wct_evaluate_issue_example() {
-    // Issue example: 5 tasks, 2 processors
     // Optimal: P0={t0,t2,t4}, P1={t1,t3} => cost = 47
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(
         vec![1, 2, 3, 4, 5],
@@ -112,7 +111,6 @@ fn test_scheduling_min_wct_find_all_witnesses() {
     );
     let solver = BruteForce::new();
     let witnesses = solver.find_all_witnesses(&problem).unwrap();
-    // Issue says 2 optimal assignments (mirror pair)
     assert_eq!(witnesses.len(), 2);
     for w in &witnesses {
         assert_eq!(problem.evaluate(w).unwrap(), Min(Some(47)));
@@ -204,7 +202,6 @@ fn test_scheduling_min_wct_three_processors() {
 
 #[test]
 fn test_scheduling_min_wct_paper_example() {
-    // Same as issue example - verifying the worked example
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(
         vec![1, 2, 3, 4, 5],
         vec![6, 4, 3, 2, 1],

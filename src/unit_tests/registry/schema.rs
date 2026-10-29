@@ -19,7 +19,6 @@ fn problem_category_parses_only_declared_values() {
 #[test]
 fn test_collect_schemas_returns_all_problems() {
     let schemas = collect_schemas();
-    // We have 17 registered problems
     assert!(
         schemas.len() >= 17,
         "Expected at least 17 schemas, got {}",

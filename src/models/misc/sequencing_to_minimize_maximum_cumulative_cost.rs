@@ -30,8 +30,8 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Configurations use Lehmer-code dimensions `[n, n-1, ..., 1]` to encode a
-/// permutation of the task indices.
+/// A solution is a permutation of task indices; the reference solver decodes
+/// its Lehmer-code enumeration before evaluation.
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeMaximumCumulativeCost {
     costs: Vec<i64>,

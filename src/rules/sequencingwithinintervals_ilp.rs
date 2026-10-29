@@ -175,9 +175,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "sequencingwithinintervals_to_ilp",
         build: || {
-            // 2 tasks: task 0 [r=0, d=3, l=2], task 1 [r=2, d=5, l=2]
-            // Task 0 can start at offset 0 or 1, task 1 can start at offset 0 or 1
-            // No overlap when both at offset 0: [0,2) and [2,4)
             let source =
                 SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]).unwrap();
             let reduction: ReductionSWIToILP =

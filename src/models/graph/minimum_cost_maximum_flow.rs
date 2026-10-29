@@ -14,8 +14,8 @@
 //!
 //! # Integral-flow restriction
 //!
-//! The mathematical CellRouter formulation in issue #1029 uses
-//! continuous flows `f: A -> R_{>= 0}`, but this model's registered reference
+//! The continuous formulation allows flows
+//! `f: A -> R_{>= 0}`, but this model's registered reference
 //! solver uses a finite Cartesian space. Following the same precedent as
 //! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) (see
 //! `src/models/graph/minimum_edge_cost_flow.rs`), we therefore restrict
@@ -458,12 +458,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         vec![2, 1, 1, 1, 2],
         vec![1, 0, 0, 1, 2],
     );
-    // Optimal flow has value 3, routed as:
-    //   - 1 unit on 0->1->3        via arcs 0,3 (cost 1 + 1 = 2)
-    //   - 1 unit on 0->1->2->3     via arcs 0,2,4 (cost 1 + 0 + 2 = 3)
-    //   - 1 unit on 0->2->3        via arcs 1,4 (cost 0 + 2 = 2)
-    // Arc flows sum to f = [2, 1, 1, 1, 2]: value = 3,
-    // cost = 2*1 + 1*0 + 1*0 + 1*1 + 2*2 = 7.
     let optimal_config = vec![2, 1, 1, 1, 2];
     let optimal_value = problem
         .evaluate(&optimal_config)

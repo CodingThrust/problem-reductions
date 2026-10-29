@@ -25,7 +25,6 @@ fn test_clustering_validates_persisted_input() {
     }
 }
 
-/// Helper: build the 6-element two-group instance from the issue.
 fn two_group_instance() -> Clustering {
     let distances = vec![
         vec![0, 1, 1, 3, 3, 3],
@@ -183,7 +182,6 @@ fn test_clustering_paper_example() {
     let result = problem.evaluate(&config).unwrap();
     assert!(result.0);
 
-    // Verify this is satisfiable
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap();
     assert!(witness.is_some());

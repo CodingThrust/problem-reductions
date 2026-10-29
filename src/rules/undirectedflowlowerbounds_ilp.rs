@@ -207,8 +207,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "undirectedflowlowerbounds_to_ilp",
         build: || {
-            // 3-vertex graph: edge (0,1) cap=2 lower=1, edge (1,2) cap=2 lower=1
-            // source=0, sink=2, requirement=1
             let source = UndirectedFlowLowerBounds::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 2],

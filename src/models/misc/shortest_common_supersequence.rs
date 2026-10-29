@@ -266,9 +266,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Alphabet {0, 1}, strings [0,1] and [1,0]
-    // max_length = 2 + 2 = 4, search space = 3^4 = 81
-    // Optimal SCS length = 3, e.g. [0,1,0] padded to [0,1,0,2]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_common_supersequence",
         instance: Box::new(ShortestCommonSupersequence::new(

@@ -259,7 +259,6 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
         let mut dist: Vec<Option<W::Sum>> = vec![None; n];
         let mut visited = vec![false; n];
 
-        // Initialize centers
         for (v, &selected) in config.iter().enumerate() {
             if selected {
                 dist[v] = Some(W::Sum::zero());
@@ -267,7 +266,6 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
         }
 
         for _ in 0..n {
-            // Find unvisited vertex with smallest distance
             let mut u = None;
             for v in 0..n {
                 if visited[v] {
@@ -344,13 +342,11 @@ where
                 ));
             }
 
-            // Check exactly K centers are selected
             let num_selected = config.iter().filter(|&&selected| selected).count();
             if num_selected != self.k {
                 return Ok(Min(None));
             }
 
-            // Compute shortest distances to nearest center
             let distances = match self.shortest_distances(config)? {
                 Some(d) => d,
                 None => {

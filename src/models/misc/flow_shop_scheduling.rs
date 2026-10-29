@@ -35,13 +35,8 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Configurations use Lehmer code encoding with `dims() = [n, n-1, ..., 1]`.
-/// A config `[c_0, c_1, ..., c_{n-1}]` where `c_i < n - i` is decoded by
-/// maintaining a list of available jobs and picking the `c_i`-th element:
-///
-/// For 3 jobs, config `[2, 0, 0]`: available=`[0,1,2]`, pick index 2 → job 2;
-/// available=`[0,1]`, pick index 0 → job 0; available=`[1]`, pick index 0 → job 1.
-/// Result: job order `[2, 0, 1]`.
+/// A solution is a permutation of job indices. The reference solver enumerates
+/// Lehmer codes and decodes them to job orders before evaluation.
 ///
 /// Given a job order, start times are determined greedily (as early as possible).
 ///
@@ -284,7 +279,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             25,
         )),
-        // Job order [3,0,4,2,1] = Lehmer code [3,0,2,1,0], makespan 23
         optimal_config: serde_json::json!(vec![3, 0, 4, 2, 1]),
         optimal_value: serde_json::json!(true),
     }]

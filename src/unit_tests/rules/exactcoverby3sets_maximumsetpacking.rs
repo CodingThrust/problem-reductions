@@ -40,7 +40,6 @@ fn test_exactcoverby3sets_to_maximumsetpacking_structure() {
         assert_eq!(target.get_set(i).unwrap().len(), 3);
     }
 
-    // Verify specific set contents
     assert_eq!(target.sets()[0], vec![0, 1, 2]);
     assert_eq!(target.sets()[1], vec![0, 1, 3]);
     assert_eq!(target.sets()[2], vec![3, 4, 5]);

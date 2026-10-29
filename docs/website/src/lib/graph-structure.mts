@@ -111,11 +111,11 @@ export function familyRules(nodes: readonly { name: string }[], rules: readonly 
   return out;
 }
 
-/* Fewest reductions from any root family; null when no active rule chain leads there. */
-export function depthsFrom(names: readonly string[], links: readonly { source: string; target: string }[], roots: readonly string[]) {
-  const next = new Map<string, string[]>();
+/* Fewest reductions from any root; keep concrete variant IDs to avoid joining unrelated variants. */
+export function depthsFrom<T extends string | number>(names: readonly T[], links: readonly { source: T; target: T }[], roots: readonly T[]) {
+  const next = new Map<T, T[]>();
   for (const l of links) (next.get(l.source) ?? next.set(l.source, []).get(l.source)!).push(l.target);
-  const depth = new Map<string, number>(roots.filter(r => names.includes(r)).map(r => [r, 0]));
+  const depth = new Map<T, number>(roots.filter(r => names.includes(r)).map(r => [r, 0]));
   const queue = [...depth.keys()];
   for (let i = 0; i < queue.length; i++) for (const w of next.get(queue[i]!) ?? []) if (!depth.has(w)) { depth.set(w, depth.get(queue[i]!)! + 1); queue.push(w); }
   return new Map(names.map(n => [n, depth.get(n) ?? null] as const));

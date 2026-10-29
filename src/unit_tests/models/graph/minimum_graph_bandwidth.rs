@@ -94,7 +94,6 @@ fn test_minimumgraphbandwidth_serialization() {
     assert_eq!(deserialized.graph().num_vertices(), 4);
     assert_eq!(deserialized.graph().num_edges(), 3);
 
-    // Verify evaluation is consistent after round-trip
     let config = vec![1, 0, 2, 3];
     assert_eq!(
         problem.evaluate(&config).unwrap(),
@@ -131,8 +130,7 @@ fn test_minimumgraphbandwidth_empty_graph() {
 
 #[test]
 fn test_minimumgraphbandwidth_complete_graph_k4() {
-    // K4: bandwidth is always 3 (max position difference in any permutation)
-    // Actually for K4, bandwidth = n-1 = 3 for any arrangement since edge (first, last) exists.
+    // K4 connects the first and last vertices in every arrangement, forcing bandwidth 3.
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = MinimumGraphBandwidth::new(graph);
 

@@ -54,7 +54,6 @@ fn test_kernel_evaluate_not_independent() {
 #[test]
 fn test_kernel_evaluate_not_absorbing() {
     // Select only vertex 0: vertex 1 has no arc to 0 (only 0->1 exists), so not absorbing
-    // Actually, let's check: successors of 1 = {3}, and 3 is not selected
     // successors of 2 = {3}, not selected
     // successors of 3 = {4}, not selected
     // successors of 4 = {0, 1}, 0 is selected → ok for 4
@@ -92,7 +91,6 @@ fn test_kernel_no_solution() {
     // A directed 3-cycle has no kernel:
     // 0->1, 1->2, 2->0
     // Any single vertex is not absorbing (e.g., {0}: vertex 2 has successor 0, ok; vertex 1 has successor 2, not selected → fail)
-    // Wait, let's verify: {0}: successors of 1 = {2}, not selected. Not absorbing.
     // {0,1}: arc (0,1) exists. Not independent.
     // No kernel exists for odd cycles.
     let graph = SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);

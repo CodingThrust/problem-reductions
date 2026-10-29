@@ -120,8 +120,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumvertexcover_to_minimumfeedbackarcset",
         build: || {
-            // Triangle graph: 0-1-2-0, unit weights
-            // MVC optimal = 2 vertices (e.g., {0, 1})
             let source = MinimumVertexCover::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
                 vec![1i64; 3],

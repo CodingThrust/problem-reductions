@@ -102,7 +102,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kclique_to_ilp",
         build: || {
-            // K4 (complete graph on 4 vertices), k=3 → feasible (has a 3-clique)
             let source = KClique::new(
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
                 3,

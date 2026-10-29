@@ -132,24 +132,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumvertexcover_to_ensemblecomputation",
         build: || {
-            // Single edge graph: 2 vertices {0,1}, 1 edge (0,1)
-            // Minimum vertex cover K* = 1 (either {0} or {1})
-            // Budget = 2 + 1 = 3, universe_size = 3, a₀ = 2
-            // Subsets = {{0,1,2}}
-            // Optimal sequence length = K* + |E| = 1 + 1 = 2
             let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
 
-            // Optimal sequence for cover {0} (2 steps):
-            // Step 0: {a₀=2} ∪ {0} → z₀ = {0,2}   operands: (2, 0)
-            // Step 1: {1} ∪ z₀ → z₁ = {0,1,2} ✓    operands: (1, 3) where 3 = universe_size + 0
-            // Step 2: padding (unused)                operands: (2, 1)
-            let target_config = vec![
-                2, 0, // step 0: {a₀} ∪ {0}
-                1, 3, // step 1: {1} ∪ z₀
-                2, 1, // step 2: padding
-            ];
-            // Only step 0 produces a pair; step 1 produces the required
-            // triple, and step 2 is padding. Extraction returns minimum {0}.
+            let target_config = vec![2, 0, 1, 3, 2, 1];
             let source_config = vec![true, false];
 
             crate::example_db::specs::rule_example_with_witness::<_, EnsembleComputation>(

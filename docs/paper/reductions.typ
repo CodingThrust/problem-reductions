@@ -2229,7 +2229,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           import draw: *
           let blue = graph-colors.at(0)
           let gray = luma(185)
-          // Layout for issue #813: path 0–1–3–2–4–5 with clear bends so $v_0,v_1,v_3$ are not collinear
+          // Bend the path so $v_0,v_1,v_3$ are not collinear.
           // (otherwise $(0,3)$ lies on the same geometric line as $0 arrow.r 1 arrow.r 3$).
           let verts = (
             (0, 0),
@@ -3288,7 +3288,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 #{
-  let x = load-model-example("SteinerTree")
+  let x = load-model-example("SteinerTree", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
@@ -4452,7 +4452,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("ComparativeContainment")
+  let x = load-model-example("ComparativeContainment", variant: (weight: "i64"))
   let n = x.instance.universe_size
   let R = x.instance.r_sets
   let S = x.instance.s_sets
@@ -4995,7 +4995,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("QUBO")[
       Given $n$ binary variables $x_i in {0, 1}$ and an upper-triangular matrix $Q$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables). The registered variants use either exact integer coefficients $Q in ZZ^(n times n)$ (the default) or finite floating-point coefficients $Q in RR^(n times n)$.
     ][
-    Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The integer variant stores exact coefficients, the floating-point variant stores finite real coefficients, and their explicit reduction converts exactly representable integers through `i64_to_exact_f64`. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
+    Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The integer variant stores exact coefficients, the floating-point variant stores finite real coefficients. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
     *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#fmt-values(xstar))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
 
@@ -13439,6 +13439,16 @@ These constructions use the checked sparse penalty and extraction contracts abov
   _Solution extraction._ If the sentinel $s = 0$, return the first $n$ variables. If $s = 1$, return the complement of the first $n$ variables.
 ]
 
+#reduction-rule("NAESatisfiability", "Satisfiability")[
+  A not-all-equal clause holds exactly when it has a true literal and a false literal @schaefer1978. Each NAE clause therefore becomes two CNF clauses over the same variables, one forbidding the all-false assignment and one forbidding the all-true assignment.
+][
+  _Construction._ Given an NAE-SAT instance with $n$ variables and $m$ clauses, keep the same $n$ variables. For each clause $C_j = (ell_1, dots, ell_r)$ with $r >= 2$, emit the CNF clauses $(ell_1 or dots or ell_r)$ and $(not ell_1 or dots or not ell_r)$. The target has $n$ variables, $2m$ clauses, and $2L$ literal occurrences, where $L$ is the number of source literal occurrences. Repeated and complementary literals are copied unchanged.
+
+  _Correctness._ For any assignment, the first clause is false exactly when every $ell_i$ is false, and the second is false exactly when every $ell_i$ is true. Both hold exactly when $C_j$ contains a true and a false literal, which is the NAE condition. Hence an assignment satisfies the target iff it satisfies the source.
+
+  _Solution extraction._ Return the target assignment unchanged.
+]
+
 #let cs_sat = load-example("CircuitSAT", "Satisfiability")
 #let cs_sat_sol = cs_sat.solutions.at(0)
 #reduction-rule("CircuitSAT", "Satisfiability",
@@ -14494,9 +14504,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
 #let lcs_mis_sol = lcs_mis.solutions.at(0)
+#let lcs_mis_length = lcs_mis_sol.source_config.filter(x => x != none).len()
+#let lcs_mis_slots = lcs_mis_sol.source_config.len()
 #reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
   example: true,
-  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  example-caption: [Two conflicting match tuples for strings with opposite symbol order],
   extra: [
     #pred-commands(
       "pred create --example " + rule-spec(lcs_mis) + " -o lcs.json",
@@ -14504,22 +14516,27 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
     )
-    Source LCS: config $(#fmt-values(lcs_mis_sol.source_config))$ \
-    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x).len()) \
-    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x).len()$ #sym.checkmark
+    The strings #fmt-values(lcs_mis.source.instance.strings.at(0)) and #fmt-values(lcs_mis.source.instance.strings.at(1)) leave one embedding string after normalization, and the source witness has length #lcs_mis_slots. The graph has #lcs_mis.target.instance.graph.num_vertices vertices and #lcs_mis.target.instance.graph.edges.len() edges. Source witness $(#fmt-values(lcs_mis_sol.source_config))$ decodes from target vertices ${#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$, with MIS size $= #lcs_mis_sol.target_config.filter(x => x).len() = #lcs_mis_length$.
   ],
 )[
-  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+  Use a match-tuple graph when it has neither more vertices nor more edges than a reward-anchored graph; otherwise use the anchored graph. Let $k$ be the number of input strings, $T$ their total length, $L$ the shortest string length (zero for no strings), $S=sum_r |s_r|(|s_r|+1)\/2$, and $A=L(L+1)\/2$. The target satisfies
+  $ V <= L(k+T-L), quad E <= A(S-A)+L(k-1). $
 ][
-  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+  _Construction._ Choose the first shortest string as the anchor and delete its symbols absent from any input string. Write $a$ for this filtered anchor and $h=|a|$. Filter every other string to the symbols of $a$, omit strings containing $a$ as a subsequence, and remove duplicates, leaving $m$ embedding strings.
 
-  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+  _Anchored encoding._ Create one reward vertex $z_p$ for each anchor position $p$. For each embedding string $s_r$ and position $p$, create a clique $Y_(r,p)$ containing one vertex per position $j$ with $s_r[j]=a[p]$, plus a skip vertex. Join $z_p$ to that skip. Between slots $p<q$ in the same string, join matching vertices $j,j'$ exactly when $j>=j'$. There are no other edges.
 
-  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+  _Tuple encoding and selection._ A vertex is a tuple of equal-symbol positions, one in $a$ and one in each embedding string. Two vertices are adjacent unless all coordinates are strictly increasing in the same direction. Its vertex count is $V_t=sum_p product_r |{j:s_r[j]=a[p]}|$; form these tuples only if $V_t<=V_a$. Choose the tuple graph precisely when also $E_t<=E_a$, where subscripts denote the tuple and anchored graphs. Otherwise choose the anchored graph.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+  _Correctness._ Every common subsequence uses only symbols present in all input strings, so filtering the anchor preserves the feasible words. Filtering other strings, removing duplicates, and omitting strings containing the filtered anchor also preserve these words. Tuple independent sets, sorted by anchor position, are exactly common-subsequence embeddings, so their maximum size is $"LCS"$. For the anchored encoding:
 
-  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+  ($arrow.r.double$) A common subsequence of length $ell$ selects its reward vertices and increasing matching positions in each embedding string, using skips at the other slots. This gives an independent set of size $h m+ell$.
+
+  ($arrow.l.double$) An independent set with $q$ rewards and $d$ empty embedding groups has size $h m+q-d$. A selected reward missing a match in some string has an empty group, because its skip is adjacent to the reward. Discard these rewards; each discarded slot accounts for a distinct empty group. The remaining $ell>=q-d$ symbols form a common subsequence, so the independent-set size is at most $h m+ell<=h m+"LCS"$. The forward construction attains equality, and every optimum decodes an optimal common subsequence. In particular, empty embedding groups are permitted. The two objectives differ, so the reduction registers witness extraction without an aggregate value map.
+
+  _Solution extraction._ Validate independence once. Order tuple vertices by anchor position and anchored rewards by anchor slot. Read the symbol of each selected vertex that has a selected match in every embedding string; tuples have no embedding strings, so every selected tuple is read. Pad the result to the original length $L$. This also maps nonoptimal independent sets to feasible common subsequences. With no embedding strings the tuple graph has $h$ isolated vertices and is always selected.
+
+  _Overhead._ For $k>=1$, the anchored graph has $h(m+1)+F$ vertices, where $F$ counts retained equal-symbol position pairs. Since $h<=L$, $m<=k-1$, and $F<=L(T-L)$, the vertex bound follows. For one embedding string of length $n$, within-slot cliques contribute at most $h n(n+1)\/2$ edges. Each of the $h(h-1)\/2$ slot pairs contributes at most $n(n+1)\/2$ crossing edges, counting all pairs $j>=j'$. Together these are at most $A n(n+1)\/2$ edges, plus at most $L$ reward-to-skip edges. Summing over a subset of the original non-anchor strings gives $E<=A(S-A)+L(k-1)$. Empty input has $V=E=L=0$ and satisfies both formulas. Dominance transfers both bounds to the tuple branch. All bounds use only registered source parameters.
 ]
 
 #let cs_ilp_str = load-example(
@@ -17283,15 +17300,14 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 Problems parameterized by graph type, weight type, target type, or clause width ($k$) use explicit reductions between registered variants. Each rule constructs the target representation, registers an exact size map, and preserves the witness representation.
 
 #reduction-rule("MaximumIndependentSet", "MaximumIndependentSet")[
-  Explicit MIS variant reductions convert King's and triangular lattice graphs to unit-disk graphs, unit-disk graphs to simple adjacency graphs, and unit weights to integer weights. Every rule preserves the vertex indices and has an exact identity size map.
+  Explicit MIS variant reductions convert King's and triangular lattice graphs to unit-disk graphs, and unit-disk graphs to simple adjacency graphs. Every rule preserves the vertex indices and has an exact identity size map.
 ][
   _Construction._ The registered rules use these concrete maps:
   - _KingsSubgraph $arrow.r$ UnitDiskGraph:_ integer grid positions $(i, j)$ map to float coordinates with radius $r = 1.5$.
   - _TriangularSubgraph $arrow.r$ UnitDiskGraph:_ triangular lattice positions map to float coordinates with radius $r = 1.1$.
   - _UnitDiskGraph $arrow.r$ SimpleGraph:_ discard coordinates, retain only the adjacency edge list.
-  - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
 
-  _Correctness._ Each graph conversion preserves the adjacency relation, and the weight conversion preserves every unit objective contribution as the integer one. Since the MIS objective $max sum_(v in S) w(v)$ depends only on adjacency and weights, feasible sets and their objective values are preserved.
+  _Correctness._ Each graph conversion preserves the adjacency relation. Since the MIS objective $max sum_(v in S) w(v)$ depends only on adjacency and weights, feasible sets and their objective values are preserved.
 
   _Solution extraction._ Return the target configuration unchanged (identity map on vertices).
 ]
@@ -17306,44 +17322,26 @@ Problems parameterized by graph type, weight type, target type, or clause width 
   _Solution extraction._ Return the target configuration unchanged.
 ]
 
-#reduction-rule("SpinGlass", "SpinGlass")[
-  An Ising spin-glass instance with integer couplings and fields ($J_(i j), h_i in ZZ$) converts to the floating-point variant ($J_(i j), h_i in RR$) through exact `i64_to_exact_f64` embeddings. The graph topology is preserved.
-][
-  _Construction._ Given $"SpinGlass"(G, bold(J), bold(h))$ with $J_(i j) in ZZ$ and $h_i in ZZ$, construct $"SpinGlass"(G, bold(J)', bold(h)')$ with $J'_(i j) = J_(i j) in RR$ and $h'_i = h_i in RR$.
-
-  _Correctness._ The spin-glass Hamiltonian $H(bold(s)) = sum_((i,j) in E) J_(i j) s_i s_j + sum_i h_i s_i$ is preserved exactly under the integer-to-float embedding (no rounding). Spin configurations and the objective value are unchanged.
-
-  _Solution extraction._ Return the target configuration unchanged.
-]
-
-#reduction-rule("MaximumSetPacking", "MaximumSetPacking")[
-  A Maximum Set Packing instance converts unit weights to integer weights ($"One" arrow.r ZZ$) and integer weights to exactly represented floating weights ($ZZ arrow.r RR$). The set family and universe are preserved.
-][
-  _Construction._ Given $"MSP"(cal(S), bold(w))$, construct $"MSP"(cal(S), bold(w)')$ using:
-  - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
-  - _i64 $arrow.r$ f64:_ each integer weight maps through `i64_to_exact_f64`.
-
-  _Correctness._ The packing constraint (no two selected sets share a universe element) depends only on set membership, not on weights. The objective $max sum_(i in P) w_i$ is preserved under the type embedding. Optimality is unchanged.
-
-  _Solution extraction._ Return the target configuration unchanged.
-]
-
-
-#reduction-rule("QUBO", "QUBO")[
-  An integer QUBO converts to the floating-coefficient variant by embedding every matrix coefficient with `i64_to_exact_f64`.
-][
-  _Construction._ Given $Q in ZZ^(n times n)$, construct $Q' in RR^(n times n)$ with $Q'_(i j) = "f64"(Q_(i j))$ for every exactly representable coefficient $|Q_(i j)| lt.eq 2^53 - 1$.
-
-  _Correctness._ For every binary vector $bold(x)$, exact coefficient conversion gives $bold(x)^top Q' bold(x) = bold(x)^top Q bold(x)$. The objective ordering and minimizers are preserved.
-
-  _Solution extraction._ Return the binary vector unchanged.
-]
-
 // Completeness check: warn about reduction rules in JSON but missing from paper
 #context {
   let covered = covered-rules.final()
   let json-edges = {
-    let edges = graph-data.edges.map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
+    let is-numeric-cast(src, tgt) = {
+      src.name == tgt.name and ("weight", "coefficient").any(field => {
+        let from = src.variant.at(field, default: none)
+        let to = tgt.variant.at(field, default: none)
+        let promotion = (from == "One" and to == "i64") or (from == "i64" and to == "f64")
+        let promoted = src.variant
+        promoted.insert(field, to)
+        promotion and promoted == tgt.variant
+      })
+    }
+    let source = (name: "MaximumIndependentSet", variant: (graph: "SimpleGraph", weight: "One"))
+    assert(is-numeric-cast(source, (name: source.name, variant: (graph: "SimpleGraph", weight: "i64"))))
+    assert(not is-numeric-cast(source, (name: source.name, variant: (graph: "TriangularSubgraph", weight: "i64"))))
+    let edges = graph-data.edges.filter(e => {
+      not is-numeric-cast(graph-data.nodes.at(e.source), graph-data.nodes.at(e.target))
+    }).map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
     let unique = ()
     for e in edges {
       if unique.find(u => u.at(0) == e.at(0) and u.at(1) == e.at(1)) == none {
@@ -17592,16 +17590,16 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
 ]
 
-// === Non-ILP reduction rules (issue #974) ===
+// === Non-ILP reduction rules ===
 
 #reduction-rule("ILP", "ILP")[
-  ILP variants convert between binary and bounded integer variable domains and between exact-integer and floating-point coefficients. The independent bounds dimension defaults to general; the bounded integer variant requires finite lower and upper endpoints for every variable. Binary variables embed into bounded integer ILP, which embeds into general integer ILP while retaining all stored bounds. A bounded integer variable is encoded by binary variables with truncated positional weights. Integer coefficients are embedded only when every stored coefficient and right-hand side has an exact `f64` representation.
+  ILP variants convert between binary and bounded integer variable domains. The independent bounds dimension defaults to general; the bounded integer variant requires finite lower and upper endpoints for every variable. Binary variables embed into bounded integer ILP, which embeds into general integer ILP while retaining all stored bounds. A bounded integer variable is encoded by binary variables with truncated positional weights.
 ][
-  _Construction._ For the binary-to-bounded-integer and bounded-to-general edges, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge is registered only for the bounded integer variant; its constructor requires two finite bounds for every variable. For the coefficient edge, copy the variable bounds and optimization direction and convert each entry of the constraint matrix, right-hand side, and objective independently; reject the instance if any integer lies outside the exactly representable `f64` integer range.
+  _Construction._ For the binary-to-bounded-integer and bounded-to-general edges, copy the variables, constraints, objective, and optimization direction unchanged. For an integer variable $x_i in [L_i, U_i]$, let $D_i = U_i - L_i$ and choose positive truncated binary weights $w_(i j)$ whose subset sums represent every integer from $0$ through $D_i$; substitute $x_i = L_i + sum_j w_(i j)y_(i j)$ into every constraint and objective term. This edge is registered only for the bounded integer variant; its constructor requires two finite bounds for every variable.
 
-  _Correctness._ The binary-to-bounded-integer and bounded-to-general embeddings change no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and changes the stored objective only by the constant lower-bound contribution, so optimal assignments are preserved. Exact conversion preserves every stored coefficient, so it constructs the same formal linear objective and constraints over the same integer variables.
+  _Correctness._ The binary-to-bounded-integer and bounded-to-general embeddings change no mathematical expression. For bounded integer variables, every $x_i in [L_i,U_i]$ has a truncated binary representation, and every binary assignment decodes inside that interval; substitution preserves all constraints and changes the stored objective only by the constant lower-bound contribution, so optimal assignments are preserved.
 
-  _Solution extraction._ Binary-to-bounded-integer, bounded-to-general, and coefficient conversions preserve the assignment; coefficient conversion additionally checks the assignment against the source integer ILP. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
+  _Solution extraction._ Binary-to-bounded-integer and bounded-to-general conversions preserve the assignment. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")

@@ -55,7 +55,7 @@ fn test_sequencing_rtd_basic() {
 
 #[test]
 fn test_sequencing_rtd_evaluate_feasible() {
-    // Canonical 5-task instance from issue #494, verified by brute-force enumeration.
+    // Canonical 5-task instance, verified by brute-force enumeration.
     let problem = SequencingWithReleaseTimesAndDeadlines::new(
         vec![3, 2, 4, 1, 2],
         vec![0, 1, 5, 0, 8],

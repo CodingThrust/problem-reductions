@@ -113,7 +113,6 @@ pub mod prelude {
     };
 }
 
-// Re-export commonly used items at crate root
 pub use big_o::big_o_normal_form;
 pub use error::{ProblemError, Result};
 pub use expr::{

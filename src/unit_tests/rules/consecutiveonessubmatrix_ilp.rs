@@ -46,7 +46,6 @@ fn test_cos_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 
-    // Verify brute-force on source agrees
     let bf = BruteForce::new();
     let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));

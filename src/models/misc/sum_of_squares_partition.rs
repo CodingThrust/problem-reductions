@@ -214,8 +214,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sum_of_squares_partition",
-        // sizes=[5,3,8,2,7,1], K=3
-        // Optimal: groups {8},{2,7},{5,3,1} -> sums 8,9,9 -> 64+81+81=226
         instance: Box::new(SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3)),
         optimal_config: serde_json::json!(vec![2, 2, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(226),

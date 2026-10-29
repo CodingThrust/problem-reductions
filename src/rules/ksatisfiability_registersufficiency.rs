@@ -1,8 +1,7 @@
 //! Reduction from KSatisfiability (3-SAT) to RegisterSufficiency.
 //!
 //! This is Sethi's Reduction I / Theorem 3.11 (STOC 1973), with an
-//! empty-formula boundary target and compact variables. The corrected extraction
-//! rule from issue #872:
+//! empty-formula boundary target and compact variables. The extraction rule is:
 //! - the snapshot is taken immediately after `w[n]`
 //! - `x_k = true` iff `x_pos[k]` has been computed by that snapshot
 //! - at most one of `x_pos[k]`, `x_neg[k]` can have been computed by then

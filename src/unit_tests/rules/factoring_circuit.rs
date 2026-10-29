@@ -63,13 +63,11 @@ fn evaluate_multiplier_circuit(
     let circuit = reduction.target_problem().circuit();
     let mut assignments: HashMap<String, bool> = HashMap::new();
 
-    // Set input variables for p
     for (i, var_name) in reduction.p_vars().iter().enumerate() {
         let bit = ((p_val >> i) & 1) == 1;
         assignments.insert(var_name.clone(), bit);
     }
 
-    // Set input variables for q
     for (i, var_name) in reduction.q_vars().iter().enumerate() {
         let bit = ((q_val >> i) & 1) == 1;
         assignments.insert(var_name.clone(), bit);
@@ -201,7 +199,6 @@ fn test_target_problem_structure() {
         ReduceTo::<CircuitSAT>::reduce_to(&factoring).expect("reduction should succeed");
     let circuit = reduction.target_problem();
 
-    // Verify the circuit has variables and assignments
     assert!(circuit.num_variables() > 0);
     assert!(!circuit.circuit().assignments.is_empty());
 }
@@ -258,7 +255,6 @@ fn test_prime_7_only_trivial_factorizations() {
 
             if is_valid_factorization {
                 assert!(satisfies, "{}*{}=7 should satisfy the circuit", p, q);
-                // Check it's a trivial factorization (1*7 or 7*1)
                 assert!(
                     (p == 1 && q == 7) || (p == 7 && q == 1),
                     "7 is prime, so only 1*7 or 7*1 should work"

@@ -209,8 +209,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumsummulticenter_to_ilp",
         build: || {
-            // 3-vertex path: 0 - 1 - 2, unit weights, K=1
-            // Optimal center is vertex 1 with total distance 1+0+1 = 2.
             let source = MinimumSumMulticenter::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1i64; 3],

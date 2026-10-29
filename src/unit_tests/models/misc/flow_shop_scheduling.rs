@@ -43,7 +43,6 @@ fn test_flow_shop_scheduling_creation() {
 
 #[test]
 fn test_flow_shop_scheduling_evaluate_feasible() {
-    // From issue example: 3 machines, 5 jobs
     // Job 0: [3, 4, 2], Job 1: [2, 3, 5], Job 2: [4, 1, 3], Job 3: [1, 5, 4], Job 4: [3, 2, 3]
     // Sequence j4, j1, j5, j3, j2 = jobs [3, 0, 4, 2, 1] (0-indexed)
     // This has makespan 23 <= 25
@@ -173,7 +172,6 @@ fn test_flow_shop_scheduling_empty() {
 
 #[test]
 fn test_flow_shop_scheduling_find_all_witnesses() {
-    // Issue #507 example: 3 machines, 5 jobs, D=25
     // Search space = 5! = 120 permutations
     let problem = FlowShopScheduling::new(
         3,
@@ -191,7 +189,7 @@ fn test_flow_shop_scheduling_find_all_witnesses() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
     }
-    // The issue witness sequence [3,0,4,2,1] gives makespan 23 ≤ 25.
+    // The sequence [3,0,4,2,1] gives makespan 23 ≤ 25.
     assert!(solutions.contains(&vec![3, 0, 4, 2, 1]));
     // 99 out of 120 permutations have makespan ≤ 25
     assert_eq!(solutions.len(), 99);

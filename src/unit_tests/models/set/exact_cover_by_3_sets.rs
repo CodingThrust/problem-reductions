@@ -66,7 +66,6 @@ fn test_exact_cover_by_3_sets_rejects_non_binary_config_values() {
 #[test]
 fn test_exact_cover_by_3_sets_solver() {
     // Universe: {0..8}, q=3
-    // From issue example:
     // S0={0,1,2}, S1={0,2,4}, S2={3,4,5}, S3={3,5,7}, S4={6,7,8}, S5={1,4,6}, S6={2,5,8}
     let problem = ExactCoverBy3Sets::new(
         9,
@@ -89,7 +88,6 @@ fn test_exact_cover_by_3_sets_solver() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
     }
-    // Verify the known solution is in there
     assert!(solutions.contains(&vec![true, false, true, false, true, false, false]));
 }
 

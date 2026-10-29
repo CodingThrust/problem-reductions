@@ -153,8 +153,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "sumofsquarespartition_to_ilp",
         build: || {
-            // 4 elements [1, 2, 3, 4], K=2 groups
-            // Group {1,4}: sum=5, Group {2,3}: sum=5 → sos = 25+25 = 50
             let source = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

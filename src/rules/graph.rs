@@ -417,7 +417,6 @@ impl ReductionGraph {
             }
         };
 
-        // Collect declared default variants from VariantEntry inventory
         let mut default_variants: HashMap<String, BTreeMap<String, String>> = HashMap::new();
 
         // Phase 1: Build nodes from VariantEntry inventory
@@ -1266,14 +1265,12 @@ impl ReductionGraph {
     pub(crate) fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
 
-        // Build the model-owned metadata lookup from ProblemSchemaEntry inventory.
         let schema_metadata: HashMap<&str, (&str, crate::registry::ProblemCategory)> =
             inventory::iter::<ProblemSchemaEntry>
                 .into_iter()
                 .map(|entry| (entry.name, (entry.module_path, entry.category)))
                 .collect();
 
-        // Build sorted node list from the internal nodes
         let mut json_nodes: Vec<(usize, NodeJson)> = self
             .nodes
             .iter()
@@ -1310,7 +1307,6 @@ impl ReductionGraph {
 
         let nodes: Vec<NodeJson> = json_nodes.into_iter().map(|(_, n)| n).collect();
 
-        // Build edges from the graph
         let mut edges: Vec<EdgeJson> = Vec::new();
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
@@ -1344,7 +1340,6 @@ impl ReductionGraph {
             }
             let parameter_contract_error = contract.as_ref().err().map(ToString::to_string);
 
-            // Find the doc_path from the matching ReductionEntry
             let src_name = self.nodes[src_node_id].name;
             let dst_name = self.nodes[dst_node_id].name;
             let src_variant = &self.nodes[src_node_id].variant;
@@ -1769,7 +1764,6 @@ impl ReductionGraph {
         if path.steps.len() < 2 {
             return Ok(None);
         }
-        // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         let mut aggregate_views = Vec::new();
         for window in path.steps.windows(2) {

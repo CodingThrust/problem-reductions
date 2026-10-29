@@ -838,7 +838,6 @@ fn find_paths_up_to_stops_after_limit() {
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
 
-    // Get all paths to know the total count
     let all = graph.find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst);
     assert!(all.len() > 3, "need multiple paths for this test");
 

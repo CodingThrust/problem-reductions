@@ -92,7 +92,7 @@ impl ReduceTo<ILP<bool>> for BinPacking<i64> {
         let objective: Vec<(usize, i64)> = (0..n).map(|j| (n * n + j, 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionBPToILP { target, n })
     }

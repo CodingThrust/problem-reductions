@@ -153,7 +153,6 @@ impl Problem for QuadraticAssignment {
             let n = self.num_facilities();
             let m = self.num_locations();
 
-            // Check config length matches number of facilities
             if config.len() != n {
                 return Err(crate::traits::EvaluationError::InvalidConfiguration(
                     "assignment length does not match the number of facilities".into(),

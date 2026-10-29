@@ -106,7 +106,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kclique_to_conjunctivebooleanquery",
         build: || {
-            // Triangle (0,1,2) in a 5-vertex graph, k=3 → has 3-clique
             let source = KClique::new(
                 SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]),
                 3,

@@ -175,7 +175,6 @@ impl OptimumCommunicationSpanningTree {
             }
         }
 
-        // Check symmetry and non-negativity
         for i in 0..n {
             for j in (i + 1)..n {
                 if edge_weights[i][j] != edge_weights[j][i] {
@@ -267,7 +266,6 @@ fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[bool]) -
         return false;
     }
 
-    // Build adjacency and check connectivity via BFS
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -304,7 +302,6 @@ fn communication_cost(
     edge_weights: &[Vec<i64>],
     requirements: &[Vec<i64>],
 ) -> Result<i64, crate::traits::EvaluationError> {
-    // Build weighted adjacency list for the tree
     let mut adj: Vec<Vec<(usize, i64)>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
         if sel {
@@ -406,13 +403,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // K4 example from issue #906
-    // Edge weights:
-    //   w(0,1)=1, w(0,2)=3, w(0,3)=2, w(1,2)=2, w(1,3)=4, w(2,3)=1
-    // Requirements:
-    //   r(0,1)=2, r(0,2)=1, r(0,3)=3, r(1,2)=1, r(1,3)=1, r(2,3)=2
-    // Optimal tree: {(0,1), (0,3), (2,3)} = edges at indices 0, 2, 5
-    // Optimal cost: 20
     let edge_weights = vec![
         vec![0, 1, 3, 2],
         vec![1, 0, 2, 4],
@@ -425,8 +415,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         vec![1, 1, 0, 2],
         vec![3, 1, 2, 0],
     ];
-    // Edges in lex order: (0,1)=idx0, (0,2)=idx1, (0,3)=idx2, (1,2)=idx3, (1,3)=idx4, (2,3)=idx5
-    // Optimal tree: {(0,1), (0,3), (2,3)} -> config = [1, 0, 1, 0, 0, 1]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "optimum_communication_spanning_tree",
         instance: Box::new(OptimumCommunicationSpanningTree::new(

@@ -257,8 +257,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minmaxmulticenter_to_ilp",
         build: || {
-            // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
-            // Optimal: place center at vertex 1; max distance = 1.
             let source = MinMaxMulticenter::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![1i64; 3],

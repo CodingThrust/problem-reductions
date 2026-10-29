@@ -197,7 +197,6 @@ fn test_sum_of_squares_partition_square_overflow_is_an_error() {
 
 #[test]
 fn test_sum_of_squares_partition_paper_example() {
-    // Instance from the issue: sizes=[5,3,8,2,7,1], K=3
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
 
     // Verify a partition:

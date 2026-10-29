@@ -1,6 +1,5 @@
 use crate::variant::{KValue, VariantParam};
 
-// Test types for the new system
 #[derive(Clone, Debug)]
 struct TestRoot;
 #[derive(Clone, Debug)]
@@ -81,7 +80,6 @@ fn test_variant_for_problems() {
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
-    // Test MaximumIndependentSet variants
     let v = MaximumIndependentSet::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].0, "graph");
@@ -89,63 +87,51 @@ fn test_variant_for_problems() {
     assert_eq!(v[1].0, "weight");
     assert_eq!(v[1].1, "i64");
 
-    // Test MinimumVertexCover
     let v = MinimumVertexCover::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
     assert_eq!(v[1].1, "i64");
 
-    // Test MinimumDominatingSet
     let v = MinimumDominatingSet::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test MaximumMatching
     let v = MaximumMatching::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test MaxCut
     let v = MaxCut::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test KColoring (has K and graph parameters)
     let v = KColoring::<K3, SimpleGraph>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0], ("k", "K3"));
     assert_eq!(v[1], ("graph", "SimpleGraph"));
 
-    // Test MaximalIS
     let v = MaximalIS::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test MaximumClique
     let v = MaximumClique::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test Satisfiability (no type parameters)
     let v = Satisfiability::variant();
     assert_eq!(v.len(), 0);
 
-    // Test KSatisfiability (K type parameter only)
     let v = KSatisfiability::<K3>::variant();
     assert_eq!(v.len(), 1);
     assert_eq!(v[0], ("k", "K3"));
 
-    // Test MaximumSetPacking (weight parameter only)
     let v = MaximumSetPacking::<i64>::variant();
     assert_eq!(v.len(), 1);
     assert_eq!(v[0], ("weight", "i64"));
 
-    // Test MinimumSetCovering (weight parameter only)
     let v = MinimumSetCovering::<i64>::variant();
     assert_eq!(v.len(), 1);
     assert_eq!(v[0], ("weight", "i64"));
 
-    // Test SpinGlass (graph + weight parameters)
     let v = SpinGlass::<SimpleGraph, f64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[1].1, "f64");
@@ -153,28 +139,22 @@ fn test_variant_for_problems() {
     let v = SpinGlass::<SimpleGraph, i64>::variant();
     assert_eq!(v[1].1, "i64");
 
-    // Test QUBO (weight parameter only)
     let v = QUBO::<f64>::variant();
     assert_eq!(v.len(), 1);
     assert_eq!(v[0], ("weight", "f64"));
 
-    // Test CircuitSAT (no type parameters)
     let v = CircuitSAT::variant();
     assert_eq!(v.len(), 0);
 
-    // Test Factoring (no type parameters)
     let v = Factoring::variant();
     assert_eq!(v.len(), 0);
 
-    // Test BicliqueCover (no type parameters)
     let v = BicliqueCover::variant();
     assert_eq!(v.len(), 0);
 
-    // Test BMF (no type parameters)
     let v = BMF::variant();
     assert_eq!(v.len(), 0);
 
-    // Test PaintShop (no type parameters)
     let v = PaintShop::variant();
     assert_eq!(v.len(), 0);
 }

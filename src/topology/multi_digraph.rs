@@ -177,7 +177,6 @@ impl MultiDigraph {
         );
         let n = self.num_vertices();
 
-        // Build adjacency list for the subgraph
         let mut adj = vec![vec![]; n];
         let mut in_degree = vec![0usize; n];
         for (i, (u, v)) in self.iter_arcs().enumerate() {

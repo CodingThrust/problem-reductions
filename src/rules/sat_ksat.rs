@@ -81,12 +81,10 @@ fn add_clause_to_ksat(
         // (a v b) with k=3 becomes (a v b v x) AND (a v b v -x)
         let ancilla = variables.allocate()?;
 
-        // Add clause with positive ancilla
         let mut lits_pos = clause.literals.clone();
         lits_pos.push(ancilla);
         add_clause_to_ksat(k, &CNFClause::new(lits_pos), result_clauses, variables)?;
 
-        // Add clause with negative ancilla
         let mut lits_neg = clause.literals.clone();
         lits_neg.push(-ancilla);
         add_clause_to_ksat(k, &CNFClause::new(lits_neg), result_clauses, variables)?;

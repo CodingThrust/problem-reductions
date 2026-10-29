@@ -598,28 +598,22 @@ fn generate_reduction_entry(
     attrs: &ReductionAttrs,
     impl_block: &ItemImpl,
 ) -> syn::Result<TokenStream2> {
-    // Extract the trait path (should be ReduceTo<Target>)
     let trait_path = impl_block
         .trait_
         .as_ref()
         .map(|(path, _)| path)
         .ok_or_else(|| syn::Error::new_spanned(impl_block, "Expected impl ReduceTo<T> for S"))?;
 
-    // Extract target type from ReduceTo<Target>
     let target_type = extract_target_from_trait(trait_path)?;
 
-    // Extract source type (Self type)
     let source_type = &impl_block.self_ty;
 
-    // Get type names
     let source_name = extract_type_name(source_type)
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
-    // Generate variant fn bodies
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
@@ -652,7 +646,6 @@ fn generate_reduction_entry(
         .iter()
         .map(|(field, reason)| quote! { crate::rules::registry::UnavailableParameterField { field: #field, reason: #reason } });
 
-    // Generate the combined output
     let output = quote! {
         #impl_block
 
@@ -926,8 +919,6 @@ pub fn register_brute_force(input: TokenStream) -> TokenStream {
 
 /// Generate code for all `declare_variants!` entries.
 fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
-    // Validate default markers per problem name.
-    // Group entries by their base type name (e.g., "MaximumIndependentSet").
     let mut defaults_per_problem: HashMap<String, Vec<usize>> = HashMap::new();
     let mut problem_names = HashSet::new();
     for (i, entry) in input.entries.iter().enumerate() {
@@ -938,7 +929,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         }
     }
 
-    // Check for multiple defaults for the same problem
     for (name, indices) in &defaults_per_problem {
         if indices.len() > 1 {
             return Err(syn::Error::new(
@@ -973,7 +963,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let is_default = entry.is_default;
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
-        // Parse the complexity expression to validate syntax
         let parsed = problemreductions_expr::Expr::try_parse(&complexity_str).map_err(|e| {
             syn::Error::new(
                 entry.complexity.span(),
@@ -981,7 +970,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             )
         })?;
 
-        // Generate a compiled complexity evaluator over the problem-owned parameters.
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
         let construction_fields = if let Some(create_spec) = create_spec {

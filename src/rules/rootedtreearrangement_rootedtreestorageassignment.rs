@@ -119,12 +119,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "rootedtreearrangement_to_rootedtreestorageassignment",
         build: || {
-            // Path graph P4: 0-1-2-3, bound K=5
-            // Optimal tree: chain 0->1->2->3 (root=0), identity mapping
-            // Total distance = 1+1+1 = 3 <= 5
-            // Target: universe_size=4, subsets={{0,1},{1,2},{2,3}}, bound=5-3=2
-            // Target tree: parent=[0,0,1,2], identity mapping
-            // Extension cost = 0+0+0 = 0 <= 2
             let source =
                 RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 5);
             let source_config = vec![0, 0, 1, 2, 0, 1, 2, 3];

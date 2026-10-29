@@ -125,7 +125,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumdomaticnumber_to_ilp",
         build: || {
-            // Use small P3 graph (3 vertices, domatic number = 2)
             let source = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
