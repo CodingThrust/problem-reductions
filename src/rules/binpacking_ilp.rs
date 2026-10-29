@@ -55,7 +55,7 @@ impl ReductionResult for ReductionBPToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
-        num_nonzeros = "(num_items * num_items + num_items) * (2 * num_items)",
+        num_nonzeros = "2 * num_items * num_items + num_items",
     },
 })]
 impl ReduceTo<ILP<bool>> for BinPacking<i64> {

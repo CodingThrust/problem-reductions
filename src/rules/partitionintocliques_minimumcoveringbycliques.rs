@@ -208,7 +208,7 @@ impl crate::rules::AggregateReductionResult
 }
 
 #[reduction(
-    transform = upper_bound {
+    transform = exact {
         num_vertices = "2 * num_vertices + 4 * num_edges + 4",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 4 * num_vertices + 14 * num_edges + 2",
     }

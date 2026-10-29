@@ -137,7 +137,6 @@ pub(crate) fn decode_lehmer(code: &[usize]) -> Vec<usize> {
     let mut available: Vec<usize> = (0..n).collect();
     let mut perm = Vec::with_capacity(n);
     for &idx in code {
-        let idx = idx.min(available.len().saturating_sub(1));
         perm.push(available.remove(idx));
     }
     perm

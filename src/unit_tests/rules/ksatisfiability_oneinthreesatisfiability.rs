@@ -110,18 +110,16 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
 }
 
 #[test]
-fn test_oneinthree_native_empty_short_and_sparse_clauses() {
+fn test_oneinthree_empty_repeated_and_sparse_clauses() {
     for (num_vars, formula) in [
         (0, vec![]),
         (3, vec![]),
-        (0, vec![vec![]]),
-        (3, vec![vec![]]),
-        (5, vec![vec![5]]),
-        (5, vec![vec![-5]]),
-        (5, vec![vec![5, -2]]),
+        (5, vec![vec![5, 5, 5]]),
+        (5, vec![vec![-5, -5, -5]]),
+        (5, vec![vec![5, -2, -2]]),
         (5, vec![vec![5, -5, 2]]),
     ] {
-        let source = KSatisfiability::<K3>::try_new_allow_less(
+        let source = KSatisfiability::<K3>::try_new(
             num_vars,
             formula.iter().cloned().map(CNFClause::new).collect(),
         )

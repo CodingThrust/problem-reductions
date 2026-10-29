@@ -74,7 +74,7 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
 impl crate::rules::AggregateReductionResult for Reduction3SATToMonochromaticTriangle {}
 
 #[reduction(
-    transform = upper_bound {
+    transform = exact {
         num_vertices = "16 * num_vars + 40 * num_clauses + 16",
         num_edges = "50 * num_vars + 146 * num_clauses + 50",
         num_triangles = "58 * num_vars + 174 * num_clauses + 58",
@@ -87,7 +87,8 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
         let sat = ReduceTo::<Satisfiability>::reduce_to(self)?;
         let nae_reduction = ReduceTo::<NAESatisfiability>::reduce_to(sat.target_problem())?;
         let nae = nae_reduction.target_problem();
-        let auxiliary_count = nae.clauses().iter().filter(|c| c.len() == 4).count();
+        // SAT -> NAE appends the sentinel to every three-literal clause.
+        let auxiliary_count = nae.num_clauses();
         let overflow = || {
             crate::rules::ReductionError::integer_overflow::<Self, MonochromaticTriangle<SimpleGraph>>(
                 "computing signal-sender graph size",
@@ -124,21 +125,16 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
             triples.push([literal, literal, -literal]);
         }
         for clause in nae.clauses() {
-            let literals = &clause.literals;
-            if literals.len() == 4 {
-                let z = variables.allocate().map_err(
-                    crate::rules::ReductionError::construction::<
-                        Self,
-                        MonochromaticTriangle<SimpleGraph>,
-                    >,
-                )?;
-                triples.push([literals[0], literals[1], z]);
-                triples.push([-z, literals[2], literals[3]]);
-            } else {
-                // NAE(a,b) = NAE(a,b,b). Formal SAT -> NAE produces only
-                // lengths 2, 3 and 4, including NAE(s,s) for an empty clause.
-                triples.push([literals[0], literals[1], literals[literals.len() - 1]]);
-            }
+            let [a, b, c, d] = <[i64; 4]>::try_from(clause.literals.as_slice())
+                .expect("SAT -> NAE maps each three-literal clause to four literals");
+            let z = variables.allocate().map_err(
+                crate::rules::ReductionError::construction::<
+                    Self,
+                    MonochromaticTriangle<SimpleGraph>,
+                >,
+            )?;
+            triples.push([a, b, z]);
+            triples.push([-z, c, d]);
         }
 
         let mut edges = Vec::with_capacity(num_edges);

@@ -52,10 +52,10 @@ impl ReductionResult for ReductionDSToILP {
     exact {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
+        num_nonzeros = "2 * num_edges + num_vertices",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * num_edges + 2",
-        num_nonzeros = "2 * num_edges + num_vertices",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {

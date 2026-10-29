@@ -53,7 +53,7 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2) * (1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2)",
+        num_nonzeros = "num_edges + 4 * num_edges * num_vertices * (num_vertices - 1)",
     },
 })]
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {

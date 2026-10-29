@@ -31,9 +31,16 @@ macro_rules! decision_problem_meta {
 /// variant's construction fields and decoder without adding another schema or default.
 /// Both decision/optimization edges derive their identity parameter transforms directly
 /// from the inner problem's canonical parameter schema.
+/// Prefix with `without_turing;` to omit the reverse optimization-to-decision Turing edge.
 #[macro_export]
 macro_rules! register_decision_variant {
-    (
+    (without_turing; $($body:tt)*) => {
+        $crate::register_decision_variant!(@register witness_edge; $($body)*);
+    };
+    ($inner:ty, $($body:tt)*) => {
+        $crate::register_decision_variant!(@register edges; $inner, $($body)*);
+    };
+    (@register $edges:ident;
         $inner:ty,
         $name:literal,
         $complexity:literal,
@@ -61,16 +68,16 @@ macro_rules! register_decision_variant {
             }
         }
 
-        $crate::register_decision_variant!(@edges $inner, $name);
+        $crate::register_decision_variant!(@$edges $inner, $name);
         $($(
             $crate::register_brute_force! {
                 $crate::models::decision::Decision<$additional> decode $decoder,
             }
-            $crate::register_decision_variant!(@edges $additional, $name);
+            $crate::register_decision_variant!(@$edges $additional, $name);
         )*)?
     };
 
-    (@edges $inner:ty, $name:literal) => {
+    (@witness_edge $inner:ty, $name:literal) => {
         // Decision<P> → P: both witness (identity config) and aggregate (solve + compare)
         $crate::inventory::submit! {
             $crate::rules::ReductionEntry {
@@ -114,7 +121,10 @@ macro_rules! register_decision_variant {
                 turing: false,
             }
         }
+    };
 
+    (@edges $inner:ty, $name:literal) => {
+        $crate::register_decision_variant!(@witness_edge $inner, $name);
         // Reverse edge: P → Decision<P> (Turing/multi-query reduction via binary search)
         $crate::inventory::submit! {
             $crate::rules::ReductionEntry {

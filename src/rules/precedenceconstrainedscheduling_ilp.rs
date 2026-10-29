@@ -68,7 +68,7 @@ impl crate::rules::AggregateReductionResult for ReductionPCSToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + deadline + 1",
-        num_nonzeros = "(num_tasks * deadline) * (num_tasks + deadline + num_precedences)",
+        num_nonzeros = "2 * num_tasks * deadline + 2 * deadline * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
