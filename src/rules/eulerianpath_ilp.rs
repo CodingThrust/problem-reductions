@@ -256,12 +256,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for EulerianPath {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "eulerianpath_to_ilp",
         build: || {
             let source =
-                EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
+                EulerianPath::new(MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },
     }]

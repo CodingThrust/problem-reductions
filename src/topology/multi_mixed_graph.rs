@@ -1,39 +1,40 @@
 //! Mixed graph implementation.
 //!
-//! This module provides [`MixedGraph`], a graph topology with both directed arcs
+//! This module provides [`MultiMixedGraph`], a graph topology with both directed arcs
 //! and undirected edges. It is intended for models whose instances genuinely
 //! depend on both kinds of adjacency, such as Mixed Chinese Postman.
 
 use serde::{Deserialize, Serialize};
 
-/// A graph with both directed arcs and undirected edges.
+/// A mixed multigraph allowing self-loops, parallel arcs, and parallel edges.
 ///
+/// Arc i and edge j are entries i and j of `arcs()` and `edges()`.
 /// Arcs are ordered pairs `(u, v)`. Undirected edges preserve the input order
 /// so higher-level models can use that order as part of their configuration
 /// semantics, but edge-membership queries treat them as unordered pairs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(try_from = "MixedGraphData")]
-pub struct MixedGraph {
+#[serde(try_from = "MultiMixedGraphData")]
+pub struct MultiMixedGraph {
     num_vertices: usize,
     arcs: Vec<(usize, usize)>,
     edges: Vec<(usize, usize)>,
 }
 
 #[derive(Deserialize)]
-struct MixedGraphData {
+struct MultiMixedGraphData {
     num_vertices: usize,
     arcs: Vec<(usize, usize)>,
     edges: Vec<(usize, usize)>,
 }
 
-impl TryFrom<MixedGraphData> for MixedGraph {
+impl TryFrom<MultiMixedGraphData> for MultiMixedGraph {
     type Error = crate::registry::ConstructionError;
-    fn try_from(data: MixedGraphData) -> Result<Self, Self::Error> {
+    fn try_from(data: MultiMixedGraphData) -> Result<Self, Self::Error> {
         Self::try_new(data.num_vertices, data.arcs, data.edges)
     }
 }
 
-impl MixedGraph {
+impl MultiMixedGraph {
     /// Create a new mixed graph.
     ///
     /// # Panics
@@ -43,7 +44,8 @@ impl MixedGraph {
         Self::try_new(num_vertices, arcs, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a mixed multigraph with bounds-checked endpoints.
+    pub fn try_new(
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         edges: Vec<(usize, usize)>,
@@ -143,14 +145,10 @@ impl MixedGraph {
 }
 
 fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
+    (u.min(v), u.max(v))
 }
 
-impl PartialEq for MixedGraph {
+impl PartialEq for MultiMixedGraph {
     fn eq(&self, other: &Self) -> bool {
         if self.num_vertices != other.num_vertices {
             return false;
@@ -178,11 +176,11 @@ impl PartialEq for MixedGraph {
     }
 }
 
-impl Eq for MixedGraph {}
+impl Eq for MultiMixedGraph {}
 
 use crate::impl_variant_param;
-impl_variant_param!(MixedGraph, "graph");
+impl_variant_param!(MultiMixedGraph, "graph");
 
 #[cfg(test)]
-#[path = "../unit_tests/topology/mixed_graph.rs"]
+#[path = "../unit_tests/topology/multi_mixed_graph.rs"]
 mod tests;

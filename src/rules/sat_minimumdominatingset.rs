@@ -176,7 +176,10 @@ impl ReduceTo<Decision<MinimumDominatingSet<SimpleGraph, i64>>> for Satisfiabili
         }
 
         let target = MinimumDominatingSet::new(
-            SimpleGraph::new(num_vertices, edges),
+            SimpleGraph::new(
+                num_vertices,
+                super::graph_helpers::unique_undirected_edges(edges),
+            ),
             vec![1i64; num_vertices],
         );
 

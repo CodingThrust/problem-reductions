@@ -172,13 +172,6 @@ fn simple_graph_from_create(
             "num_vertices is required for an empty graph".into(),
         ));
     }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(ConstructionError::Conversion(format!(
-                "graph edge {index} is a self-loop at vertex {u}"
-            )));
-        }
-    }
     let inferred = edges
         .iter()
         .flat_map(|&(u, v)| [u, v])
@@ -198,7 +191,7 @@ fn simple_graph_from_create(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
         )));
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::try_new(num_vertices, edges)
 }
 
 impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {

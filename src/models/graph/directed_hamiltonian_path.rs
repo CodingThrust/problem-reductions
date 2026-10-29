@@ -4,7 +4,7 @@
 //! a simple directed path that visits every vertex exactly once.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -18,14 +18,14 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Does the directed graph contain a Hamiltonian path?",
         fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
+            FieldInfo { name: "graph", type_name: "SimpleDigraph", description: "The directed graph G=(V,A)" },
         ],
     }
 }
 
 /// The Directed Hamiltonian Path problem.
 ///
-/// Given a directed graph G = (V, A), determine whether G contains a Hamiltonian path,
+/// Given a simple directed graph G = (V, A), determine whether G contains a Hamiltonian path,
 /// i.e., a simple directed path that visits every vertex exactly once following arc
 /// directions.
 ///
@@ -38,11 +38,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::DirectedHamiltonianPath;
-/// use problemreductions::topology::DirectedGraph;
+/// use problemreductions::topology::SimpleDigraph;
 /// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple directed path: 0->1->2->3
-/// let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let graph = SimpleDigraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 /// let problem = DirectedHamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
@@ -51,17 +51,17 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectedHamiltonianPath {
-    graph: DirectedGraph,
+    graph: SimpleDigraph,
 }
 
 impl DirectedHamiltonianPath {
     /// Create a new Directed Hamiltonian Path problem from a directed graph.
-    pub fn new(graph: DirectedGraph) -> Self {
+    pub fn new(graph: SimpleDigraph) -> Self {
         Self { graph }
     }
 
     /// Get a reference to the underlying directed graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &SimpleDigraph {
         &self.graph
     }
 
@@ -144,7 +144,7 @@ pub(crate) fn decode_lehmer(code: &[usize]) -> Vec<usize> {
 ///
 /// A valid directed Hamiltonian path visits every vertex exactly once and
 /// every consecutive pair `(perm[i], perm[i+1])` must be an arc in the graph.
-pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[usize]) -> bool {
+pub(crate) fn is_valid_directed_hamiltonian_path(graph: &SimpleDigraph, perm: &[usize]) -> bool {
     let n = graph.num_vertices();
     if perm.len() != n {
         return false;
@@ -170,7 +170,9 @@ pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    let graph = DirectedGraph::new(
+    // 6 vertices, arcs from issue #813
+    // Hamiltonian path: [0, 1, 3, 2, 4, 5]
+    let graph = SimpleDigraph::new(
         6,
         vec![
             (0, 1),

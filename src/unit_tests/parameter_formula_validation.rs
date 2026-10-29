@@ -32,32 +32,37 @@ fn matrix_targets_with_dimension_predictions_also_bound_entries() {
     }
 }
 
-fn canonical_sources() -> BTreeMap<SourceKey, Vec<Value>> {
-    let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
-    let db = crate::example_db::build_example_db().unwrap();
-    for model in db.models {
-        sources
-            .entry((model.problem, model.variant))
-            .or_default()
-            .push(model.instance);
-    }
-    for rule in db.rules {
-        let source = rule.source;
-        if let (Some(name), Some(inner)) = (
-            source.problem.strip_prefix("Decision"),
-            source.instance.get("inner"),
-        ) {
+fn canonical_sources() -> &'static BTreeMap<SourceKey, Vec<Value>> {
+    static SOURCES: std::sync::OnceLock<BTreeMap<SourceKey, Vec<Value>>> =
+        std::sync::OnceLock::new();
+    SOURCES.get_or_init(|| {
+        let mut sources = BTreeMap::<SourceKey, Vec<Value>>::new();
+        let db = crate::example_db::build_example_db().unwrap();
+        for rule in db.rules {
+            let source = rule.source;
+            if let (Some(name), Some(inner)) = (
+                source.problem.strip_prefix("Decision"),
+                source.instance.get("inner"),
+            ) {
+                sources
+                    .entry((name.to_string(), source.variant.clone()))
+                    .or_default()
+                    .push(inner.clone());
+            }
             sources
-                .entry((name.to_string(), source.variant.clone()))
+                .entry((source.problem, source.variant))
                 .or_default()
-                .push(inner.clone());
+                .push(source.instance);
+        }
+        // Authored rule examples are smaller than some display-model instances.
+        for model in db.models {
+            sources
+                .entry((model.problem, model.variant))
+                .or_default()
+                .push(model.instance);
         }
         sources
-            .entry((source.problem, source.variant))
-            .or_default()
-            .push(source.instance);
-    }
-    sources
+    })
 }
 
 fn target_parameters(
@@ -87,30 +92,23 @@ fn target_parameters(
 fn source_for(
     entry: &ReductionEntry,
     sources: &BTreeMap<SourceKey, Vec<Value>>,
-) -> Result<Box<dyn DynProblem>, String> {
+) -> Result<(Box<dyn DynProblem>, crate::ProblemParameters), String> {
     let variant = ReductionGraph::variant_to_map(&entry.source_variant());
     let registered = crate::registry::find_variant_entry(entry.source_name, &variant).unwrap();
     let key = (entry.source_name.to_string(), variant.clone());
-    if let Some(examples) = sources.get(&key) {
-        for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
-                }
-            }
-        }
-    }
-    // Reuse existing examples with the same model name when a compatible variant
-    // has no dedicated example; its factory still enforces the concrete type.
-    for ((name, _), examples) in sources {
-        if name != entry.source_name {
-            continue;
-        }
-        for example in examples {
-            if let Ok(source) = (registered.factory)(example.clone()) {
-                if target_parameters(entry, source.as_ref()).is_ok() {
-                    return Ok(source);
-                }
+    // Try exact-variant examples first, then compatible variants of the same model.
+    let examples = sources.get(&key).into_iter().flatten().chain(
+        sources
+            .iter()
+            .filter(|(candidate_key, _)| {
+                candidate_key.0 == entry.source_name && *candidate_key != &key
+            })
+            .flat_map(|(_, examples)| examples),
+    );
+    for example in examples {
+        if let Ok(source) = (registered.factory)(example.clone()) {
+            if let Ok(actual) = target_parameters(entry, source.as_ref()) {
+                return Ok((source, actual));
             }
         }
     }
@@ -120,9 +118,11 @@ fn source_for(
     let random = registered
         .random
         .ok_or_else(|| format!("no usable canonical source for {key:?}"))?;
-    (random.generate)(json!({"num_vertices": 5, "seed": 42})).map_err(|error| {
+    let source = (random.generate)(json!({"num_vertices": 5, "seed": 42})).map_err(|error| {
         format!("no usable canonical source for {key:?}; graph generator: {error}")
-    })
+    })?;
+    let actual = target_parameters(entry, source.as_ref())?;
+    Ok((source, actual))
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn bounded_ilp_reductions_support_binary_encoding() {
             continue;
         }
         let result = (|| {
-            let source = source_for(entry, &sources)?;
+            let (source, _) = source_for(entry, sources)?;
             let reduced =
                 entry.reduce_fn.unwrap()(source.as_any()).map_err(|error| error.to_string())?;
             let integer = reduced
@@ -194,8 +194,7 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
             entry.target_variant()
         );
         let result = (|| {
-            let source = source_for(entry, &sources)?;
-            let actual = target_parameters(entry, source.as_ref())?;
+            let (source, actual) = source_for(entry, sources)?;
             let predicted = transform
                 .evaluate(&source.parameters_dyn())
                 .map_err(|error| error.to_string())?;
@@ -232,7 +231,7 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
 #[test]
 fn sparse_ilp_predictions_use_construction_counts() {
     use crate::models::{BiconnectivityAugmentation, Factoring, StrongConnectivityAugmentation};
-    use crate::topology::{DirectedGraph, SimpleGraph};
+    use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};
     use crate::traits::Problem;
 
     use crate::models::graph::EulerianPath;
@@ -256,7 +255,7 @@ fn sparse_ilp_predictions_use_construction_counts() {
         (
             "StrongConnectivityAugmentation",
             StrongConnectivityAugmentation::new(
-                DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+                SimpleDigraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![(2, 0, 1_i64), (1, 0, 2)],
                 2,
             )
@@ -270,7 +269,7 @@ fn sparse_ilp_predictions_use_construction_counts() {
         ),
         (
             "EulerianPath",
-            EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
+            EulerianPath::new(MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]))
                 .parameters(),
             100,
         ),
@@ -288,4 +287,127 @@ fn sparse_ilp_predictions_use_construction_counts() {
             "{name}: sparse count budget exceeded"
         );
     }
+}
+
+#[test]
+fn simple_graph_create_contracts_propagate_edge_validation() {
+    let names = [
+        "BiconnectivityAugmentation",
+        "BottleneckTravelingSalesman",
+        "BoundedDiameterSpanningTree",
+        "DisjointConnectingPaths",
+        "KClique",
+        "KColoring",
+        "KthBestSpanningTree",
+        "LengthBoundedDisjointPaths",
+        "LongestCircuit",
+        "LongestPath",
+        "MaxCut",
+        "MaximumIndependentSet",
+        "MaximumMatching",
+        "MinMaxMulticenter",
+        "MinimumSumMulticenter",
+        "MultipleCopyFileAllocation",
+        "PrizeCollectingSteinerForest",
+        "RuralPostman",
+        "SpinGlass",
+        "TravelingSalesman",
+        "UndirectedTwoCommodityIntegralFlow",
+    ];
+    let sources = canonical_sources();
+    let mut checked = std::collections::BTreeSet::new();
+    for entry in crate::registry::variant_entries() {
+        if !names.contains(&entry.name)
+            || entry
+                .variant_map()
+                .get("graph")
+                .is_some_and(|g| g != "SimpleGraph")
+        {
+            continue;
+        }
+        let inputs = entry.inputs();
+        let instance = sources
+            .iter()
+            .find(|((name, variant), _)| name == entry.name && variant == &entry.variant_map())
+            .or_else(|| sources.iter().find(|((name, _), _)| name == entry.name))
+            .unwrap()
+            .1
+            .first()
+            .unwrap();
+        let mut data = serde_json::Map::new();
+        for input in &inputs {
+            if input.required && input.name != "graph" {
+                data.insert(
+                    input.name.to_string(),
+                    instance
+                        .get(input.name)
+                        .or_else(|| {
+                            (entry.name == "KColoring" && input.name == "k")
+                                .then(|| &instance["num_colors"])
+                        })
+                        .unwrap_or_else(|| {
+                            panic!("{}: missing canonical input {}", entry.name, input.name)
+                        })
+                        .clone(),
+                );
+            }
+        }
+        data.insert("graph".into(), instance["graph"]["edges"].clone());
+        if inputs.iter().any(|input| input.name == "num_vertices") {
+            data.insert(
+                "num_vertices".into(),
+                instance["graph"]["num_vertices"].clone(),
+            );
+        }
+        (entry.construct_fn)(Value::Object(data.clone()))
+            .unwrap_or_else(|error| panic!("{} {:?}: {error}", entry.name, entry.variant()));
+        for (edges, offending) in [
+            (json!([[0, 0]]), "edge (0, 0)"),
+            (json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+            (json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+        ] {
+            data.insert("graph".into(), edges);
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains(offending),
+                "{}: {error}",
+                entry.name
+            );
+        }
+        if inputs.iter().any(|input| input.name == "num_vertices") {
+            data.remove("num_vertices");
+            data.insert("graph".into(), json!([]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("num_vertices"),
+                "{}: {error}",
+                entry.name
+            );
+            data.insert("num_vertices".into(), json!(0));
+            data.insert("graph".into(), json!([[0, 1]]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("too small"),
+                "{}: {error}",
+                entry.name
+            );
+            data.insert("graph".into(), json!([[usize::MAX, 0]]));
+            let error = (entry.construct_fn)(Value::Object(data.clone()))
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("overflow"),
+                "{}: {error}",
+                entry.name
+            );
+        }
+        checked.insert(entry.name);
+    }
+    assert_eq!(checked, names.into_iter().collect());
 }

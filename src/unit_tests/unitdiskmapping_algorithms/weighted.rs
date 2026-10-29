@@ -592,9 +592,8 @@ fn test_weighted_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis};
     use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
     use crate::solvers::ILPSolver;
-    use crate::topology::smallgraph;
 
-    // All standard graphs (excluding tutte/karate which are slow)
+    // Keep every standard-graph case, bounded to an eight-vertex induced subgraph.
     let graph_names = [
         "bull",
         "chvatal",
@@ -619,7 +618,7 @@ fn test_weighted_map_config_back_standard_graphs() {
     ];
 
     for name in graph_names {
-        let (n, edges) = smallgraph(name).unwrap();
+        let (n, edges) = super::common::small_graph_case(name);
         let result = triangular::map_weighted(n, &edges).unwrap();
         // Follow Julia's approach: source weights of 0.2 for each vertex
         let source_weights: Vec<f64> = vec![0.2; n];

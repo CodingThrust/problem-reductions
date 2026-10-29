@@ -165,9 +165,9 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_native_dom
         (0, vec![], 0, true),
         (3, vec![], -1, false),
         (3, vec![], i64::MAX, true),
-        (1, vec![(0, 0)], 0, true),
-        (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)], 1, false),
-        (2, vec![(0, 0), (0, 1), (0, 1), (1, 1)], 2, true),
+        (1, vec![], 0, true),
+        (3, vec![(0, 1), (1, 2)], 1, false),
+        (3, vec![(0, 1), (1, 2)], 2, true),
     ];
     for (n, edges, bound, expected) in cases {
         let m = edges.len();

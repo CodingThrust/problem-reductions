@@ -118,13 +118,6 @@ macro_rules! spin_glass_create_spec {
                         "num_vertices is required for an empty graph".into(),
                     ));
                 }
-                for (index, &(u, v)) in spec.graph.iter().enumerate() {
-                    if u == v {
-                        return Err(ConstructionError::Conversion(format!(
-                            "graph edge {index} is a self-loop at vertex {u}"
-                        )));
-                    }
-                }
                 let inferred = spec
                     .graph
                     .iter()
@@ -150,7 +143,7 @@ macro_rules! spin_glass_create_spec {
                     .unwrap_or_else(|| vec![$one; spec.graph.len()]);
                 let fields = spec.fields.unwrap_or_else(|| vec![$zero; num_vertices]);
                 SpinGlass::from_graph(
-                    SimpleGraph::new(num_vertices, spec.graph),
+                    SimpleGraph::try_new(num_vertices, spec.graph)?,
                     couplings,
                     fields,
                 )
@@ -186,7 +179,7 @@ impl<W: WeightElement> SpinGlass<SimpleGraph, W> {
             .iter()
             .map(|(_, coupling)| coupling.clone())
             .collect();
-        let graph = SimpleGraph::new(num_spins, edges);
+        let graph = SimpleGraph::try_new(num_spins, edges)?;
         Self::from_graph(graph, couplings, fields)
     }
 

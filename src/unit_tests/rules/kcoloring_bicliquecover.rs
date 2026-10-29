@@ -249,27 +249,6 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
 }
 
 #[test]
-fn test_kcoloring_to_bicliquecover_native_loops_are_infeasible() {
-    for n in [1, 4] {
-        for q in [0, 1, usize::MAX] {
-            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, vec![(0, 0)]), q);
-            let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source).unwrap();
-            let target = reduction.target_problem();
-            assert_eq!(target.k(), 0);
-            assert_eq!(target.graph().left_edges(), &[(0, 0)]);
-            assert!(target.evaluate(&vec![]).unwrap().0.is_none());
-            assert!(BruteForce::new().solve(target).unwrap().is_none());
-            assert!(reduction.extract_solution(&vec![]).is_err());
-            if q == 0 {
-                assert!(source.evaluate(&vec![0; n]).is_err());
-            } else {
-                assert!(!source.evaluate(&vec![0; n]).unwrap().0);
-            }
-        }
-    }
-}
-
-#[test]
 fn test_kcoloring_to_bicliquecover_normalizes_all_color_counts() {
     for n in 0..=3 {
         for q in [0, 1, 2, 3, 4, usize::MAX] {
@@ -310,26 +289,6 @@ fn test_kcoloring_to_bicliquecover_rejects_invalid_certificates() {
     assert!(
         source
             .evaluate(&reduction.extract_solution(&reordered).unwrap())
-            .unwrap()
-            .0
-    );
-}
-
-#[test]
-fn test_kcoloring_to_bicliquecover_repeated_reversed_edges() {
-    let simple = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
-    let repeated =
-        KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 0), (1, 2), (0, 1)]), 2);
-    let a = ReduceTo::<BicliqueCover>::reduce_to(&simple).unwrap();
-    let b = ReduceTo::<BicliqueCover>::reduce_to(&repeated).unwrap();
-    assert_eq!(
-        a.target_problem().graph().left_edges(),
-        b.target_problem().graph().left_edges()
-    );
-    let witness = forward_witness(&repeated, &[0, 1, 0]);
-    assert!(
-        repeated
-            .evaluate(&b.extract_solution(&witness).unwrap())
             .unwrap()
             .0
     );

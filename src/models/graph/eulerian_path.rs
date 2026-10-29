@@ -16,7 +16,7 @@
 //! Hierholzer construction (Bang-Jensen & Gutin 2009; Ebert 1988).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,7 @@ inventory::submit! {
         fields: &[
             FieldInfo {
                 name: "graph",
-                type_name: "DirectedGraph",
+                type_name: "MultiDigraph",
                 description: "The directed multigraph D=(V,A); parallel arcs and loops allowed",
             },
         ],
@@ -57,11 +57,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::EulerianPath;
-/// use problemreductions::topology::DirectedGraph;
+/// use problemreductions::topology::MultiDigraph;
 /// use problemreductions::{BruteForce, Problem};
 ///
 /// // V = {0,1,2}; A = [(0,1), (0,1), (1,2), (2,0)] (parallel arc (0,1)).
-/// let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+/// let graph = MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
 /// let problem = EulerianPath::new(graph);
 ///
 /// // Witness: ordering [a_0, a_2, a_3, a_1] = (0->1)->(1->2)->(2->0)->(0->1)
@@ -71,17 +71,17 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EulerianPath {
-    graph: DirectedGraph,
+    graph: MultiDigraph,
 }
 
 impl EulerianPath {
     /// Create a new Eulerian Path instance from a directed multigraph.
-    pub fn new(graph: DirectedGraph) -> Self {
+    pub fn new(graph: MultiDigraph) -> Self {
         Self { graph }
     }
 
     /// Borrow the underlying directed multigraph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &MultiDigraph {
         &self.graph
     }
 
@@ -148,7 +148,7 @@ impl crate::solvers::BruteForceProblem for EulerianPath {
 /// consecutive pair of chosen arcs shares an endpoint (head of the previous
 /// arc equals tail of the next arc). The empty configuration on the empty
 /// multigraph (`m == 0`) is accepted.
-fn is_valid_eulerian_trail(graph: &DirectedGraph, config: &[usize]) -> bool {
+fn is_valid_eulerian_trail(graph: &MultiDigraph, config: &[usize]) -> bool {
     let m = graph.num_arcs();
     if config.len() != m {
         return false;
@@ -180,7 +180,10 @@ fn is_valid_eulerian_trail(graph: &DirectedGraph, config: &[usize]) -> bool {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+    // Canonical YES instance from the issue: V = {0,1,2},
+    // A = [(0,1), (0,1), (1,2), (2,0)] (parallel arcs a_0, a_1 between 0 and 1).
+    // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
+    let graph = MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
     let optimal_config = vec![0usize, 2, 3, 1];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "eulerian_path",

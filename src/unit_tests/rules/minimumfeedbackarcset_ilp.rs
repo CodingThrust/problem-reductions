@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -10,7 +10,7 @@ fn feedback_arc_set_solves_through_integer_binary_ilp_and_qubo() {
     use crate::models::algebraic::QUBO;
 
     let source =
-        MinimumFeedbackArcSet::new(DirectedGraph::new(2, vec![(0, 1), (1, 0)]), vec![2_i64, 5]);
+        MinimumFeedbackArcSet::new(MultiDigraph::new(2, vec![(0, 1), (1, 0)]), vec![2_i64, 5]);
     let integer = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
     let binary = ReduceTo::<ILP<bool>>::reduce_to(integer.target_problem()).unwrap();
     let qubo = ReduceTo::<QUBO<i64>>::reduce_to(binary.target_problem()).unwrap();
@@ -32,7 +32,7 @@ fn feedback_arc_set_solves_through_integer_binary_ilp_and_qubo() {
 fn test_reduction_creates_valid_ilp() {
     // Simple 3-cycle: 0 -> 1 -> 2 -> 0
     // m=3 arcs, n=3 vertices → 6 variables, m+m+n = 9 constraints
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -53,7 +53,7 @@ fn test_reduction_creates_valid_ilp() {
 fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
     // Triangle cycle: 0 -> 1 -> 2 -> 0
     // FAS = 1 (remove any single arc to break the cycle)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -77,7 +77,7 @@ fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Verify that extraction correctly takes first m arc values
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -97,7 +97,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_minimumfeedbackarcset_to_ilp_trivial() {
     // DAG: 0 -> 1 -> 2 (no cycles, FAS = 0)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 2]);
     let reduction: ReductionFASToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
