@@ -289,7 +289,7 @@ crate::impl_random_generate!(MaxCut<SimpleGraph, i64>, crate::random::SimpleGrap
 
 crate::declare_variants! {
     default MaxCut<SimpleGraph, i64> => "2^(2.372 * num_vertices / 3)" create MaxCutI64CreateSpec random,
-    MaxCut<SimpleGraph, One> => "2^(0.7907 * num_vertices)" create MaxCutOneCreateSpec,
+    MaxCut<SimpleGraph, One> => "2^(2.372 * num_vertices / 3)" create MaxCutOneCreateSpec,
 }
 
 crate::register_brute_force! {
