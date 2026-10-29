@@ -252,8 +252,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .unwrap(),
         ),
-        // Center c = [0, 1, 0]; windows (0, 1, 0) selecting s_1[0..3] = 000,
-        // s_2[1..4] = 010, s_3[0..3] = 110 with distances 1, 0, 1 and radius 1.
         optimal_config: serde_json::json!(vec![0, 1, 0, 0, 1, 0]),
         optimal_value: serde_json::json!(1),
     }]

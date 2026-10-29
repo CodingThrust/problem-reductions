@@ -55,7 +55,6 @@ fn test_kcoloring_to_tdcs_non_3colorable() {
     let source_solutions = solver.find_all_witnesses(&source).unwrap();
     assert!(source_solutions.is_empty(), "K4 is not 3-colorable");
 
-    // Verify the reduction produces the correct structure
     let reduction = ReduceTo::<TwoDimensionalConsecutiveSets>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
@@ -110,7 +109,6 @@ fn test_kcoloring_to_tdcs_extract_solution_valid() {
     for target_sol in &target_solutions {
         let source_sol = reduction.extract_solution(target_sol).unwrap();
         assert_eq!(source_sol.len(), 3);
-        // Verify it is a valid coloring
         assert!(
             source.evaluate(&source_sol).unwrap().0,
             "Extracted coloring must be valid: {:?}",

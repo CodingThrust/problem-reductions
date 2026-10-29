@@ -27,7 +27,6 @@ fn test_partially_ordered_knapsack_validates_persisted_input() {
 }
 use crate::traits::Problem;
 
-/// Helper: create the example instance from the issue.
 /// Items: a=0, b=1, c=2, d=3, e=4, f=5
 /// Precedences: a<c (0<2), a<d (0<3), b<e (1<4), d<f (3<5), e<f (4<5)
 /// Sizes:  [2, 3, 4, 1, 2, 3]

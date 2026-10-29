@@ -63,14 +63,12 @@ fn test_weighted_maxcut() {
         ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
     let sg = reduction.target_problem();
 
-    // Verify interactions have correct weights
     let interactions = sg.interactions();
     assert_eq!(interactions.len(), 2);
 }
 
 #[test]
 fn test_reduction_structure() {
-    // Test MaxCut to SpinGlass structure
     let mc = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction =
         ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&mc).expect("reduction should succeed");
@@ -79,7 +77,6 @@ fn test_reduction_structure() {
     // SpinGlass should have same number of spins as vertices
     assert_eq!(sg.num_spins(), 3);
 
-    // Test SpinGlass to MaxCut structure
     let sg2 = SpinGlass::<SimpleGraph, i64>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]).unwrap();
     let reduction2 =
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg2).expect("reduction should succeed");

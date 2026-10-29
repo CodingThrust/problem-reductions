@@ -113,7 +113,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummaximalmatching_to_ilp",
         build: || {
-            // Path graph P6
             let source = MinimumMaximalMatching::new(SimpleGraph::new(
                 6,
                 vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)],

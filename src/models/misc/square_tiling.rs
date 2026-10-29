@@ -125,7 +125,6 @@ impl SquareTiling {
             return false;
         }
 
-        // Check all tile indices are valid
         for &tile_idx in config {
             if tile_idx >= self.tiles.len() {
                 return false;

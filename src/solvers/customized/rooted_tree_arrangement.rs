@@ -19,7 +19,6 @@ pub(crate) fn solve(problem: &RootedTreeArrangement<SimpleGraph>) -> Option<Vec<
 
     let edges = graph.edges();
 
-    // Build graph adjacency list
     let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
     for &(u, v) in &edges {
         adj[u].push(v);
@@ -99,7 +98,6 @@ fn compute_depths(parent: &[usize], root: usize) -> Option<Vec<usize>> {
         loop {
             let p = parent[current];
             if computed[p] {
-                // Compute depths for the whole path
                 let base_depth = depth[p] + 1;
                 for (i, &node) in path.iter().rev().enumerate() {
                     depth[node] = base_depth + i;

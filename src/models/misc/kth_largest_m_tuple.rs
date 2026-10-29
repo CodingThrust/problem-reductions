@@ -242,8 +242,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14.
-    // 14 of 18 tuples have sum >= 12, so the answer is YES at K=14.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kth_largest_m_tuple",
         instance: Box::new(KthLargestMTuple::new(

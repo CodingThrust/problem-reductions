@@ -43,7 +43,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Min, SolutionAggregate};
 
-/// Build the example instance from issue #228:
+/// Build the example instance:
 /// 8 vertices, 12 edges, s=0, t=7, B=5
 fn example_instance() -> MinimumCutIntoBoundedSets<SimpleGraph, i64> {
     let graph = SimpleGraph::new(

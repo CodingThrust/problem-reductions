@@ -374,7 +374,6 @@ fn branch_and_bound_internal(
             let mut remaining: Vec<usize> = p2.neighbors.clone();
             remaining.extend(p2.disconnected.iter());
 
-            // Sort by increasing vsep_updated
             let mut vsep_order: Vec<(usize, usize)> = remaining
                 .iter()
                 .map(|&v| (vsep_updated(adj, &p2, v), v))

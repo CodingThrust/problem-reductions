@@ -182,7 +182,6 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
 
     /// Get the weight of an edge between vertices u and v.
     pub fn edge_weight(&self, u: usize, v: usize) -> Option<&W> {
-        // Find the edge index
         for (idx, (eu, ev)) in self.graph.edges().iter().enumerate() {
             if (*eu == u && *ev == v) || (*eu == v && *ev == u) {
                 return self.edge_weights.get(idx);

@@ -680,7 +680,7 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
   const onFront = new Set(c?.front);
   const front = c ? shown.filter((n) => onFront.has(n)) : shown, slower = c ? shown.filter((n) => !onFront.has(n)) : [];
   const s = el("div", "summary"), left = el("span");
-  if (c) left.append(el("strong", "", `${front.length} best route${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
+  if (c) left.append(el("strong", "", `${front.length} size-bound candidate${front.length === 1 ? "" : "s"}`), ` of ${shown.length}`);
   else { const elapsed = el("span"); elapsed.id = "elapsed"; left.append("Comparing paths ", elapsed); }
   s.append(left);
   if (state.busy) {
@@ -691,11 +691,12 @@ function renderResults(status?: 'same' | 'none' | 'error' | 'cancelled') {
     s.append(more);
   }
   box.append(s);
+  if (c) box.append(el("p", "note", "Size bounds compare the routes found for general parameter growth. Special inputs can change the order."));
   front.forEach((n) => box.append(pathRow(n, false)));
   if (slower.length && !front.length) slower.forEach((n) => box.append(pathRow(n, true)));
   else if (slower.length) {
     const selectedSlower = !onFront.has(state.selected!), open = state.showSlower || selectedSlower;
-    const t = el("button", "link more", open ? "Hide slower routes" : `Show ${slower.length} slower routes`); t.type = "button";
+    const t = el("button", "link more", open ? "Hide other routes" : `Show ${slower.length} other route${slower.length === 1 ? "" : "s"}`); t.type = "button";
     t.addEventListener("click", () => { state.showSlower = !open; if (!state.showSlower && selectedSlower) { select(front[0]!); return; } renderResults(); });
     box.append(t);
     if (open) slower.forEach((n) => box.append(pathRow(n, true)));

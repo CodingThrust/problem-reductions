@@ -149,13 +149,11 @@ impl Problem for ThreeDimensionalMatching {
                     ));
                 }
 
-                // Count selected triples
                 let selected_count = config.iter().filter(|&&v| v).count();
                 if selected_count != self.universe_size {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check that selected triples have all distinct coordinates
                 let mut used_w = HashSet::with_capacity(self.universe_size);
                 let mut used_x = HashSet::with_capacity(self.universe_size);
                 let mut used_y = HashSet::with_capacity(self.universe_size);

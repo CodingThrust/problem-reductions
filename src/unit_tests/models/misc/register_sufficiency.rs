@@ -63,7 +63,6 @@ fn test_register_sufficiency_basic() {
 
 #[test]
 fn test_register_sufficiency_evaluate_valid() {
-    // Issue #515 example: 7 vertices, 8 arcs, K=3
     let problem = RegisterSufficiency::new(
         7,
         vec![
@@ -83,7 +82,6 @@ fn test_register_sufficiency_evaluate_valid() {
     let config = vec![0, 1, 2, 3, 5, 4, 6];
     assert!(problem.evaluate(&config).unwrap());
 
-    // Verify register count
     let max_reg = problem.simulate_registers(&config).unwrap().unwrap();
     assert_eq!(max_reg, 3);
 }
@@ -119,7 +117,7 @@ fn test_register_sufficiency_evaluate_invalid_dependency() {
 
 #[test]
 fn test_register_sufficiency_evaluate_exceeds_bound() {
-    // Issue example with K=2 (should fail - minimum is 3)
+    // K=2 is infeasible because the minimum register count is 3.
     let problem = RegisterSufficiency::new(
         7,
         vec![
@@ -216,7 +214,6 @@ fn test_register_sufficiency_single_vertex() {
 
 #[test]
 fn test_register_sufficiency_paper_example() {
-    // The issue example: 7 vertices, 8 arcs, K=3
     let problem = RegisterSufficiency::new(
         7,
         vec![
@@ -232,7 +229,7 @@ fn test_register_sufficiency_paper_example() {
         3,
     );
 
-    // The order from the issue: v1,v2,v3,v4,v6,v5,v7 (1-indexed)
+    // Order: v1,v2,v3,v4,v6,v5,v7 (1-indexed)
     // = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
     // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
     let config = vec![0, 1, 2, 3, 5, 4, 6];

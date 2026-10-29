@@ -21,7 +21,6 @@ pub mod gadgets;
 pub mod gadgets_weighted;
 pub mod mapping;
 
-// Re-export all public items for convenient access
 pub use gadgets::{
     apply_crossing_gadgets, apply_simplifier_gadgets, crossing_ruleset_indices,
     tape_entry_mis_overhead, KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg,

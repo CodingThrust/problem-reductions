@@ -24,12 +24,10 @@ fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Solve source with brute force
     let bf = BruteForce::new();
     let bf_solutions = bf.find_all_witnesses(&source).unwrap();
     assert!(!bf_solutions.is_empty(), "source should be satisfiable");
 
-    // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_sol).unwrap();

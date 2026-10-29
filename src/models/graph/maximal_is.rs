@@ -263,7 +263,6 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
         "selected length must match num_vertices"
     );
 
-    // Check independence
     for (u, v) in graph.edges() {
         if selected[u] && selected[v] {
             return false;

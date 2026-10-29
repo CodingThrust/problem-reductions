@@ -48,7 +48,6 @@ impl SATColoringConstructor {
         edges.push((0, 2));
         edges.push((1, 2));
 
-        // Create variable vertices and edges
         let mut pos_vertices = Vec::with_capacity(num_vars);
         let mut neg_vertices = Vec::with_capacity(num_vars);
         let mut vmap = HashMap::new();
@@ -66,7 +65,6 @@ impl SATColoringConstructor {
             // Connect pos and neg of the same variable (they must have different colors)
             edges.push((pos_v, neg_v));
 
-            // Build vmap
             vmap.insert((i, false), pos_v); // positive literal
             vmap.insert((i, true), neg_v); // negative literal
         }
@@ -170,7 +168,6 @@ impl SATColoringConstructor {
     ///
     /// Returns the output vertex index.
     fn add_or_gadget(&mut self, input1: usize, input2: usize) -> usize {
-        // Add 5 new vertices
         let new_vertices = self.add_vertices(5);
         let ancilla1 = new_vertices[0];
         let ancilla2 = new_vertices[1];
@@ -292,7 +289,6 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constructor = SATColoringConstructor::new(self.num_vars());
 
-        // Add each clause to the graph
         for clause in self.clauses() {
             constructor.add_clause(&clause.literals);
         }

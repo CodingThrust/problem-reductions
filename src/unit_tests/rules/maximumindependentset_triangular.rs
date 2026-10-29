@@ -144,13 +144,11 @@ fn test_mis_simple_one_to_triangular_graph_methods() {
     let edges = graph.edges();
     assert_eq!(edges.len(), m);
 
-    // Check edges are consistent with has_edge
     for &(u, v) in &edges {
         assert!(graph.has_edge(u, v));
         assert!(graph.has_edge(v, u)); // symmetric
     }
 
-    // Check neighbors are consistent with edges
     for v in 0..n {
         let nbrs = graph.neighbors(v);
         for &u in &nbrs {

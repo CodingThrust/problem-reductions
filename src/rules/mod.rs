@@ -2,6 +2,11 @@
 
 pub mod analysis;
 pub mod registry;
+mod weight_casts;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/weight_casts.rs"]
+mod test_weight_casts;
 pub use registry::{
     EdgeCapabilities, ParameterContractError, ReductionEntry, ReductionParameterContract,
     ReductionParameterDeclarations, UnavailableParameterField,
@@ -36,6 +41,8 @@ pub(crate) mod minimumweightandorgraph_ilp;
 pub(crate) mod partitionintoperfectmatchings_ilp;
 pub(crate) mod twodimensionalconsecutivesets_ilp;
 pub(crate) use graph::{recover_completed_result, RecoveryStep};
+mod binpacking_casts;
+mod comparativecontainment_casts;
 pub(crate) mod graph_helpers;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;
@@ -84,10 +91,15 @@ pub(crate) mod ksatisfiability_simultaneousincongruences;
 pub(crate) mod ksatisfiability_subsetsum;
 pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
+mod longestpath_casts;
+mod maxcut_casts;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
 pub(crate) mod maxcut_minimummatrixcover;
 pub(crate) mod maximum2satisfiability_maxcut;
+mod maximumclique_casts;
 pub(crate) mod maximumclique_maximumindependentset;
+mod maximumcokplex_casts;
+mod maximumedgeweightedkclique_casts;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 pub(crate) mod maximumindependentset_maximumclique;
@@ -100,10 +112,14 @@ pub(crate) mod minimumcodegenerationunlimitedregisters_ilp;
 pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
+mod minimumdominatingset_casts;
+mod minimumfeedbackvertexset_casts;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
 pub(crate) mod minimummaximalmatching_minimummatrixdomination;
 pub(crate) mod minimummultiwaycut_qubo;
+mod minimumtardinesssequencing_casts;
+mod minimumvertexcover_casts;
 pub(crate) mod minimumvertexcover_comparativecontainment;
 pub(crate) mod minimumvertexcover_ensemblecomputation;
 pub(crate) mod minimumvertexcover_longestcommonsubsequence;
@@ -113,8 +129,11 @@ pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod minimumvertexcover_minimumweightandorgraph;
+mod minmaxmulticenter_casts;
+mod mixedchinesepostman_casts;
 pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
+pub(crate) mod naesatisfiability_satisfiability;
 pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod numerical3dimensionalmatching_numericalmatchingwithtargetsums;
 pub(crate) mod optimallineararrangement_consecutiveonesmatrixaugmentation;
@@ -132,6 +151,7 @@ pub(crate) mod partition_subsetsum;
 pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
+mod prizecollectingsteinerforest_casts;
 pub(crate) mod prizecollectingsteinerforest_steinertree;
 mod qubo_casts;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
@@ -149,6 +169,7 @@ pub(crate) mod setsplitting_betweenness;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
+mod steinertree_casts;
 pub(crate) mod subsetsum_closestvectorproblem;
 pub(crate) mod subsetsum_integerexpressionmembership;
 pub(crate) mod subsetsum_partition;
@@ -411,6 +432,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_satisfiability::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(ensemblecomputation_ilp::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());

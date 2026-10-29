@@ -194,7 +194,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 6 elements [3,7,1,8,2,4], target 11 → select {3,8}
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_sum",
         instance: Box::new(SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32)),

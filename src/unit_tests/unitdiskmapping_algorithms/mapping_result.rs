@@ -46,7 +46,6 @@ fn test_mapping_result_format_config_with_selected() {
     let (rows, cols) = result.grid_dimensions;
     let mut config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
-    // Set some cells as selected
     if rows > 0 && cols > 0 {
         config[0][0] = 1;
     }
@@ -200,7 +199,6 @@ fn test_full_pipeline_diamond_unweighted() {
 
     let (n, edges) = smallgraph("diamond").unwrap();
     let result = ksg::map_unweighted(n, &edges).unwrap();
-    // Solve MIS on the grid graph
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
@@ -274,7 +272,6 @@ fn test_full_pipeline_weighted_diamond() {
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
 
-    // Get weights from the mapping result
     let weights: Vec<i64> = (0..num_grid)
         .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
@@ -316,10 +313,8 @@ fn test_mis_size_preserved_diamond() {
 
     let (n, edges) = smallgraph("diamond").unwrap();
     let result = ksg::map_unweighted(n, &edges).unwrap();
-    // Get original MIS size
     let original_mis = solve_mis(n, &edges);
 
-    // Get grid MIS size
     let grid_edges = result.edges();
     let grid_mis = solve_mis(result.positions.len(), &grid_edges);
 
@@ -437,7 +432,6 @@ fn test_apply_and_unapply_gadget() {
         apply_gadget, unapply_gadget, CellState, MappingGrid, Pattern,
     };
 
-    // Create a small grid with spacing 4
     let mut grid = MappingGrid::new(10, 10, 4);
 
     // Set up some occupied cells for a Turn gadget
@@ -501,14 +495,12 @@ fn test_extracted_mis_equals_original() {
 
     let (n, edges) = smallgraph("diamond").unwrap();
     let result = ksg::map_unweighted(n, &edges).unwrap();
-    // Solve MIS on grid
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
     // Map back
     let original_config = result.map_config_back(&grid_config).unwrap();
-    // Count selected vertices
     let extracted_count = original_config.iter().filter(|&&x| x > 0).count();
     let original_mis = solve_mis(n, &edges);
 
@@ -653,7 +645,6 @@ fn test_interface_k23_unweighted() {
         "K23: MIS overhead formula should hold"
     );
 
-    // Check map_config_back produces valid IS
     let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
@@ -687,7 +678,6 @@ fn test_interface_empty_graph_unweighted() {
         "Empty graph: MIS overhead formula should hold"
     );
 
-    // Check map_config_back
     let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
@@ -706,7 +696,6 @@ fn test_interface_path_graph_unweighted() {
 
     let (n, edges) = path_graph();
     let result = ksg::map_unweighted(n, &edges).unwrap();
-    // Check MIS size preservation
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
@@ -723,7 +712,6 @@ fn test_interface_path_graph_unweighted() {
         "Path graph: MIS overhead formula should hold"
     );
 
-    // Check map_config_back
     let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
@@ -737,12 +725,10 @@ fn test_interface_k23_weighted() {
 
     let (n, edges) = k23_graph();
     let result = ksg::map_weighted(n, &edges).unwrap();
-    // Check MIS size preservation
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);
 
-    // Check map_config_back produces valid IS
     let mapped_back = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &mapped_back),
@@ -774,7 +760,6 @@ fn test_interface_path_graph_weighted() {
 
     let (n, edges) = path_graph();
     let result = ksg::map_weighted(n, &edges).unwrap();
-    // Check map_config_back
     let grid_edges = result.edges();
     let num_grid = result.positions.len();
     let grid_config = solve_mis_config(num_grid, &grid_edges);

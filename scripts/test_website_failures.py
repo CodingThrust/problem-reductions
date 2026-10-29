@@ -94,7 +94,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         expect(self.page.get_by_role('button', name='Cancel', exact=True)).to_have_count(0)
         resource.write_bytes(original)
         self.page.get_by_role('button', name='SAT → QUBO', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         route = self.copy_route()
         self.assertEqual(route['path'][0]['from']['name'], 'Satisfiability')
         self.assertEqual(route['path'][-1]['to']['name'], 'QUBO')
@@ -147,7 +147,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         expect(self.page.get_by_role('button', name='Cancel', exact=True)).to_have_count(0)
         self.engine_release.set()
         self.page.get_by_role('button', name='SAT → QUBO', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
 
     def test_graph_retries_comparison_from_cached_routes_after_native_error(self):
@@ -163,7 +163,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         self.assertEqual(self.page.evaluate('pathMessages.map(message => message.phase)'), ['paths', 'comparison'])
         resource.write_bytes(original)
         self.page.get_by_role('button', name='SAT → QUBO', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assertEqual(self.page.evaluate('pathMessages.map(message => message.phase)'), ['paths', 'comparison', 'comparison'])
         self.assertEqual(self.page.evaluate('pathWorkerStarts'), 2)
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
@@ -187,15 +187,16 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         resource.write_bytes(gzip.compress(json.dumps(graph).encode(), mtime=0))
         self.page.goto(self.base + 'graph.html#directions')
         self.choose_endpoint('source', 'Graph Partitioning')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('1 best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('1 size-bound candidate')
         expect(self.page.locator('.path .size')).to_have_text('n⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³', timeout=1000)
         summaries = self.page.locator('.growth').evaluate('''dl => Object.fromEntries(
             [...dl.querySelectorAll('dt')].map(term => [term.textContent, term.nextElementSibling.textContent]))''')
-        self.assertEqual(summaries['vars'], 'Θ(vertices⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³)')
+        self.assertCountEqual(summaries['vars'].removeprefix('O(').removesuffix(')').split(' + '),
+                              ['vertices⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹³', 'edges⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹²'])
         quadratic = summaries['quadratic terms']
-        self.assertRegex(quadratic, r'^Θ\([^()]+\)$')
+        self.assertRegex(quadratic, r'^O\([^()]+\)$')
         # Product factors commute; their exact exponents and multiplicity must agree.
-        self.assertCountEqual(quadratic.removeprefix('Θ(').removesuffix(')').split('·'),
+        self.assertCountEqual(quadratic.removeprefix('O(').removesuffix(')').split('·'),
                               ['edges⁹⁰⁰⁷¹⁹⁹²⁵⁴⁷⁴⁰⁹⁹²', 'vertices'])
         route = self.copy_route()
         self.assertEqual([step['to']['name'] for step in route['path']], ['QUBO'])
@@ -213,7 +214,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
     def test_graph_cancel_before_paths_allows_successful_retry(self):
         self.cancel_pending_engine()
         self.page.get_by_role('button', name='Search again', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
 
     def test_graph_recovers_after_offline_engine_start(self):
@@ -224,14 +225,14 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         expect(self.page.get_by_role('button', name='Cancel', exact=True)).to_have_count(0)
         self.context.set_offline(False)
         self.page.get_by_role('button', name='SAT → QUBO', exact=True).click()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
 
     def assert_detail_recovery(self, resource, message):
         original = resource.read_bytes()
         resource.unlink()
         self.page.goto(self.base + 'graph.html#directions')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         def open_details():
             self.open_problem_popover('MaximumIndependentSet')
             self.page.locator('#pop .pop-details').click()
@@ -260,7 +261,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         manifest['entries']['problem:MaximumIndependentSet'] = './index.html'
         resource.write_text(json.dumps(manifest))
         self.page.goto(self.base + 'graph.html#directions')
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         def open_details():
             self.open_problem_popover('MaximumIndependentSet')
             self.page.get_by_role('button', name='Details', exact=True).click()
@@ -295,7 +296,7 @@ class WebsiteFailureTests(test_website.WebsiteTests):
         self.assertEqual(self.page.workers, [], 'A failed graph retained its unused path worker')
         resource.write_bytes(original)
         self.page.reload()
-        expect(self.page.locator('#results .summary strong')).to_contain_text('best route')
+        expect(self.page.locator('#results .summary strong')).to_contain_text('size-bound candidate')
         self.assertEqual(self.copy_route()['path'][-1]['to']['name'], 'QUBO')
 
 

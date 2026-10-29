@@ -223,7 +223,6 @@ fn test_maximal_is_paper_example() {
     assert!(result2.is_valid());
     assert_eq!(result2.unwrap(), 3);
 
-    // Verify optimal weight is 3
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 3);

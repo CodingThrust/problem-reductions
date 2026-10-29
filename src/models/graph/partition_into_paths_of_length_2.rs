@@ -136,7 +136,6 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
             return false;
         }
 
-        // Check all assignments are in range
         if config.iter().any(|&g| g >= q) {
             return false;
         }
