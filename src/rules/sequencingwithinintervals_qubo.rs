@@ -38,9 +38,14 @@ impl ReduceTo<Decision<QUBO<i64>>> for SequencingWithinIntervals {
     type Result = ReductionSequencingWithinIntervalsToQUBO;
     fn reduce_to(&self) -> Result<Self::Result, ReductionError> {
         type Builder = QuboBuilder<SequencingWithinIntervals, Decision<QUBO<i64>>>;
+        let num_slots = self.num_start_slots();
+        std::alloc::Layout::array::<(usize, i64, i64)>(num_slots)
+            .map_err(|_| Builder::overflow())?;
+        // Each row's usize index vector is no larger than the checked slot array.
+        // The source constructor also checks the total, so offset + length fits.
         let lengths: Vec<_> = self.start_slot_counts().collect();
-        let mut q = Builder::new(self.num_start_slots());
-        let mut slots = Vec::with_capacity(self.num_start_slots());
+        let mut q = Builder::new(num_slots);
+        let mut slots = Vec::with_capacity(num_slots);
         for (i, &length) in lengths.iter().enumerate() {
             let offset = slots.len();
             q.square(&(offset..offset + length).collect::<Vec<_>>(), 1, 1)?;
