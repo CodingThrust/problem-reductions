@@ -1,10 +1,8 @@
 //! Karp's literal-compatibility construction with a universal vertex.
 //!
-//! Use actual literal occurrences, including shorter clauses accepted by
-//! KSatisfiability::new_allow_less. For m clauses and t occurrences, create
-//! max(t,m)+1 vertices and request a clique of size m+1. Vertex t is adjacent
-//! to all literal vertices; remaining padding vertices are isolated. This
-//! uniformly represents empty formulas and formulas containing empty clauses.
+//! For m clauses, create one vertex per literal occurrence plus an anchor
+//! (3m+1 vertices) and request a clique of size m+1. The anchor is adjacent to
+//! every literal vertex, so the empty formula maps to the one-vertex clique.
 
 use crate::models::formula::KSatisfiability;
 use crate::models::graph::KClique;
@@ -58,20 +56,18 @@ impl crate::rules::AggregateReductionResult for Reduction3SATToKClique {}
 
 #[reduction(
     transform = {
-        exact { k = "num_clauses + 1" },
-        // Clauses built with `new_allow_less` may have fewer than three literals.
-        upper_bound {
+        exact {
+            k = "num_clauses + 1",
             num_vertices = "3 * num_clauses + 1",
-            num_edges = "9 * num_clauses^2 + 3 * num_clauses",
         },
+        upper_bound { num_edges = "9 * num_clauses^2 + 3 * num_clauses" },
     }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToKClique;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let (num_vertices, k) =
-            clique_sizes(self.num_clauses(), self.clauses().iter().map(|c| c.len()))?;
+        let (num_vertices, k) = clique_sizes(self.num_clauses())?;
         // CNFClause::variables performs the formal literal-to-index conversion;
         // the source constructor has already validated its range and polarity.
         let positions: Vec<_> = self
@@ -104,22 +100,18 @@ impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     }
 }
 
-/// Check occurrence and output counts before allocating the compatibility graph.
-fn clique_sizes(
-    m: usize,
-    lengths: impl IntoIterator<Item = usize>,
-) -> Result<(usize, usize), crate::rules::ReductionError> {
-    let overflow = || {
-        crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, KClique<SimpleGraph>>(
-            "counting SAT clique occurrences and auxiliary vertices",
-        )
-    };
-    let t = lengths
-        .into_iter()
-        .try_fold(0usize, |sum, len| sum.checked_add(len))
-        .ok_or_else(overflow)?;
-    let vertices = t.max(m).checked_add(1).ok_or_else(overflow)?;
-    // m+1 <= max(t,m)+1, whose representability was checked above.
+/// Check the vertex and clique sizes before allocating the compatibility graph.
+fn clique_sizes(m: usize) -> Result<(usize, usize), crate::rules::ReductionError> {
+    let vertices = m
+        .checked_mul(3)
+        .and_then(|t| t.checked_add(1))
+        .ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                KClique<SimpleGraph>,
+            >("counting SAT clique literal and anchor vertices")
+        })?;
+    // m+1 <= 3m+1, whose representability was checked above.
     Ok((vertices, m + 1))
 }
 

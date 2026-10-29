@@ -68,7 +68,6 @@ pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
 pub(crate) mod ksatisfiability_bicliquecover;
-mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
 pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;

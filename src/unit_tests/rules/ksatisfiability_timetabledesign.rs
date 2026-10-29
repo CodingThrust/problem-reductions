@@ -18,9 +18,12 @@ fn satisfiable_instance() -> KSatisfiability<K3> {
 }
 
 fn unsatisfiable_instance() -> KSatisfiability<K3> {
-    KSatisfiability::<K3>::new_allow_less(
+    KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     )
 }
 

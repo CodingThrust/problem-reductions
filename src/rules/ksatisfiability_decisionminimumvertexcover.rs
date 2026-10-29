@@ -68,10 +68,9 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
 impl crate::rules::AggregateReductionResult for Reduction3SATToDecisionMVC {}
 
 #[reduction(
-    transform = {
-        exact { num_vertices = "2 * num_vars + 3 * num_clauses" },
-        // A clause with fewer than three literals links fewer triangle corners.
-        upper_bound { num_edges = "num_vars + 6 * num_clauses" },
+    transform = exact {
+        num_vertices = "2 * num_vars + 3 * num_clauses",
+        num_edges = "num_vars + 6 * num_clauses",
     }
 )]
 impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiability<K3> {
@@ -100,12 +99,7 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
             edges.push((base, base + 2));
 
             // Communication edges: connect triangle vertex k to the literal vertex
-            for k in 0..3 {
-                if clause.literals.is_empty() {
-                    continue;
-                }
-                // Repeating a literal pads a short clause without changing it.
-                let lit = clause.literals[k % clause.literals.len()];
+            for (k, &lit) in clause.literals.iter().enumerate() {
                 let var_idx = lit.unsigned_abs() as usize - 1; // 0-indexed variable
                 let literal_vertex = if lit > 0 {
                     2 * var_idx // positive literal vertex
@@ -123,18 +117,10 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>> for KSatisfiabilit
         Ok(Reduction3SATToDecisionMVC {
             target: Decision::new(
                 target,
-                if self
-                    .clauses()
-                    .iter()
-                    .any(|clause| clause.literals.is_empty())
-                {
-                    -1 // No nonnegative vertex-cover size can satisfy an empty clause.
-                } else {
-                    <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
-                        n + 2 * m,
-                        "computing the cover bound",
-                    )?
-                },
+                <Self as ReduceTo<Decision<MinimumVertexCover<SimpleGraph, One>>>>::exact_i64(
+                    n + 2 * m,
+                    "computing the cover bound",
+                )?,
             ),
             source_num_vars: n,
         })
