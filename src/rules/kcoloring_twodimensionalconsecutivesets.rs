@@ -128,9 +128,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kcoloring_to_twodimensionalconsecutivesets",
         build: || {
-            // Small 3-colorable graph: triangle with pendant
-            // 0 -- 1 -- 2 -- 0, plus 2 -- 3
-            // 3-coloring: 0->0, 1->1, 2->2, 3->0
             let source =
                 KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]));
             let reduction = <KColoring<K3, SimpleGraph> as ReduceTo<
@@ -139,17 +136,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             .expect("reduction should succeed");
             let target = reduction.target_problem();
 
-            // Source coloring: 0->0, 1->1, 2->2, 3->0
-            // Target config: vertex 0->group 0, vertex 1->group 1, vertex 2->group 2, vertex 3->group 0
-            // Dummies:
-            //   d_{0,1} (symbol 4): colors used {0,1}, dummy->group 2
-            //   d_{1,2} (symbol 5): colors used {1,2}, dummy->group 0
-            //   d_{0,2} (symbol 6): colors used {0,2}, dummy->group 1
-            //   d_{2,3} (symbol 7): colors used {2,0}, dummy->group 1
             let source_config = vec![0, 1, 2, 0];
             let target_config = vec![0, 1, 2, 0, 2, 0, 1, 1];
 
-            // Verify the target config is valid
             assert!(
                 target
                     .evaluate(&target_config)

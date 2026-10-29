@@ -36,7 +36,7 @@ fn test_shortestcommonsuperstring_basic() {
 
 #[test]
 fn test_shortestcommonsuperstring_evaluate_valid_substring() {
-    // Issue Example 1 (Sigma = {a, b, c}, mapped a=0,b=1,c=2)
+    // Alphabet {a,b,c} is mapped to {0,1,2}.
     // R = {"abc", "bca", "cab", "bcc", "cca", "aab"}, max_length = 18
     // Optimal superstring w = "aabcabcca" (length 9).
     let problem = ShortestCommonSuperstring::new(
@@ -162,7 +162,6 @@ fn test_shortestcommonsuperstring_serialization() {
 
 #[test]
 fn test_shortestcommonsuperstring_example1_ternary() {
-    // Issue Example 1: Sigma = {a, b, c}, R = {"abc","bca","cab","bcc","cca","aab"}.
     // Optimal superstring w = "aabcabcca" (length 9).
     // Search space 4^18 is too large for brute force; verify the claimed witness
     // evaluates to Min(Some(9)) and that any shorter prefix is infeasible.
@@ -196,7 +195,6 @@ fn test_shortestcommonsuperstring_example1_ternary() {
 
 #[test]
 fn test_shortestcommonsuperstring_example2_binary() {
-    // Issue Example 2: Sigma = {0, 1}, R = {"001","011","110","100","010","101"}.
     // Optimal superstring w = "00110100" (length 8).
     // Search space 3^18 is too large for brute force.
     let problem = ShortestCommonSuperstring::new(
@@ -220,7 +218,6 @@ fn test_shortestcommonsuperstring_example2_binary() {
 
 #[test]
 fn test_shortestcommonsuperstring_example3() {
-    // Issue Example 3: Sigma = {a, b, c}, R = {"abc","cab","ba","bb"}.
     // The witness "abcabba" (length 7) is a valid superstring of all four
     // strings. Brute-force optimality is covered by the smaller instances in
     // `test_shortestcommonsuperstring_brute_force_small` / `_solve_aggregate`

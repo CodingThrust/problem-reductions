@@ -66,7 +66,6 @@ fn test_lcs_to_ilp_extracts_valid_witness() {
 
 #[test]
 fn test_lcs_to_ilp_matches_brute_force() {
-    // Verify ILP optimal value matches brute force
     let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
     let reduction: ReductionLCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

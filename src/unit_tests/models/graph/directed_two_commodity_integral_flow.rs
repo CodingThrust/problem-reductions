@@ -183,11 +183,9 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    // Verify the known solution evaluates to true
     let config = vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1];
     assert!(problem.evaluate(&config).unwrap());
 
-    // Find all satisfying solutions and verify count
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());
 

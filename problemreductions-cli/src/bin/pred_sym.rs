@@ -122,7 +122,6 @@ fn main() {
                 })
                 .collect();
 
-            // Check for unbound variables
             let expr_vars = parsed.variables();
             let bound_vars: std::collections::HashSet<&str> =
                 bindings.iter().map(|(name, _)| name.as_str()).collect();

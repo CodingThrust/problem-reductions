@@ -147,7 +147,6 @@ where
                 }
             }
 
-            // Count elements used (union of all subsets)
             let used: HashSet<usize> = subsets.iter().flat_map(|s| s.iter().copied()).collect();
             Min(Some(i64::try_from(used.len()).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
@@ -189,10 +188,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // P3: 3 vertices, edges (0,1), (1,2), num_edges=2
-    // Intersection number = 2: S[0]={0}, S[1]={0,1}, S[2]={1}
-    // Incidence rows: vertex 0: [true,false], vertex 1: [true,true],
-    // vertex 2: [false,true].
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_intersection_graph_basis_simplegraph",
         instance: Box::new(MinimumIntersectionGraphBasis::new(SimpleGraph::new(

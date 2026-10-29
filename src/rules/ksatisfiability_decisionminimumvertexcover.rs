@@ -156,15 +156,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    // x1=0, x2=0, x3=1 satisfies both clauses
                     source_config: serde_json::json!(vec![false, false, true]),
-                    // Literal vertices: u1(0), ~u1(1), u2(2), ~u2(3), u3(4), ~u3(5)
-                    // Clause 0 triangle: v6, v7, v8 (literals x1, x2, x3)
-                    // Clause 1 triangle: v9, v10, v11 (literals ~x1, ~x2, x3)
-                    // VC: from truth-setting, pick ~u1(1), ~u2(3), u3(4)
-                    // Clause 0: u1,u2 not in cover -> pick v6,v7; u3 in cover -> v8 free
-                    // Clause 1: ~u1,~u2,u3 all in cover -> pick any 2: v9,v10
-                    // Total cover size = 3 + 2 + 2 = 7 = n + 2m
                     target_config: serde_json::json!(vec![
                         false, true, false, true, true, false, true, true, false, true, true, false
                     ]),

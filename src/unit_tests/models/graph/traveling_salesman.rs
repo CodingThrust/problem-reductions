@@ -116,7 +116,6 @@ fn test_evaluate_no_edges_selected() {
 
 #[test]
 fn test_brute_force_k4() {
-    // Instance 1 from issue: K4 with weights
     let problem = k4_tsp();
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
@@ -129,7 +128,6 @@ fn test_brute_force_k4() {
 
 #[test]
 fn test_brute_force_path_graph_no_solution() {
-    // Instance 2 from issue: path graph, no Hamiltonian cycle exists
     let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3)],
@@ -141,7 +139,6 @@ fn test_brute_force_path_graph_no_solution() {
 
 #[test]
 fn test_brute_force_c5_unique_solution() {
-    // Instance 3 from issue: C5 cycle graph, unique Hamiltonian cycle
     let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
@@ -155,7 +152,6 @@ fn test_brute_force_c5_unique_solution() {
 
 #[test]
 fn test_brute_force_bipartite_no_solution() {
-    // Instance 4 from issue: K_{2,3} bipartite, no Hamiltonian cycle
     let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         5,
         vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)],

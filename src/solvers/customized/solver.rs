@@ -238,7 +238,6 @@ pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<bool>>
 
     let essential = find_essential_attributes_restricted(n_attrs, &deps, relation_attrs);
 
-    // Build branch order over relation_attrs indices (excluding essential)
     let essential_set: HashSet<usize> = essential.iter().copied().collect();
     let branch_indices: Vec<usize> = relation_attrs
         .iter()
@@ -253,7 +252,6 @@ pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<bool>>
         &branch_indices,
         |_selected, _depth| BranchDecision::Continue,
         |selected| {
-            // Check that selected forms a superkey over relation_attrs
             let closure = compute_closure(selected, &deps);
             if !relation_attrs.iter().all(|&a| closure[a]) {
                 return false;

@@ -57,11 +57,9 @@ fn test_planar_3_satisfiability_solver() {
     let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 
-    // Verify the found solution actually satisfies the formula
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol).unwrap());
 
-    // Check all witnesses are valid
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());
     for sol in &all_solutions {

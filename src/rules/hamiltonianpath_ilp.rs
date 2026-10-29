@@ -95,7 +95,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltonianpath_to_ilp",
         build: || {
-            // Path graph: 0-1-2-3 (has Hamiltonian path)
             let source = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },

@@ -195,7 +195,6 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
         }
     }
 
-    // Compute and compare weighted MIS
     let mapped_mis = solve_weighted_grid_mis(&result) as i64;
     let julia_mis = julia_data["mapped_mis_size"]
         .as_f64()
@@ -374,7 +373,6 @@ fn test_triangular_map_config_back_standard_graphs() {
         let grid_edges = result.edges();
         let num_grid = result.positions.len();
 
-        // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
 
         let center_config = triangular::map_config_back(&result, &grid_config).unwrap();

@@ -193,7 +193,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bottlenecktravelingsalesman_to_ilp",
         build: || {
-            // C4 with varying weights
             let source = BottleneckTravelingSalesman::new(
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],

@@ -57,7 +57,6 @@ fn test_factor_6() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Verify it's a valid factorization
     assert!(problem.is_valid_factorization(&extracted));
 
     let (a, b) = extracted.clone();
@@ -182,12 +181,10 @@ fn test_factoring_to_ilp_closed_loop() {
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Get ILP solution
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let ilp_factors = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Get brute force solutions
     let bf = BruteForce::new();
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
 

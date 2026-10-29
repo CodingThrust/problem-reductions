@@ -252,14 +252,12 @@ where
                 return Ok(Min(None));
             }
 
-            // Check size bounds
             let count_v1 = config.iter().filter(|&&x| !x).count();
             let count_v2 = config.iter().filter(|&&x| x).count();
             if count_v1 > self.size_bound || count_v2 > self.size_bound {
                 return Ok(Min(None));
             }
 
-            // Compute cut weight
             let mut cut_weight = W::Sum::zero();
             for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
                 if config[*u] != config[*v] {
@@ -313,7 +311,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             7,
             5,
         )),
-        // V1={0,1,2,3}, V2={4,5,6,7}: cut edges (2,4)=2,(3,5)=1,(3,6)=3 => 6
         optimal_config: serde_json::json!(vec![false, false, false, false, true, true, true, true]),
         optimal_value: serde_json::json!(6),
     }]

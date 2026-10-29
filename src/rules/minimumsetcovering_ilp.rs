@@ -63,7 +63,6 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
         // This ensures each element is covered by at least one selected set
         let constraints: Vec<LinearConstraint> = (0..self.universe_size())
             .map(|element| {
-                // Find all sets containing this element
                 let terms: Vec<(usize, i64)> = self
                     .sets()
                     .iter()

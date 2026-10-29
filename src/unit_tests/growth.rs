@@ -420,8 +420,6 @@ fn test_growth_reports_nested_and_numeric_failures() {
     assert_eq!(exact_growth(Vec::new()).to_expr(), Some(Expr::integer(1)));
 }
 
-// --- Additional coverage ---
-
 /// Pure constants, constant factors, and constant division are all O(1) / dropped.
 #[test]
 fn test_growth_constants_are_o1() {
@@ -622,8 +620,7 @@ fn test_growth_rejects_large_unproved_exponential_antichain() {
 // --- Randomized property tests ---
 //
 // These cross-validate the symbolic growth domain against the numeric ground
-// truth (`Expr::eval`) over a large, seeded input space, in the spirit of the
-// repo's `/verify-reduction` adversarial culture. Three contracts are exercised
+// truth (`Expr::eval`) over a large, seeded input space. Three contracts are exercised
 // ≥ 5000 times each with a hand-rolled, deterministic RNG (no wall-clock, no
 // entropy — CI must be byte-reproducible across platforms):
 //

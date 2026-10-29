@@ -233,7 +233,6 @@ pub fn map_weighted_with_order(
             ))
     })?;
 
-    // Add gadget overhead (crossing gadgets + simplifiers)
     let gadget_overhead = triangular_tape.iter().try_fold(0_i64, |total, entry| {
         total
             .checked_add(tape_entry_mis_overhead(entry)?)
@@ -254,7 +253,6 @@ pub fn map_weighted_with_order(
         ));
     }
 
-    // Convert triangular tape entries to generic tape entries
     let tape: Vec<TapeEntry> = triangular_tape
         .into_iter()
         .map(|entry| TapeEntry {
@@ -267,7 +265,6 @@ pub fn map_weighted_with_order(
     // Extract doubled cells before extracting positions
     let doubled_cells = grid.doubled_cells();
 
-    // Extract positions and weights from occupied cells
     let positions_and_weights = grid
         .occupied_coords()
         .into_iter()

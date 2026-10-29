@@ -149,7 +149,6 @@ fn build_multiplier_cell(
     c_pre: &BooleanExpr,
     cell_id: &str,
 ) -> (Vec<Assignment>, Vec<String>) {
-    // Create unique ancilla variable names
     let a_name = format!("a_{}", cell_id);
     let a_xor_s_name = format!("axs_{}", cell_id);
     let a_xor_s_and_c_name = format!("axsc_{}", cell_id);
@@ -229,7 +228,6 @@ impl ReduceTo<CircuitSAT> for Factoring {
         let target = self.target();
         let (width, capacity) = ReductionFactoringToCircuit::dimensions(n1, n2)?;
 
-        // Create input variables for the two factors
         let p_vars: Vec<String> = (1..=n1).map(|i| format!("p{}", i)).collect();
         let q_vars: Vec<String> = (1..=n2).map(|i| format!("q{}", i)).collect();
 
@@ -253,11 +251,9 @@ impl ReduceTo<CircuitSAT> for Factoring {
             let mut c_pre = BooleanExpr::constant(false);
 
             for j in 1..=n2 {
-                // Create signal names for this cell
                 let c_name = format!("c{}_{}", i, j);
                 let s_name = format!("s{}_{}", i, j);
 
-                // Build the multiplier cell
                 let cell_id = format!("{}_{}", i, j);
                 let (cell_assignments, _ancillas) = build_multiplier_cell(
                     &s_name,
@@ -315,7 +311,6 @@ impl ReduceTo<CircuitSAT> for Factoring {
             assignments.push(Assignment::new(vec![overflow], BooleanExpr::constant(true)));
         }
 
-        // Build the circuit
         let circuit = Circuit::new(assignments);
         let circuit_sat = CircuitSAT::new(circuit);
 

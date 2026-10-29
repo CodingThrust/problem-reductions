@@ -4,7 +4,6 @@ use crate::solvers::BruteForce;
 
 #[test]
 fn test_minimumvertexcover_to_minimumhittingset_closed_loop() {
-    // 6-vertex graph from the issue example
     // Edges: {0,1}, {0,2}, {1,3}, {2,3}, {2,4}, {3,5}, {4,5}, {1,4}
     // Minimum vertex cover size = 3 (e.g., {0, 3, 4})
     let vc_problem = MinimumVertexCover::new(
@@ -71,7 +70,6 @@ fn test_vc_to_hs_triangle() {
         assert_eq!(hs_problem.get_set(i).unwrap().len(), 2);
     }
 
-    // Solve both and verify they match
     let solver = BruteForce::new();
     let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
     let hs_solutions = solver.find_all_witnesses(hs_problem).unwrap();

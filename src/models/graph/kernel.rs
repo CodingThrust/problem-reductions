@@ -103,7 +103,6 @@ impl Problem for Kernel {
         Ok({
             let n = self.graph.num_vertices();
 
-            // Collect selected vertices
             let selected = config;
 
             // Independence: no arc between any two selected vertices
@@ -143,8 +142,6 @@ impl crate::solvers::BruteForceProblem for Kernel {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 vertices, arcs: (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1)
-    // Kernel: V' = {0, 3}.
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],

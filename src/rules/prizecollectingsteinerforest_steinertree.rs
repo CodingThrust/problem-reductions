@@ -225,11 +225,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![RuleExampleSpec {
         id: "prize_collecting_steiner_forest_to_steiner_tree",
         build: || {
-            // Canonical instance with the omit-edge actually
-            // selected at the optimum: path 0 - 1 - 2 with c(0,1)=10,
-            // c(1,2)=10, prizes p = (5, 1, 5), beta = 1, omega = 1. The
-            // optimum drops vertex 1 (paying p(1) = 1) rather than paying a
-            // size-10 edge to reach it.
+            // Choose costs that make an optimum use the omit-edge gadget.
             let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![5, 1, 5],

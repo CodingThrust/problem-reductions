@@ -78,7 +78,6 @@ fn test_coloring_to_ilp_closed_loop() {
         "Brute force should find solutions"
     );
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -103,17 +102,14 @@ fn test_ilp_solution_equals_brute_force_path() {
 
     let ilp_solver = ILPSolver::new();
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Verify validity
     assert!(
         problem.evaluate(&extracted).unwrap(),
         "Extracted solution should be valid"
     );
 
-    // Check adjacent vertices have different colors
     assert_ne!(extracted[0], extracted[1]);
     assert_ne!(extracted[1], extracted[2]);
     assert_ne!(extracted[2], extracted[3]);

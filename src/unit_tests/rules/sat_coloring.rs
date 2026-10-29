@@ -13,11 +13,9 @@ fn test_constructor_basic_structure() {
     // Should have 2*2 + 3 = 7 vertices
     assert_eq!(constructor.num_vertices, 7);
 
-    // Check pos_vertices and neg_vertices
     assert_eq!(constructor.pos_vertices, vec![3, 4]);
     assert_eq!(constructor.neg_vertices, vec![5, 6]);
 
-    // Check vmap
     assert_eq!(constructor.vmap[&(0, false)], 3);
     assert_eq!(constructor.vmap[&(0, true)], 5);
     assert_eq!(constructor.vmap[&(1, false)], 4);
@@ -80,8 +78,6 @@ fn test_unsatisfiable_formula() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(coloring).unwrap();
 
-    // For an unsatisfiable formula, the coloring should have no valid solutions
-    // OR no valid coloring exists that extracts to a satisfying SAT assignment
     let mut found_satisfying = false;
     for sol in &solutions {
         let sat_sol = reduction.extract_solution(sol).unwrap();
@@ -91,13 +87,6 @@ fn test_unsatisfiable_formula() {
         }
     }
 
-    // The coloring should not yield a satisfying SAT assignment
-    // because the formula is unsatisfiable
-    // Note: The coloring graph itself may still be colorable,
-    // but the constraints should make it impossible for both
-    // x1 and NOT x1 to be TRUE color simultaneously
-    // Actually, let's check if ANY coloring solution produces a valid SAT solution
-    // If the formula is unsat, no valid coloring should extract to a satisfying assignment
     assert!(
         !found_satisfying,
         "Unsatisfiable formula should not produce satisfying assignment"
@@ -133,7 +122,6 @@ fn test_coloring_structure() {
         ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat).expect("reduction should succeed");
     let coloring = reduction.target_problem();
 
-    // Verify coloring has expected structure
     assert!(coloring.graph().num_vertices() > 0);
     assert_eq!(coloring.num_colors(), 3);
 }
@@ -146,19 +134,6 @@ fn test_extract_solution_basic() {
         ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat).expect("reduction should succeed");
 
     // Manually construct a valid coloring where x1 has TRUE color
-    // Vertices: 0=TRUE, 1=FALSE, 2=AUX, 3=x1, 4=NOT_x1
-    // Colors: TRUE=0, FALSE=1, AUX=2
-    // For x1 to be true, pos_vertex[0]=3 should have color 0 (TRUE)
-
-    // A valid coloring that satisfies x1=TRUE:
-    // - Vertex 0 (TRUE): color 0
-    // - Vertex 1 (FALSE): color 1
-    // - Vertex 2 (AUX): color 2
-    // - Vertex 3 (x1): color 0 (TRUE) - connected to AUX(2), NOT_x1(4)
-    // - Vertex 4 (NOT_x1): color 1 (FALSE) - connected to AUX(2), x1(3)
-
-    // However, the actual coloring depends on the full graph structure
-    // Let's just verify the extraction logic works by checking type signatures
     assert_eq!(reduction.pos_vertices().len(), 1);
     assert_eq!(reduction.neg_vertices().len(), 1);
 }
@@ -243,11 +218,9 @@ fn test_num_clauses_accessor() {
 
 #[test]
 fn test_or_gadget_construction() {
-    // Test that OR gadget is correctly added
     let mut constructor = SATColoringConstructor::new(2);
     let initial_vertices = constructor.num_vertices;
 
-    // Add an OR gadget
     let input1 = constructor.pos_vertices[0]; // x1
     let input2 = constructor.pos_vertices[1]; // x2
     let output = constructor.add_or_gadget(input1, input2);

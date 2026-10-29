@@ -235,10 +235,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestweightconstrainedpath_to_ilp",
         build: || {
-            // 3-vertex path: 0 -- 1 -- 2, s=0, t=2
-            // edge_lengths = [2, 3], edge_weights = [1, 2]
-            // weight_bound = 4
-            // The only s-t path uses both edges: length=5, weight=3 <= 4 => feasible
             let source = ShortestWeightConstrainedPath::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 3],

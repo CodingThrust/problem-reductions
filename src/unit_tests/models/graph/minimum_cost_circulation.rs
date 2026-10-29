@@ -163,7 +163,6 @@ fn test_minimum_cost_circulation_negative_cycle_beats_zero() {
 
 #[test]
 fn test_minimum_cost_circulation_issue_example_1030() {
-    // Verbatim instance from issue #1030: vertices {0,1}, arcs
     //   0->1 cap=2 cost= 3
     //   1->0 cap=1 cost=-5
     // Bottleneck is the back-arc (cap=1), so the optimum sends one unit

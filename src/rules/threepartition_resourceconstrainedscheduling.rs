@@ -104,9 +104,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "threepartition_to_resourceconstrainedscheduling",
         build: || {
-            // sizes [4, 5, 6, 4, 6, 5], B=15, m=2
-            // partition: {4,5,6} and {4,6,5} — both sum to 15
-            // config: elements 0,1,2 in group 0; elements 3,4,5 in group 1
             crate::example_db::specs::rule_example_with_witness::<_, ResourceConstrainedScheduling>(
                 ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15),
                 SolutionPair {

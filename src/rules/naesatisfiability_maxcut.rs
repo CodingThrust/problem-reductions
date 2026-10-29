@@ -206,10 +206,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "naesatisfiability_to_maxcut",
         build: || {
-            // 3 variables, 2 clauses:
-            //   C1 = (x1, x2, ~x3)
-            //   C2 = (~x1, x3, x2)
-            // NAE-satisfying: x1=T, x2=F, x3=T
             let source = NAESatisfiability::new(
                 3,
                 vec![
@@ -223,13 +219,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    // x1=T(1), x2=F(0), x3=T(1)
                     source_config: serde_json::json!(vec![true, false, true]),
-                    // Vertices: x1(0)=1, ~x1(1)=0, x2(2)=0, ~x2(3)=1, x3(4)=1, ~x3(5)=0
-                    // All variable edges cross (weight M=3 each) -> 3*3=9
-                    // C1=(x1,x2,~x3): vertices 0,2,5 -> sides {1},{0,0} -> edges (0,2) crosses, (0,5) crosses, (2,5) doesn't -> +2
-                    // C2=(~x1,x3,x2): vertices 1,4,2 -> sides {0},{1,0} -> edges (1,4) crosses, (1,2) doesn't, (4,2) crosses -> +2
-                    // Total = 9 + 2 + 2 = 13
                     target_config: serde_json::json!(vec![true, false, false, true, true, false]),
                 },
             )
