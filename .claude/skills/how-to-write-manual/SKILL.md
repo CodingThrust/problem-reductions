@@ -24,8 +24,8 @@ The paper `docs/paper/reductions.typ` is the mathematical manual: one `problem-d
 - `reduction-rule(source, target, example:, example-source-variant:, example-target-variant:,
   example-caption:, extra:)[statement][proof]` auto-derives overhead from the graph export and
   registers the edge for the completeness check; label `<thm:Source-to-Target>`.
-- Every directed reduction needs its own entry, including reverses. Only `Decision<P> <-> P` pairs are
-  exempt. The completeness warning block at the end of the paper lists missing edges; your change
+- Every directed reduction needs its own entry, including reverses. `Decision<P> <-> P` pairs and pure `One -> i64 -> f64` numeric casts are
+  exempt; do not explain numeric casts in the paper. Nontrivial same-model variant reductions still require entries. The completeness warning block at the end of the paper lists missing edges; your change
   must never increase it.
 
 ## Example data — never invent

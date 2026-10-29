@@ -129,12 +129,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for MinimumFeedbackVertexSet<i64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumfeedbackvertexset_to_ilp",
         build: || {
-            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+            // Simple cycle: 0 -> 1 -> 2 -> 0 (FVS = 1 vertex)
+            let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

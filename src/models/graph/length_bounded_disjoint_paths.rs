@@ -114,11 +114,6 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
                 .to_string()
                 .into());
         }
-        for (index, &(u, v)) in spec.graph.iter().enumerate() {
-            if u == v {
-                return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-            }
-        }
         let inferred = spec
             .graph
             .iter()
@@ -133,7 +128,7 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
                 "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
             ).into());
         }
-        let graph = SimpleGraph::new(num_vertices, spec.graph);
+        let graph = SimpleGraph::try_new(num_vertices, spec.graph)?;
         Self::try_new(graph, spec.source, spec.sink, spec.max_length)
     }
 }

@@ -5,7 +5,7 @@
 //! picks at most one arc from each partition group.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
@@ -29,7 +29,7 @@ inventory::submit! {
 
 /// The Multiple Choice Branching problem.
 ///
-/// Given a directed graph G = (V, A), arc weights w(a), a partition of A into
+/// Given a simple directed graph G = (V, A), arc weights w(a), a partition of A into
 /// disjoint groups A_1, ..., A_m, and a threshold K, determine whether there
 /// exists a subset A' of arcs such that:
 /// - the selected arcs have total weight at least K
@@ -38,7 +38,7 @@ inventory::submit! {
 /// - at most one arc is selected from each partition group
 #[derive(Debug, Clone, Serialize)]
 pub struct MultipleChoiceBranching<W: WeightElement> {
-    graph: DirectedGraph,
+    graph: SimpleDigraph,
     weights: Vec<W>,
     partition: Vec<Vec<usize>>,
     threshold: W::Sum,
@@ -76,7 +76,7 @@ impl TryFrom<MultipleChoiceBranchingCreateSpec> for MultipleChoiceBranching<i64>
                 .to_string()
                 .into());
         }
-        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let graph = SimpleDigraph::try_new(num_vertices, spec.arcs)?;
         let num_arcs = graph.num_arcs();
         if spec.weights.len() != num_arcs {
             return Err(format!(
@@ -99,7 +99,7 @@ impl TryFrom<MultipleChoiceBranchingCreateSpec> for MultipleChoiceBranching<i64>
 
 #[derive(Debug, Deserialize)]
 struct MultipleChoiceBranchingUnchecked<W: WeightElement> {
-    graph: DirectedGraph,
+    graph: SimpleDigraph,
     weights: Vec<W>,
     partition: Vec<Vec<usize>>,
     threshold: W::Sum,
@@ -138,7 +138,7 @@ where
 impl<W: WeightElement> MultipleChoiceBranching<W> {
     /// Create a new Multiple Choice Branching instance.
     pub fn new(
-        graph: DirectedGraph,
+        graph: SimpleDigraph,
         weights: Vec<W>,
         partition: Vec<Vec<usize>>,
         threshold: W::Sum,
@@ -159,7 +159,7 @@ impl<W: WeightElement> MultipleChoiceBranching<W> {
     }
 
     /// Get the underlying directed graph.
-    pub fn graph(&self) -> &DirectedGraph {
+    pub fn graph(&self) -> &SimpleDigraph {
         &self.graph
     }
 
@@ -317,7 +317,7 @@ fn partition_validation_error(partition: &[Vec<usize>], num_arcs: usize) -> Opti
 }
 
 fn is_valid_multiple_choice_branching<W: WeightElement>(
-    graph: &DirectedGraph,
+    graph: &SimpleDigraph,
     weights: &[W],
     partition: &[Vec<usize>],
     threshold: &W::Sum,
@@ -386,7 +386,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiple_choice_branching",
         instance: Box::new(MultipleChoiceBranching::new(
-            DirectedGraph::new(
+            SimpleDigraph::new(
                 6,
                 vec![
                     (0, 1),

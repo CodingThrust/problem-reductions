@@ -23,13 +23,13 @@ fn test_directed_two_commodity_integral_flow_invalid_json() {
 }
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 /// YES instance: 6 vertices, 8 arcs (all capacity 1).
 /// s1=0, t1=4, s2=1, t2=5, R1=1, R2=1.
 fn yes_instance() -> DirectedTwoCommodityIntegralFlow {
-    let graph = DirectedGraph::new(
+    let graph = MultiDigraph::new(
         6,
         vec![
             (0, 2),
@@ -49,7 +49,7 @@ fn yes_instance() -> DirectedTwoCommodityIntegralFlow {
 /// s1=0, t1=3, s2=1, t2=3, R1=1, R2=1.
 /// Bottleneck at arc (2,3) with capacity 1.
 fn no_instance() -> DirectedTwoCommodityIntegralFlow {
-    let graph = DirectedGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]);
+    let graph = MultiDigraph::new(4, vec![(0, 2), (1, 2), (2, 3)]);
     DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 3], 0, 3, 1, 3, 1, 1)
 }
 
@@ -110,7 +110,7 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
 
 #[test]
 fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeasible() {
-    let graph = DirectedGraph::new(3, vec![(1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(1, 2)]);
     let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1], 0, 1, 2, 2, 1, 0);
 
     // Commodity 1 sends flow out of its sink with no incoming flow.
@@ -120,7 +120,7 @@ fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeas
 
 #[test]
 fn test_directed_two_commodity_integral_flow_disallows_using_other_commodity_source() {
-    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
+    let graph = MultiDigraph::new(4, vec![(2, 3), (3, 1)]);
     let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
 
     // Commodity 1 reaches t1 from s2, which is illegal in the classical definition:
@@ -216,7 +216,7 @@ fn test_directed_two_commodity_integral_flow_wrong_config_length() {
 #[test]
 fn test_directed_two_commodity_integral_flow_higher_capacity() {
     // Test with capacity 2: two paths can share an arc
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = DirectedTwoCommodityIntegralFlow::new(
         graph,
         vec![2, 2], // capacity 2 on both arcs

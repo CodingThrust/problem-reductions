@@ -3,6 +3,7 @@
 //! The Rural Postman problem asks for a minimum-cost circuit in a graph
 //! that includes each edge in a required subset E'.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -105,37 +106,6 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i64> {
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
         Self::try_new(graph, edge_lengths, spec.required_edges)
     }
-}
-
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let num_vertices = num_vertices.unwrap_or(inferred);
-    if num_vertices < inferred {
-        return Err(format!(
-            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        )
-        .into());
-    }
-    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> RuralPostman<G, W> {

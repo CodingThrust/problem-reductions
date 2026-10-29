@@ -82,7 +82,9 @@ pub trait Graph: Clone + Send + Sync + 'static {
     }
 }
 
-/// A simple unweighted undirected graph.
+/// A simple unweighted undirected graph: no self-loops or parallel edges.
+///
+/// `(u, v)` and `(v, u)` name the same edge.
 ///
 /// This is the default graph type for most problems. It wraps petgraph's
 /// `UnGraph` and implements the `Graph` trait.
@@ -104,6 +106,32 @@ pub struct SimpleGraph {
     inner: UnGraph<(), ()>,
 }
 
+pub(crate) fn validate_simple_connections(
+    edges: impl IntoIterator<Item = (usize, usize)>,
+    directed: bool,
+) -> Result<(), crate::registry::ConstructionError> {
+    let kind = if directed { "arc" } else { "edge" };
+    let mut seen = std::collections::HashSet::new();
+    for (u, v) in edges {
+        if u == v {
+            return Err(format!("{kind} ({u}, {v}) is a self-loop").into());
+        }
+        if !seen.insert(if directed {
+            (u, v)
+        } else {
+            (u.min(v), u.max(v))
+        }) {
+            let previous = if directed {
+                "a directed arc"
+            } else {
+                "an undirected edge"
+            };
+            return Err(format!("{kind} ({u}, {v}) duplicates {previous}").into());
+        }
+    }
+    Ok(())
+}
+
 impl SimpleGraph {
     /// Creates a new graph with the given vertices and edges.
     ///
@@ -114,15 +142,17 @@ impl SimpleGraph {
     ///
     /// # Panics
     ///
-    /// Panics if any edge references a vertex index >= num_vertices.
+    /// Panics on self-loops, repeated undirected edges, or out-of-range endpoints.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
         Self::try_new(num_vertices, edges).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Construct a simple graph, rejecting invalid edges with a typed error.
+    pub fn try_new(
         num_vertices: usize,
         edges: Vec<(usize, usize)>,
     ) -> Result<Self, crate::registry::ConstructionError> {
+        validate_simple_connections(edges.iter().copied(), false)?;
         let mut inner = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             inner.add_node(());
@@ -247,16 +277,8 @@ impl PartialEq for SimpleGraph {
         }
         let mut self_edges: Vec<_> = self.edges();
         let mut other_edges: Vec<_> = other.edges();
-        // Normalize edge order
-        for e in &mut self_edges {
-            if e.0 > e.1 {
-                *e = (e.1, e.0);
-            }
-        }
-        for e in &mut other_edges {
-            if e.0 > e.1 {
-                *e = (e.1, e.0);
-            }
+        for e in self_edges.iter_mut().chain(&mut other_edges) {
+            *e = (e.0.min(e.1), e.0.max(e.1));
         }
         self_edges.sort();
         other_edges.sort();

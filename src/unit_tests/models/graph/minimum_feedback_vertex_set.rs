@@ -20,7 +20,7 @@ use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_vertex_weights() {
     let p = MinimumFeedbackVertexSet::<i64>::try_from(MinimumFeedbackVertexSetCreateSpec {
-        graph: DirectedGraph::new(2, vec![(0, 1)]),
+        graph: MultiDigraph::new(2, vec![(0, 1)]),
         weights: None,
     })
     .unwrap();
@@ -28,15 +28,15 @@ fn create_spec_defaults_vertex_weights() {
 }
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 ///
 /// Three triangles: 0→1→2→0, 3→4→5→3, 6→7→8→6
 /// Cross arcs set 1: 1→3, 4→6, 7→0
 /// Cross arcs set 2: 2→5, 5→8, 8→2
-fn example_graph() -> DirectedGraph {
-    DirectedGraph::new(
+fn example_graph() -> MultiDigraph {
+    MultiDigraph::new(
         9,
         vec![
             // Triangles
@@ -118,7 +118,7 @@ fn test_minimum_feedback_vertex_set_solver() {
 #[test]
 fn test_minimum_feedback_vertex_set_dag() {
     // A DAG: 0 → 1 → 2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     // Empty set (all zeros) is a valid FVS — graph is already a DAG
@@ -142,7 +142,7 @@ fn test_minimum_feedback_vertex_set_all_selected() {
 
 #[test]
 fn test_minimum_feedback_vertex_set_accessors() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let mut problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     assert_eq!(problem.num_vertices(), 3);
@@ -156,7 +156,7 @@ fn test_minimum_feedback_vertex_set_accessors() {
 
 #[test]
 fn test_minimum_feedback_vertex_set_is_valid_solution() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     // Valid FVS: remove vertex 0
@@ -169,7 +169,7 @@ fn test_minimum_feedback_vertex_set_is_valid_solution() {
 
 #[test]
 fn test_minimum_feedback_vertex_set_evaluate_wrong_length() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     assert!(matches!(
@@ -207,7 +207,7 @@ fn test_minimum_feedback_vertex_set_paper_example() {
     // C_1 = v_0→v_1→v_2→v_0, C_2 = v_0→v_3→v_4→v_1
     // 7th arc: (4,2) — removing v_0 leaves DAG with topo order (v_3, v_4, v_1, v_2)
     // FVS = {v_0}, weight = 1
-    let graph = DirectedGraph::new(
+    let graph = MultiDigraph::new(
         5,
         vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
     );
@@ -235,7 +235,7 @@ fn test_minimum_feedback_vertex_set_paper_example() {
 fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
     use crate::types::One;
     let source = MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
-        graph: DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        graph: MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         weights: None,
     })
     .unwrap();
@@ -249,7 +249,7 @@ fn test_minimum_feedback_vertex_set_unit_create_and_roundtrip() {
     );
     assert!(
         MinimumFeedbackVertexSet::<One>::try_from(MinimumFeedbackVertexSetCreateSpec {
-            graph: DirectedGraph::new(2, vec![]),
+            graph: MultiDigraph::new(2, vec![]),
             weights: Some(vec![One]),
         })
         .is_err()

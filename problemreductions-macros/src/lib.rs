@@ -206,6 +206,15 @@ fn option_inner_type(ty: &Type) -> Option<&Type> {
 /// - `transform = { exact { ... }, upper_bound { ... }, unavailable { ... } }` — per-field relations
 /// - `transform = unavailable { field = "reason", ... }` — no symbolic parameter transform
 /// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
+///
+/// ## Syntax
+/// ```text
+/// #[reduction(transform = exact {
+///     num_vars = "num_vertices^2",
+///     num_constraints = num_edges,
+/// })]
+/// ```
+///
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = parse_macro_input!(attr as ReductionAttrs);

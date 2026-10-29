@@ -11,7 +11,7 @@
 use crate::models::graph::{MinimumFeedbackArcSet, MinimumVertexCover};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{DirectedGraph, Graph, SimpleGraph};
+use crate::topology::{Graph, MultiDigraph, SimpleGraph};
 
 /// Result of reducing MinimumVertexCover to MinimumFeedbackArcSet.
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ impl ReduceTo<MinimumFeedbackArcSet<i64>> for MinimumVertexCover<SimpleGraph, i6
             weights.push(big_m);
         }
 
-        let graph = DirectedGraph::new(2 * n, arcs);
+        let graph = MultiDigraph::new(2 * n, arcs);
         let target = MinimumFeedbackArcSet::new(graph, weights);
 
         Ok(ReductionVCToFAS {

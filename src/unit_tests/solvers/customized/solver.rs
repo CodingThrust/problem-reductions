@@ -1,7 +1,7 @@
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::solvers::brute_force::CartesianIndices;
 use crate::solvers::registry::solver_capability_registry;
 use crate::solvers::BruteForceProblem as _;
+use crate::solvers::CartesianIndices;
 use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -119,13 +119,13 @@ fn test_customized_two_coloring_matches_brute_force() {
 }
 
 #[test]
-fn test_customized_two_coloring_handles_loops_parallel_edges_and_long_paths() {
+fn test_customized_two_coloring_handles_edges_odd_cycles_and_long_paths() {
     use crate::models::graph::KColoring;
     use crate::variant::K2;
 
     for (graph, feasible) in [
-        (SimpleGraph::new(2, vec![(0, 1), (0, 1)]), true),
-        (SimpleGraph::new(3, vec![(2, 2)]), false),
+        (SimpleGraph::path(2), true),
+        (SimpleGraph::cycle(3), false),
         (
             SimpleGraph::new(10_000, (0..9_999).map(|u| (u, u + 1)).collect()),
             true,
@@ -155,10 +155,22 @@ fn exact_partial_feedback_edge_set_feasible(
 }
 
 fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
+    use crate::models::graph::directed_hamiltonian_path::{decode_lehmer, lehmer_dims};
     let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
-    CartesianIndices::new(problem.dimensions())
+    let n = graph.num_vertices();
+    let mappings: Vec<_> = CartesianIndices::new(lehmer_dims(n))
         .unwrap()
-        .filter_map(|config| problem.total_edge_stretch(&config).unwrap())
+        .map(|code| decode_lehmer(&code))
+        .collect();
+    CartesianIndices::new(vec![n; n])
+        .unwrap()
+        .flat_map(|parent| {
+            let problem = &problem;
+            mappings.iter().filter_map(move |mapping| {
+                let config: Vec<_> = parent.iter().chain(mapping).copied().collect();
+                problem.total_edge_stretch(&config).unwrap()
+            })
+        })
         .min()
 }
 
@@ -593,7 +605,6 @@ fn test_solve_two_coloring_direct_graph_cases() {
     for (name, n, edges, feasible) in [
         ("bipartite", 4, vec![(0, 1), (1, 2), (2, 3), (3, 0)], true),
         ("odd cycle", 3, vec![(0, 1), (1, 2), (2, 0)], false),
-        ("self-loop", 1, vec![(0, 0)], false),
         ("isolated vertices", 3, vec![], true),
         ("disconnected", 5, vec![(0, 1), (2, 3)], true),
         ("empty", 0, vec![], true),
@@ -614,7 +625,7 @@ fn customized_clique_cover_and_decision_preserve_optimum() {
     use crate::models::Decision;
     for graph in all_simple_graphs(4).chain([
         SimpleGraph::new(0, vec![]),
-        SimpleGraph::new(3, vec![(0, 0), (1, 2), (2, 1)]),
+        SimpleGraph::new(3, vec![(1, 2)]),
     ]) {
         let source = MinimumCoveringByCliques::new(graph);
         let expected = crate::solvers::BruteForce::new()

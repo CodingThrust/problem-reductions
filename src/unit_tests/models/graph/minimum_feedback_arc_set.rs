@@ -20,19 +20,20 @@ use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_arc_weights() {
     let p = MinimumFeedbackArcSet::try_from(MinimumFeedbackArcSetCreateSpec {
-        graph: DirectedGraph::new(2, vec![(0, 1)]),
+        graph: MultiDigraph::new(2, vec![(0, 1)]),
         weights: None,
     })
     .unwrap();
     assert_eq!(p.weights(), &[1]);
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 
 #[test]
 fn test_minimum_feedback_arc_set_creation() {
-    let graph = DirectedGraph::new(
+    // 6 vertices, 9 arcs (example from issue)
+    let graph = MultiDigraph::new(
         6,
         vec![
             (0, 1),
@@ -56,7 +57,7 @@ fn test_minimum_feedback_arc_set_creation() {
 #[test]
 fn test_minimum_feedback_arc_set_evaluation_valid() {
     // Simple cycle: 0->1->2->0
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 
     // Remove arc 2->0 (index 2) -> breaks the cycle
@@ -81,7 +82,7 @@ fn test_minimum_feedback_arc_set_evaluation_valid() {
 #[test]
 fn test_minimum_feedback_arc_set_evaluation_invalid() {
     // Simple cycle: 0->1->2->0
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 
     // Remove no arcs -> cycle remains -> invalid
@@ -93,7 +94,7 @@ fn test_minimum_feedback_arc_set_evaluation_invalid() {
 #[test]
 fn test_minimum_feedback_arc_set_dag() {
     // Already a DAG: 0->1->2
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 2]);
 
     // Remove no arcs -> already acyclic
@@ -106,7 +107,7 @@ fn test_minimum_feedback_arc_set_dag() {
 #[test]
 fn test_minimum_feedback_arc_set_solver_simple_cycle() {
     // Simple cycle: 0->1->2->0
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 
     let solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
@@ -120,7 +121,8 @@ fn test_minimum_feedback_arc_set_solver_simple_cycle() {
 
 #[test]
 fn test_minimum_feedback_arc_set_solver_issue_example() {
-    let graph = DirectedGraph::new(
+    // Example from issue #213: 6 vertices, 9 arcs
+    let graph = MultiDigraph::new(
         6,
         vec![
             (0, 1), // a0
@@ -149,7 +151,7 @@ fn test_minimum_feedback_arc_set_weighted() {
     // Cycle: 0->1->2->0 with weights [10, 1, 1]
     // Arc 0 (0->1) costs 10, arcs 1,2 cost 1 each
     // Optimal: remove arc 1 or arc 2 (cost 1), NOT arc 0 (cost 10)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![10i64, 1, 1]);
 
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
@@ -163,7 +165,7 @@ fn test_minimum_feedback_arc_set_weighted() {
 
 #[test]
 fn test_minimum_feedback_arc_set_is_valid_solution() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 
     // Valid: remove one arc from the cycle
@@ -182,7 +184,7 @@ fn test_minimum_feedback_arc_set_problem_name() {
 
 #[test]
 fn test_minimum_feedback_arc_set_serialization() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MinimumFeedbackArcSet<i64> = serde_json::from_str(&json).unwrap();
@@ -193,7 +195,7 @@ fn test_minimum_feedback_arc_set_serialization() {
 #[test]
 fn test_minimum_feedback_arc_set_two_disjoint_cycles() {
     // Two disjoint cycles: 0->1->0 and 2->3->2
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 4]);
 
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
@@ -203,7 +205,7 @@ fn test_minimum_feedback_arc_set_two_disjoint_cycles() {
 
 #[test]
 fn test_minimum_feedback_arc_set_parameter_getters() {
-    let graph = DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+    let graph = MultiDigraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 5]);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 5);
@@ -211,7 +213,7 @@ fn test_minimum_feedback_arc_set_parameter_getters() {
 
 #[test]
 fn test_minimum_feedback_arc_set_accessors() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let mut problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 
     assert!(problem.is_weighted()); // i64 type → true

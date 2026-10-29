@@ -5,23 +5,20 @@ use crate::types::One;
 
 #[test]
 fn test_mis_simple_one_to_triangular_is_deterministic_on_large_graph() {
-    // Regression for #1061: the triangular mapping shares the same greedy
-    // path decomposition as the KSG mapping, so it had the same non-determinism
-    // (unseeded RNG + HashSet iteration order in `adj`). A 64-vertex graph
-    // forces `pathwidth` to pick the Greedy branch.
-    let n = 64;
-    let mut edges: Vec<(usize, usize)> = Vec::new();
-    for r in 0..8 {
+    // Thirty-two vertices still select Auto's greedy branch (>30), with crossing diagonals.
+    let n = 32;
+    let mut edges = Vec::new();
+    for r in 0..4 {
         for c in 0..8 {
             let v = r * 8 + c;
             if c + 1 < 8 {
-                edges.push((v, r * 8 + c + 1));
+                edges.push((v, v + 1));
             }
-            if r + 1 < 8 {
-                edges.push((v, (r + 1) * 8 + c));
+            if r + 1 < 4 {
+                edges.push((v, v + 8));
             }
-            if r + 1 < 8 && c + 1 < 8 {
-                edges.push((v, (r + 1) * 8 + c + 1));
+            if r + 1 < 4 && c + 1 < 8 {
+                edges.push((v, v + 9));
             }
         }
     }

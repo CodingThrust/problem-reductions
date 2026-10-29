@@ -186,13 +186,13 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for DirectedTwoCommodityIntegralFlow {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "directedtwocommodityintegralflow_to_ilp",
         build: || {
             let source = DirectedTwoCommodityIntegralFlow::new(
-                DirectedGraph::new(
+                MultiDigraph::new(
                     6,
                     vec![
                         (0, 2),
