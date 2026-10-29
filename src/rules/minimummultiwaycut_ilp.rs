@@ -64,7 +64,7 @@ impl ReductionResult for ReductionMMCToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_terminals * num_vertices + num_edges) * (num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals)",
+        num_nonzeros = "num_terminals * num_terminals + num_terminals * num_vertices + 6 * num_terminals * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {

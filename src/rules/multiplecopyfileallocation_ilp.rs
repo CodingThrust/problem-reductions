@@ -75,7 +75,7 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + num_vertices)",
+        num_nonzeros = "3 * num_vertices^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {

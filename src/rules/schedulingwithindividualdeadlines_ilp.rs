@@ -64,7 +64,7 @@ impl crate::rules::AggregateReductionResult for ReductionSWIDToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_tasks + max_deadline + 1",
-        num_nonzeros = "(num_tasks * max_deadline) * (num_tasks + max_deadline + num_precedences + 1)",
+        num_nonzeros = "2 * num_tasks * max_deadline + 2 * max_deadline * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {

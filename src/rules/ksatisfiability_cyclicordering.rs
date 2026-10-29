@@ -9,10 +9,11 @@
 //! "true" one.
 //!
 //! Before applying the gadget, remove tautologies and repeated literals,
-//! compact occurring variables, and expand short clauses with fresh variables.
-//! Each resulting clause has three distinct variables in global index order.
-//! This is the hypothesis needed to combine the paper's local cyclic orders.
-//! Empty clauses and empty conjunctions map to fixed NO and YES targets.
+//! compact occurring variables, and expand clauses left with fewer than three
+//! distinct literals using fresh variables. Each resulting clause has three
+//! distinct variables in global index order. This is the hypothesis needed to
+//! combine the paper's local cyclic orders. The empty conjunction maps to a
+//! fixed YES target.
 //!
 //! Reference: Galil and Megiddo, "Cyclic ordering is NP-complete", 1977.
 
@@ -135,21 +136,17 @@ fn normalize(
                 }
             })
             .collect();
-        match *literals.as_slice() {
-            [a, b, c] => normalized.push([a, b, c]),
-            [a, b] => {
-                let u = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
-                normalized.extend([[a, b, u], [a, b, -u]]);
-            }
-            [a] => {
-                let u = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
-                let v = variables.allocate()
-                    .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
+        // Deduplication leaves one to three literals; fill the rest with fresh variables.
+        let fresh = variables
+            .allocate_many(3 - literals.len())
+            .map_err(<KSatisfiability<K3> as ReduceTo<CyclicOrdering>>::target_construction)?;
+        match (literals.as_slice(), fresh.as_slice()) {
+            (&[a, b, c], []) => normalized.push([a, b, c]),
+            (&[a, b], &[u]) => normalized.extend([[a, b, u], [a, b, -u]]),
+            (&[a], &[u, v]) => {
                 normalized.extend([[a, u, v], [a, u, -v], [a, -u, v], [a, -u, -v]]);
             }
-            _ => unreachable!("empty clauses are handled before normalization; native clauses have at most three literals"),
+            _ => unreachable!("deduplicated three-literal clauses keep one to three literals"),
         }
     }
     // Original compact indices precede all fresh indices. Every emitted
@@ -174,18 +171,6 @@ impl ReduceTo<CyclicOrdering> for KSatisfiability<K3> {
     type Result = Reduction3SATToCyclicOrdering;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        if self
-            .clauses()
-            .iter()
-            .any(|clause| clause.literals.is_empty())
-        {
-            return Ok(Reduction3SATToCyclicOrdering {
-                target: CyclicOrdering::try_new(3, vec![(0, 1, 2), (0, 2, 1)])
-                    .map_err(<Self as ReduceTo<CyclicOrdering>>::target_construction)?,
-                source_num_vars: self.num_vars(),
-                source_variables: Vec::new(),
-            });
-        }
         let normalized = normalize(self)?;
         let num_vars = normalized.num_vars;
         let num_clauses = normalized.clauses.len();

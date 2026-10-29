@@ -1892,7 +1892,7 @@ fn test_reduction_chain_with_variant_reductions() {
         )
         .into_iter()
         .find(|path| {
-            path.len() == 5
+            path.len() == 4
                 && path.type_names()
                     == [
                         "KSatisfiability",

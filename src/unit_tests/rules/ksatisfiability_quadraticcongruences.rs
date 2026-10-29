@@ -6,8 +6,7 @@ use crate::types::Or;
 use num_traits::ToPrimitive;
 
 fn source(n: usize, clauses: Vec<Vec<i64>>) -> KSatisfiability<K3> {
-    KSatisfiability::try_new_allow_less(n, clauses.into_iter().map(CNFClause::new).collect())
-        .unwrap()
+    KSatisfiability::new(n, clauses.into_iter().map(CNFClause::new).collect())
 }
 
 #[test]
@@ -35,15 +34,13 @@ fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
 fn test_native_clauses_and_arbitrary_crt_signs() {
     for source in [
         source(0, vec![]),
-        source(0, vec![vec![]]),
         source(3, vec![vec![1, 1, 1]]),
         source(3, vec![vec![-1, -1, -1]]),
-        source(3, vec![vec![1, 2]]),
+        source(3, vec![vec![1, 2, 2]]),
         source(3, vec![vec![1, 2, 3]]),
         source(3, vec![vec![-3, -1, 2]]),
-        source(2, vec![vec![1], vec![-1]]),
-        source(2, vec![vec![1, 2], vec![-1, -2]]),
-        source(2, vec![vec![], vec![1, 2]]),
+        source(2, vec![vec![1, 1, 1], vec![-1, -1, -1]]),
+        source(2, vec![vec![1, 2, 2], vec![-1, -2, -2]]),
         source(17, vec![vec![17, 17, 17]]),
     ] {
         let construction = build_construction(&source).unwrap();
@@ -146,7 +143,7 @@ fn test_unsatisfiable_formula_has_no_quadratic_sign_witness() {
 
 #[test]
 fn test_normalization_preserves_free_variables_and_formula() {
-    let canonical = source(5, vec![vec![-5, 2]]);
+    let canonical = source(5, vec![vec![-5, 2, 2]]);
     let redundant = source(5, vec![vec![2, -5, 2], vec![-5, 2, -5], vec![1, -1, 4]]);
     let first = ReduceTo::<QuadraticCongruences>::reduce_to(&canonical).unwrap();
     let second = ReduceTo::<QuadraticCongruences>::reduce_to(&redundant).unwrap();
@@ -200,9 +197,8 @@ fn test_prime_generation_and_parameter_bounds() {
     assert_eq!(admissible_primes(4).unwrap(), vec![13, 17, 19, 23]);
     for source in [
         source(0, vec![]),
-        source(0, vec![vec![]]),
         source(3, vec![vec![1, 2, 3]]),
-        source(1, vec![vec![1], vec![-1]]),
+        source(1, vec![vec![1, 1, 1], vec![-1, -1, -1]]),
     ] {
         let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source).unwrap();
         let n = 2 * source.num_clauses() + source.num_vars() + 1;

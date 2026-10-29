@@ -88,30 +88,19 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
 }
 
 #[test]
-fn test_ksatisfiability_to_decisionminimumvertexcover_short_clauses_closed_loop() {
-    let source = KSatisfiability::<K3>::new_allow_less(
+fn test_ksatisfiability_to_decisionminimumvertexcover_repeated_literals_closed_loop() {
+    let source = KSatisfiability::<K3>::new(
         2,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1, 2])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, 2, 2]),
+        ],
     );
     let reduction =
         ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
-        "short clauses -> Decision MVC",
+        "repeated literals -> Decision MVC",
     );
-}
-
-#[test]
-fn test_ksatisfiability_to_decisionminimumvertexcover_empty_clause() {
-    let source = KSatisfiability::<K3>::new_allow_less(0, vec![CNFClause::new(vec![])]);
-    let reduction =
-        ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, One>>>::reduce_to(&source).unwrap();
-    assert_eq!(reduction.target_problem().bound(), &-1);
-    assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    assert!(BruteForce::new()
-        .solve(reduction.target_problem())
-        .unwrap()
-        .is_none());
-    assert!(reduction.extract_solution(&vec![true; 3]).is_err());
 }

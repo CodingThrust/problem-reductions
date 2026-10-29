@@ -48,7 +48,7 @@ impl crate::rules::AggregateReductionResult for ReductionIFWMToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_capacity_bits + num_arcs + 1",
-        num_nonzeros = "num_arcs * (num_arcs + num_vertices - 1)",
+        num_nonzeros = "3 * num_arcs",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {
