@@ -5,10 +5,10 @@
 //! actual weight methods, following Julia's formula: mis_overhead(weighted) = mis_overhead(unweighted) * 2.
 
 use super::super::grid::{CellState, MappingGrid};
-use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
+use super::super::traits::{Pattern, PatternCell, apply_gadget, pattern_matches};
 use super::gadgets::{KsgReflectedGadget, KsgRotatedGadget, Mirror};
-use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
 use crate::rules::ReductionError;
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -1006,7 +1006,7 @@ pub fn weighted_tape_entry_mis_overhead(
         _ => {
             return Err(mapping_invalid(
                 "tape contains an unknown weighted KSG gadget index",
-            ))
+            ));
         }
     })
 }

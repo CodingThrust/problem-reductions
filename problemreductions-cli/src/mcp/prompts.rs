@@ -9,9 +9,11 @@ pub fn list_prompts() -> Vec<Prompt> {
                 "Explain a problem type: what it models, its variants, and how it connects to \
                  other problems",
             ),
-            Some(vec![PromptArgument::new("problem")
-                .with_description("Problem name or alias (e.g., MIS, QUBO, MaxCut)")
-                .with_required(true)]),
+            Some(vec![
+                PromptArgument::new("problem")
+                    .with_description("Problem name or alias (e.g., MIS, QUBO, MaxCut)")
+                    .with_required(true),
+            ]),
         ),
         Prompt::new(
             "model_my_problem",
@@ -19,9 +21,11 @@ pub fn list_prompts() -> Vec<Prompt> {
                 "Map a real-world problem to the closest NP-hard problem type in the reduction \
                  graph",
             ),
-            Some(vec![PromptArgument::new("description")
-                .with_description("Free-text description of your real-world problem")
-                .with_required(true)]),
+            Some(vec![
+                PromptArgument::new("description")
+                    .with_description("Free-text description of your real-world problem")
+                    .with_required(true),
+            ]),
         ),
         Prompt::new(
             "compare",

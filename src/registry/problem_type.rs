@@ -1,7 +1,7 @@
 //! Problem type catalog: runtime lookup by name, alias, and variant validation.
 
-use super::schema::{ProblemCategory, ProblemSchemaEntry, VariantDimension};
 use super::FieldInfo;
+use super::schema::{ProblemCategory, ProblemSchemaEntry, VariantDimension};
 use std::collections::BTreeMap;
 
 /// A runtime view of a registered problem type from the catalog.

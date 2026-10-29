@@ -1,5 +1,5 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
-use problemreductions::models::algebraic::{ObjectiveSense, ILP};
+use problemreductions::models::algebraic::{ILP, ObjectiveSense};
 use problemreductions::registry::{
     CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
 };

@@ -7,7 +7,7 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[bool]) -
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &selected)| selected)
+        .filter(|&(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
 
@@ -26,7 +26,7 @@ fn clique_size(problem: &MaximumClique<SimpleGraph, i64>, config: &[bool]) -> i6
     config
         .iter()
         .enumerate()
-        .filter(|(_, &selected)| selected)
+        .filter(|&(_, &selected)| selected)
         .map(|(i, _)| problem.weights()[i])
         .sum()
 }

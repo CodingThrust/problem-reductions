@@ -1,11 +1,11 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, exact_growth, mul, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm,
-    VariableGrowth, ANTICHAIN_CAP,
+    ANTICHAIN_CAP, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm, VariableGrowth, add,
+    exact_growth, mul,
 };
 use crate::expr::{
-    evaluate_approximate, expression_from_approximation, AlgebraicAnalysis, Expr, ExprNode,
+    AlgebraicAnalysis, Expr, ExprNode, evaluate_approximate, expression_from_approximation,
 };
 use crate::registry::variant_entries;
 use num_rational::BigRational;
@@ -722,11 +722,7 @@ fn gen_linear(rng: &mut SplitMix64) -> Expr {
 fn gen_lin_term(rng: &mut SplitMix64) -> Expr {
     let v = gen_var(rng);
     let c = 1 + rng.below(3);
-    if c == 1 {
-        v
-    } else {
-        Expr::integer(c) * v
-    }
+    if c == 1 { v } else { Expr::integer(c) * v }
 }
 
 /// A deliberately nonlinear exponent, driving `2^(·)` to `Growth::Unknown`.

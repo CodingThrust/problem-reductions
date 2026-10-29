@@ -87,7 +87,9 @@ fn validate_create_set_family(
     for (set_index, set) in sets.iter().enumerate() {
         for &element in set {
             if element >= universe_size {
-                return Err(ConstructionError::Conversion(format!("{label} set {set_index} contains element {element} outside universe of size {universe_size}")));
+                return Err(ConstructionError::Conversion(format!(
+                    "{label} set {set_index} contains element {element} outside universe of size {universe_size}"
+                )));
             }
         }
     }

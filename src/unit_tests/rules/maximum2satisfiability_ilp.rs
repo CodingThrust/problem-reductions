@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ILP, ObjectiveSense};
 use crate::models::formula::CNFClause;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};

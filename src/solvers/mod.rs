@@ -15,10 +15,10 @@ pub use brute_force::BruteForceRegistration;
 pub(crate) use brute_force::CartesianIndices;
 pub use brute_force::{BruteForce, BruteForceProblem};
 pub use registry::{
-    brute_force_dimensions, solver_capabilities, CustomizedSolverCapability, ExactProblemKey,
-    IlpSolverCapability, RegistryBuildError, SolverCapabilities,
+    CustomizedSolverCapability, ExactProblemKey, IlpSolverCapability, RegistryBuildError,
+    SolverCapabilities, brute_force_dimensions, solver_capabilities,
 };
-pub use resolver::{solve, SolveOutcome, SolveResult, SolverExecution, SolverRequest};
+pub use resolver::{SolveOutcome, SolveResult, SolverExecution, SolverRequest, solve};
 
 pub use ilp::{ILPSolveError, ILPSolver};
 

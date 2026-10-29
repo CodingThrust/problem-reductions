@@ -55,8 +55,10 @@ fn test_minimumvertexcover_one_to_i64_closed_loop() {
                 .unwrap(),
             serde_json::to_value(Min(Some(optimum))).unwrap(),
         );
-        assert!(chain
-            .extract_solution::<Vec<bool>, _>(&vec![false; input.num_vertices() + 1])
-            .is_err());
+        assert!(
+            chain
+                .extract_solution::<Vec<bool>, _>(&vec![false; input.num_vertices() + 1])
+                .is_err()
+        );
     }
 }

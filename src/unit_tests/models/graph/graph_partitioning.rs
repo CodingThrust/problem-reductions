@@ -134,11 +134,13 @@ fn test_graphpartitioning_unbalanced_invalid() {
 fn test_graphpartitioning_rejects_non_binary_configs() {
     let problem = issue_example();
 
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([false, false, true, true, true, 2])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([false, false, true, true, true, 2])
+        )
+        .is_err()
+    );
 }
 
 #[test]

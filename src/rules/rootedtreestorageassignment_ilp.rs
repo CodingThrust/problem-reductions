@@ -4,7 +4,7 @@
 //! a_{u,v}, transitive-closure helpers h_{u,v,w}, and per-subset gadgets
 //! (top/bottom selectors, pair selectors, endpoint depths, extension costs).
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};

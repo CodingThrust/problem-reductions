@@ -1,7 +1,8 @@
 [package]
 name = "problemreductions-expr"
 version = "0.6.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.88"
 description = "Lossless symbolic expressions for problemreductions"
 license = "MIT"
 repository = "https://github.com/CodingThrust/problem-reductions"

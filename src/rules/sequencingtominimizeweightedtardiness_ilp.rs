@@ -4,7 +4,7 @@
 //! and nonnegative tardiness variables T_j. Big-M disjunctive constraints
 //! force a single-machine order; the weighted tardiness sum is bounded by K.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingToMinimizeWeightedTardiness;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

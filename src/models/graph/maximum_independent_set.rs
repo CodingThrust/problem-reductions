@@ -484,8 +484,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_model_example_specs(
-) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+pub(crate) fn decision_canonical_model_example_specs()
+-> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "decision_maximum_independent_set_simplegraph",
@@ -509,9 +509,9 @@ pub(crate) fn decision_canonical_model_example_specs(
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::example_db::specs::{rule_example_with_witness, RuleExampleSpec};
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::example_db::specs::{RuleExampleSpec, rule_example_with_witness};
     use crate::export::SolutionPair;
     use crate::models::decision::Decision;
     vec![

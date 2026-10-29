@@ -2,7 +2,7 @@
 use crate::models::algebraic::QUBO;
 use crate::models::decision::Decision;
 use crate::models::misc::SequencingWithinIntervals;
-use crate::rules::qubo_helpers::{decode_rows, QuboBuilder};
+use crate::rules::qubo_helpers::{QuboBuilder, decode_rows};
 use crate::rules::traits::validate_target_witness;
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 

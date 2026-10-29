@@ -4,8 +4,8 @@
 //! All gadgets use weighted mode (weight 2 for standard nodes).
 
 use super::super::grid::{CellState, MappingGrid};
-use crate::rules::unitdiskmapping::mapping_invalid;
 use crate::rules::ReductionError;
+use crate::rules::unitdiskmapping::mapping_invalid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -1425,7 +1425,7 @@ pub fn tape_entry_mis_overhead(entry: &WeightedTriTapeEntry) -> Result<i64, Redu
         _ => {
             return Err(mapping_invalid(
                 "tape contains an unknown weighted triangular gadget index",
-            ))
+            ));
         }
     })
 }

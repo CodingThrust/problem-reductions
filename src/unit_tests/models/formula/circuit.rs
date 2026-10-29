@@ -291,13 +291,17 @@ fn test_circuit_sat_paper_example() {
     // Variables sorted: a, b, c, x1, x2
     // Paper satisfying inputs (output c=1): (x1=0,x2=1) and (x1=1,x2=0)
     // (x1=0,x2=1): a=0, b=1, c=1 → config [0, 1, 1, 0, 1]
-    assert!(problem
-        .evaluate(&vec![false, true, true, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, true, false, true])
+            .unwrap()
+    );
     // (x1=1,x2=0): a=0, b=1, c=1 → config [0, 1, 1, 1, 0]
-    assert!(problem
-        .evaluate(&vec![false, true, true, true, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, true, true, false])
+            .unwrap()
+    );
 
     // All 4 consistent configs are satisfying (CircuitSAT checks consistency)
     let solver = BruteForce::new();

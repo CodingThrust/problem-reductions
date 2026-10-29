@@ -97,9 +97,11 @@ fn test_minimum_intersection_graph_basis_empty_graph() {
 fn test_minimum_intersection_graph_basis_wrong_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumIntersectionGraphBasis::new(graph);
-    assert!(problem
-        .evaluate(&vec![vec![true, false], vec![true]])
-        .is_err());
+    assert!(
+        problem
+            .evaluate(&vec![vec![true, false], vec![true]])
+            .is_err()
+    );
 }
 
 #[test]

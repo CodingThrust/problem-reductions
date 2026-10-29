@@ -1,5 +1,5 @@
 use problemreductions_web::{edge_growth, find_paths, summarize_paths};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn graph() -> Value {
     json!({
@@ -190,9 +190,11 @@ fn comparison_retains_explicit_null_certificates_and_typed_unavailable_reasons()
         assert_eq!(field.get("certificate"), Some(&Value::Null));
         assert_eq!(field["accuracy"]["kind"], "unavailable");
         assert_eq!(field["accuracy"]["reason"]["kind"], expected_reason);
-        assert!(field["accuracy"]["reason"]["detail"]
-            .as_str()
-            .is_some_and(|detail| !detail.is_empty()));
+        assert!(
+            field["accuracy"]["reason"]["detail"]
+                .as_str()
+                .is_some_and(|detail| !detail.is_empty())
+        );
     }
 }
 

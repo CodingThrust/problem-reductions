@@ -7,7 +7,7 @@
 //! - Tree constraints: sum x_e = n-1, and connectivity via flow conservation
 //! - Objective: minimize sum_{(u,v): r>0} r(u,v) * w(e) * (flow_uv(e->dir) + flow_uv(e<-dir))
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::OptimumCommunicationSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

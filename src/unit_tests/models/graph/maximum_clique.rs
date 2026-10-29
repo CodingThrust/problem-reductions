@@ -239,14 +239,18 @@ fn test_is_clique_method() {
 
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-    assert!(problem
-        .evaluate(&vec![true, true, false])
-        .unwrap()
-        .is_valid());
-    assert!(problem
-        .evaluate(&vec![false, true, true])
-        .unwrap()
-        .is_valid());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, false])
+            .unwrap()
+            .is_valid()
+    );
+    assert!(
+        problem
+            .evaluate(&vec![false, true, true])
+            .unwrap()
+            .is_valid()
+    );
     assert_eq!(
         problem.evaluate(&vec![true, false, true]).unwrap(),
         Max(None)

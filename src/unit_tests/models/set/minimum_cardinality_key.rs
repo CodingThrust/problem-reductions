@@ -117,11 +117,13 @@ fn test_minimum_cardinality_key_invalid_config() {
         Err(crate::traits::EvaluationError::InvalidConfiguration(_))
     ));
     // Value > 1.
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, true, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, true, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

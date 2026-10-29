@@ -50,9 +50,11 @@ fn test_low_prizes_do_not_bypass_component_costs() {
             let forest = reduction.extract_solution(&tree).unwrap();
             assert_eq!(source.evaluate(&forest).unwrap(), Min(Some(expected)));
         }
-        assert!(reduction
-            .extract_solution(&vec![false; reduction.target_problem().num_edges()])
-            .is_err());
+        assert!(
+            reduction
+                .extract_solution(&vec![false; reduction.target_problem().num_edges()])
+                .is_err()
+        );
     }
 }
 

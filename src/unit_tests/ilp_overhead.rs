@@ -7,8 +7,8 @@ use crate::rules::{ReduceTo, ReductionGraph, ReductionPath, ReductionResult, Red
 use crate::solvers::{BruteForce, BruteForceProblem, ILPSolver};
 use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};
 use crate::{
-    types::{Min, One},
     Problem, ProblemParameters,
+    types::{Min, One},
 };
 
 type BoundedILP = ILP<i64, i64, Bounded>;
@@ -685,7 +685,7 @@ fn hamiltonian_edge_bound_includes_normalization_and_fixed_outputs() {
 
 #[test]
 fn integer_knapsack_and_open_shop_bit_predictions_reach_qubo() {
-    use crate::models::{set::IntegerKnapsack, Decision};
+    use crate::models::{Decision, set::IntegerKnapsack};
     for capacity in [0, 2, 5] {
         check_qubo::<_, BoundedILP>(
             IntegerKnapsack::new(vec![2, 3], vec![3, 5], capacity).unwrap(),
@@ -765,7 +765,7 @@ fn partition_knapsack_qubo_predictions_and_solution_recovery() {
 
 #[test]
 fn subset_sum_lattice_qubo_predictions_and_solution_recovery() {
-    use crate::models::{algebraic::ClosestVectorProblem, Decision};
+    use crate::models::{Decision, algebraic::ClosestVectorProblem};
     for (sizes, target) in [(vec![1], 1), (vec![2], 1)] {
         let source = SubsetSum::new(sizes.clone(), target);
         // The carry lattices have unit selected determinants. Squared column
@@ -902,9 +902,11 @@ where
         let result = ILPSolver::new().solve(ilp);
         if matches!(result, Err(crate::solvers::ILPSolveError::Infeasible)) {
             assert!(expected.is_none());
-            assert!(chain
-                .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
-                .is_err());
+            assert!(
+                chain
+                    .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
+                    .is_err()
+            );
             return;
         }
         let assignment = result.unwrap();

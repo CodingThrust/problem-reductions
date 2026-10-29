@@ -12,7 +12,7 @@ use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
-use crate::variant::{KValue, VariantParam, KN};
+use crate::variant::{KN, KValue, VariantParam};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -150,10 +150,10 @@ impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
         if bound_k == 0 {
             return Err("co-k-plex parameter k must be at least 1".into());
         }
-        if let Some(fixed) = K::K {
-            if fixed != bound_k {
-                return Err("fixed K type disagrees with runtime bound_k".into());
-            }
+        if let Some(fixed) = K::K
+            && fixed != bound_k
+        {
+            return Err("fixed K type disagrees with runtime bound_k".into());
         }
         Ok(Self {
             graph,

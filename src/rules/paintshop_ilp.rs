@@ -4,7 +4,7 @@
 //! sequence position (actual color), binary c_p per adjacent pair (switch
 //! indicator). Minimize Σ c_p.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::PaintShop;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

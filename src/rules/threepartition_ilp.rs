@@ -1,5 +1,5 @@
 //! Exact cover of indexed items by triples whose sizes sum to the bound.
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ThreePartition;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

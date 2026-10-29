@@ -152,27 +152,33 @@ fn test_minimum_discrete_planar_inverse_kinematics_problem_name() {
 
 #[test]
 fn test_minimum_discrete_planar_inverse_kinematics_rejects_invalid_numeric_data() {
-    assert!(MinimumDiscretePlanarInverseKinematics::new(
-        vec![f64::NAN],
-        (0.0, 0.0),
-        vec![vec![0.0]],
-        vec![],
-    )
-    .is_err());
-    assert!(MinimumDiscretePlanarInverseKinematics::new(
-        vec![1.0],
-        (f64::INFINITY, 0.0),
-        vec![vec![0.0]],
-        vec![],
-    )
-    .is_err());
-    assert!(MinimumDiscretePlanarInverseKinematics::new(
-        vec![1.0],
-        (0.0, 0.0),
-        vec![vec![f64::NEG_INFINITY]],
-        vec![],
-    )
-    .is_err());
+    assert!(
+        MinimumDiscretePlanarInverseKinematics::new(
+            vec![f64::NAN],
+            (0.0, 0.0),
+            vec![vec![0.0]],
+            vec![],
+        )
+        .is_err()
+    );
+    assert!(
+        MinimumDiscretePlanarInverseKinematics::new(
+            vec![1.0],
+            (f64::INFINITY, 0.0),
+            vec![vec![0.0]],
+            vec![],
+        )
+        .is_err()
+    );
+    assert!(
+        MinimumDiscretePlanarInverseKinematics::new(
+            vec![1.0],
+            (0.0, 0.0),
+            vec![vec![f64::NEG_INFINITY]],
+            vec![],
+        )
+        .is_err()
+    );
 }
 
 #[test]

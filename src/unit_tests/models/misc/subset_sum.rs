@@ -6,10 +6,10 @@ use num_bigint::BigUint;
 
 #[test]
 fn test_subsetsum_deserialization_validates_positive_sizes() {
-    assert!(serde_json::from_value::<SubsetSum>(
-        serde_json::json!({"sizes": ["0"], "target": "0"})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<SubsetSum>(serde_json::json!({"sizes": ["0"], "target": "0"}))
+            .is_err()
+    );
     let empty: SubsetSum =
         serde_json::from_value(serde_json::json!({"sizes": [], "target": "0"})).unwrap();
     assert!(empty.evaluate(&vec![]).unwrap().0);
@@ -38,30 +38,40 @@ fn test_subsetsum_basic() {
 fn test_subsetsum_evaluate_satisfying() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     // {3, 8} = 11
-    assert!(problem
-        .evaluate(&vec![true, false, false, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, false, false, true, false, false])
+            .unwrap()
+    );
     // {7, 4} = 11
-    assert!(problem
-        .evaluate(&vec![false, true, false, false, false, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, true, false, false, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_subsetsum_evaluate_unsatisfying() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     // {3, 7} = 10 ≠ 11
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    );
     // empty = 0 ≠ 11
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
     // all = 25 ≠ 11
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -195,12 +205,16 @@ fn test_subsetsum_zero_size_panic() {
 #[test]
 fn test_subsetsum_large_integer_input() {
     let problem = SubsetSum::new(vec![3i128, 7, 1, 8, 2, 4], 11i128);
-    assert!(problem
-        .evaluate(&vec![true, false, false, true, false, false])
-        .unwrap()); // 3 + 8 = 11
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap()); // 3 + 7 = 10
+    assert!(
+        problem
+            .evaluate(&vec![true, false, false, true, false, false])
+            .unwrap()
+    ); // 3 + 8 = 11
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    ); // 3 + 7 = 10
 }
 
 #[test]

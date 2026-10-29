@@ -1,7 +1,7 @@
 //! JSON export schema for example payloads.
 
-use crate::rules::registry::{ParameterContractError, ReductionParameterContract};
 use crate::rules::ReductionGraph;
+use crate::rules::registry::{ParameterContractError, ReductionParameterContract};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

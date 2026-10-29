@@ -6,7 +6,7 @@
 //!   (at most one incident edge can be selected)
 //! - Objective: Maximize the sum of weights of selected edges
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

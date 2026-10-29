@@ -167,11 +167,13 @@ fn test_partially_ordered_knapsack_evaluate_wrong_config_length() {
 #[test]
 fn test_partially_ordered_knapsack_evaluate_invalid_variable_value() {
     let problem = example_instance();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

@@ -5,7 +5,7 @@
 //! is matched to position p. Monotonicity forces strictly increasing match
 //! positions per string.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ShortestCommonSupersequence;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -8,7 +8,7 @@
 //!   y_{ij} ≤ x_i, y_{ij} ≤ x_j, y_{ij} ≥ x_i + x_j - 1
 
 use crate::models::algebraic::MinimumMatrixCover;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};

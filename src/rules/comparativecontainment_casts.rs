@@ -2,7 +2,7 @@
 
 use crate::impl_variant_reduction;
 use crate::models::set::ComparativeContainment;
-use crate::rules::{weight_casts::exact_float_weights, ReductionError};
+use crate::rules::{ReductionError, weight_casts::exact_float_weights};
 use crate::types::One;
 
 impl_variant_reduction!(

@@ -15,7 +15,7 @@
 //! = (sum lit[i]) + (sum ptr[i][l][r]) + (h−1) × (sum ptr[i][l][r])
 //! = (sum lit[i]) + h × (sum ptr[i][l][r])
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MinimumInternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

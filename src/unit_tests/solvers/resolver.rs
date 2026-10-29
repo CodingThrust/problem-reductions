@@ -1,6 +1,6 @@
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::registry::load_dyn;
-use crate::solvers::{solve, SolveOutcome, SolverExecution, SolverRequest};
+use crate::solvers::{SolveOutcome, SolverExecution, SolverRequest, solve};
 use crate::traits::Problem;
 use std::collections::BTreeMap;
 

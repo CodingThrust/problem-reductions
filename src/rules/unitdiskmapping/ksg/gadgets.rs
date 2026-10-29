@@ -5,9 +5,9 @@
 //! KsgTrivialTurn, KsgEndTurn, KsgBranchFixB, KsgDanglingLeg, and their rotated/reflected variants.
 
 use super::super::grid::{CellState, MappingGrid};
-use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
-use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
+use super::super::traits::{Pattern, PatternCell, apply_gadget, pattern_matches};
 use crate::rules::ReductionError;
+use crate::rules::unitdiskmapping::{mapping_integer_overflow, mapping_invalid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -1277,7 +1277,7 @@ pub fn tape_entry_mis_overhead(entry: &KsgTapeEntry) -> Result<i64, ReductionErr
         _ => {
             return Err(mapping_invalid(
                 "tape contains an unknown unweighted KSG gadget index",
-            ))
+            ));
         }
     })
 }
@@ -1567,10 +1567,10 @@ fn pattern_matches_weighted(
     for (_idx, (loc_r, loc_c)) in locs.iter().enumerate().skip(1) {
         let grid_r = i + loc_r - 1;
         let grid_c = j + loc_c - 1;
-        if let Some(cell) = grid.get(grid_r, grid_c) {
-            if cell.weight() != 2 {
-                return false;
-            }
+        if let Some(cell) = grid.get(grid_r, grid_c)
+            && cell.weight() != 2
+        {
+            return false;
         }
     }
 

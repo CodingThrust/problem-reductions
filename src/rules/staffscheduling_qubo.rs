@@ -1,5 +1,5 @@
 //! Bounded worker multiplicities with exact budget and coverage residuals.
-use crate::models::{algebraic::QUBO, misc::StaffScheduling, Decision};
+use crate::models::{Decision, algebraic::QUBO, misc::StaffScheduling};
 use crate::rules::ilp_i64_ilp_bool::binary_weights;
 use crate::rules::qubo_helpers::QuboBuilder;
 use crate::rules::traits::validate_target_witness;

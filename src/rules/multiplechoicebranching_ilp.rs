@@ -1,6 +1,6 @@
 //! Reduction from MultipleChoiceBranching with integer weights to integer ILP.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MultipleChoiceBranching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

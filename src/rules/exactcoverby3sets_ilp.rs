@@ -3,7 +3,7 @@
 //! Binary variable x_j per triple; for each element e, require Σ x_j = 1
 //! (exact cover). Additional constraint Σ x_j = universe_size/3.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

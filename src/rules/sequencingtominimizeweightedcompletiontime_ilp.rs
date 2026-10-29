@@ -1,7 +1,7 @@
 //! Strict linear ordering with exact signed completion-time equations.
 //! Triangle inequalities rule out cyclic orders even for zero-duration jobs.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

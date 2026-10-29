@@ -1,8 +1,8 @@
 //! Direct exact quadratic encoding of MinimumFeedbackArcSet.
 use crate::models::algebraic::QUBO;
 use crate::models::graph::MinimumFeedbackArcSet;
-use crate::rules::qubo_helpers::{pair_index, tournament_ranks};
 use crate::rules::qubo_helpers::{ObjectiveEncoding, QuboBuilder};
+use crate::rules::qubo_helpers::{pair_index, tournament_ranks};
 use crate::rules::{ExtractionResult, ReduceTo, ReductionError, ReductionResult};
 use crate::types::Min;
 #[derive(Debug, Clone)]

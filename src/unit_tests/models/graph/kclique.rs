@@ -19,12 +19,14 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_k_above_vertex_count() {
-    assert!(KClique::try_from(KCliqueCreateSpec {
-        graph: vec![(0, 1)],
-        num_vertices: None,
-        k: 3
-    })
-    .is_err());
+    assert!(
+        KClique::try_from(KCliqueCreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: None,
+            k: 3
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
@@ -62,9 +64,11 @@ fn test_kclique_evaluate_yes_instance() {
 fn test_kclique_evaluate_rejects_non_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem
-        .evaluate(&vec![true, false, true, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, true, true, false])
+            .unwrap()
+    );
     assert!(!problem.is_valid_solution(&[true, false, true, true, false]));
 }
 
@@ -72,12 +76,16 @@ fn test_kclique_evaluate_rejects_non_clique() {
 fn test_kclique_evaluate_rejects_too_small_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem
-        .evaluate(&vec![true, false, true, false, false])
-        .unwrap());
-    assert!(!problem
-        .evaluate(&vec![false, false, true, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, true, false, false])
+            .unwrap()
+    );
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, true, true, false])
+            .unwrap()
+    );
 }
 
 #[test]

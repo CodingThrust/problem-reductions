@@ -5,13 +5,13 @@
 //! For each vertex `v`, if `x_v = 1` then at most `k - 1` neighbours may also
 //! be selected, encoded by `sum_{u in N(v)} x_u + d(v) x_v <= d(v) + k - 1`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumCoKPlex;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::{One, WeightElement};
-use crate::variant::{VariantParam, KN};
+use crate::variant::{KN, VariantParam};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]

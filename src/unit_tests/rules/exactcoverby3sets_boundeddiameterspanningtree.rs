@@ -84,9 +84,11 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     invalid[3] = true;
     assert!(reduction.extract_solution(&invalid).is_err());
     assert!(reduction.extract_solution(&vec![]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![true; target_config.len()])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![true; target_config.len()])
+            .is_err()
+    );
 }
 
 #[test]
@@ -114,10 +116,12 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_universe_boundaries() {
             ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source).unwrap();
         assert_eq!(reduction.target_problem().num_vertices(), 2);
         assert_eq!(reduction.target_problem().num_edges(), 0);
-        assert!(BruteForce::new()
-            .solve(reduction.target_problem())
-            .unwrap()
-            .is_none());
+        assert!(
+            BruteForce::new()
+                .solve(reduction.target_problem())
+                .unwrap()
+                .is_none()
+        );
         assert!(reduction.extract_solution(&vec![]).is_err());
     }
     let source = ExactCoverBy3Sets::new(0, vec![]);

@@ -78,18 +78,22 @@ fn test_additional_key_evaluate_satisfying() {
     // Minimality: remove 0 => {2}, closure of {2} = {2} => does not cover all. OK.
     //             remove 2 => {0}, closure of {0} = {0} => does not cover all. OK.
     // {0,2} sorted is [0,2], not in known_keys [{0,1},{2,3},{4,5}].
-    assert!(problem
-        .evaluate(&vec![true, false, true, false, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, false, true, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_additional_key_evaluate_known_key() {
     let problem = instance1();
     // Config [1,1,0,0,0,0] selects attrs {0,1} which IS in known_keys.
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -97,9 +101,11 @@ fn test_additional_key_evaluate_not_a_key() {
     let problem = instance1();
     // Config [0,0,0,0,0,1] selects {5}. Closure of {5} = {5}.
     // Does not cover all attrs.
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -107,9 +113,11 @@ fn test_additional_key_evaluate_non_minimal() {
     let problem = instance1();
     // Config [1,1,1,0,0,0] selects {0,1,2}.
     // {0,1} alone determines all attrs (known key), so {0,1,2} is NOT minimal.
-    assert!(!problem
-        .evaluate(&vec![true, true, true, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -137,11 +145,13 @@ fn test_additional_key_wrong_config_length() {
 #[test]
 fn test_additional_key_invalid_variable_value() {
     let problem = instance1();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -191,9 +201,11 @@ fn test_additional_key_serialization() {
 fn test_additional_key_empty_selection() {
     let problem = instance1();
     // All zeros = no attributes selected = not a key
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]

@@ -316,9 +316,11 @@ fn test_sat_to_independentset_all_certificates() {
                 accepted,
                 BruteForce::new().solve(&source).unwrap().is_some()
             );
-            assert!(reduction
-                .extract_solution(&vec![false; target.num_vertices() + 1])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![false; target.num_vertices() + 1])
+                    .is_err()
+            );
         }
     }
     for num_vars in [0, 3] {

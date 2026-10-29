@@ -190,11 +190,13 @@ fn test_repeated_and_tautological_clauses() {
                     .map(|&i| original[i])
                     .collect();
                 let positions = layout.schedule_for_assignment(&compact);
-                assert!(reduction
-                    .target_problem()
-                    .simulate_registers(&positions)
-                    .unwrap()
-                    .is_some());
+                assert!(
+                    reduction
+                        .target_problem()
+                        .simulate_registers(&positions)
+                        .unwrap()
+                        .is_some()
+                );
                 let source_value = source.evaluate(&original).unwrap();
                 assert_eq!(
                     reduction.target_problem().evaluate(&positions).unwrap(),

@@ -6,7 +6,7 @@
 //! - Constraints: partition (each vertex in exactly one component) + edge-cut linking
 //! - Objective: minimize total weight of cut edges
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

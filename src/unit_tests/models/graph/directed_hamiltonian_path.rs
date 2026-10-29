@@ -143,11 +143,13 @@ fn test_decode_lehmer_identity() {
 
 #[test]
 fn simple_model_rejects_a_loop_in_construction_and_serde() {
-    assert!(std::panic::catch_unwind(|| {
-        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
-        DirectedHamiltonianPath::new(graph)
-    })
-    .is_err());
+    assert!(
+        std::panic::catch_unwind(|| {
+            let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+            DirectedHamiltonianPath::new(graph)
+        })
+        .is_err()
+    );
     let error = serde_json::from_value::<DirectedHamiltonianPath>(serde_json::json!({
         "graph": {"num_vertices": 2, "arcs": [[0,0]]},
     }))

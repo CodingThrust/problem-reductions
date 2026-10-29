@@ -25,34 +25,46 @@ fn test_three_dimensional_matching_evaluation() {
     );
 
     // T0, T1, T2: W={0,1,2} distinct, X={1,0,2} distinct, Y={2,1,0} distinct -> valid
-    assert!(problem
-        .evaluate(&vec![true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, false, false])
+            .unwrap()
+    );
 
     // T0, T3: both have w=0 -> invalid (also only 2 selected, need 3)
-    assert!(!problem
-        .evaluate(&vec![true, false, false, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, false, true, false])
+            .unwrap()
+    );
 
     // T0, T1, T3: w-coordinates {0,1,0} not distinct -> invalid
-    assert!(!problem
-        .evaluate(&vec![true, true, false, true, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, true, false])
+            .unwrap()
+    );
 
     // Only T0 selected (need q=3 triples)
-    assert!(!problem
-        .evaluate(&vec![true, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, false, false, false, false])
+            .unwrap()
+    );
 
     // All selected (too many)
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true])
+            .unwrap()
+    );
 
     // None selected
-    assert!(!problem
-        .evaluate(&vec![false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, false, false, false, false])
+            .unwrap()
+    );
 }
 
 #[test]

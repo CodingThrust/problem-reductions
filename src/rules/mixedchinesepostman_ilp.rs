@@ -5,7 +5,7 @@
 //! within the length bound. Uses connectivity flow constraints on both
 //! forward and reverse directions.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

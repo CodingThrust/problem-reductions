@@ -279,11 +279,13 @@ fn create_spec_maps_weight_inputs_to_canonical_fields() {
 
 #[test]
 fn simple_model_rejects_a_loop_in_construction_and_serde() {
-    assert!(std::panic::catch_unwind(|| {
-        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
-        AcyclicPartition::new(graph, vec![1i64; 2], vec![1i64], 2, 2)
-    })
-    .is_err());
+    assert!(
+        std::panic::catch_unwind(|| {
+            let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+            AcyclicPartition::new(graph, vec![1i64; 2], vec![1i64], 2, 2)
+        })
+        .is_err()
+    );
     let error = serde_json::from_value::<AcyclicPartition<i64>>(serde_json::json!({
         "graph": {"num_vertices": 2, "arcs": [[0,0]]}, "vertex_weights": [1,1], "arc_costs": [1], "weight_bound": 2, "cost_bound": 2
     })).unwrap_err();

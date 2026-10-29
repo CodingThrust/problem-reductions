@@ -19,7 +19,7 @@
 //! 4. Binary bounds: p_i ≤ 1, q_j ≤ 1
 //! 5. Carry bounds: 0 ≤ c_k ≤ min(m, n)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -99,11 +99,7 @@ impl ReductionResult for ReductionFactoringToILP {
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
                     value + (num_bigint::BigUint::from(1u8) << index)
                 });
-            if p <= q {
-                (p, q)
-            } else {
-                (q, p)
-            }
+            if p <= q { (p, q) } else { (q, p) }
         })
     }
 }

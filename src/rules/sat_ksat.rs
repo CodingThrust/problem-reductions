@@ -10,7 +10,7 @@ use crate::models::formula::{CNFClause, KSatisfiability, Satisfiability};
 use crate::reduction;
 use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::variant::{KValue, K2, K3};
+use crate::variant::{K2, K3, KValue};
 
 /// Result of reducing general SAT to K-SAT.
 ///

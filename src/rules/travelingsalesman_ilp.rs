@@ -5,7 +5,7 @@
 //! - Constraints: assignment, non-edge consecutive, McCormick
 //! - Objective: minimize total edge weight of the tour
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};

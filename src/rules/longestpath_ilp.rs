@@ -5,7 +5,7 @@
 //! path positions. Flow-balance constraints force a single directed `s-t` path,
 //! while MTZ-style ordering constraints eliminate detached cycles.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::LongestPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

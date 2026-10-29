@@ -129,11 +129,7 @@ fn normalize(
                     + 1;
                 let index = i64::try_from(compact)
                     .expect("compaction cannot increase a valid source variable index");
-                if *literal > 0 {
-                    index
-                } else {
-                    -index
-                }
+                if *literal > 0 { index } else { -index }
             })
             .collect();
         // Deduplication leaves one to three literals; fill the rest with fresh variables.

@@ -825,6 +825,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         if name == "wait-ci":
             command.add_argument("--timeout", type=float, default=900)
             command.add_argument("--interval", type=float, default=30)
+            command.add_argument("--format", choices=["json", "text"], default="json")
         elif name == "create":
             command.add_argument("--title", required=True)
             command.add_argument("--body-file", required=True)

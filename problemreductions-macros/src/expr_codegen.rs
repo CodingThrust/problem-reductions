@@ -49,16 +49,17 @@ pub(crate) fn complexity_estimate_tokens(
 ) -> syn::Result<TokenStream> {
     Ok(match expression.node() {
         ExprNode::Const(value) => {
-            let value =
-                value
-                    .to_f64()
-                    .filter(|value| value.is_finite())
-                    .ok_or_else(|| {
-                        syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("exact expression constant {value} is outside complexity estimation"),
-                )
-                    })?;
+            let value = value
+                .to_f64()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| {
+                    syn::Error::new(
+                        proc_macro2::Span::call_site(),
+                        format!(
+                            "exact expression constant {value} is outside complexity estimation"
+                        ),
+                    )
+                })?;
             quote! { #value }
         }
         ExprNode::Var(name) => {
@@ -140,6 +141,21 @@ fn unary_expr_tokens(value: &Expr, build: impl FnOnce(TokenStream) -> TokenStrea
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_complexity_codegen_rejects_unrepresentable_constant() {
+        let decimal = "1".to_owned() + &"0".repeat(400);
+        let expression = Expr::parse(&decimal);
+        let parameters = syn::parse_quote!(parameters);
+        let error = complexity_estimate_tokens(&expression, &parameters).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "exact expression constant {} is outside complexity estimation",
+                decimal
+            )
+        );
+    }
 
     #[test]
     fn shared_parser_drives_codegen() {

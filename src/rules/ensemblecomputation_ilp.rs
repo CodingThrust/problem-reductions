@@ -1,6 +1,6 @@
 //! Polynomial-size circuit-slot reduction from EnsembleComputation to `ILP<bool>`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::EnsembleComputation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

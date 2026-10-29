@@ -165,11 +165,7 @@ fn build_construction(
                         .expect("native SAT indices fit usize");
                     let variable =
                         i64::try_from(var_map[&original]).expect("compact SAT indices fit i64");
-                    if literal > 0 {
-                        variable
-                    } else {
-                        -variable
-                    }
+                    if literal > 0 { variable } else { -variable }
                 })
                 .collect()
         })

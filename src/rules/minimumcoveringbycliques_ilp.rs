@@ -17,7 +17,7 @@
 //!
 //! Objective: minimize the number of active clique slots.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumCoveringByCliques;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;

@@ -3,7 +3,7 @@
 //! Binary variable x_r per maximal rectangle. For each 1-cell, require at least
 //! one covering rectangle selected. Total selected ≤ bound.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::RectilinearPictureCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -71,7 +71,7 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
                     let terms: Vec<(usize, i64)> = rects
                         .iter()
                         .enumerate()
-                        .filter(|(_, &(r1, c1, r2, c2))| i >= r1 && i <= r2 && j >= c1 && j <= c2)
+                        .filter(|&(_, &(r1, c1, r2, c2))| i >= r1 && i <= r2 && j >= c1 && j <= c2)
                         .map(|(idx, _)| (idx, 1))
                         .collect();
                     constraints.push(LinearConstraint::ge(terms, 1));

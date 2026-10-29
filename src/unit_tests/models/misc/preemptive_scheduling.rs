@@ -96,9 +96,10 @@ fn test_preemptive_scheduling_evaluate_wrong_length() {
     let p = small_instance();
     assert!(p.evaluate(&vec![]).is_err());
     assert!(p.evaluate(&vec![vec![true, true, false]]).is_err());
-    assert!(p
-        .evaluate(&vec![vec![true, true, false], vec![true, false]])
-        .is_err());
+    assert!(
+        p.evaluate(&vec![vec![true, true, false], vec![true, false]])
+            .is_err()
+    );
 }
 
 #[test]

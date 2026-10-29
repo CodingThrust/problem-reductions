@@ -7,8 +7,8 @@
 //!
 //! Run with: `cargo run --example detect_unreachable_from_3sat`
 
-use problemreductions::rules::analysis::{check_reachability_from_3sat, UnreachableReason};
 use problemreductions::rules::ReductionGraph;
+use problemreductions::rules::analysis::{UnreachableReason, check_reachability_from_3sat};
 
 fn main() {
     let graph = ReductionGraph::new();

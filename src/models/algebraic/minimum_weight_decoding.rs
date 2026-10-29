@@ -153,7 +153,7 @@ impl Problem for MinimumWeightDecoding {
                 let dot: usize = row
                     .iter()
                     .zip(config.iter())
-                    .filter(|(&h, &x)| h && x)
+                    .filter(|&(&h, &x)| h && x)
                     .count();
                 let syndrome_bit = dot % 2 == 1;
                 if syndrome_bit != self.target[i] {

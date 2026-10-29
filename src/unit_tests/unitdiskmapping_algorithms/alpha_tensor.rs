@@ -4,11 +4,11 @@
 //! because an unweighted triangular gadget ruleset has not been implemented.
 
 use super::common::ksg_edges;
+use crate::rules::unitdiskmapping::Pattern;
 use crate::rules::unitdiskmapping::ksg::{
     KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn,
     KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
 };
-use crate::rules::unitdiskmapping::Pattern;
 use std::collections::HashSet;
 
 fn weighted_mis_with_fixed_pins(

@@ -5,7 +5,7 @@
 //! ordering variables `y_{i,j}` for each task pair. Big-M constraints
 //! enforce that tasks sharing a processor do not overlap.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;

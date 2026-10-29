@@ -15,7 +15,7 @@
 //! Objective: minimize Σ p(a) · y_a.
 //! Extraction: first m variables are the flow values.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumEdgeCostFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

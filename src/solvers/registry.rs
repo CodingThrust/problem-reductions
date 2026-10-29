@@ -1,8 +1,8 @@
 //! Deterministic solver capabilities for exact problem variants.
 
 use crate::registry::VariantEntry;
-use crate::rules::registry::{reduction_entries, AggregateViewFn, ReduceFn, ReductionEntry};
 use crate::rules::DynReductionResult;
+use crate::rules::registry::{AggregateViewFn, ReduceFn, ReductionEntry, reduction_entries};
 use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
@@ -321,7 +321,9 @@ pub enum RegistryBuildError {
     UnsupportedTarget(String),
     #[error("ILP pipeline for {0} continues after reaching a supported ILP node")]
     ContinuesAfterIlp(String),
-    #[error("ILP pipeline edge {source_label} -> {target_label} resolves to {matches} witness reductions")]
+    #[error(
+        "ILP pipeline edge {source_label} -> {target_label} resolves to {matches} witness reductions"
+    )]
     InvalidEdge {
         source_label: String,
         target_label: String,
@@ -472,8 +474,8 @@ fn build_registry(
 
 static REGISTRY: OnceLock<Result<SolverCapabilityRegistry, RegistryBuildError>> = OnceLock::new();
 
-pub(crate) fn solver_capability_registry(
-) -> Result<&'static SolverCapabilityRegistry, &'static RegistryBuildError> {
+pub(crate) fn solver_capability_registry()
+-> Result<&'static SolverCapabilityRegistry, &'static RegistryBuildError> {
     REGISTRY
         .get_or_init(|| {
             build_registry(

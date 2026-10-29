@@ -10,7 +10,8 @@ members = [
 [package]
 name = "problemreductions"
 version = "0.6.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.88"
 description = "A library for reducing NP-hard problems"
 license = "MIT"
 repository = "https://github.com/CodingThrust/problem-reductions"

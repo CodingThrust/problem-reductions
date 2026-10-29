@@ -1,7 +1,7 @@
 //! Tests for weighted mode functionality (src/rules/mapping/weighted.rs).
 
 use crate::rules::unitdiskmapping::{
-    copyline_weighted_locations_triangular, ksg, map_weights, trace_centers, triangular, CopyLine,
+    CopyLine, copyline_weighted_locations_triangular, ksg, map_weights, trace_centers, triangular,
 };
 // === Trace Centers Tests ===
 
@@ -590,7 +590,7 @@ fn test_square_danglinleg_weights() {
 #[test]
 fn test_weighted_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis};
-    use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+    use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
     use crate::solvers::ILPSolver;
 
     // Keep every standard-graph case, bounded to an eight-vertex induced subgraph.

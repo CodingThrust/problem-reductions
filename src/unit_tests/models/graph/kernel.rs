@@ -130,11 +130,13 @@ fn test_kernel_empty_graph() {
 
 #[test]
 fn simple_model_rejects_a_loop_in_construction_and_serde() {
-    assert!(std::panic::catch_unwind(|| {
-        let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
-        Kernel::new(graph)
-    })
-    .is_err());
+    assert!(
+        std::panic::catch_unwind(|| {
+            let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+            Kernel::new(graph)
+        })
+        .is_err()
+    );
     let error = serde_json::from_value::<Kernel>(serde_json::json!({
         "graph": {"num_vertices": 2, "arcs": [[0,0]]},
     }))

@@ -1,12 +1,12 @@
+use crate::Problem;
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::SubsetSum;
 use crate::registry::variant::find_variant_entry;
-use crate::registry::{load_dyn, serialize_any, DynProblem, LoadedDynProblem};
-use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
+use crate::registry::{DynProblem, LoadedDynProblem, load_dyn, serialize_any};
+use crate::solvers::{SolveOutcome, SolverRequest, brute_force_dimensions, solve};
 use crate::topology::SimpleGraph;
 use crate::types::{Max, Sum};
-use crate::Problem;
 use std::any::Any;
 use std::collections::BTreeMap;
 
@@ -127,12 +127,16 @@ fn test_dyn_witness_evaluation_distinguishes_infeasibility_and_malformed_input()
             .unwrap(),
         None
     );
-    assert!(dyn_problem
-        .evaluate_witness_dyn(&serde_json::json!([true]))
-        .is_err());
-    assert!(dyn_problem
-        .evaluate_witness_dyn(&serde_json::json!([0, 0, 0]))
-        .is_err());
+    assert!(
+        dyn_problem
+            .evaluate_witness_dyn(&serde_json::json!([true]))
+            .is_err()
+    );
+    assert!(
+        dyn_problem
+            .evaluate_witness_dyn(&serde_json::json!([0, 0, 0]))
+            .is_err()
+    );
 }
 
 #[test]

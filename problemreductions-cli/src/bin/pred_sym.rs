@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use problemreductions::{big_o_normal_form, evaluate_approximate, Expr, ProblemParameters};
+use problemreductions::{Expr, ProblemParameters, big_o_normal_form, evaluate_approximate};
 
 #[derive(Parser)]
 #[command(
