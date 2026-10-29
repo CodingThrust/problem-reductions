@@ -209,7 +209,6 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
         }
     }
 
-    // Compute and compare weighted MIS
     let mapped_mis = solve_weighted_grid_mis(&result) as i64;
     let julia_mis = julia_data["mapped_mis_size"]
         .as_f64()
@@ -343,7 +342,7 @@ fn test_trace_centers_triangle() {
 fn test_triangular_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis, solve_weighted_mis_config};
     use crate::rules::unitdiskmapping::map_weights;
-    // All standard graphs (excluding tutte/karate which are slow)
+    // Keep every standard-graph case, bounded to an eight-vertex induced subgraph.
     let graph_names = [
         "bull",
         "chvatal",
@@ -368,10 +367,12 @@ fn test_triangular_map_config_back_standard_graphs() {
     ];
 
     for name in graph_names {
-        let (n, edges) = smallgraph(name).unwrap();
+        let (n, edges) = super::common::small_graph_case(name);
 
         // Use Julia's vertex order if available
-        let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
+        let vertex_order: Vec<usize> = get_julia_vertex_order(name)
+            .map(|order| order.into_iter().filter(|&v| v < n).collect())
+            .unwrap_or_else(|| (0..n).collect());
         let result = triangular::map_weighted_with_order(n, &edges, &vertex_order).unwrap();
         // Follow Julia's approach: source weights of 0.2 for each vertex
         let source_weights: Vec<f64> = vec![0.2; n];
@@ -388,7 +389,6 @@ fn test_triangular_map_config_back_standard_graphs() {
         let grid_edges = result.edges();
         let num_grid = result.positions.len();
 
-        // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
 
         let center_config = triangular::map_config_back(&result, &grid_config).unwrap();

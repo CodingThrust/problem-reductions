@@ -188,8 +188,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // H (3×4): [[1,0,1,1],[0,1,1,0],[1,1,0,1]], s = [1,1,0]
-    // Config [0,0,1,0] → weight 1, Hx = [1,1,0] ≡ s → Min(1)
     let matrix = vec![
         vec![true, false, true, true],
         vec![false, true, true, false],

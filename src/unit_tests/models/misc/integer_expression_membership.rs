@@ -199,7 +199,6 @@ fn test_integer_expression_membership_paper_example() {
     // Witness: config [1, 1, 0] → 4+6+2 = 12
     let problem = IntegerExpressionMembership::new(example_expr(), 12);
 
-    // Verify the claimed witness
     assert_eq!(problem.evaluate_config(&[true, true, false]), Some(12));
     assert!(problem.evaluate(&vec![true, true, false]).unwrap());
 

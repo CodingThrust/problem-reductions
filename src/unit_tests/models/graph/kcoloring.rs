@@ -351,3 +351,31 @@ fn test_kcoloring_random_zero_colors() {
         assert_eq!(BruteForce::new().solve(&problem).unwrap().is_some(), n == 0);
     }
 }
+
+#[test]
+fn create_spec_preserves_isolated_vertices_and_checks_vertex_count_inference() {
+    let isolated = KColoring::<K3, SimpleGraph>::try_from(FixedKColoringCreateSpec {
+        graph: vec![],
+        num_vertices: Some(3),
+    })
+    .unwrap();
+    assert_eq!(isolated.num_vertices(), 3);
+    assert_eq!(isolated.graph().num_edges(), 0);
+
+    for (graph, num_vertices, expected) in [
+        (vec![], None, "num_vertices is required"),
+        (vec![(0, 2)], Some(2), "need at least 3"),
+        (vec![(0, usize::MAX)], None, "vertex count overflows usize"),
+    ] {
+        let error = KColoring::<K3, SimpleGraph>::try_from(FixedKColoringCreateSpec {
+            graph,
+            num_vertices,
+        })
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            crate::registry::ConstructionError::Conversion(_)
+        ));
+        assert!(error.to_string().contains(expected), "{error}");
+    }
+}

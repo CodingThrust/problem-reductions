@@ -233,7 +233,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "openshopscheduling_to_ilp",
             build: || {
-                // Small 2x2 instance for canonical example
                 let source = OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]]);
                 crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
             },

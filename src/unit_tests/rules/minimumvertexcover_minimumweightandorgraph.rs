@@ -35,7 +35,7 @@ fn negative_vertices_are_selected_even_when_isolated_or_redundant() {
         (1, vec![], vec![-1]),
         (2, vec![(0, 1)], vec![-1, -1]),
         (3, vec![(0, 1), (1, 2)], vec![-2, 3, 1]),
-        (2, vec![(0, 0), (0, 1)], vec![-1, 2]),
+        (2, vec![(0, 1)], vec![-1, 2]),
     ] {
         let source = MinimumVertexCover::new(SimpleGraph::new(n, edges), weights);
         let reduction = ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source).unwrap();

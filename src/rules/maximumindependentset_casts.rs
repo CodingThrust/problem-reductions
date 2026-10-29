@@ -3,7 +3,9 @@
 //! Each rule converts one registered graph or weight representation.
 
 use crate::impl_variant_reduction;
+use crate::models::Decision;
 use crate::models::graph::MaximumIndependentSet;
+use crate::rules::{ReduceTo, ReductionResult, weight_casts::exact_float_weights};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::One;
 
@@ -173,4 +175,28 @@ crate::register_aggregate_reduction!(
         MaximumIndependentSet<UnitDiskGraph, One>,
         MaximumIndependentSet<UnitDiskGraph, i64>,
     >
+);
+
+impl_variant_reduction!(
+    Decision,
+    <MaximumIndependentSet<SimpleGraph, One>> => <MaximumIndependentSet<SimpleGraph, i64>>,
+    fields: [num_vertices, num_edges],
+    |src| Decision::new(
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(src.inner())?.target_problem().clone(),
+        *src.bound())
+);
+type DecisionWeightCast = crate::rules::VariantReductionResult<
+    Decision<MaximumIndependentSet<SimpleGraph, One>>,
+    Decision<MaximumIndependentSet<SimpleGraph, i64>>,
+>;
+crate::register_aggregate_reduction!(DecisionWeightCast);
+
+impl_variant_reduction!(
+    MaximumIndependentSet,
+    <SimpleGraph, i64> => <SimpleGraph, f64>,
+    fields: [num_vertices, num_edges],
+    |src| MaximumIndependentSet::new(
+        src.graph().clone(),
+        exact_float_weights::<MaximumIndependentSet<SimpleGraph, i64>, MaximumIndependentSet<SimpleGraph, f64>>(src.weights())?,
+    )
 );

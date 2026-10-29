@@ -64,14 +64,12 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Verify the extracted config is a valid permutation
     let n = problem.num_items();
     assert_eq!(extracted.len(), n);
     let mut sorted = extracted.clone();
     sorted.sort();
     assert_eq!(sorted, (0..n).collect::<Vec<_>>());
 
-    // Verify evaluation is valid
     let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 }
@@ -116,7 +114,6 @@ fn test_maximumlikelihoodranking_to_ilp_single_item() {
 
 #[test]
 fn test_maximumlikelihoodranking_to_ilp_larger_instance() {
-    // 4-item instance from the issue
     let matrix = vec![
         vec![0, 4, 3, 5],
         vec![1, 0, 4, 3],

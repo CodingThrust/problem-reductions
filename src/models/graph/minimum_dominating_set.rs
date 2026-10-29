@@ -447,7 +447,6 @@ pub(crate) fn is_dominating_set<G: Graph>(graph: &G, selected: &[bool]) -> bool 
         "selected length must match num_vertices"
     );
 
-    // Check each vertex is dominated
     for v in 0..graph.num_vertices() {
         if selected[v] {
             continue; // v dominates itself

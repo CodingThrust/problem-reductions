@@ -95,7 +95,7 @@ Traits and helpers: `src/rules/traits.rs`, `src/rules/test_helpers.rs`, `src/rul
    and parameter counts vs the transform (reuse existing inputs; the shared executable-rule check lives in `src/unit_tests/parameter_formula_validation.rs`), and one test per malformed representation the decoder
    rejects (zero/multiple one-hot bits, duplicate permutation entries, ...). Aggregate edges: test
    `extract_value` against `BruteForce::solve` on both sides.
-5. Paper `reduction-rule` entry — how-to-write-manual (adapt the how-to-verify proof, don't rewrite).
+5. Paper `reduction-rule` entry — how-to-write-manual (adapt the how-to-verify proof, don't rewrite). Pure `One -> i64 -> f64` numeric casts are exempt; other same-model variant reductions still need entries.
 
 ## Traps
 

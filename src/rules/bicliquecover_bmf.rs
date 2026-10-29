@@ -77,7 +77,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bicliquecover_to_bmf",
         build: || {
-            // Single K_{2,2} biclique at rank 1 — matches the forward example.
             let source = BicliqueCover::new(
                 BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
                 1,

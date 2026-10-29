@@ -201,7 +201,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "stackercrane_to_ilp",
         build: || {
-            // Simple: 3 vertices, 2 arcs, 1 edge
             let source =
                 StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)

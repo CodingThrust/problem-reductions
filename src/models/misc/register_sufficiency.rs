@@ -213,13 +213,6 @@ impl RegisterSufficiency {
                 }
             }
 
-            // Count registers at this step:
-            // A vertex v is in registers if:
-            // - v has been evaluated (config[v] <= step)
-            // - v is still needed (last_use[v] > step, or v is the current vertex)
-            // Actually, more precisely: after evaluating vertex at position `step`,
-            // the register set contains all vertices evaluated so far whose last
-            // use is > step (they're still needed later), plus the current vertex.
             let reg_count = order[..=step]
                 .iter()
                 .filter(|&&v| last_use[v] > step)
@@ -524,9 +517,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "register_sufficiency",
-        // Issue #515 example: 7 vertices, 8 arcs, K=3
-        // Arcs (0-indexed): (2,0), (2,1), (3,1), (4,2), (4,3), (5,0), (6,4), (6,5)
-        // Order: v0,v1,v2,v3,v5,v4,v6 -> positions [0,1,2,3,5,4,6]
         instance: Box::new(RegisterSufficiency::new(
             7,
             vec![
@@ -541,8 +531,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             3,
         )),
-        // Order: v1,v2,v3,v4,v6,v5,v7 (1-indexed) = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
-        // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
         optimal_config: serde_json::json!(vec![0, 1, 2, 3, 5, 4, 6]),
         optimal_value: serde_json::json!(true),
     }]

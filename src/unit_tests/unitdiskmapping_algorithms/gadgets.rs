@@ -144,49 +144,42 @@ fn test_all_gadgets_have_valid_pins() {
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test Turn
     let (source_locs, _, source_pins) = KsgTurn.source_graph();
     let (mapped_locs, mapped_pins) = KsgTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test WTurn
     let (source_locs, _, source_pins) = KsgWTurn.source_graph();
     let (mapped_locs, mapped_pins) = KsgWTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test Branch
     let (source_locs, _, source_pins) = KsgBranch.source_graph();
     let (mapped_locs, mapped_pins) = KsgBranch.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test BranchFix
     let (source_locs, _, source_pins) = KsgBranchFix.source_graph();
     let (mapped_locs, mapped_pins) = KsgBranchFix.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test TCon
     let (source_locs, _, source_pins) = KsgTCon.source_graph();
     let (mapped_locs, mapped_pins) = KsgTCon.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test TrivialTurn
     let (source_locs, _, source_pins) = KsgTrivialTurn.source_graph();
     let (mapped_locs, mapped_pins) = KsgTrivialTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
-    // Test EndTurn
     let (source_locs, _, source_pins) = KsgEndTurn.source_graph();
     let (mapped_locs, mapped_pins) = KsgEndTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
@@ -843,7 +836,6 @@ fn test_all_ksg_weighted_gadgets_mis_equivalence() {
 
 #[test]
 fn test_pattern_source_matrix() {
-    // Test source_matrix generation for all gadgets
     let cross_matrix = KsgCross::<true>.source_matrix();
     assert!(!cross_matrix.is_empty());
 
@@ -879,7 +871,6 @@ fn test_pattern_mapped_matrix() {
 
 #[test]
 fn test_weighted_pattern_weights_length() {
-    // Verify weights match location counts
     let (src_locs, _, _) = WeightedKsgCross::<true>.source_graph();
     let src_weights = WeightedKsgCross::<true>.source_weights();
     assert_eq!(src_locs.len(), src_weights.len());
@@ -922,7 +913,6 @@ fn test_all_weighted_gadgets_weights_positive() {
 
 #[test]
 fn test_gadget_is_connected_variants() {
-    // Test is_connected() method
     assert!(KsgCross::<true>.is_connected());
     assert!(!KsgCross::<false>.is_connected());
 
@@ -980,7 +970,6 @@ fn test_triangular_gadget_mapped_matrix() {
 
 #[test]
 fn test_triangular_gadget_weights() {
-    // Test that weights are returned correctly
     let src_weights = WeightedTriTurn.source_weights();
     let map_weights = WeightedTriTurn.mapped_weights();
     assert!(!src_weights.is_empty());
@@ -993,7 +982,6 @@ fn test_triangular_gadget_weights() {
 
 #[test]
 fn test_triangular_gadget_connected_nodes() {
-    // Test connected gadgets
     let nodes = WeightedTriCross::<true>.connected_nodes();
     // TriCross<true> should have connected nodes
     assert!(!nodes.is_empty() || WeightedTriCross::<true>.is_connected());

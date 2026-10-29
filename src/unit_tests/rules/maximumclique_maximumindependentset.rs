@@ -18,7 +18,6 @@ fn test_maximumclique_to_maximumindependentset_closed_loop() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    // Verify complement graph structure
     assert_eq!(target.graph().num_vertices(), 4);
     assert_eq!(target.graph().num_edges(), 3); // 4*3/2 - 3 = 3
 

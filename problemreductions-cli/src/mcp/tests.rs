@@ -477,7 +477,6 @@ fn deterministic_solver_dispatch_mcp_output_is_repeatable_for_each_solver_class(
 fn test_solve_bundle() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    // Reduce first, then solve the bundle
     let bundle_json = server
         .reduce_inner(
             &problem_json,
@@ -722,4 +721,35 @@ fn test_solve_bundle_rejects_aggregate_only_path() {
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("witness"), "unexpected error: {err}");
+}
+
+#[test]
+fn simple_graph_create_rejects_loops_and_parallel_edges() {
+    let server = McpServer::new();
+    for (edges, offending) in [
+        (serde_json::json!([[0, 0]]), "edge (0, 0)"),
+        (serde_json::json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+        (serde_json::json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+    ] {
+        let error = server
+            .create_problem_inner(
+                "MaximumIndependentSet/SimpleGraph/One",
+                &serde_json::json!({"graph": edges, "num_vertices": 3}),
+            )
+            .unwrap_err();
+        assert!(format!("{error:#}").contains(offending), "{error:#}");
+    }
+}
+
+#[test]
+fn mixed_chinese_postman_create_accepts_an_undirected_loop() {
+    let output = McpServer::new().create_problem_inner("MixedChinesePostman/i64", &serde_json::json!({"graph": [[0,0]], "arcs": [[0,0]], "num_vertices": 1, "edge_weights": [3], "arc_weights": [2]})).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&output).unwrap();
+    let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
+        serde_json::from_value(json["data"].clone()).unwrap();
+    assert_eq!(problem.graph().edges(), vec![(0, 0)]);
+    assert_eq!(
+        problemreductions::Problem::evaluate(&problem, &vec![false]).unwrap(),
+        problemreductions::Min(Some(5))
+    );
 }

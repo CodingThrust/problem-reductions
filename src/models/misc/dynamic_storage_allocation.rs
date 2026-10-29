@@ -141,7 +141,6 @@ impl Problem for DynamicStorageAllocation {
                     ));
                 }
 
-                // Check each item fits within memory
                 for (i, &(_, _, size)) in self.items.iter().enumerate() {
                     let start = config[i];
                     if start + size > self.memory_size {

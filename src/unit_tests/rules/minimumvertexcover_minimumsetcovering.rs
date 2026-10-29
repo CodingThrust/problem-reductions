@@ -15,7 +15,6 @@ fn test_minimumvertexcover_to_minimumsetcovering_closed_loop() {
         .expect("reduction should succeed");
     let sc_problem = reduction.target_problem();
 
-    // Check the sets are constructed correctly
     assert_eq!(sc_problem.universe_size(), 2); // 2 edges
     assert_eq!(sc_problem.num_sets(), 3); // 3 vertices
 
@@ -42,7 +41,6 @@ fn test_vc_to_sc_triangle() {
     assert_eq!(sc_problem.universe_size(), 3);
     assert_eq!(sc_problem.num_sets(), 3);
 
-    // Verify each vertex covers exactly 2 edges
     for i in 0..3 {
         let set = sc_problem.get_set(i).unwrap();
         assert_eq!(set.len(), 2);
@@ -61,7 +59,6 @@ fn test_vc_to_sc_weighted() {
     // Weights should be preserved - access via weights_ref method on the problem
     assert_eq!(*sc_problem.weights_ref(), vec![10, 1, 10]);
 
-    // Solve both ways
     let solver = BruteForce::new();
     let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
     let sc_solutions = solver.find_all_witnesses(sc_problem).unwrap();

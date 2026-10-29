@@ -309,18 +309,7 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 jobs × 3 machines example from issue #506.
-    // processing_times[j][i]:
-    //   J1: p[0] = [3, 1, 2]
-    //   J2: p[1] = [2, 3, 1]
-    //   J3: p[2] = [1, 2, 3]
-    //   J4: p[3] = [2, 2, 1]
-    //
-    // Per-machine totals: M1=8, M2=8, M3=7.  Per-job totals: J1=6, J2=6, J3=6, J4=5.
-    // Lower bound: max(8, 6) = 8. True optimal makespan = 8.
-    //
-    // Job-major start times: J1=[0,3,4], J2=[3,0,6], J3=[5,6,0], J4=[6,4,3].
-    // Each job and machine has non-overlapping operations; the last finish is 8.
+    // Machine load supplies a matching lower bound for this schedule.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "open_shop_scheduling",
         instance: Box::new(OpenShopScheduling::new(

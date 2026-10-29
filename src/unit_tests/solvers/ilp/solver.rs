@@ -288,11 +288,11 @@ fn test_one_in_three_registered_ilp_feasibility() {
 #[test]
 fn test_kernel_registered_ilp_feasibility() {
     use crate::models::graph::Kernel;
-    use crate::topology::DirectedGraph;
+    use crate::topology::SimpleDigraph;
     for (graph, feasible) in [
-        (DirectedGraph::new(0, vec![]), true),
-        (DirectedGraph::new(3, vec![(0, 1), (1, 2)]), true),
-        (DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), false),
+        (SimpleDigraph::new(0, vec![]), true),
+        (SimpleDigraph::new(3, vec![(0, 1), (1, 2)]), true),
+        (SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), false),
     ] {
         let problem = Kernel::new(graph);
         match ILPSolver::new().solve(&problem) {

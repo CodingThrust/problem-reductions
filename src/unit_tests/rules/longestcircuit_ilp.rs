@@ -96,7 +96,6 @@ fn test_longestcircuit_to_ilp_closed_loop() {
         .expect("brute-force should find a solution");
     assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
-    // Solve via ILP
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

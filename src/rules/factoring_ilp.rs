@@ -88,14 +88,12 @@ impl ReductionResult for ReductionFactoringToILP {
         )?;
 
         Ok({
-            // Extract p bits (first factor)
             let p = (0..self.m)
                 .filter(|&i| target_solution[self.p_var(i)] == 1)
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
                     value + (num_bigint::BigUint::from(1u8) << index)
                 });
 
-            // Extract q bits (second factor)
             let q = (0..self.n)
                 .filter(|&j| target_solution[self.q_var(j)] == 1)
                 .fold(num_bigint::BigUint::from(0u8), |value, index| {
@@ -180,7 +178,6 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for Factoring {
                 }
             }
 
-            // Add carry_in (from position k-1)
             if k > 0 {
                 terms.push((carry_var(k - 1), 1));
             }

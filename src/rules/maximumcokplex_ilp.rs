@@ -135,7 +135,8 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
                 ILP<bool>,
             >("encoding a degree or co-k-plex bound")
         })?;
-        reduce_cokplex_to_ilp(self, constraints, objective).map_err(Self::target_construction)
+        reduce_cokplex_to_ilp(self, constraints, objective)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)
     }
 }
 

@@ -175,7 +175,6 @@ fn terminals_separated<G: Graph>(graph: &G, terminals: &[usize], config: &[bool]
     let n = graph.num_vertices();
     let edges = graph.edges();
 
-    // Build adjacency list from non-cut edges
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, (u, v)) in edges.iter().enumerate() {
         if !config[idx] {

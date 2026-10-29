@@ -30,7 +30,6 @@ fn decision_graph_encodings_preserve_small_and_native_graph_cases() {
         SimpleGraph::path(2),
         SimpleGraph::path(3),
         SimpleGraph::cycle(3),
-        SimpleGraph::new(3, vec![(0, 0), (0, 1), (0, 1)]),
     ] {
         check_decision::<_, StrongConnectivityAugmentation<i64>>(&HamiltonianCircuit::new(
             graph.clone(),
@@ -113,19 +112,12 @@ where
 #[test]
 fn binary_ilp_encodings_preserve_degenerate_graphs() {
     use crate::models::graph::{DisjointConnectingPaths, HamiltonianPath, SubgraphIsomorphism};
-    for graph in [
-        SimpleGraph::empty(2),
-        SimpleGraph::new(2, vec![(0, 0), (1, 1)]),
-        SimpleGraph::new(2, vec![(0, 1), (0, 1)]),
-    ] {
+    for graph in [SimpleGraph::empty(2), SimpleGraph::path(2)] {
         check_binary_ilp(&DisjointConnectingPaths::new(graph.clone(), vec![(0, 1)]));
         check_binary_ilp(&HamiltonianPath::new(graph));
     }
-    for host in [SimpleGraph::empty(1), SimpleGraph::new(1, vec![(0, 0)])] {
-        check_binary_ilp(&SubgraphIsomorphism::new(
-            host,
-            SimpleGraph::new(1, vec![(0, 0)]),
-        ));
+    for host in [SimpleGraph::empty(1), SimpleGraph::path(2)] {
+        check_binary_ilp(&SubgraphIsomorphism::new(host, SimpleGraph::empty(1)));
     }
 }
 
@@ -272,13 +264,13 @@ fn partition_decision_encodings_preserve_yes_and_no() {
 }
 
 #[test]
-fn rooted_tree_mapping_preserves_empty_graphs_loops_and_negative_bounds() {
+fn rooted_tree_mapping_preserves_empty_graphs_and_negative_bounds() {
     use crate::models::graph::RootedTreeArrangement;
     use crate::models::set::RootedTreeStorageAssignment;
     for graph in [
         SimpleGraph::empty(0),
         SimpleGraph::empty(1),
-        SimpleGraph::new(2, vec![(0, 0), (0, 1), (0, 1)]),
+        SimpleGraph::path(2),
     ] {
         for bound in [i64::MIN, -1, 0, 1, 2] {
             check_decision::<_, RootedTreeStorageAssignment>(&RootedTreeArrangement::new(
@@ -293,9 +285,9 @@ fn rooted_tree_mapping_preserves_empty_graphs_loops_and_negative_bounds() {
 fn path_partition_requires_distinct_edges_between_distinct_vertices() {
     use crate::models::graph::{BoundedComponentSpanningForest, PartitionIntoPathsOfLength2};
     for (edges, expected) in [
-        (vec![(0, 0), (1, 1)], false),
-        (vec![(0, 1), (0, 1)], false),
-        (vec![(0, 1), (1, 2), (0, 1)], true),
+        (vec![], false),
+        (vec![(0, 1)], false),
+        (vec![(0, 1), (1, 2)], true),
     ] {
         let source = PartitionIntoPathsOfLength2::new(SimpleGraph::new(3, edges));
         assert_eq!(source.evaluate(&vec![0, 0, 0]).unwrap(), Or(expected));

@@ -10,7 +10,7 @@
 use crate::models::graph::{HamiltonianCircuit, StrongConnectivityAugmentation};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{DirectedGraph, Graph, SimpleGraph};
+use crate::topology::{Graph, SimpleDigraph, SimpleGraph};
 
 /// Result of reducing HamiltonianCircuit to StrongConnectivityAugmentation.
 #[derive(Debug, Clone)]
@@ -44,7 +44,6 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
                 return Ok(vec![]);
             }
 
-            // Build directed adjacency from selected arcs.
             let candidate_arcs = self.target.candidate_arcs();
             let mut successors = vec![Vec::new(); n];
             for (idx, &selected) in target_solution.iter().enumerate() {
@@ -101,14 +100,13 @@ impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<Simple
         if n < 3 {
             return Ok(
                 ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
-                    target: StrongConnectivityAugmentation::new(DirectedGraph::empty(2), vec![], 0),
+                    target: StrongConnectivityAugmentation::new(SimpleDigraph::empty(2), vec![], 0),
                     n,
                 },
             );
         }
-        let graph = DirectedGraph::empty(n);
+        let graph = SimpleDigraph::empty(n);
 
-        // Generate all ordered pairs (u, v) with u != v as candidate arcs.
         let mut candidate_arcs = Vec::with_capacity(n * (n - 1));
         for u in 0..n {
             for v in 0..n {
@@ -138,17 +136,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltoniancircuit_to_strongconnectivityaugmentation",
         build: || {
-            // 4-cycle: 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
             let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let target = reduction.target_problem();
 
-            // The HC permutation [0, 1, 2, 3] corresponds to the directed cycle
-            // 0->1->2->3->0. We need to find the indices of these arcs in the
-            // candidate list. Candidate arcs are ordered: for each u in 0..n,
-            // for each v in 0..n where u!=v, so arc (u,v) is at index
-            // u*(n-1) + (if v > u then v-1 else v).
             let n = 4;
             let mut target_config = vec![false; n * (n - 1)];
             let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
@@ -157,7 +149,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 target_config[idx] = true;
             }
 
-            // Verify the target config is valid
             assert!(
                 target.is_valid_solution(&target_config).unwrap(),
                 "canonical target config must be a valid SCA solution"

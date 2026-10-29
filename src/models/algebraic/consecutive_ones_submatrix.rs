@@ -215,7 +215,6 @@ impl Problem for ConsecutiveOnesSubmatrix {
                         "column-selection length does not match the matrix".into(),
                     ));
                 }
-                // Collect selected column indices
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
@@ -249,8 +248,7 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_ones_submatrix",
-        // Tucker matrix (3×4): full matrix lacks C1P, but K=3 works
-        // Select columns {0,1,3} (config [1,1,0,1])
+        // A Tucker obstruction forces the witness to omit a column.
         instance: Box::new(ConsecutiveOnesSubmatrix::new(
             vec![
                 vec![true, true, false, true],

@@ -104,13 +104,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "naesatisfiability_to_ilp",
         build: || {
-            // NAE-SAT instance: (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ ¬x2 ∨ x3)
-            // Solution x1=T, x2=F, x3=F: clause1 T,F,F (NAE ✓); clause2 F,T,F (NAE ✓)
             let source = NAESatisfiability::new(
                 3,
                 vec![
-                    CNFClause::new(vec![1, 2, 3]),   // x1 ∨ x2 ∨ x3
-                    CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
+                    CNFClause::new(vec![1, 2, 3]),
+                    CNFClause::new(vec![-1, -2, 3]),
                 ],
             );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)

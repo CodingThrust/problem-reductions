@@ -18,7 +18,6 @@ fn test_prime_attribute_create_spec_uses_universe_size_input() {
     assert_eq!(problem.num_attributes(), 2);
 }
 
-/// Helper: Issue Example 1 — 6 attributes, 3 FDs, query=3
 /// Candidate keys: {0,1}, {2,3}, {0,3} — attribute 3 is prime
 fn example1() -> PrimeAttributeName {
     PrimeAttributeName::new(
@@ -32,7 +31,6 @@ fn example1() -> PrimeAttributeName {
     )
 }
 
-/// Helper: Issue Example 2 — 6 attributes, 1 FD, query=3
 /// Only candidate key: {0,1} — attribute 3 is NOT prime
 fn example2() -> PrimeAttributeName {
     PrimeAttributeName::new(6, vec![(vec![0, 1], vec![2, 3, 4, 5])], 3)

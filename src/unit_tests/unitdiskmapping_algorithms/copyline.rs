@@ -9,7 +9,6 @@ use crate::rules::unitdiskmapping::{
 
 #[test]
 fn test_create_copylines_empty_graph() {
-    // Test with no edges
     let edges: Vec<(usize, usize)> = vec![];
     let order = vec![0, 1, 2];
     let copylines = create_copylines(3, &edges, &order).unwrap();
@@ -36,7 +35,6 @@ fn test_mis_overhead_copyline_basic() {
 
 #[test]
 fn test_mis_overhead_copyline_zero_hstop() {
-    // Test edge case with minimal hstop
     let line = CopyLine::new(0, 1, 1, 1, 1, 1);
     let _overhead = mis_overhead_copyline(&line, 4, 2);
 
@@ -85,7 +83,6 @@ fn test_copyline_center_location() {
 
 #[test]
 fn test_copyline_center_location_offset() {
-    // Test with different padding and spacing
     let line = CopyLine::new(0, 1, 1, 1, 1, 2);
     let (row, col) = line.center_location(2, 4);
     // Rust 0-indexed: row = 4 * (1-1) + 2 + 2 - 1 = 3
@@ -313,7 +310,6 @@ fn test_copyline_weighted_mis_equals_overhead() {
         // Create copyline with vslot=5, hslot=5 (matching Julia's test)
         let line = CopyLine::new(0, 5, 5, vstart as usize, vstop as usize, hstop as usize);
 
-        // Get copyline locations with weights
         let locs = line.copyline_locations(padding, spacing as usize);
         let n = locs.len();
 
@@ -352,7 +348,6 @@ fn test_copyline_weighted_mis_equals_overhead() {
 
         let weights: Vec<i64> = locs.iter().map(|&(_, _, w)| w as i64).collect();
 
-        // Solve weighted MIS
         let weighted_mis = solve_weighted_mis(n, &edges, &weights);
 
         // Calculate expected value using Julia's weighted formula:

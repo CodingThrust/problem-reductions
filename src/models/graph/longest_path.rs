@@ -96,11 +96,6 @@ macro_rules! longest_path_create_spec {
                 if spec.graph.is_empty() && spec.num_vertices.is_none() {
                     return Err("num_vertices is required for an empty graph".into());
                 }
-                for &(u, v) in &spec.graph {
-                    if u == v {
-                        return Err("self-loops are not allowed".into());
-                    }
-                }
                 let inferred = spec
                     .graph
                     .iter()
@@ -115,7 +110,7 @@ macro_rules! longest_path_create_spec {
                 }
                 let edge_lengths = longest_path_create_spec!(@lengths spec $(, $lengths)?);
                 Self::try_new(
-                    SimpleGraph::new(count, spec.graph),
+                    SimpleGraph::try_new(count, spec.graph)?,
                     edge_lengths,
                     spec.source_vertex,
                     spec.target_vertex,

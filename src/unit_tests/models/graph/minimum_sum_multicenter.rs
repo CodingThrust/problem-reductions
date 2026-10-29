@@ -186,7 +186,6 @@ fn test_min_sum_multicenter_two_centers() {
 
 #[test]
 fn test_min_sum_multicenter_solver() {
-    // Issue example: 7 vertices, 8 edges, unit weights, K=2
     let graph = SimpleGraph::new(
         7,
         vec![
@@ -277,7 +276,7 @@ fn test_min_sum_multicenter_k_too_large() {
 
 #[test]
 fn test_min_sum_multicenter_paper_example() {
-    // Paper/issue #399: 7 vertices, 8 edges, unit weights, K=2
+    // Paper example: 7 vertices, 8 edges, unit weights, K=2
     let graph = SimpleGraph::new(
         7,
         vec![
@@ -302,7 +301,6 @@ fn test_min_sum_multicenter_paper_example() {
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 6);
 
-    // Verify optimality with brute force
     let solver = BruteForce::new();
     let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 6);

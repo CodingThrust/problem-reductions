@@ -368,21 +368,31 @@ fn contains_selected_subset_unchecked(config: &[bool], set: &[usize]) -> bool {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "comparative_containment",
-        instance: Box::new(
-            ComparativeContainment::with_weights(
-                4,
-                vec![vec![0, 1, 2, 3], vec![0, 1]],
-                vec![vec![0, 1, 2, 3], vec![2, 3]],
-                vec![2, 5],
-                vec![3, 6],
-            )
-            .expect("canonical comparative-containment instance must be valid"),
-        ),
-        optimal_config: serde_json::json!(vec![false, true, false, false]),
-        optimal_value: serde_json::json!(true),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "comparative_containment",
+            instance: Box::new(
+                ComparativeContainment::with_weights(
+                    4,
+                    vec![vec![0, 1, 2, 3], vec![0, 1]],
+                    vec![vec![0, 1, 2, 3], vec![2, 3]],
+                    vec![2, 5],
+                    vec![3, 6],
+                )
+                .expect("canonical comparative-containment instance must be valid"),
+            ),
+            optimal_config: serde_json::json!(vec![false, true, false, false]),
+            optimal_value: serde_json::json!(true),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "comparative_containment_one",
+            instance: Box::new(
+                ComparativeContainment::<One>::new(2, vec![vec![0]], vec![vec![1]]).unwrap(),
+            ),
+            optimal_config: serde_json::json!([true, false]),
+            optimal_value: serde_json::json!(true),
+        },
+    ]
 }
 
 #[cfg(test)]

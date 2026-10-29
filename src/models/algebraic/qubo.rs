@@ -229,12 +229,10 @@ impl<W: WeightElement> QUBO<W> {
         let num_vars = linear.len();
         let mut matrix = vec![vec![W::default(); num_vars]; num_vars];
 
-        // Set diagonal (linear terms)
         for (i, val) in linear.into_iter().enumerate() {
             matrix[i][i] = val;
         }
 
-        // Set off-diagonal (quadratic terms)
         for ((i, j), val) in quadratic {
             if i >= num_vars || j >= num_vars {
                 return Err(ConstructionError::Conversion(format!(

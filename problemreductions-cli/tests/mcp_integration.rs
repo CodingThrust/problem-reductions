@@ -217,6 +217,88 @@ mod mcp_tests {
     }
 
     #[test]
+    fn schema_graph_create_reports_construction_errors_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        let graph_cases = [
+            (
+                "HamiltonianCircuit",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,0]]}}),
+                "edge (0, 0) is a self-loop",
+            ),
+            (
+                "HamiltonianCircuit",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,0]]}}),
+                "edge (1, 0) duplicates an undirected edge",
+            ),
+            (
+                "MaximumDomaticNumber",
+                serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0,1],[1,0]]}}),
+                "edge (1, 0) duplicates an undirected edge",
+            ),
+            (
+                "DirectedHamiltonianPath",
+                serde_json::json!({"graph": {"num_vertices": 3, "arcs": [[0,1],[0,1]]}}),
+                "arc (0, 1) duplicates a directed arc",
+            ),
+        ];
+        let bipartite_cases = ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"]
+            .into_iter()
+            .flat_map(|model| [
+                (model, serde_json::json!({"left": 1, "right": 1, "biedges": [[0,0],[0,0]], "k": 1}), "edge (0, 1) duplicates an undirected edge"),
+                (model, serde_json::json!({"left": usize::MAX, "right": 1, "biedges": [[0,0]], "k": 1}), "bipartite vertex count overflows usize"),
+            ]);
+        for (model, params, expected) in graph_cases.into_iter().chain(bipartite_cases) {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": model, "params": params,
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert_eq!(response["result"]["isError"], true, "{response}");
+            let error = response["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(error.contains(expected), "{error}");
+            assert!(!error.contains("panicked"), "{error}");
+        }
+        shutdown(stdin, child);
+    }
+
+    #[test]
+    fn simple_graph_create_rejects_loops_and_parallel_edges_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        for (edges, offending) in [
+            (serde_json::json!([[0, 0]]), "edge (0, 0)"),
+            (serde_json::json!([[0, 1], [0, 1]]), "edge (0, 1)"),
+            (serde_json::json!([[0, 1], [1, 0]]), "edge (1, 0)"),
+        ] {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": "MaximumIndependentSet/SimpleGraph/One",
+                        "params": {"graph": edges, "num_vertices": 3},
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert!(
+                response.get("error").is_some() || response["result"]["isError"] == true,
+                "{response}"
+            );
+            assert!(response.to_string().contains(offending), "{response}");
+        }
+        shutdown(stdin, child);
+    }
+
+    #[test]
     fn test_mcp_server_prompts_list_and_get() {
         let (mut stdin, mut reader, child) = spawn_mcp();
         initialize(&mut stdin, &mut reader);
@@ -300,6 +382,83 @@ mod mcp_tests {
         assert_eq!(error_resp["error"]["code"], -32602);
         assert_eq!(error_resp["error"]["message"], "Unknown prompt: unknown");
 
+        shutdown(stdin, child);
+    }
+    #[test]
+    fn mixed_chinese_postman_parallel_loops_round_trip_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {"name": "create_problem", "arguments": {
+                    "problem_type": "MixedChinesePostman/i64",
+                    "params": {"graph": [[0,0],[0,0]], "arcs": [[0,0],[0,0]], "num_vertices": 1,
+                        "edge_weights": [5,7], "arc_weights": [2,3]},
+                }},
+            }),
+        );
+        let response = read_response(&mut reader);
+        assert!(response.get("error").is_none(), "{response}");
+        assert_ne!(response["result"]["isError"], true, "{response}");
+        let problem_json = response["result"]["content"][0]["text"].as_str().unwrap();
+        let created: serde_json::Value = serde_json::from_str(problem_json).unwrap();
+        assert_eq!(
+            created["data"]["graph"]["edges"],
+            serde_json::json!([[0, 0], [0, 0]])
+        );
+        assert_eq!(
+            created["data"]["graph"]["arcs"],
+            serde_json::json!([[0, 0], [0, 0]])
+        );
+        assert_eq!(created["data"]["arc_weights"], serde_json::json!([2, 3]));
+        assert_eq!(created["data"]["edge_weights"], serde_json::json!([5, 7]));
+        send(
+            &mut stdin,
+            &serde_json::json!({
+                "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                "params": {"name": "evaluate", "arguments": {
+                    "problem_json": problem_json, "config": [false,true],
+                }},
+            }),
+        );
+        let response = read_response(&mut reader);
+        assert!(response.get("error").is_none(), "{response}");
+        assert_ne!(response["result"]["isError"], true, "{response}");
+        let evaluated: serde_json::Value =
+            serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())
+                .unwrap();
+        assert_eq!(evaluated["result"], "Min(17)");
+        shutdown(stdin, child);
+    }
+
+    #[test]
+    fn mixed_chinese_postman_create_rejects_invalid_parameters_over_mcp() {
+        let (mut stdin, mut reader, child) = spawn_mcp();
+        initialize(&mut stdin, &mut reader);
+        for (arcs, edge_weights, arc_weights, expected) in [
+            (vec![(0, 1)], vec![3], vec![2], "endpoint is out of range"),
+            (vec![(0, 0)], vec![2, 3], vec![2], "edge_weights has length"),
+            (vec![(0, 0)], vec![3], vec![-1], "must be nonnegative"),
+        ] {
+            send(
+                &mut stdin,
+                &serde_json::json!({
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {"name": "create_problem", "arguments": {
+                        "problem_type": "MixedChinesePostman/i64",
+                        "params": {"graph": [[0,0]], "arcs": arcs, "num_vertices": 1,
+                            "edge_weights": edge_weights, "arc_weights": arc_weights},
+                    }},
+                }),
+            );
+            let response = read_response(&mut reader);
+            assert_eq!(response["id"], 2);
+            assert_eq!(response["result"]["isError"], true, "{response}");
+            let error = response["result"]["content"][0]["text"].as_str().unwrap();
+            assert!(error.contains(expected), "{error}");
+        }
         shutdown(stdin, child);
     }
 }

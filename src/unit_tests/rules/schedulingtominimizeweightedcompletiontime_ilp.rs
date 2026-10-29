@@ -88,7 +88,7 @@ fn test_ilp_matches_bruteforce_small() {
 
 #[test]
 fn test_issue_example_closed_loop() {
-    // Issue #505 example: 5 tasks, 2 processors, optimal = 47
+    // Example: 5 tasks, 2 processors, optimal = 47
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(
         vec![1, 2, 3, 4, 5],
         vec![6, 4, 3, 2, 1],

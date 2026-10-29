@@ -81,7 +81,6 @@ impl ReductionBTSPToILP {
 
 // Binary/assignment/implication/selection rows contribute 3n^2+18mn+3m
 // terms. Weight-threshold selectors add at most m^2 terms, including ties.
-// Loop orientations and parallel edges remain separate variables.
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices^2 + 2 * num_edges * num_vertices + num_edges",
@@ -128,8 +127,7 @@ impl ReduceTo<ILP<bool>> for BottleneckTravelingSalesman {
                 1,
             ));
         }
-        // Choose one actual edge at each cyclic step. Parallel edges remain
-        // independent choices, and the two orientations of a loop are choices.
+        // Choose one source edge and its orientation at each cyclic step.
         for (edge, &(u, v)) in edges.iter().enumerate() {
             for p in 0..n {
                 for (direction, a, b) in [(0, u, v), (1, v, u)] {
@@ -193,7 +191,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "bottlenecktravelingsalesman_to_ilp",
         build: || {
-            // C4 with varying weights
             let source = BottleneckTravelingSalesman::new(
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],

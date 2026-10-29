@@ -13,12 +13,12 @@ fn create_spec_rejects_cycle() {
     );
 }
 use crate::solvers::BruteForce;
-use crate::topology::DirectedGraph;
+use crate::topology::SimpleDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-fn issue_graph() -> DirectedGraph {
-    DirectedGraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)])
+fn issue_graph() -> SimpleDigraph {
+    SimpleDigraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)])
 }
 
 fn issue_problem() -> MinimumDummyActivitiesPert {
@@ -49,7 +49,7 @@ fn test_minimum_dummy_activities_pert_creation() {
 #[test]
 fn test_minimum_dummy_activities_pert_rejects_cyclic_input() {
     let err =
-        MinimumDummyActivitiesPert::try_new(DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]))
+        MinimumDummyActivitiesPert::try_new(SimpleDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]))
             .unwrap_err();
     assert!(err.to_string().contains("DAG"));
 }
@@ -90,7 +90,7 @@ fn test_minimum_dummy_activities_pert_transitive_arc_zero_dummies() {
     // DAG with transitive arc: 0→1, 1→2, 0→2.
     // Merging 0+=1- and 1+=2- makes the 0→2 reachability transitively
     // satisfied, so the optimal dummy count is 0.
-    let dag = DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let dag = SimpleDigraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = MinimumDummyActivitiesPert::new(dag);
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(0)));
@@ -103,4 +103,20 @@ fn test_minimum_dummy_activities_pert_paper_example() {
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
     let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
+}
+
+#[test]
+fn simple_model_rejects_a_loop_in_construction_and_serde() {
+    assert!(
+        std::panic::catch_unwind(|| {
+            let graph = crate::topology::SimpleDigraph::new(2, vec![(0, 0)]);
+            MinimumDummyActivitiesPert::new(graph)
+        })
+        .is_err()
+    );
+    let error = serde_json::from_value::<MinimumDummyActivitiesPert>(serde_json::json!({
+        "graph": {"num_vertices": 2, "arcs": [[0,0]]},
+    }))
+    .unwrap_err();
+    assert!(error.to_string().contains("arc (0, 0)"), "{error}");
 }

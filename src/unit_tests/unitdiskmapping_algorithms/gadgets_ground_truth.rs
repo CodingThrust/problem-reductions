@@ -68,10 +68,8 @@ macro_rules! check_gadget {
         let g = $gadget;
         let e = $expected;
 
-        // Check size
         assert_eq!(g.size(), (e.size[0], e.size[1]), "{}: size mismatch", $name);
 
-        // Check cross_location
         assert_eq!(
             g.cross_location(),
             (e.cross_location[0], e.cross_location[1]),
@@ -79,7 +77,6 @@ macro_rules! check_gadget {
             $name
         );
 
-        // Check mis_overhead
         assert_eq!(
             g.mis_overhead(),
             e.mis_overhead,
@@ -87,7 +84,6 @@ macro_rules! check_gadget {
             $name
         );
 
-        // Check source graph node count
         let (slocs, _, _) = g.source_graph();
         assert_eq!(
             slocs.len(),
@@ -96,7 +92,6 @@ macro_rules! check_gadget {
             $name
         );
 
-        // Check mapped graph node count
         let (mlocs, _) = g.mapped_graph();
         assert_eq!(
             mlocs.len(),
@@ -132,10 +127,8 @@ macro_rules! check_weighted_gadget {
         let g = $gadget;
         let e = $expected;
 
-        // Check size
         assert_eq!(g.size(), (e.size[0], e.size[1]), "{}: size mismatch", $name);
 
-        // Check cross_location
         assert_eq!(
             g.cross_location(),
             (e.cross_location[0], e.cross_location[1]),
@@ -147,7 +140,6 @@ macro_rules! check_weighted_gadget {
         // Julia's WeightedGadget has different mis_overhead than the base gadget,
         // but Rust doesn't have a separate WeightedGadget type.
 
-        // Check source graph node count
         let (slocs, _, _) = g.source_graph();
         assert_eq!(
             slocs.len(),
@@ -156,7 +148,6 @@ macro_rules! check_weighted_gadget {
             $name
         );
 
-        // Check mapped graph node count
         let (mlocs, _) = g.mapped_graph();
         assert_eq!(
             mlocs.len(),
@@ -185,7 +176,6 @@ macro_rules! check_weighted_gadget {
             $name, rust_mlocs, julia_mlocs
         );
 
-        // Check source weights
         let sw = g.source_weights();
         assert_eq!(
             sw, e.source_weights,
@@ -193,7 +183,6 @@ macro_rules! check_weighted_gadget {
             $name, sw, e.source_weights
         );
 
-        // Check mapped weights
         let mw = g.mapped_weights();
         assert_eq!(
             mw, e.mapped_weights,

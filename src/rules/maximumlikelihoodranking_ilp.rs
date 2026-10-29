@@ -138,7 +138,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximum_likelihood_ranking_to_ilp",
         build: || {
-            // Use a 3-item matrix for a small example: C(3,2)=3 variables
             let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
             crate::example_db::specs::rule_example_via_ilp(MaximumLikelihoodRanking::new(matrix))
         },

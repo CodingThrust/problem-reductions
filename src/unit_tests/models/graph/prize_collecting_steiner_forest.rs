@@ -5,7 +5,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-/// Canonical instance from issue #1026: path 0 - 1 - 2 with
+/// Canonical instance: path 0 - 1 - 2 with
 /// edge costs c(0,1)=1, c(1,2)=6, vertex prizes p = (5, 2, 5),
 /// beta = 1, omega = 2.
 fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i64> {

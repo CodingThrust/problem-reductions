@@ -119,7 +119,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "paintshop_to_ilp",
         build: || {
-            // Sequence: A, B, A, C, B, C => 3 cars
             let source = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
             let reduction: ReductionPaintShopToILP =
                 ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");

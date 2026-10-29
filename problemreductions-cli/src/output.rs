@@ -115,7 +115,6 @@ pub fn format_table(
     rows: &[Vec<String>],
     color_fns: &[Option<CellFormatter>],
 ) -> String {
-    // Compute actual column widths (max of header width, specified width, and data width)
     let widths: Vec<usize> = columns
         .iter()
         .enumerate()
@@ -127,7 +126,6 @@ pub fn format_table(
 
     let mut text = String::new();
 
-    // Header
     text.push_str("  ");
     for (i, (header, align, _)) in columns.iter().enumerate() {
         if i > 0 {
@@ -140,7 +138,6 @@ pub fn format_table(
     }
     text.push('\n');
 
-    // Separator
     text.push_str("  ");
     for (i, _) in columns.iter().enumerate() {
         if i > 0 {
@@ -150,7 +147,6 @@ pub fn format_table(
     }
     text.push('\n');
 
-    // Data rows
     for row in rows {
         text.push_str("  ");
         for (i, (_, align, _)) in columns.iter().enumerate() {

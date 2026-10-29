@@ -11,7 +11,6 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[bool]) -
         .map(|(i, _)| i)
         .collect();
 
-    // Check all pairs of selected vertices are adjacent
     for i in 0..selected.len() {
         for j in (i + 1)..selected.len() {
             if !problem.graph().has_edge(selected[i], selected[j]) {
@@ -60,7 +59,6 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check ILP structure
     assert_eq!(ilp.num_vars(), 3, "Should have one variable per vertex");
     assert_eq!(
         ilp.constraints().len(),
@@ -96,7 +94,6 @@ fn test_reduction_weighted() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<i64> = vec![0; 3];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
@@ -117,10 +114,8 @@ fn test_maximumclique_to_ilp_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force for clique
     let bf_size = brute_force_max_clique(&problem);
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -129,7 +124,6 @@ fn test_maximumclique_to_ilp_closed_loop() {
     assert_eq!(bf_size, 3);
     assert_eq!(ilp_size, 3);
 
-    // Verify the ILP solution is a valid clique
     assert!(
         is_valid_clique(&problem, &extracted),
         "Extracted solution should be a valid clique"
@@ -149,10 +143,8 @@ fn test_ilp_solution_equals_brute_force_path() {
 
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force for clique
     let bf_size = brute_force_max_clique(&problem);
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = clique_size(&problem, &extracted);
@@ -160,7 +152,6 @@ fn test_ilp_solution_equals_brute_force_path() {
     assert_eq!(bf_size, 2);
     assert_eq!(ilp_size, 2);
 
-    // Verify validity
     assert!(is_valid_clique(&problem, &extracted));
 }
 
@@ -187,7 +178,6 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     assert_eq!(bf_obj, 101);
     assert_eq!(ilp_obj, 101);
 
-    // Verify the solution is a valid clique
     assert!(is_valid_clique(&problem, &extracted));
 }
 

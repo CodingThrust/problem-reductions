@@ -53,7 +53,6 @@ function buildElkGraph(model) {
       "elk.algorithm": "stress",
       "elk.stress.desiredEdgeLength": String(STRESS_PARAMS.desiredEdgeLength),
       "elk.spacing.nodeNode": String(STRESS_PARAMS.nodeNodeSpacing),
-      // cytoscape-elk accepts this shorter key; keep it for parity with the old browser config.
       "nodeNode.spacing": String(STRESS_PARAMS.nodeNodeSpacing),
     },
     children: nodeElements.map((element) => {

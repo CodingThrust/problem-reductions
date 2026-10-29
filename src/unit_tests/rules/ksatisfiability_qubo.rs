@@ -71,7 +71,6 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
-    // Verify all solutions satisfy all clauses
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted).unwrap());
@@ -98,7 +97,6 @@ fn test_ksatisfiability_to_qubo_simple() {
 #[test]
 fn test_ksatisfiability_to_qubo_contradiction() {
     // 1 var, 2 clauses: (x1 ∨ x1) and (¬x1 ∨ ¬x1) — can't satisfy both
-    // Actually, this is (x1) and (¬x1), which is a contradiction
     // Max-2-SAT will satisfy 1 of 2 clauses
     let ksat = KSatisfiability::<K2>::new(
         1,
@@ -181,7 +179,6 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
-    // Verify all extracted solutions maximize satisfied clauses
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 5);

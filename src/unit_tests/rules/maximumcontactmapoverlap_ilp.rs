@@ -6,7 +6,7 @@ use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Max;
 
-/// Canonical instance from issue #1043 / #1044:
+/// Canonical instance:
 /// G_1 has 4 vertices with contacts {{0,2},{1,3}};
 /// G_2 has 5 vertices with contacts {{0,3},{1,4},{0,2}}.
 /// Optimal alignment 0->0, 1->1, 2->3, 3->4 preserves 2 contacts.

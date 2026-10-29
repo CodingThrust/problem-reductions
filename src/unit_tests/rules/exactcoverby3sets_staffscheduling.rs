@@ -14,7 +14,6 @@ fn test_exactcoverby3sets_to_staffscheduling_closed_loop() {
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
-    // Check target dimensions
     assert_eq!(target.num_periods(), 6);
     assert_eq!(target.shifts_per_schedule(), 3);
     assert_eq!(target.num_schedules(), 4);
@@ -77,7 +76,6 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
 
 #[test]
 fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
-    // Verify extract_solution maps correctly
     let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4], [1, 2, 5]]);
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
 
@@ -94,7 +92,6 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
 
 #[test]
 fn test_exactcoverby3sets_to_staffscheduling_schedule_structure() {
-    // Verify the schedule patterns are correctly constructed
     let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
     let result = ReduceTo::<StaffScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();

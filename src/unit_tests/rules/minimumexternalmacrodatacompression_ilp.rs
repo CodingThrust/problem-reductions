@@ -44,12 +44,9 @@ fn test_emdc_to_ilp_closed_loop() {
 
 #[test]
 fn test_emdc_to_ilp_compression_wins() {
-    // alphabet {a,b,c,d,e,f} (6), s="abcdefabcdefabcdef" (18), h=2
-    // Optimal: D="abcdef"(6), C=3 pointers of (0,6), cost=6+3+1*3=12
-    // (pointer cost h=2, so (h-1)*3 = 3, total = 6+3+3 = 12)
-    // Uncompressed: 18
-    let s: Vec<usize> = (0..6).cycle().take(18).collect();
-    let problem = MinimumExternalMacroDataCompression::new(6, s, 2);
+    // Three copies of "abcd": four dictionary symbols plus three cost-two pointers.
+    let s: Vec<usize> = (0..4).cycle().take(12).collect();
+    let problem = MinimumExternalMacroDataCompression::new(4, s, 2);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
@@ -58,7 +55,7 @@ fn test_emdc_to_ilp_compression_wins() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid(), "Extracted solution should be valid");
-    assert_eq!(value, Min(Some(12)));
+    assert_eq!(value, Min(Some(10)));
 }
 
 #[test]

@@ -1019,7 +1019,6 @@ fn apply_gadget<G: WeightedTriangularGadget>(
     for (idx, (r, c)) in locs.iter().enumerate() {
         if *r > 0 && *c > 0 && *r <= m && *c <= n {
             let weight = weights[idx];
-            // Convert 1-indexed pattern pos to 0-indexed grid pos
             grid.add_node(i + r - 1, j + c - 1, weight);
         }
     }

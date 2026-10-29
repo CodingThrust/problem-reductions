@@ -173,7 +173,6 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
             }
         }
 
-        // Add slack variable columns
         let mut slack_col = n;
         for (k, &ns) in slack_sizes.iter().enumerate() {
             if ns > 0 {
@@ -198,7 +197,6 @@ impl ReduceTo<QUBO<i64>> for ILP<bool> {
             }
         }
 
-        // Build dense cost vector (nq elements)
         let mut c_vec = vec![0_i64; nq];
         for &(var, coef) in self.objective() {
             c_vec[var] = coef;

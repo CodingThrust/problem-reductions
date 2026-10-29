@@ -135,7 +135,7 @@ fn tour_witness(
 }
 
 #[test]
-fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
+fn test_bottleneck_ilp_signed_full_range_and_simple_cycles() {
     for (n, edges, weights, tour, edge_order) in [
         (
             3,
@@ -158,14 +158,12 @@ fn test_bottleneck_ilp_signed_full_range_and_native_cycles() {
             vec![0, 1, 2],
             vec![0, 1, 2],
         ),
-        (1, vec![(0, 0)], vec![-7], vec![0], vec![0]),
-        (2, vec![(0, 1), (1, 0)], vec![2, 3], vec![0, 1], vec![0, 1]),
         (
             3,
-            vec![(0, 1), (0, 1), (1, 2), (2, 0)],
-            vec![9, -5, -3, -4],
+            vec![(0, 1), (1, 2), (2, 0)],
+            vec![-5, -3, -4],
             vec![0, 1, 2],
-            vec![1, 2, 3],
+            vec![0, 1, 2],
         ),
     ] {
         let source = BottleneckTravelingSalesman::new(SimpleGraph::new(n, edges), weights);

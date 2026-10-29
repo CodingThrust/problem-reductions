@@ -30,8 +30,7 @@ fn small_asymmetric() -> OpenShopScheduling {
     OpenShopScheduling::new(1, vec![vec![2], vec![3]])
 }
 
-/// Issue #506 example: 4 jobs × 3 machines, true optimal makespan = 8.
-/// (The issue body incorrectly claimed 11 was optimal; brute-force confirms 8.)
+/// Example: 4 jobs × 3 machines, true optimal makespan = 8.
 fn issue_example() -> OpenShopScheduling {
     OpenShopScheduling::new(
         3,

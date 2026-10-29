@@ -20,54 +20,6 @@ fn feasible_instance() -> UndirectedTwoCommodityIntegralFlow {
 }
 
 #[test]
-fn sink_self_loop_cannot_supply_either_commodity() {
-    for (first, second) in [(1, 0), (0, 1)] {
-        let source = UndirectedTwoCommodityIntegralFlow::new(
-            SimpleGraph::new(2, vec![(1, 1)]),
-            vec![1],
-            0,
-            1,
-            0,
-            1,
-            first,
-            second,
-        );
-        assert!(BruteForce::new().solve(&source).unwrap().is_none());
-        let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
-        let assignment = vec![first, 0, second, 0, 1, 1];
-        assert!(
-            reduction
-                .target_problem()
-                .evaluate(&assignment)
-                .unwrap()
-                .value
-                .is_none()
-        );
-        assert!(reduction.extract_solution(&assignment).is_err());
-        assert!(matches!(
-            ILPSolver::new().solve(reduction.target_problem()),
-            Err(crate::solvers::ILPSolveError::Infeasible)
-        ));
-    }
-}
-
-fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
-    // Same topology but requirements that can't be met simultaneously
-    // path graph: 0-1-2; cap=1 everywhere; s1=0,t1=2 req=1; s2=0,t2=2 req=1
-    // Total demand = 2 on edge (0,1) but cap = 1 → infeasible
-    UndirectedTwoCommodityIntegralFlow::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1, 1],
-        0,
-        2,
-        0,
-        2,
-        1,
-        1,
-    )
-}
-
-#[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
     let problem = feasible_instance();
     let reduction: ReductionU2CIFToILP =
@@ -205,4 +157,20 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
     let reduction: ReductionU2CIFToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
+    // Same topology but requirements that can't be met simultaneously
+    // path graph: 0-1-2; cap=1 everywhere; s1=0,t1=2 req=1; s2=0,t2=2 req=1
+    // Total demand = 2 on edge (0,1) but cap = 1 → infeasible
+    UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![1, 1],
+        0,
+        2,
+        0,
+        2,
+        1,
+        1,
+    )
 }

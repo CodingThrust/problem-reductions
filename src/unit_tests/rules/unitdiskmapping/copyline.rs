@@ -272,10 +272,8 @@ fn test_create_copylines_petersen() {
 
     let lines = create_copylines(10, &edges, &order).unwrap();
 
-    // Verify all lines are created
     assert_eq!(lines.len(), 10);
 
-    // Verify basic invariants
     for (i, &v) in order.iter().enumerate() {
         let line = &lines[v];
         assert_eq!(line.vertex, v, "Vertex mismatch");
@@ -292,7 +290,6 @@ fn test_create_copylines_petersen() {
         );
     }
 
-    // Verify that neighboring vertices have overlapping L-shapes
     for &(u, v) in &edges {
         let line_u = &lines[u];
         let line_v = &lines[v];

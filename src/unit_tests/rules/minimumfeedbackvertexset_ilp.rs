@@ -1,14 +1,14 @@
 use super::*;
 use crate::models::algebraic::Bounded;
 use crate::solvers::{BruteForce, ILPSolver};
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Simple 3-cycle: 0 -> 1 -> 2 -> 0
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -25,7 +25,7 @@ fn test_reduction_creates_valid_ilp() {
 fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     // Simple 3-cycle: 0 -> 1 -> 2 -> 0
     // FVS = 1 (remove any single vertex)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -34,11 +34,9 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted).unwrap();
@@ -47,7 +45,6 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     assert_eq!(bf_size, Min(Some(1)));
     assert_eq!(ilp_size, Min(Some(1)));
 
-    // Verify the ILP solution is valid for the original problem
     assert!(
         problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
@@ -56,7 +53,6 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
 
 #[test]
 fn test_cycle_of_triangles() {
-    // The example from issue #141: n=9, m=15, FVS=3
     let arcs = vec![
         (0, 1),
         (1, 2),
@@ -74,13 +70,12 @@ fn test_cycle_of_triangles() {
         (5, 8),
         (8, 2), // more inter-triangle arcs
     ];
-    let graph = DirectedGraph::new(9, arcs);
+    let graph = MultiDigraph::new(9, arcs);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Verify ILP structure
     assert_eq!(ilp.num_vars(), 18, "Should have 2*9 = 18 variables");
     assert_eq!(
         ilp.constraints().len(),
@@ -99,7 +94,7 @@ fn test_cycle_of_triangles() {
 #[test]
 fn test_dag_no_removal() {
     // DAG: 0 -> 1 -> 2 (no cycles, FVS = 0)
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -117,7 +112,7 @@ fn test_dag_no_removal() {
 #[test]
 fn test_single_vertex() {
     // Single vertex, no arcs: FVS = 0
-    let graph = DirectedGraph::new(1, vec![]);
+    let graph = MultiDigraph::new(1, vec![]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -139,13 +134,12 @@ fn test_single_vertex() {
 fn test_weighted() {
     // 3-cycle with different weights: prefer removing the cheapest vertex
     // Weights: v0=10, v1=1, v2=10
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![10, 1, 10]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<i64> = vec![0; ilp.num_vars()];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
@@ -165,7 +159,7 @@ fn test_weighted() {
 fn test_two_disjoint_cycles() {
     // Two disjoint 2-cycles: 0<->1 and 2<->3
     // Need to remove at least 1 from each cycle, FVS = 2
-    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
+    let graph = MultiDigraph::new(4, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 4]);
 
     let bf = BruteForce::new();
@@ -187,7 +181,7 @@ fn test_two_disjoint_cycles() {
 #[test]
 fn test_solution_extraction() {
     // Verify that extraction correctly takes first n values
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
@@ -203,7 +197,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_minimumfeedbackvertexset_to_ilp_bf_vs_ilp() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
     let reduction: ReductionMFVSToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");

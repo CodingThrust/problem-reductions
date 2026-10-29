@@ -28,7 +28,6 @@ fn test_minimummultiwaycut_creation() {
 
 #[test]
 fn test_minimummultiwaycut_evaluate_valid() {
-    // Issue example: 5 vertices, terminals {0,2,4}
     // Edges: (0,1)w=2, (1,2)w=3, (2,3)w=1, (3,4)w=2, (0,4)w=4, (1,3)w=5
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
@@ -53,7 +52,6 @@ fn test_minimummultiwaycut_evaluate_invalid() {
 
 #[test]
 fn test_minimummultiwaycut_brute_force() {
-    // Issue example: optimal cut has weight 8
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 

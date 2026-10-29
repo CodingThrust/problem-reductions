@@ -51,7 +51,6 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
-    // Verify target is SpinGlass
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
@@ -132,7 +131,6 @@ fn test_jl_parity_factoring_to_spinglass_path() {
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
-    // Verify reduction produces a valid SpinGlass problem
     assert!(
         target.num_variables() > 0,
         "SpinGlass should have variables"

@@ -266,7 +266,6 @@ fn is_valid_packing(sets: &[Vec<usize>], config: &[bool]) -> bool {
         .map(|(i, _)| i)
         .collect();
 
-    // Check all pairs of selected sets are disjoint
     for i in 0..selected_sets.len() {
         for j in (i + 1)..selected_sets.len() {
             let set_i: HashSet<_> = sets[selected_sets[i]].iter().collect();

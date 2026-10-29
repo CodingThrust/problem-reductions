@@ -188,11 +188,9 @@ where
         return Ok(false);
     }
     let n = sizes.len();
-    // Check all bin indices are in range
     if config.iter().any(|&b| b >= n) {
         return Ok(false);
     }
-    // Compute load per bin
     let cap_sum = capacity.to_sum();
     let mut bin_load: Vec<W::Sum> = vec![W::Sum::zero(); n];
     for (i, &bin) in config.iter().enumerate() {
@@ -202,7 +200,6 @@ where
             "summing bin loads",
         )?;
     }
-    // Check capacity constraints
     Ok(bin_load.iter().all(|load| *load <= cap_sum))
 }
 
@@ -231,7 +228,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bin_packing",
-        // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
         instance: Box::new(BinPacking::<i64>::new(vec![3, 3, 4], 7).unwrap()),
         optimal_config: serde_json::json!(vec![0, 1, 0]),
         optimal_value: serde_json::json!(2),

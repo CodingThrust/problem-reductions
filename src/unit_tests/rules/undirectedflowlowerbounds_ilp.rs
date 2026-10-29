@@ -18,47 +18,6 @@ fn feasible_instance() -> UndirectedFlowLowerBounds {
 }
 
 #[test]
-fn sink_self_loop_cannot_supply_net_flow() {
-    let source = UndirectedFlowLowerBounds::new(
-        SimpleGraph::new(2, vec![(1, 1)]),
-        vec![1],
-        vec![0],
-        0,
-        1,
-        1,
-    );
-    assert!(BruteForce::new().solve(&source).unwrap().is_none());
-    let reduction = ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&source).unwrap();
-    let assignment = vec![1, 0, 1];
-    assert!(
-        reduction
-            .target_problem()
-            .evaluate(&assignment)
-            .unwrap()
-            .value
-            .is_none()
-    );
-    assert!(reduction.extract_solution(&assignment).is_err());
-    assert!(matches!(
-        ILPSolver::new().solve(reduction.target_problem()),
-        Err(crate::solvers::ILPSolveError::Infeasible)
-    ));
-}
-
-fn infeasible_instance() -> UndirectedFlowLowerBounds {
-    // 3-vertex path: edges (0,1) cap=2 lower=2, (1,2) cap=1 lower=0
-    // source=0, sink=2, requirement=2: need 2 units but edge (1,2) cap=1 limits to 1
-    UndirectedFlowLowerBounds::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![2, 1],
-        vec![0, 0],
-        0,
-        2,
-        2,
-    )
-}
-
-#[test]
 fn test_undirectedflowlowerbounds_to_ilp_structure() {
     let problem = feasible_instance();
     let reduction: ReductionUFLBToILP =
@@ -134,4 +93,17 @@ fn test_undirectedflowlowerbounds_to_ilp_bf_vs_ilp() {
     let reduction: ReductionUFLBToILP =
         ReduceTo::<ILP<i64, i64, Bounded>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+fn infeasible_instance() -> UndirectedFlowLowerBounds {
+    // 3-vertex path: edges (0,1) cap=2 lower=2, (1,2) cap=1 lower=0
+    // source=0, sink=2, requirement=2: need 2 units but edge (1,2) cap=1 limits to 1
+    UndirectedFlowLowerBounds::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![2, 1],
+        vec![0, 0],
+        0,
+        2,
+        2,
+    )
 }

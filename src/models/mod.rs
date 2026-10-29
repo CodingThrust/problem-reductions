@@ -9,7 +9,6 @@ pub mod graph;
 pub mod misc;
 pub mod set;
 
-// Re-export commonly used types
 pub use algebraic::{
     AlgebraicEquationsOverGF2, BMF, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,

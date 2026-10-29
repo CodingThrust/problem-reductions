@@ -224,8 +224,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 items: weights [2,3,4,5], values [3,4,5,7], capacity 7
-    // Optimal: items 0,3 → weight=7, value=10
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "knapsack",
         instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),

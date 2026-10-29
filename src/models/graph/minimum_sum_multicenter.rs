@@ -3,6 +3,7 @@
 //! The p-median problem asks for K facility locations (centers) on a graph
 //! that minimize the total weighted distance from all vertices to their nearest center.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -128,37 +129,6 @@ impl TryFrom<MinimumSumMulticenterCreateSpec> for MinimumSumMulticenter<SimpleGr
     }
 }
 
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let num_vertices = num_vertices.unwrap_or(inferred);
-    if num_vertices < inferred {
-        return Err(format!(
-            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        )
-        .into());
-    }
-    Ok(SimpleGraph::new(num_vertices, edges))
-}
-
 impl<G: Graph, W: Clone + Default> MinimumSumMulticenter<G, W> {
     /// Create a MinimumSumMulticenter problem.
     ///
@@ -264,7 +234,6 @@ impl<G: Graph, W: WeightElement> MinimumSumMulticenter<G, W> {
         let mut dist: Vec<Option<W::Sum>> = vec![None; n];
         let mut visited = vec![false; n];
 
-        // Initialize centers
         for (v, &selected) in config.iter().enumerate() {
             if selected {
                 dist[v] = Some(W::Sum::zero());
@@ -272,7 +241,6 @@ impl<G: Graph, W: WeightElement> MinimumSumMulticenter<G, W> {
         }
 
         for _ in 0..n {
-            // Find unvisited vertex with smallest distance
             let mut u = None;
             for v in 0..n {
                 if visited[v] {
@@ -340,13 +308,11 @@ where
             ));
         }
         Ok({
-            // Check exactly K centers are selected
             let num_selected = config.iter().filter(|&&selected| selected).count();
             if num_selected != self.k {
                 return Ok(Min(None));
             }
 
-            // Compute shortest distances to nearest center
             let distances = match self.shortest_distances(config) {
                 Some(d) => d,
                 None => return Ok(Min(None)),

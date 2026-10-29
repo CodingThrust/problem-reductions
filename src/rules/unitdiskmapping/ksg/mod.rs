@@ -21,7 +21,6 @@ pub mod gadgets;
 pub mod gadgets_weighted;
 pub mod mapping;
 
-// Re-export all public items for convenient access
 pub use gadgets::{
     KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn, KsgPattern,
     KsgPatternBoxed, KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTapeEntry, KsgTrivialTurn,

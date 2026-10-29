@@ -95,7 +95,6 @@ impl<T> MappingResult<T> {
     pub fn format_config(&self, config: &[Vec<usize>]) -> String {
         let (rows, cols) = self.grid_dimensions;
 
-        // Build position to node index map
         let mut pos_to_node: HashMap<(i64, i64), usize> = HashMap::new();
         for (idx, &(r, c)) in self.positions.iter().enumerate() {
             pos_to_node.insert((r, c), idx);
@@ -586,7 +585,6 @@ pub fn map_unweighted_with_order(
             .ok_or(mapping_integer_overflow("summing copy-line MIS overhead"))
     })?;
 
-    // Add MIS overhead from gadgets
     let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
         total
             .checked_add(tape_entry_mis_overhead(entry)?)
@@ -706,7 +704,6 @@ pub fn map_weighted_with_order(
         ))
     })?;
 
-    // Add MIS overhead from weighted gadgets
     let gadget_overhead = tape.iter().try_fold(0_i64, |total, entry| {
         total
             .checked_add(weighted_tape_entry_mis_overhead(entry)?)
@@ -727,7 +724,6 @@ pub fn map_weighted_with_order(
         ));
     }
 
-    // Extract positions and weights from occupied cells
     let positions_and_weights = grid
         .occupied_coords()
         .into_iter()

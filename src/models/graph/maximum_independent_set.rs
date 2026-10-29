@@ -104,11 +104,6 @@ macro_rules! simple_mis_spec {
                 if spec.graph.is_empty() && spec.num_vertices.is_none() {
                     return Err("num_vertices is required for an empty graph".into());
                 }
-                for &(u, v) in &spec.graph {
-                    if u == v {
-                        return Err("self-loops are not allowed".into());
-                    }
-                }
                 let inferred = spec
                     .graph
                     .iter()
@@ -122,7 +117,7 @@ macro_rules! simple_mis_spec {
                     return Err("num_vertices is too small".into());
                 }
                 let weights = { $(if let Some(value) = spec.$weights { value } else)? { vec![$one; count] } };
-                Self::try_new(SimpleGraph::new(count, spec.graph), weights)
+                Self::try_new(SimpleGraph::try_new(count, spec.graph)?, weights)
             }
         }
     };

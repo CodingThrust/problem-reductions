@@ -95,7 +95,7 @@ fn test_evaluate_invalid() {
     // Path graph: 0-1-2 (no edge between 0 and 2)
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-    // Invalid: 0 and 2 are not adjacent - returns Invalid
+    // Vertices 0 and 2 are not adjacent.
     assert_eq!(
         problem.evaluate(&vec![true, false, true]).unwrap(),
         Max(None)
@@ -169,7 +169,6 @@ fn test_brute_force_path() {
     for sol in &solutions {
         let size: usize = sol.iter().filter(|&&selected| selected).count();
         assert_eq!(size, 2);
-        // Verify it's valid
         assert!(problem.evaluate(sol).unwrap().is_valid());
     }
 }
@@ -240,7 +239,6 @@ fn test_is_clique_method() {
 
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
 
-    // Valid clique - returns Valid
     assert!(
         problem
             .evaluate(&vec![true, true, false])
@@ -253,7 +251,6 @@ fn test_is_clique_method() {
             .unwrap()
             .is_valid()
     );
-    // Invalid: 0-2 not adjacent - returns Invalid
     assert_eq!(
         problem.evaluate(&vec![true, false, true]).unwrap(),
         Max(None)

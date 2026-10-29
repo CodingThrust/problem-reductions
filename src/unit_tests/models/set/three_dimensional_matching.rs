@@ -81,7 +81,6 @@ fn test_three_dimensional_matching_solver() {
     for sol in &solutions {
         assert!(problem.evaluate(sol).unwrap());
     }
-    // Verify the known solution is in there
     assert!(solutions.contains(&vec![true, true, true, false, false]));
 }
 
@@ -155,9 +154,6 @@ fn test_three_dimensional_matching_is_valid_solution() {
 
 #[test]
 fn test_three_dimensional_matching_duplicate_coordinates() {
-    // q = 2, T0=(0,0,0), T1=(1,1,1), T2=(0,1,0)
-    // T0+T1 is valid matching; T0+T2 shares w=0; T1+T2 shares y (not y, T1 y=1, T2 y=0, ok)
-    // Actually T1+T2: w={1,0} ok, x={1,1} NOT distinct -> invalid
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0)]);
 
     assert!(problem.evaluate(&vec![true, true, false]).unwrap()); // T0+T1: w={0,1}, x={0,1}, y={0,1} all distinct

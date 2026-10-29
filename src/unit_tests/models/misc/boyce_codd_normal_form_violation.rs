@@ -239,7 +239,7 @@ fn test_bcnf_fds_outside_target_subset() {
 
 #[test]
 fn test_bcnf_cyclic_keys_no_violation() {
-    // Issue example: 4 attributes, cyclic keys — every non-trivial subset is a superkey.
+    // Cyclic keys make every subset containing a key pair a superkey.
     // FDs: {0,1}→{2,3}, {2,3}→{0,1}, {0,2}→{1,3}, {1,3}→{0,2}.
     // All 2-element subsets containing a key pair have full closure → no BCNF violation.
     let problem = BoyceCoddNormalFormViolation::new(

@@ -62,3 +62,15 @@ fn deserialize_checks_the_edge_bound() {
     .unwrap();
     assert_eq!(graph.num_edges(), 1);
 }
+
+#[test]
+fn planar_graph_deserialization_rejects_loops_and_parallel_edges() {
+    for edges in [vec![(0, 0)], vec![(0, 1), (1, 0)]] {
+        assert!(
+            serde_json::from_value::<crate::topology::PlanarGraph>(serde_json::json!({
+                "inner": {"num_vertices": 3, "edges": edges},
+            }))
+            .is_err()
+        );
+    }
+}

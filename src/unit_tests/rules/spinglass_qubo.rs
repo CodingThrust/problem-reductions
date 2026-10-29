@@ -53,7 +53,6 @@ fn test_with_onsite_fields() {
 
 #[test]
 fn test_reduction_structure() {
-    // Test QUBO to SpinGlass structure
     let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]).unwrap();
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo)
         .expect("reduction should succeed");
@@ -62,7 +61,6 @@ fn test_reduction_structure() {
     // SpinGlass should have same number of spins as QUBO variables
     assert_eq!(sg.num_spins(), 2);
 
-    // Test SpinGlass to QUBO structure
     let sg2 =
         SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]).unwrap();
     let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg2).expect("reduction should succeed");

@@ -33,7 +33,6 @@ mod traits;
 pub mod triangular;
 mod weighted;
 
-// Re-export commonly used items from submodules for convenience
 pub use ksg::{GridKind, MappingResult};
 
 use crate::rules::ReductionError;

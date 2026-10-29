@@ -312,10 +312,17 @@ impl SpinGlassBuilder {
                 )
             })?;
         // Add interactions. Shared inputs may identify local spins; their
-        // diagonal terms remain in the Hamiltonian as s_i^2 = 1.
+        // diagonal terms are constants because s_i^2 = 1.
         for ((i, j), weight) in gadget.problem.interactions() {
             let global_i = spin_map[i];
             let global_j = spin_map[j];
+            if global_i == global_j {
+                self.zero_penalty_energy = self
+                    .zero_penalty_energy
+                    .checked_sub(weight)
+                    .ok_or("subtracting a constant SpinGlass interaction")?;
+                continue;
+            }
             let key = if global_i < global_j {
                 (global_i, global_j)
             } else {
@@ -327,7 +334,6 @@ impl SpinGlassBuilder {
                 .ok_or("circuit SpinGlass coupling overflow")?;
         }
 
-        // Add fields
         for (local_idx, field) in gadget.problem.fields().iter().enumerate() {
             let global_idx = spin_map[local_idx];
             self.fields[global_idx] = self.fields[global_idx]

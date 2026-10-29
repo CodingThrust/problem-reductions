@@ -119,7 +119,6 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_weight() {
 
 #[test]
 fn test_bounded_diameter_spanning_tree_evaluate_exceeds_diameter() {
-    // Create instance with very tight diameter bound
     let problem = BoundedDiameterSpanningTree::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1],

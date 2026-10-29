@@ -159,7 +159,6 @@ where
                     ));
                 }
 
-                // Collect selected edges
                 let selected: Vec<(usize, usize)> = config
                     .iter()
                     .enumerate()
@@ -175,7 +174,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check connectivity using BFS on selected edges
                 let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
                 let mut degree = vec![0usize; n];
                 for &(u, v) in &selected {
@@ -185,7 +183,6 @@ where
                     degree[v] += 1;
                 }
 
-                // Check max degree constraint
                 if degree.iter().any(|&d| d > self.max_degree) {
                     return Ok(crate::types::Or(false));
                 }
@@ -231,10 +228,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 vertices, 7 edges: (0,1),(0,2),(0,3),(1,2),(1,4),(2,3),(3,4), K=2
-    // Spanning tree with max degree 2: edges (0,2),(0,3),(1,2),(1,4)
-    //   indices: 1,2,3,4 → config [0,1,1,1,1,0,0]
-    //   Degrees: 0→{2,3}=2, 1→{2,4}=2, 2→{0,1}=2, 3→{0}=1, 4→{1}=1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "degree_constrained_spanning_tree_simplegraph",
         instance: Box::new(DegreeConstrainedSpanningTree::new(

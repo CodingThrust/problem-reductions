@@ -354,7 +354,7 @@ fn parameter_relations_match_reduced_instances() {
         exact,
     );
     check_reduced_parameters::<_, ILP<bool>>(
-        HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (0, 1), (1, 1)])),
+        HamiltonianPath::new(SimpleGraph::path(3)),
         &["num_nonzeros"],
         ParameterRelation::UpperBound,
     );
@@ -508,7 +508,7 @@ fn multiprocessor_magnitude_predictions_cover_lengths_and_deadlines() {
 fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
     use crate::models::algebraic::ILP;
     use crate::models::graph::{BiconnectivityAugmentation, StrongConnectivityAugmentation};
-    use crate::topology::DirectedGraph;
+    use crate::topology::SimpleDigraph;
 
     fn check<S: Problem + ReduceTo<ILP<bool>>>(source: S, bits: u64) {
         assert_eq!(
@@ -540,7 +540,7 @@ fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
         if weight > 0 && budget >= 0 {
             check(
                 StrongConnectivityAugmentation::new(
-                    DirectedGraph::empty(2),
+                    SimpleDigraph::empty(2),
                     vec![(0, 1, weight)],
                     budget,
                 ),
@@ -554,7 +554,7 @@ fn augmentation_magnitude_predictions_cover_weights_and_budgets() {
             bits,
         );
         check(
-            StrongConnectivityAugmentation::<i64>::new(DirectedGraph::empty(0), vec![], budget),
+            StrongConnectivityAugmentation::<i64>::new(SimpleDigraph::empty(0), vec![], budget),
             bits,
         );
     }
@@ -586,7 +586,7 @@ fn missing_structural_bounds_cover_sparse_and_normalized_instances() {
     }
     for graph in [
         SimpleGraph::empty(3),
-        SimpleGraph::new(3, vec![(0, 0), (0, 1), (0, 1)]),
+        SimpleGraph::path(3),
         SimpleGraph::complete(3),
     ] {
         check_reduced_parameters::<_, BalancedCompleteBipartiteSubgraph>(
@@ -732,7 +732,7 @@ fn decision_cover_bounds_do_not_depend_on_threshold_magnitude() {
     for graph in [
         SimpleGraph::empty(0),
         SimpleGraph::path(3),
-        SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 2)]),
+        SimpleGraph::empty(3),
     ] {
         for threshold in [i64::MIN, 0, 1, 2, i64::MAX] {
             check_reduced_parameters::<_, HamiltonianCircuit<SimpleGraph>>(

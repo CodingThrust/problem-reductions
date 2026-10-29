@@ -119,10 +119,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                 source,
                 SolutionPair {
-                    // x1=F, x2=T, x3=T satisfies all five clauses.
                     source_config: serde_json::json!(vec![false, true, true]),
-                    // Vertex 0 is the reference vertex s. Variables are true
-                    // exactly when they share s's side of the cut.
                     target_config: serde_json::json!(vec![false, true, false, false]),
                 },
             )

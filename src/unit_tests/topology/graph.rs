@@ -128,7 +128,6 @@ fn test_simple_graph_cycle_small() {
 
 #[test]
 fn test_simple_graph_eq_different_sizes() {
-    // Test PartialEq when graphs have different sizes
     let g1 = SimpleGraph::new(3, vec![(0, 1)]);
     let g2 = SimpleGraph::new(4, vec![(0, 1)]); // Different vertex count
     assert_ne!(g1, g2);
@@ -162,4 +161,25 @@ fn deserialize_rejects_out_of_range_edges() {
         }))
         .is_err()
     );
+}
+
+#[test]
+fn simple_graph_rejects_loops_and_parallel_edges() {
+    for (edges, offending) in [
+        (vec![(0, 0)], "edge (0, 0)"),
+        (vec![(0, 1), (0, 1)], "edge (0, 1)"),
+        (vec![(0, 1), (1, 0)], "edge (1, 0)"),
+    ] {
+        let error = SimpleGraph::try_new(3, edges.clone()).unwrap_err();
+        assert!(matches!(
+            error,
+            crate::registry::ConstructionError::Conversion(_)
+        ));
+        assert!(error.to_string().contains(offending), "{error}");
+        let error = serde_json::from_value::<SimpleGraph>(serde_json::json!({
+            "num_vertices": 3, "edges": edges,
+        }))
+        .unwrap_err();
+        assert!(error.to_string().contains(offending), "{error}");
+    }
 }

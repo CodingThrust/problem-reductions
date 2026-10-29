@@ -167,10 +167,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "expectedretrievalcost_to_ilp",
         build: || {
-            // 2 records with probabilities [0.5, 0.5], 2 sectors
-            // Assignment: record 0 → sector 0, record 1 → sector 1
             let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
-            // Compute target_config from solver to ensure consistency
             let reduction: ReductionERCToILP =
                 ReduceTo::<ILP<bool, f64>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();

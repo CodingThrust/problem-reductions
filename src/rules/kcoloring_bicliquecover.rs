@@ -9,7 +9,7 @@
 //! `(a_v, b_v)`. These remaining bicliques behave as color classes: two
 //! source vertices may share one only when they are nonadjacent in `G`.
 //!
-//! The paper contains the full proof, including native loops and repeated edges.
+//! The paper contains the full proof for simple source graphs.
 //!
 //! ## Vertex layout
 //!
@@ -22,7 +22,7 @@
 //!   - `b_v` at local index `v`
 //!   - `h_v` at local index `n + v`
 //!
-//! In unified vertex space (used by `BicliqueCover::dims()`):
+//! In the unified vertex space used by biclique witnesses:
 //!
 //! - `a_v` -> `v`
 //! - `g_v` -> `n + v`
@@ -151,31 +151,16 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
         // Relabeling the used colors preserves feasibility with at most n colors.
         // Native node storage bounds make 4*n and n+min(q,n) fit usize.
         let q = self.num_colors().min(n);
-        let native_edges = self.graph().edges();
-        if native_edges.iter().any(|&(u, v)| u == v) {
-            // A loop cannot be properly colored. A single edge cannot be
-            // covered with zero bicliques, giving a fixed NO instance.
-            return Ok(ReductionKColoringToBicliqueCover {
-                target: BicliqueCover::new(BipartiteGraph::new(1, 1, vec![(0, 0)]), 0),
-                num_vertices: n,
-                num_colors: q,
-            });
-        }
-
         // Build the set of source edges as an undirected lookup so the
         // construction can test endpoints {u,v} in E in O(log m).
-        let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-        for (u, v) in native_edges {
-            let (a, b) = if u <= v { (u, v) } else { (v, u) };
-            source_edges.insert((a, b));
-        }
-        let has_source_edge = |u: usize, v: usize| -> bool {
-            if u == v {
-                return false;
-            }
-            let (a, b) = if u <= v { (u, v) } else { (v, u) };
-            source_edges.contains(&(a, b))
-        };
+        let source_edges: BTreeSet<_> = self
+            .graph()
+            .edges()
+            .into_iter()
+            .map(|(u, v)| (u.min(v), u.max(v)))
+            .collect();
+        let has_source_edge =
+            |u: usize, v: usize| -> bool { source_edges.contains(&(u.min(v), u.max(v))) };
 
         // Target vertex layout (bipartite-local indices):
         //   left:  a_v at v,         g_v at n + v
@@ -234,7 +219,7 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
     }
 }
 
-/// Build the canonical forward witness described in the issue.
+/// Build a forward witness from a source coloring.
 ///
 /// For each source vertex `v` (with `v in 0..n`), create one guard biclique
 ///
@@ -271,18 +256,14 @@ pub(crate) fn forward_witness(
     };
 
     // Edge-membership lookup for source edges (undirected).
-    let mut source_edges: BTreeSet<(usize, usize)> = BTreeSet::new();
-    for (u, v) in source.graph().edges() {
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.insert((a, b));
-    }
-    let has_source_edge = |u: usize, v: usize| -> bool {
-        if u == v {
-            return false;
-        }
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.contains(&(a, b))
-    };
+    let source_edges: BTreeSet<_> = source
+        .graph()
+        .edges()
+        .into_iter()
+        .map(|(u, v)| (u.min(v), u.max(v)))
+        .collect();
+    let has_source_edge =
+        |u: usize, v: usize| -> bool { source_edges.contains(&(u.min(v), u.max(v))) };
 
     // Guard bicliques: biclique index v (for v in 0..n).
     for v in 0..n {
@@ -322,9 +303,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "kcoloring_to_bicliquecover",
         build: || {
-            // P_2 with q = 2: vertices {0, 1}, one edge (0, 1).
-            // A valid 2-coloring is (0, 1). Target has 8 vertices and rank 4,
-            // small enough to keep the canonical bundle compact.
+            // Use a tiny source to keep the constructed bundle compact.
             let source = KColoring::<KN, _>::with_k(SimpleGraph::new(2, vec![(0, 1)]), 2);
             let coloring = vec![0usize, 1usize];
             let target_config = forward_witness(&source, &coloring);

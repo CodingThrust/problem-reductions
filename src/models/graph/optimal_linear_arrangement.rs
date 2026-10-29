@@ -248,8 +248,6 @@ crate::register_decision_variant!(
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // 6 vertices, 7 edges (path + two long chords)
-    // Optimal arrangement [0,1,2,3,4,5] gives cost 1+1+1+1+1+3+3 = 11
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "optimal_linear_arrangement",
         instance: Box::new(OptimalLinearArrangement::new(SimpleGraph::new(

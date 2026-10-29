@@ -54,7 +54,7 @@ fn create_spec_rejects_duplicate_terminals() {
 }
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
-/// Issue #122 example: 5 vertices, 7 edges, terminals {0, 2, 4}.
+/// Example: 5 vertices, 7 edges, terminals {0, 2, 4}.
 /// Edges in order: (0,1)=2, (0,3)=5, (1,2)=2, (1,3)=1, (2,3)=5, (2,4)=6, (3,4)=1
 fn example_instance() -> SteinerTree<SimpleGraph, i64> {
     let graph = SimpleGraph::new(

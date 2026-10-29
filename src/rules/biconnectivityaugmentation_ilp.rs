@@ -238,7 +238,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "biconnectivityaugmentation_to_ilp",
         build: || {
-            // Path 0-1-2-3, candidates: (0,2,1),(0,3,2),(1,3,1), budget=3
             let source = BiconnectivityAugmentation::new(
                 SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
                 vec![(0, 2, 1), (0, 3, 2), (1, 3, 1)],

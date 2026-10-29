@@ -100,14 +100,7 @@ fn test_set_splitting_brute_force_feasible() {
 
 #[test]
 fn test_set_splitting_brute_force_infeasible() {
-    // Single subset {0,1} with only 2 elements — either 0 or 1 must differ
-    // Actually {0,1} is always splittable: just color 0→0, 1→1.
-    // Infeasible instance: single element subset is rejected by constructor (< 2 elems).
-    // An instance with contradictory constraints:
-    // U={0}, subset {0,0} is rejected (too few distinct, but actually passes len check)
-    // Really simplest infeasible: universe_size=1, subset {0,0} has length 2 but only 1 unique.
-    // Both elements map to index 0 → sum is either 0 (all S1) or 2 (all S2), never split.
-    // config [0]: elem 0 → S1. subset needs both colors but only has elem 0 twice → impossible.
+    // Repeating element 0 satisfies the length requirement but cannot supply both colors.
     let problem = SetSplitting::new(1, vec![vec![0, 0]]);
     let solver = BruteForce::new();
     let witness = solver.solve(&problem).unwrap();

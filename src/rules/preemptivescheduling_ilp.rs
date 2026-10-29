@@ -169,7 +169,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "preemptivescheduling_to_ilp",
         build: || {
-            // 3 tasks, lengths [2,1,2], 2 processors, precedence (0,2)
             let source = PreemptiveScheduling::new(vec![2, 1, 2], 2, vec![(0, 2)]).unwrap();
             crate::example_db::specs::rule_example_via_bounded_ilp::<_>(source)
         },

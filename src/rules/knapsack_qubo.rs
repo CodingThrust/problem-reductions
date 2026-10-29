@@ -79,7 +79,6 @@ impl ReduceTo<QUBO<i64>> for Knapsack {
         let penalty = penalty_i64;
         let values = self.values();
 
-        // Build QUBO matrix
         // H = -sum(v_i * x_i) + P * (sum(w_i * x_i) + sum(2^j * s_j) - C)^2
         //
         // Let a_k be the coefficient of variable k in the constraint:

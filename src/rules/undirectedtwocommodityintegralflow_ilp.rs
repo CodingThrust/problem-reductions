@@ -219,9 +219,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "undirectedtwocommodityintegralflow_to_ilp",
         build: || {
-            // 4-vertex graph: edges (0,2),(1,2),(2,3); capacities [1,1,2]
-            // s1=0, t1=3, s2=1, t2=3, R1=1, R2=1
-            // f1 routes 0→2→3 (1 unit), f2 routes 1→2→3 (1 unit)
             let source = UndirectedTwoCommodityIntegralFlow::new(
                 SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
                 vec![1, 1, 2],

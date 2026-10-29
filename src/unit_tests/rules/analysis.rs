@@ -121,7 +121,6 @@ fn test_reachability_missing_proof_chains_filter() {
     for p in &missing {
         assert_eq!(p.reason, UnreachableReason::MissingProofChain);
     }
-    // Count should match manual filter
     let manual_count = report
         .unreachable
         .iter()

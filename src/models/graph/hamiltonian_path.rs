@@ -38,7 +38,7 @@ inventory::submit! {
 /// vertex visited at step `i`. A valid solution must be a permutation of
 /// `0..n` where consecutive entries are adjacent in the graph.
 ///
-/// The search space has `dims() = [n; n]` (each position can hold any of `n`
+/// The search space has `dimensions() = [n; n]` (each position can hold any of `n`
 /// vertices), so brute-force enumerates `n^n` configurations. Only `n!`
 /// permutations can satisfy the constraints, but the encoding avoids complex
 /// variable-domain schemes and matches the problem's natural formulation.
@@ -160,7 +160,6 @@ pub(crate) fn is_valid_hamiltonian_path<G: Graph>(graph: &G, config: &[usize]) -
         seen[v] = true;
     }
 
-    // Check consecutive vertices are adjacent
     for i in 0..n.saturating_sub(1) {
         if !graph.has_edge(config[i], config[i + 1]) {
             return false;

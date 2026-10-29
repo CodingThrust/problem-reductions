@@ -233,7 +233,6 @@ fn test_ilp_to_qubo_structure() {
     let reduction = ReduceTo::<QUBO<i64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
-    // Verify QUBO has appropriate structure
     assert!(qubo.num_variables() >= ilp.num_vars());
 }
 
