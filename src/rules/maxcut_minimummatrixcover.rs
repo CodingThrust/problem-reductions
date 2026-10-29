@@ -75,6 +75,30 @@ impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges = self.edges();
+        let overflow = || {
+            crate::rules::ReductionError::integer_overflow::<Self, MinimumMatrixCover>(
+                "bounding the matrix-cover objective",
+            )
+        };
+        // All entries are nonnegative. Their sum is attained by equal signs and
+        // bounds the absolute value of every signed evaluation prefix. Checking
+        // this sum is therefore necessary and sufficient for i64 evaluation.
+        let mut matrix_sum = 0_i64;
+        for &(_, _, weight) in &edges {
+            let link_sum = if weight < 0 {
+                weight
+                    .checked_neg()
+                    .and_then(|magnitude| magnitude.checked_mul(2))
+                    .and_then(|sum| sum.checked_add(1))
+            } else {
+                Some(weight)
+            }
+            .ok_or_else(overflow)?;
+            matrix_sum = link_sum
+                .checked_mul(2)
+                .and_then(|sum| matrix_sum.checked_add(sum))
+                .ok_or_else(overflow)?;
+        }
         let size = n + edges.iter().filter(|&&(_, _, w)| w < 0).count();
         let mut matrix: Vec<Vec<i64>> = vec![vec![0i64; size]; size];
         let mut link = |a: usize, b: usize, weight: i64| {
