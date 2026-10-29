@@ -234,7 +234,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ruralpostman_to_ilp",
         build: || {
-            // Triangle: 3 vertices, 3 edges, require edge 0
             let source = RuralPostman::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],

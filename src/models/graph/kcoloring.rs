@@ -3,6 +3,7 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -88,37 +89,6 @@ struct RuntimeKColoringCreateSpec {
     num_vertices: Option<usize>,
     /// Runtime color count.
     k: usize,
-}
-
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let count = num_vertices.unwrap_or(inferred);
-    if count < inferred {
-        return Err(format!(
-            "num_vertices {count} is too small for graph endpoints; need at least {inferred}"
-        )
-        .into());
-    }
-    Ok(SimpleGraph::new(count, edges))
 }
 
 impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> {
@@ -289,11 +259,9 @@ pub(crate) fn is_valid_coloring<G: Graph>(
         graph.num_vertices(),
         "coloring length must match num_vertices"
     );
-    // Check all colors are valid
     if coloring.iter().any(|&c| c >= num_colors) {
         return false;
     }
-    // Check no adjacent vertices have same color
     for (u, v) in graph.edges() {
         if coloring[u] == coloring[v] {
             return false;

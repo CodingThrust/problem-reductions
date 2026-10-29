@@ -5615,8 +5615,8 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "MinimumVertexCover/SimpleGraph/One",
-            "LongestCommonSubsequence",
+            "SubsetSum",
+            "DecisionOpenShopScheduling",
             "--limit",
             "1",
             "--json",
@@ -5628,22 +5628,113 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let fields = envelope["paths"][0]["overall_parameters"]["fields"]
         .as_array()
         .unwrap();
-    let relations = fields
+    let machines = fields
         .iter()
-        .map(|field| {
-            (
-                field["field"].as_str().unwrap(),
-                field["relation"].as_str().unwrap(),
-            )
-        })
-        .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["alphabet_size"], "exact");
-    assert_eq!(relations["cross_frequency_product"], "unavailable");
-    let unavailable = fields
-        .iter()
-        .find(|field| field["relation"] == "unavailable")
+        .find(|field| field["field"] == "num_machines")
         .unwrap();
-    assert!(!unavailable["reason"].as_str().unwrap().is_empty());
+    assert_eq!(machines["relation"], "exact");
+    let horizon = fields
+        .iter()
+        .find(|field| field["field"] == "schedule_horizon")
+        .unwrap();
+    assert_eq!(horizon["relation"], "unavailable");
+    assert!(horizon["reason"]
+        .as_str()
+        .is_some_and(|reason| !reason.is_empty()));
+}
+
+#[test]
+fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
+    let dir =
+        std::env::temp_dir().join(format!("pred_vertex_cover_lcs_mis_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("source.json");
+    let route = dir.join("route.json");
+    let bundle = dir.join("bundle.json");
+    let created = pred()
+        .args([
+            "create",
+            "MinimumVertexCover/SimpleGraph/One",
+            "--graph",
+            "0-1,1-2",
+            "-o",
+            source.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    write_named_route(
+        "MinimumVertexCover/SimpleGraph/One",
+        "MaximumIndependentSet/SimpleGraph/One",
+        &[
+            "MinimumVertexCover",
+            "LongestCommonSubsequence",
+            "MaximumIndependentSet",
+        ],
+        &route,
+    );
+    let selected: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&route).unwrap()).unwrap();
+    assert!(selected["overall_parameters"]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|field| field["relation"] != "unavailable"));
+    let reduced = pred()
+        .args([
+            "reduce",
+            source.to_str().unwrap(),
+            "--via",
+            route.to_str().unwrap(),
+            "-o",
+            bundle.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reduced.stderr)
+    );
+    let solved = pred()
+        .args([
+            "solve",
+            bundle.to_str().unwrap(),
+            "--solver",
+            "ilp",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        solved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&solved.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&solved.stdout).unwrap();
+    assert_eq!(result["evaluation"], "Min(1)");
+    let evaluated = pred()
+        .args([
+            "evaluate",
+            source.to_str().unwrap(),
+            "--config",
+            &result["solution"].to_string(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        evaluated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&evaluated.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&evaluated.stdout).unwrap();
+    assert_eq!(value["result"], "Min(1)");
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -10266,4 +10357,229 @@ fn test_extract_reads_bundle_from_stdin() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn bipartite_create_reports_construction_errors() {
+    for model in ["BicliqueCover", "BalancedCompleteBipartiteSubgraph"] {
+        for (left, edges, expected) in [
+            (
+                "1".to_string(),
+                "0-0,0-0",
+                "edge (0, 1) duplicates an undirected edge",
+            ),
+            (
+                usize::MAX.to_string(),
+                "0-0",
+                "bipartite vertex count overflows usize",
+            ),
+        ] {
+            let output = pred()
+                .args([
+                    "create",
+                    model,
+                    "--left",
+                    &left,
+                    "--right",
+                    "1",
+                    "--biedges",
+                    edges,
+                    "--k",
+                    "1",
+                ])
+                .output()
+                .unwrap();
+            let stderr = String::from_utf8(output.stderr).unwrap();
+            assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+            assert!(stderr.contains(expected), "{model}: {stderr}");
+            assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+        }
+    }
+}
+
+#[test]
+fn schema_graph_create_reports_construction_errors() {
+    for (model, flag, input, expected) in [
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-0",
+            "edge (0, 0) is a self-loop",
+        ),
+        (
+            "HamiltonianCircuit",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "MaximumDomaticNumber",
+            "--graph",
+            "0-1,1-0",
+            "edge (1, 0) duplicates an undirected edge",
+        ),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            "0>1,0>1",
+            "arc (0, 1) duplicates a directed arc",
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, input, "--num-vertices", "3"])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(stderr.contains(expected), "{model}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
+fn schema_graph_create_rejects_vertex_count_overflow() {
+    for (model, flag, input) in [
+        ("HamiltonianCircuit", "--graph", format!("0-{}", usize::MAX)),
+        (
+            "DirectedHamiltonianPath",
+            "--arcs",
+            format!("0>{}", usize::MAX),
+        ),
+    ] {
+        let output = pred()
+            .args(["create", model, flag, &input])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{model}: {stderr}");
+        assert!(
+            stderr.contains("vertex count overflows usize"),
+            "{model}: {stderr}"
+        );
+        assert!(!stderr.contains("panicked"), "{model}: {stderr}");
+    }
+}
+
+#[test]
+fn simple_graph_create_rejects_loops_and_parallel_edges() {
+    for (edges, offending) in [
+        ("0-0", "edge (0, 0)"),
+        ("0-1,0-1", "edge (0, 1)"),
+        ("0-1,1-0", "edge (1, 0)"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MaximumIndependentSet/SimpleGraph/One",
+                "--graph",
+                edges,
+                "--num-vertices",
+                "3",
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains(offending), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
+}
+
+#[test]
+fn simple_directed_models_reject_a_loop_on_create() {
+    for (name, extra) in [
+        (
+            "AcyclicPartition/i64",
+            vec!["--weight-bound", "2", "--cost-bound", "2"],
+        ),
+        ("DirectedHamiltonianPath", vec![]),
+        ("Kernel", vec![]),
+        ("MinimumDummyActivitiesPert", vec![]),
+        (
+            "MultipleChoiceBranching/i64",
+            vec!["--weights", "1", "--partition", "0", "--threshold", "1"],
+        ),
+        (
+            "StrongConnectivityAugmentation/i64",
+            vec!["--candidate-arcs", "0-1:1", "--bound", "1"],
+        ),
+    ] {
+        let output = pred()
+            .args(["create", name, "--arcs", "0>0", "--num-vertices", "2"])
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "{name} accepted a loop");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.contains("arc (0, 0)"), "{name}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{name}: {stderr}");
+    }
+}
+
+#[test]
+fn mixed_chinese_postman_create_preserves_weighted_parallel_loops() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman/i64",
+            "--graph",
+            "0-0,0-0",
+            "--arcs",
+            "0>0,0>0",
+            "--num-vertices",
+            "1",
+            "--edge-weights",
+            "5,7",
+            "--arc-weights",
+            "2,3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let problem: problemreductions::models::graph::MixedChinesePostman<i64> =
+        serde_json::from_value(json["data"].clone()).unwrap();
+    assert_eq!(problem.graph().edges(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.graph().arcs(), vec![(0, 0), (0, 0)]);
+    assert_eq!(problem.arc_weights(), &[2, 3]);
+    assert_eq!(problem.edge_weights(), &[5, 7]);
+    assert_eq!(
+        problemreductions::Problem::evaluate(&problem, &vec![false, true]).unwrap(),
+        problemreductions::Min(Some(17))
+    );
+}
+
+#[test]
+fn mixed_chinese_postman_create_rejects_invalid_endpoints_and_weights() {
+    for (arcs, edge_weights, arc_weights, expected) in [
+        ("0>1", "3", "2", "endpoint is out of range"),
+        ("0>0", "2,3", "2", "edge_weights has length"),
+        ("0>0", "3", "-1", "must be nonnegative"),
+    ] {
+        let output = pred()
+            .args([
+                "create",
+                "MixedChinesePostman/i64",
+                "--graph",
+                "0-0",
+                "--arcs",
+                arcs,
+                "--num-vertices",
+                "1",
+                "--edge-weights",
+                edge_weights,
+                "--arc-weights",
+                arc_weights,
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(expected), "{stderr}");
+        assert!(!stderr.contains("panicked"), "{stderr}");
+    }
 }

@@ -277,9 +277,6 @@ crate::register_brute_force! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "string_to_string_correction",
-        // source has length 6. Domain = 2*6+1 = 13. No-op = 12.
-        // First operation: swap at positions 2,3 → value = 6 + 2 = 8
-        // Second operation: delete at position 5
         instance: Box::new(StringToStringCorrection::new(
             4,
             vec![0, 1, 2, 3, 1, 0],

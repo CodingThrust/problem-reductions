@@ -140,16 +140,6 @@ fn test_minimum_external_macro_data_compression_paper_example() {
     // Paper example: Sigma = {a,b,c,d,e,f} (size 6), s = "abcdefabcdefabcdef" (len 18), h = 2
     // Optimal: D = "abcdef" (6), C = "ptr(0,6) ptr(0,6) ptr(0,6)" (3, 3 ptrs)
     // Cost = 6 + 3 + 1*3 = 12
-    //
-    // However, this has 2*18 = 36 variables with large domains, way too big for brute force.
-    // Instead, verify the optimal config evaluates correctly on a smaller instance.
-    //
-    // Use s = "abab" (len 4), alphabet {a,b} (size 2), h = 1
-    // D = "ab" (2), C = "ptr(0,2) ptr(0,2)" (2, 2 ptrs)
-    // Cost = 2 + 2 + 0*2 = 4. Uncompressed = 4. Equal!
-    //
-    // Better: verify the issue example manually on the actual type.
-    // Construct s = [0,1,2,3,4,5, 0,1,2,3,4,5, 0,1,2,3,4,5], alphabet_size = 6, h = 2
     let problem = MinimumExternalMacroDataCompression::new(
         6,
         vec![0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5],

@@ -65,7 +65,9 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
 #[test]
 fn test_multicenter_all_small_graphs_bounds_and_placements() {
     for n in 0usize..=3 {
-        let possible: Vec<_> = (0..n).flat_map(|u| (u..n).map(move |v| (u, v))).collect();
+        let possible: Vec<_> = (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect();
         for edge_mask in 0..(1usize << possible.len()) {
             let edges: Vec<_> = possible
                 .iter()
@@ -135,8 +137,8 @@ fn test_multicenter_all_small_graphs_bounds_and_placements() {
 }
 
 #[test]
-fn test_multicenter_duplicate_edges_and_malformed_witness() {
-    let source = decision_mds(3, &[(0, 0), (0, 1), (0, 1)], 2);
+fn test_multicenter_malformed_witness() {
+    let source = decision_mds(3, &[(0, 1)], 2);
     let reduction = ReduceTo::<
         crate::models::decision::Decision<MinMaxMulticenter<SimpleGraph, One>>,
     >::reduce_to(&source)

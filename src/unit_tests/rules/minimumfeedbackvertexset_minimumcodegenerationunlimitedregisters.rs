@@ -34,11 +34,11 @@ fn test_codegen_rule_is_registered_only_for_unit_weight() {
 fn test_codegen_start_nodes_cover_self_loops_and_parallel_arcs() {
     use crate::models::graph::MinimumFeedbackVertexSet;
     use crate::rules::ReductionResult;
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     use crate::traits::Problem;
     use crate::types::{Min, One};
     let source = MinimumFeedbackVertexSet::new(
-        DirectedGraph::new(3, vec![(0, 1), (1, 0), (2, 2), (2, 2)]),
+        MultiDigraph::new(3, vec![(0, 1), (1, 0), (2, 2), (2, 2)]),
         vec![One; 3],
     );
     let reduction =
@@ -57,9 +57,9 @@ fn test_codegen_start_nodes_cover_self_loops_and_parallel_arcs() {
 fn test_codegen_empty_graph_and_invalid_orders() {
     use crate::models::graph::MinimumFeedbackVertexSet;
     use crate::rules::ReductionResult;
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     use crate::types::One;
-    let empty = MinimumFeedbackVertexSet::<One>::new(DirectedGraph::new(0, vec![]), vec![]);
+    let empty = MinimumFeedbackVertexSet::<One>::new(MultiDigraph::new(0, vec![]), vec![]);
     let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&empty).unwrap();
     assert_eq!(reduction.target_problem().num_vertices(), 1);
     assert_eq!(
@@ -79,7 +79,7 @@ fn test_codegen_every_small_evaluation_permutation() {
     use crate::models::graph::MinimumFeedbackVertexSet;
     use crate::rules::ReductionResult;
     use crate::solvers::BruteForce;
-    use crate::topology::DirectedGraph;
+    use crate::topology::MultiDigraph;
     use crate::traits::Problem;
     use crate::types::{Min, One};
     fn visit(config: &mut [usize], offset: usize, check: &mut impl FnMut(&[usize])) {
@@ -106,7 +106,7 @@ fn test_codegen_every_small_evaluation_permutation() {
                 .enumerate()
                 .filter_map(|(i, &arc)| (mask & (1 << i) != 0).then_some(arc))
                 .collect();
-            let source = MinimumFeedbackVertexSet::new(DirectedGraph::new(n, arcs), vec![One; n]);
+            let source = MinimumFeedbackVertexSet::new(MultiDigraph::new(n, arcs), vec![One; n]);
             let witness = BruteForce::new().solve(&source).unwrap().unwrap();
             let Min(Some(optimum)) = source.evaluate(&witness).unwrap() else {
                 unreachable!()

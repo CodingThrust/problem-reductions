@@ -206,7 +206,6 @@ impl MinimumFaultDetectionTestSet {
         inputs: &[usize],
         outputs: &[usize],
     ) -> Vec<HashSet<usize>> {
-        // Build adjacency lists
         let mut adj = vec![vec![]; num_vertices];
         let mut rev_adj = vec![vec![]; num_vertices];
         for &(u, v) in arcs {
@@ -327,7 +326,6 @@ impl Problem for MinimumFaultDetectionTestSet {
                 }
             }
 
-            // Check all internal vertices are covered.
             if covered.len() == required_internal_vertices {
                 Min(Some(i64::try_from(count).map_err(|_| {
                     crate::traits::EvaluationError::IntegerOverflow(
@@ -357,11 +355,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 7 vertices, inputs={0,1}, outputs={5,6}
-    // Internal vertices are {2,3,4}
-    // Arcs: (0,2),(0,3),(1,3),(1,4),(2,5),(3,5),(3,6),(4,6)
-    // Pairs: (0,5)->{0,2,3,5}, (0,6)->{0,3,6}, (1,5)->{1,3,5}, (1,6)->{1,3,4,6}
-    // Config [1,0,0,1]: select pairs (0,5) and (1,6) -> covers all internal vertices -> Min(2)
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_fault_detection_test_set",
         instance: Box::new(MinimumFaultDetectionTestSet::new(

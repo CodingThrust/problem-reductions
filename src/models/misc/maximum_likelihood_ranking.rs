@@ -223,12 +223,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 4 items with comparison matrix.
-    // Optimal ranking: [0, 1, 2, 3] (identity) gives cost 7.
-    // Let's verify: items ranked in order 0,1,2,3.
-    // Disagreement = sum over (a,b) where config[a] > config[b] of matrix[a][b]
-    // = matrix[1][0] + matrix[2][0] + matrix[2][1] + matrix[3][0] + matrix[3][1] + matrix[3][2]
-    // = 1 + 2 + 1 + 0 + 2 + 1 = 7
     let matrix = vec![
         vec![0, 4, 3, 5],
         vec![1, 0, 4, 3],

@@ -2,8 +2,7 @@
 //!
 //! This is Sethi's Reduction I / Theorem 3.11 (STOC 1973), with native
 //! empty-formula/empty-clause boundary targets, compact variables, and literal
-//! repetition for nonempty short clauses. The corrected extraction
-//! rule from issue #872:
+//! repetition for nonempty short clauses. The extraction rule is:
 //! - the snapshot is taken immediately after `w[n]`
 //! - `x_k = true` iff `x_pos[k]` has been computed by that snapshot
 //! - at most one of `x_pos[k]`, `x_neg[k]` can have been computed by then

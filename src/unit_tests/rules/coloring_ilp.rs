@@ -46,8 +46,7 @@ fn test_reduction_path_graph() {
 
 #[test]
 fn runtime_color_count_controls_exact_ilp_parameters() {
-    // A loop merges the two edge coefficients without changing allocation counts.
-    for edges in [vec![(0, 1), (1, 2)], vec![(0, 0), (1, 2)]] {
+    for edges in [vec![(0, 1), (1, 2)], vec![(0, 2), (1, 2)]] {
         let graph = SimpleGraph::new(3, edges);
         for colors in [1, 2, 3, 4, 5] {
             let problem = KColoring::<KN, _>::with_k(graph.clone(), colors);
@@ -78,7 +77,6 @@ fn test_coloring_to_ilp_closed_loop() {
         "Brute force should find solutions"
     );
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -103,17 +101,14 @@ fn test_ilp_solution_equals_brute_force_path() {
 
     let ilp_solver = ILPSolver::new();
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Verify validity
     assert!(
         problem.evaluate(&extracted).unwrap(),
         "Extracted solution should be valid"
     );
 
-    // Check adjacent vertices have different colors
     assert_ne!(extracted[0], extracted[1]);
     assert_ne!(extracted[1], extracted[2]);
     assert_ne!(extracted[2], extracted[3]);

@@ -136,13 +136,11 @@ impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiabil
         for clause in self.clauses() {
             let clause_start = literals.len();
 
-            // Add vertices for each literal in this clause
             for &lit in &clause.literals {
                 literals.push(BoolVar::from_literal(lit));
             }
 
             let vertex_count = literals.len();
-            // Add clique edges within this clause
             for i in clause_start..vertex_count {
                 for j in (i + 1)..vertex_count {
                     edges.push((i, j));
@@ -152,7 +150,7 @@ impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiabil
 
         let vertex_count = literals.len();
         // Add complementary-literal edges. Within a clause these may duplicate
-        // clique edges, which does not change independent-set feasibility.
+        // clique edges; retain each undirected pair once.
         for i in 0..vertex_count {
             for j in (i + 1)..vertex_count {
                 if literals[i].is_complement(&literals[j]) {
@@ -162,7 +160,10 @@ impl ReduceTo<Decision<MaximumIndependentSet<SimpleGraph, One>>> for Satisfiabil
         }
 
         let target = MaximumIndependentSet::new(
-            SimpleGraph::new(vertex_count, edges),
+            SimpleGraph::new(
+                vertex_count,
+                super::graph_helpers::unique_undirected_edges(edges),
+            ),
             vec![One; vertex_count],
         );
 

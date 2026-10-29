@@ -5,7 +5,7 @@ use crate::models::misc::*;
 use crate::parameters::ParameterRelation;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionPath, ReductionResult, ReductionStep};
 use crate::solvers::{BruteForce, BruteForceProblem, ILPSolver};
-use crate::topology::{DirectedGraph, SimpleGraph};
+use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};
 use crate::{
     types::{Min, One},
     Problem, ProblemParameters,
@@ -80,10 +80,9 @@ fn partition_gadgets_count_sparse_rows_on_the_accepted_domain() {
         check_contract::<_, ILP<bool>>(&PartitionIntoTriangles::new(SimpleGraph::empty(n)));
         check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::empty(n)));
     }
-    // Loops never become product variables; parallel orientations merge.
     check_contract::<_, ILP<bool>>(&PartitionIntoPathsOfLength2::new(SimpleGraph::new(
         3,
-        vec![(0, 0), (0, 1), (1, 0), (1, 2)],
+        vec![(0, 1), (1, 2)],
     )));
 }
 
@@ -342,7 +341,7 @@ fn flow_and_tour_bounds_include_sparse_global_rows() {
         &[("num_nonzeros", 52, 52)],
     );
     check_contract::<_, BoundedILP>(&BoundedComponentSpanningForest::new(
-        SimpleGraph::new(1, vec![(0, 0)]),
+        SimpleGraph::empty(1),
         vec![0],
         1,
         1,
@@ -433,8 +432,6 @@ fn changed_predictions_bound_real_intermediate_targets() {
             }
         }
     }
-    // Includes empty clauses, repeated literals and a fresh sentinel through
-    // the new incoming support contract and a real solve/extract workflow.
     for literals in [vec![], vec![1, 1], vec![1, -1]] {
         check_path(
             Satisfiability::new(1, vec![CNFClause::new(literals)]),
@@ -500,7 +497,7 @@ fn homologous_flow_support_counts_repeated_pairs() {
     // Accepted duplicate pair declarations each emit their own equality row;
     // pair count cannot be bounded by a function of arc/vertex counts alone.
     let source = IntegralFlowHomologousArcs::new(
-        DirectedGraph::new(2, vec![(0, 1), (0, 1)]),
+        MultiDigraph::new(2, vec![(0, 1), (0, 1)]),
         vec![1, 1],
         0,
         1,
@@ -514,7 +511,7 @@ fn homologous_flow_support_counts_repeated_pairs() {
     assert_eq!(source.parameters().get("num_homologous_pairs"), Some(10));
     // All terms in a (self,self) homologous equality cancel.
     let source = IntegralFlowHomologousArcs::new(
-        DirectedGraph::new(1, vec![(0, 0)]),
+        MultiDigraph::new(1, vec![(0, 0)]),
         vec![i64::MAX],
         0,
         0,
@@ -686,10 +683,7 @@ fn hamiltonian_edge_bound_includes_normalization_and_fixed_outputs() {
     );
     for bound in [-1, 0, 3] {
         check_contract::<_, HamiltonianCircuit<SimpleGraph>>(&Decision::new(
-            MinimumVertexCover::new(
-                SimpleGraph::new(3, vec![(0, 0), (0, 1), (1, 0)]),
-                vec![One; 3],
-            ),
+            MinimumVertexCover::new(SimpleGraph::path(3), vec![One; 3]),
             bound,
         ));
     }
@@ -905,7 +899,53 @@ where
         );
     }
     let expected = BruteForce::new().solve(&source).unwrap();
-    let solution = ILPSolver::new().solve(target).unwrap();
+    let solution = if path.steps[path.steps.len() - 2] == step::<ILP<bool>>() {
+        let prefix = ReductionPath {
+            steps: path.steps[..path.steps.len() - 1].to_vec(),
+        };
+        let prefix_chain = graph.reduce_along_path(&prefix, &source).unwrap().unwrap();
+        let ilp = prefix_chain.target_problem::<ILP<bool>>();
+        let result = ILPSolver::new().solve(ilp);
+        if matches!(result, Err(crate::solvers::ILPSolveError::Infeasible)) {
+            assert!(expected.is_none());
+            assert!(chain
+                .extract_solution::<S::Solution, _>(&vec![false; target.num_vars()])
+                .is_err());
+            return;
+        }
+        let assignment = result.unwrap();
+        let certificate = qubo_certificate(ilp, &assignment);
+        let penalty = 1
+            + ilp
+                .objective()
+                .iter()
+                .map(|&(_, c)| i128::from(c).abs())
+                .sum::<i128>()
+            + ilp
+                .constraints()
+                .iter()
+                .map(|row| i128::from(row.rhs()).abs())
+                .sum::<i128>();
+        let constant = penalty
+            * ilp
+                .constraints()
+                .iter()
+                .map(|row| i128::from(row.rhs()).pow(2))
+                .sum::<i128>();
+        let objective = i128::from(ilp.evaluate_objective(&assignment).unwrap());
+        let signed = match ilp.sense() {
+            crate::models::algebraic::ObjectiveSense::Minimize => objective,
+            crate::models::algebraic::ObjectiveSense::Maximize => -objective,
+        };
+        assert_eq!(
+            target.evaluate(&certificate).unwrap().0.map(i128::from),
+            Some(signed - constant)
+        );
+        certificate
+    } else {
+        ILPSolver::new().solve(target).unwrap()
+    };
+    assert_eq!(solution.len(), target.num_vars());
     let recovered = chain.extract_solution::<S::Solution, _>(&solution);
     match expected {
         Some(witness) => assert_eq!(
@@ -914,6 +954,32 @@ where
         ),
         None => assert!(recovered.is_err()),
     }
+}
+
+// Complete a feasible binary ILP witness by solving each slack equality exactly.
+fn qubo_certificate(ilp: &ILP<bool>, assignment: &[i64]) -> Vec<bool> {
+    use crate::models::algebraic::Comparison;
+    assert!(ilp.is_feasible(assignment).unwrap());
+    let mut bits: Vec<_> = assignment.iter().map(|&v| v == 1).collect();
+    for row in ilp.constraints() {
+        let lhs = row.evaluate_lhs(assignment).unwrap();
+        let (slack, range) = match row.comparison() {
+            Comparison::Eq => continue,
+            Comparison::Le => (
+                row.rhs() - lhs,
+                row.rhs() - row.terms().iter().map(|&(_, c)| c.min(0)).sum::<i64>(),
+            ),
+            Comparison::Ge => (
+                lhs - row.rhs(),
+                row.terms().iter().map(|&(_, c)| c.max(0)).sum::<i64>() - row.rhs(),
+            ),
+        };
+        assert!(0 <= slack && slack <= range);
+        for bit in 0..(i64::BITS - range.leading_zeros()) {
+            bits.push(slack & (1_i64 << bit) != 0);
+        }
+    }
+    bits
 }
 
 #[test]
@@ -1065,7 +1131,7 @@ fn acyclic_partition_magnitude_and_qubo() {
         (i64::MIN, i64::MIN, 64),
         (i64::MAX, -1, 63),
     ] {
-        let source = AcyclicPartition::new(DirectedGraph::empty(1), vec![weight], vec![], bound, 0);
+        let source = AcyclicPartition::new(SimpleDigraph::empty(1), vec![weight], vec![], bound, 0);
         assert_eq!(
             source.parameters().get("max_numeric_magnitude_bits"),
             Some(bits)
@@ -1090,15 +1156,15 @@ fn acyclic_partition_magnitude_and_qubo() {
         assert_eq!(feasible, usize::from(source.evaluate(&vec![0]).unwrap().0));
     }
     check_contract::<_, ILP<i64, i64, Bounded>>(&AcyclicPartition::new(
-        DirectedGraph::new(1, vec![(0, 0)]),
-        vec![1],
+        SimpleDigraph::new(2, vec![(0, 1)]),
+        vec![1, 1],
         vec![1],
         1,
         1,
     ));
     for bound in [1, 3] {
         check_qubo::<_, ILP<i64, i64, Bounded>>(AcyclicPartition::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![1, 2],
             vec![1],
             bound,
@@ -1123,7 +1189,7 @@ fn acyclic_partition_magnitude_and_qubo() {
 fn branching_magnitude_and_qubo() {
     for (weight, threshold, bits) in [(1, 8, 4), (8, 1, 4), (i64::MIN, 0, 64), (1, i64::MIN, 64)] {
         let source = MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![weight],
             vec![vec![0]],
             threshold,
@@ -1133,7 +1199,7 @@ fn branching_magnitude_and_qubo() {
     }
     for threshold in [1, 3] {
         check_qubo::<_, BoundedILP>(MultipleChoiceBranching::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
+            SimpleDigraph::new(2, vec![(0, 1)]),
             vec![2],
             vec![vec![0]],
             threshold,

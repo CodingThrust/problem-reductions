@@ -37,14 +37,14 @@ fn test_hamiltoniancircuit_to_ilp_closed_loop() {
 fn circuit_flow_requires_one_cycle_and_three_distinct_vertices() {
     for (n, edges, expected) in [
         (0, vec![], false),
-        (1, vec![(0, 0)], false),
-        (2, vec![(0, 1), (0, 1)], false),
+        (1, vec![], false),
+        (2, vec![(0, 1)], false),
         (
             6,
             vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)],
             false,
         ),
-        (3, vec![(0, 0), (0, 1), (0, 1), (1, 2), (0, 2)], true),
+        (3, vec![(0, 1), (1, 2), (0, 2)], true),
     ] {
         let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
         let reduction = ReduceTo::<Target>::reduce_to(&source).unwrap();

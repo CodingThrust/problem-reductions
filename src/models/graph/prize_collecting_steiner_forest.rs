@@ -172,13 +172,6 @@ fn simple_graph_from_create(
             "num_vertices is required for an empty graph".into(),
         ));
     }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(ConstructionError::Conversion(format!(
-                "graph edge {index} is a self-loop at vertex {u}"
-            )));
-        }
-    }
     let inferred = edges
         .iter()
         .flat_map(|&(u, v)| [u, v])
@@ -198,7 +191,7 @@ fn simple_graph_from_create(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
         )));
     }
-    Ok(SimpleGraph::new(num_vertices, edges))
+    SimpleGraph::try_new(num_vertices, edges)
 }
 
 impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
@@ -474,10 +467,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Issue #1026 canonical instance: path 0 - 1 - 2 with edge costs
-    // c(0,1)=1, c(1,2)=6, vertex prizes p = (5, 2, 5), beta = 1, omega = 2.
-    // Optimum: V_F = {0,1,2}, E_F = {(0,1)} (two components {0,1} and {2}),
-    // objective = 0 + 1 + 2*2 = 5.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "prize_collecting_steiner_forest_simplegraph",
         instance: Box::new(

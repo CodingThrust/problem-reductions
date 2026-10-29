@@ -4,6 +4,7 @@
 //! bound D, determine whether G has a spanning tree with total weight at most B
 //! and diameter (longest shortest path in edges) at most D.
 
+use super::simple_graph_from_create;
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -128,34 +129,6 @@ impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
             .unwrap_or_else(|| vec![1; graph.num_edges()]);
         Self::try_new(graph, edge_weights, spec.weight_bound, spec.diameter_bound)
     }
-}
-
-fn simple_graph_from_create(
-    edges: Vec<(usize, usize)>,
-    num_vertices: Option<usize>,
-) -> Result<SimpleGraph, crate::registry::ConstructionError> {
-    if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph"
-            .to_string()
-            .into());
-    }
-    for (index, &(u, v)) in edges.iter().enumerate() {
-        if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-        }
-    }
-    let inferred = edges
-        .iter()
-        .flat_map(|&(u, v)| [u, v])
-        .max()
-        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
-        .transpose()?
-        .unwrap_or(0);
-    let num_vertices = num_vertices.unwrap_or(inferred);
-    if num_vertices < inferred {
-        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
-    }
-    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> BoundedDiameterSpanningTree<G, W> {
@@ -318,7 +291,6 @@ where
                     ));
                 }
 
-                // Collect selected edges
                 let selected_indices: Vec<usize> = config
                     .iter()
                     .enumerate()
@@ -334,7 +306,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Build adjacency list and compute total weight
                 let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
                 let mut total_weight = W::Sum::zero();
                 for &idx in &selected_indices {
@@ -348,12 +319,10 @@ where
                     )?;
                 }
 
-                // Check weight bound
                 if total_weight > self.weight_bound.clone() {
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check connectivity using BFS
                 let mut visited = vec![false; n];
                 let mut queue = VecDeque::new();
                 visited[0] = true;
@@ -373,7 +342,6 @@ where
                     return Ok(crate::types::Or(false));
                 }
 
-                // Check diameter bound (BFS from each vertex)
                 let diameter = Self::tree_diameter(&adj, n);
                 diameter <= self.diameter_bound
             })
@@ -401,10 +369,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // 5 vertices, 7 edges with weights: (0,1,1),(0,2,2),(0,3,1),(1,2,1),(1,4,2),(2,3,1),(3,4,1)
-    // B=5, D=3
-    // Tree: edges (0,1),(0,3),(2,3),(3,4) → edge indices 0,2,5,6
-    // Config: [1,0,1,0,0,1,1] → weight = 1+1+1+1 = 4 ≤ 5, diameter = 3 ≤ 3
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bounded_diameter_spanning_tree_simplegraph",
         instance: Box::new(BoundedDiameterSpanningTree::new(

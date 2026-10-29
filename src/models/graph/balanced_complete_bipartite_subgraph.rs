@@ -58,7 +58,7 @@ impl TryFrom<BalancedCompleteBipartiteSubgraphCreateSpec> for BalancedCompleteBi
             }
         }
         Ok(Self::new(
-            BipartiteGraph::new(spec.left, spec.right, spec.biedges),
+            BipartiteGraph::try_new(spec.left, spec.right, spec.biedges)?,
             spec.k,
         ))
     }

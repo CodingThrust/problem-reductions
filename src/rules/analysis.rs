@@ -33,7 +33,6 @@ pub fn check_connectivity(graph: &ReductionGraph) -> ConnectivityReport {
     let mut types = graph.problem_types();
     types.sort();
 
-    // Build undirected adjacency at the problem-type level
     let mut adj: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
     for &name in &types {
         adj.entry(name).or_default();
@@ -43,7 +42,6 @@ pub fn check_connectivity(graph: &ReductionGraph) -> ConnectivityReport {
         }
     }
 
-    // Find connected components via BFS
     let mut visited: BTreeSet<&str> = BTreeSet::new();
     let mut components: Vec<Vec<&str>> = Vec::new();
 
@@ -153,7 +151,6 @@ pub fn check_reachability_from_3sat(graph: &ReductionGraph) -> ReachabilityRepor
     let mut types = graph.problem_types();
     types.sort();
 
-    // Build directed adjacency at the type level
     let mut adj: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
     for &name in &types {
         adj.entry(name).or_default();

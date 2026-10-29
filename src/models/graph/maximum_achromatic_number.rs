@@ -193,8 +193,6 @@ crate::register_brute_force! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // C6: 6-cycle, achromatic number = 3
-    // Coloring [0, 1, 2, 0, 1, 2] uses 3 colors and is both proper and complete.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_achromatic_number_simplegraph",
         instance: Box::new(MaximumAchromaticNumber::new(SimpleGraph::new(

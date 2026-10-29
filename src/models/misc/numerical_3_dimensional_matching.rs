@@ -184,7 +184,6 @@ impl Problem for Numerical3DimensionalMatching {
                 // Second m values: assignment of Y-elements to W-elements (must be a permutation)
                 let y_perm = &config[m..];
 
-                // Check that both are valid permutations of 0..m
                 let mut x_used = vec![false; m];
                 let mut y_used = vec![false; m];
 
@@ -196,7 +195,6 @@ impl Problem for Numerical3DimensionalMatching {
                     y_used[y_perm[i]] = true;
                 }
 
-                // Check that each triple sums to B
                 for i in 0..m {
                     let sum = self.sizes_w[i]
                         .checked_add(self.sizes_x[x_perm[i]])

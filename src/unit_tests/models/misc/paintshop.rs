@@ -100,9 +100,6 @@ fn test_adjacent_same_car() {
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
-    // Best case: [0,0] -> [0,1,0,1] = 3 switches, or [0,1] -> [0,1,1,0] = 2 switches
-    // Actually: [0,0] -> a=0,a=1,b=0,b=1 = [0,1,0,1] = 3 switches
-    // [0,1] -> a=0,a=1,b=1,b=0 = [0,1,1,0] = 2 switches
     let min_switches = problem.count_switches(&solutions[0]).unwrap();
     assert!(min_switches <= 3);
 }

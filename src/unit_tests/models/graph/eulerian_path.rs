@@ -1,17 +1,17 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::solvers::BruteForceProblem as _;
-use crate::topology::DirectedGraph;
+use crate::topology::MultiDigraph;
 use crate::traits::Problem;
 use crate::types::Or;
 
-/// Build the canonical YES instance from issue #1024.
+/// Build the canonical YES instance.
 ///
 /// `V = {0, 1, 2}` and `A = [(0, 1), (0, 1), (1, 2), (2, 0)]`, with parallel
 /// arcs `a_0` and `a_1` between vertices `0` and `1`. The witness ordering
 /// `(a_0, a_2, a_3, a_1)` traces the directed trail `0 -> 1 -> 2 -> 0 -> 1`.
 fn canonical_instance() -> EulerianPath {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
+    let graph = MultiDigraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]);
     EulerianPath::new(graph)
 }
 
@@ -90,7 +90,7 @@ fn test_eulerian_path_no_instance() {
     // Three parallel arcs (0,1) and one return arc (1,0).
     // outdeg(0) - indeg(0) = 3 - 1 = 2, breaks the degree-balance condition,
     // so no Eulerian trail exists.
-    let graph = DirectedGraph::new(2, vec![(0, 1), (0, 1), (0, 1), (1, 0)]);
+    let graph = MultiDigraph::new(2, vec![(0, 1), (0, 1), (0, 1), (1, 0)]);
     let problem = EulerianPath::new(graph);
     let solver = BruteForce::new();
     assert!(solver.solve(&problem).unwrap().is_none());
@@ -101,7 +101,7 @@ fn test_eulerian_path_no_instance() {
 #[test]
 fn test_eulerian_path_empty_arcs_instance() {
     // m = 0 (only isolated vertices): dims = [] and the empty witness is valid.
-    let graph = DirectedGraph::new(3, vec![]);
+    let graph = MultiDigraph::new(3, vec![]);
     let problem = EulerianPath::new(graph);
     assert_eq!(problem.dimensions(), Vec::<usize>::new());
     assert_eq!(problem.num_variables(), 0);

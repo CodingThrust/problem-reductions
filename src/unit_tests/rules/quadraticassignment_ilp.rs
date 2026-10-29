@@ -28,7 +28,6 @@ fn test_quadraticassignment_to_ilp_closed_loop() {
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    // Solve via ILP
     let reduction: ReductionQAPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -57,7 +56,6 @@ fn test_quadraticassignment_to_ilp_2x2() {
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    // Solve via ILP
     let reduction: ReductionQAPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
@@ -97,7 +95,6 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
-    // Solve via ILP
     let reduction: ReductionQAPToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();

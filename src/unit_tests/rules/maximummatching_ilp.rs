@@ -5,9 +5,9 @@ use crate::traits::Problem;
 use crate::types::Max;
 
 #[test]
-fn parameter_predictions_account_for_isolated_vertices_and_loops() {
+fn parameter_predictions_account_for_isolated_vertices_and_empty_graphs() {
     use crate::parameters::ParameterRelation;
-    for (vertices, edges, expected_constraints) in [(3, vec![(0, 1)], 2), (1, vec![(0, 0)], 1)] {
+    for (vertices, edges, expected_constraints) in [(3, vec![(0, 1)], 2), (1, vec![], 0)] {
         let source = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(vertices, edges));
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let actual = reduction.target_problem().parameters();
@@ -42,7 +42,6 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check ILP structure
     assert_eq!(ilp.num_vars(), 3, "Should have one variable per edge");
     // Each vertex has degree 2, so 3 constraints (one per vertex)
     assert_eq!(
@@ -65,7 +64,6 @@ fn test_reduction_weighted() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<i64> = vec![0; 2];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
@@ -85,10 +83,8 @@ fn test_maximummatching_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -98,7 +94,6 @@ fn test_maximummatching_to_ilp_closed_loop() {
     assert_eq!(bf_size, Max(Some(1)));
     assert_eq!(ilp_size, Max(Some(1)));
 
-    // Verify the ILP solution is valid for the original problem
     assert!(
         problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
@@ -117,11 +112,9 @@ fn test_ilp_solution_equals_brute_force_path() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
-    // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted).unwrap();
@@ -129,7 +122,6 @@ fn test_ilp_solution_equals_brute_force_path() {
     assert_eq!(bf_size, Max(Some(2)));
     assert_eq!(ilp_size, Max(Some(2)));
 
-    // Verify validity
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
@@ -157,7 +149,6 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     assert_eq!(bf_obj, Max(Some(100)));
     assert_eq!(ilp_obj, Max(Some(100)));
 
-    // Verify the solution selects edge 0 (0-1)
     assert_eq!(extracted, vec![true, false]);
 }
 
@@ -230,7 +221,6 @@ fn test_k4_perfect_matching() {
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(2))); // Perfect matching has 2 edges
 
-    // Verify all vertices are matched
     let sum: usize = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(sum, 2);
 }

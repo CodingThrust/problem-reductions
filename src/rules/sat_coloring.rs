@@ -48,7 +48,6 @@ impl SATColoringConstructor {
         edges.push((0, 2));
         edges.push((1, 2));
 
-        // Create variable vertices and edges
         let mut pos_vertices = Vec::with_capacity(num_vars);
         let mut neg_vertices = Vec::with_capacity(num_vars);
         let mut vmap = HashMap::new();
@@ -66,7 +65,6 @@ impl SATColoringConstructor {
             // Connect pos and neg of the same variable (they must have different colors)
             edges.push((pos_v, neg_v));
 
-            // Build vmap
             vmap.insert((i, false), pos_v); // positive literal
             vmap.insert((i, true), neg_v); // negative literal
         }
@@ -139,7 +137,11 @@ impl SATColoringConstructor {
     /// For multi-literal clauses, build OR-gadgets recursively.
     fn add_clause(&mut self, literals: &[i64]) {
         if literals.is_empty() {
-            self.add_edge(self.true_vertex(), self.true_vertex());
+            // A fourth vertex adjacent to the base triangle makes a simple K4 NO gadget.
+            let vertex = self.add_vertices(1)[0];
+            for base in 0..3 {
+                self.add_edge(vertex, base);
+            }
             return;
         }
 
@@ -166,7 +168,6 @@ impl SATColoringConstructor {
     ///
     /// Returns the output vertex index.
     fn add_or_gadget(&mut self, input1: usize, input2: usize) -> usize {
-        // Add 5 new vertices
         let new_vertices = self.add_vertices(5);
         let ancilla1 = new_vertices[0];
         let ancilla2 = new_vertices[1];
@@ -199,7 +200,10 @@ impl SATColoringConstructor {
 
     /// Build the final KColoring problem.
     fn build_coloring(&self) -> KColoring<K3, SimpleGraph> {
-        KColoring::<K3, _>::new(SimpleGraph::new(self.num_vertices, self.edges.clone()))
+        KColoring::<K3, _>::new(SimpleGraph::new(
+            self.num_vertices,
+            super::graph_helpers::unique_undirected_edges(self.edges.clone()),
+        ))
     }
 }
 
@@ -274,8 +278,8 @@ impl crate::rules::AggregateReductionResult for ReductionSATToColoring {}
 
 #[reduction(
     transform = upper_bound {
-        num_vertices = "2 * num_vars + 3 + 5 * num_literals",
-        num_edges = "3 + 3 * num_vars + 11 * num_literals + 2 * num_clauses",
+        num_vertices = "2 * num_vars + 3 + 5 * num_literals + num_clauses",
+        num_edges = "3 + 3 * num_vars + 11 * num_literals + 3 * num_clauses",
         num_colors = "3",
     }
 )]
@@ -285,7 +289,6 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constructor = SATColoringConstructor::new(self.num_vars());
 
-        // Add each clause to the graph
         for clause in self.clauses() {
             constructor.add_clause(&clause.literals);
         }

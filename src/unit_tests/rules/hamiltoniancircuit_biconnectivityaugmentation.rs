@@ -129,11 +129,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_complete4() {
 #[test]
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_small_graphs() {
     for n in 0..3 {
-        let edges = if n == 2 {
-            vec![(0, 1), (0, 1), (1, 1)]
-        } else {
-            vec![]
-        };
+        let edges = if n == 2 { vec![(0, 1)] } else { vec![] };
         let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
         let reduction =
             ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source).unwrap();
@@ -156,15 +152,13 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_all_graphs_and_certific
             .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
             .collect();
         for edge_mask in 0..1usize << pairs.len() {
-            let mut edges: Vec<_> = pairs
+            let edges: Vec<_> = pairs
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| edge_mask & (1 << i) != 0)
                 .map(|(_, &e)| e)
                 .collect();
-            // Native SimpleGraph inputs can contain loops and repeated edges.
-            edges.extend(edges.clone());
-            edges.extend((0..n).map(|v| (v, v)));
+
             let source = HamiltonianCircuit::new(SimpleGraph::new(n, edges));
             let reduction =
                 ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)

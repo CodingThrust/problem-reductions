@@ -231,11 +231,9 @@ fn test_integer_knapsack_deserialization_rejects_invalid_fields() {
 
 #[test]
 fn test_integer_knapsack_paper_example() {
-    // From issue #532: 5 items, sizes=[3,4,5,2,7], values=[4,5,7,3,9], B=15
     // Optimal=22 with c=(0,0,1,5,0) or c=(1,0,0,6,0)
     let problem = IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap();
 
-    // Verify both optimal solutions
     assert_eq!(
         problem.evaluate(&vec![0, 0, 1, 5, 0]).unwrap(),
         Max(Some(22))

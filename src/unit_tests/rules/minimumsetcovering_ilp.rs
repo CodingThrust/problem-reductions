@@ -11,7 +11,6 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check ILP structure
     assert_eq!(ilp.num_vars(), 2, "Should have one variable per set");
     assert_eq!(
         ilp.constraints().len(),
@@ -33,7 +32,6 @@ fn test_reduction_weighted() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<i64> = vec![0; 2];
     for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
@@ -53,10 +51,8 @@ fn test_minimumsetcovering_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
 
-    // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -66,7 +62,6 @@ fn test_minimumsetcovering_to_ilp_closed_loop() {
     assert_eq!(bf_size, 2);
     assert_eq!(ilp_size, 2);
 
-    // Verify the ILP solution is valid for the original problem
     assert!(
         problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
@@ -101,7 +96,6 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     assert_eq!(bf_obj, Min(Some(6)));
     assert_eq!(ilp_obj, Min(Some(6)));
 
-    // Verify the solution selects S1 and S2
     assert_eq!(extracted, vec![false, true, true]);
 }
 
@@ -116,7 +110,6 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![true, true]);
 
-    // Verify this is a valid set cover
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 

@@ -114,11 +114,6 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
                 .to_string()
                 .into());
         }
-        for (index, &(u, v)) in spec.graph.iter().enumerate() {
-            if u == v {
-                return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
-            }
-        }
         let inferred = spec
             .graph
             .iter()
@@ -133,7 +128,7 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
                 "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
             ).into());
         }
-        let graph = SimpleGraph::new(num_vertices, spec.graph);
+        let graph = SimpleGraph::try_new(num_vertices, spec.graph)?;
         Self::try_new(graph, spec.source, spec.sink, spec.max_length)
     }
 }
@@ -332,9 +327,6 @@ fn encode_paths(num_edges: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<V
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
-    // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
-    // Three edge-selection rows over six edges.
-    // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
         instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),

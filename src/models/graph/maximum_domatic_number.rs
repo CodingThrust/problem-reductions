@@ -92,7 +92,6 @@ impl<G: Graph> MaximumDomaticNumber<G> {
             return None;
         }
 
-        // Collect which vertices belong to each set
         let mut sets: Vec<Vec<usize>> = vec![vec![]; n];
         for (v, &set_idx) in config.iter().enumerate() {
             // Each set index must be within bounds of the available sets.
@@ -102,7 +101,6 @@ impl<G: Graph> MaximumDomaticNumber<G> {
             sets[set_idx].push(v);
         }
 
-        // Check each non-empty set is a dominating set
         let mut count = 0;
         for set in &sets {
             if set.is_empty() {
@@ -110,7 +108,6 @@ impl<G: Graph> MaximumDomaticNumber<G> {
             }
             count += 1;
 
-            // Build membership lookup
             let mut in_set = vec![false; n];
             for &v in set {
                 in_set[v] = true;

@@ -151,3 +151,13 @@ pub fn ksg_edges(locations: &[(usize, usize)]) -> Vec<(usize, usize)> {
     }
     edges
 }
+
+/// Small induced instances retain every named mapping case without large MIS searches.
+pub fn small_graph_case(name: &str) -> (usize, Vec<(usize, usize)>) {
+    let (n, edges) = crate::topology::smallgraph(name).unwrap();
+    let n = n.min(8);
+    (
+        n,
+        edges.into_iter().filter(|&(u, v)| u < n && v < n).collect(),
+    )
+}

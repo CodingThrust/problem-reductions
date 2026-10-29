@@ -11,7 +11,7 @@ use problemreductions::models::graph::{LabelledArc, LabelledDigraph};
 use problemreductions::models::misc::{CbqRelation, FrequencyTable, KnownValue, QueryArg};
 use problemreductions::prelude::*;
 use problemreductions::topology::{
-    DirectedGraph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    KingsSubgraph, MultiDigraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -353,9 +353,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         return create_registered_random(args, canonical, &resolved_variant, out);
     }
 
-    // ILP and CircuitSAT have complex input structures
-    // not suited for CLI flags. Check before the empty-flags help so they get a
-    // clear message.
+    // ILP and CircuitSAT have complex input structures not suited for CLI flags.
     if canonical == "ILP" || canonical == "CircuitSAT" {
         bail!(
             "CLI creation is not yet supported for {canonical}.\n\n\
@@ -478,7 +476,7 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
     Ok(matrix)
 }
 
-/// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
+/// Parse `--arcs` as directed arc pairs and build a `MultiDigraph`.
 ///
 /// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
 /// unless `num_vertices` is provided (which must be >= inferred count).
@@ -486,7 +484,7 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
 fn parse_directed_graph(
     arcs_str: &str,
     num_vertices: Option<usize>,
-) -> Result<(DirectedGraph, usize)> {
+) -> Result<(MultiDigraph, usize)> {
     let arcs: Vec<(usize, usize)> = arcs_str
         .split(',')
         .map(|pair| {
@@ -506,7 +504,11 @@ fn parse_directed_graph(
         .iter()
         .flat_map(|&(u, v)| [u, v])
         .max()
-        .map(|m| m + 1)
+        .map(|m| {
+            m.checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("vertex count overflows usize"))
+        })
+        .transpose()?
         .unwrap_or(0);
     let num_v = match num_vertices {
         Some(user_num_v) => {
@@ -522,7 +524,7 @@ fn parse_directed_graph(
         None => inferred_num_v,
     };
     let num_arcs = arcs.len();
-    Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+    Ok((MultiDigraph::try_new(num_v, arcs)?, num_arcs))
 }
 
 /// Parse implication rules from semicolon-separated "antecedents>consequent" strings.

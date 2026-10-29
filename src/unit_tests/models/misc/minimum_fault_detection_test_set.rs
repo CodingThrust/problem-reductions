@@ -206,7 +206,6 @@ fn test_minimum_fault_detection_test_set_paper_example() {
     let optimal = problem.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(2)));
 
-    // Verify there is exactly one optimal witness
     let all = solver.find_all_witnesses(&problem).unwrap();
     let optimal_witnesses: Vec<_> = all
         .into_iter()

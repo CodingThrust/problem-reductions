@@ -258,8 +258,7 @@ impl TryFrom<EnsembleComputationDef> for EnsembleComputation {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Keep the canonical example small enough for the example-db optimality check to solve
-    // it via brute force, while still demonstrating reuse of a previously computed set.
+    // Keep reference enumeration small while exercising reuse of a computed set.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "ensemble_computation",
         instance: Box::new(EnsembleComputation::new(

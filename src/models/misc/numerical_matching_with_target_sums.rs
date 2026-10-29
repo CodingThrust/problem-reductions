@@ -150,7 +150,6 @@ impl Problem for NumericalMatchingWithTargetSums {
                     ));
                 }
 
-                // Check config is valid permutation of 0..m
                 let mut used = vec![false; m];
                 for &idx in config {
                     if used[idx] {
@@ -159,7 +158,6 @@ impl Problem for NumericalMatchingWithTargetSums {
                     used[idx] = true;
                 }
 
-                // Compute pair sums and compare multisets
                 let mut pair_sums: Vec<i128> = (0..m)
                     .map(|i| i128::from(self.sizes_x[i]) + i128::from(self.sizes_y[config[i]]))
                     .collect();

@@ -30,7 +30,6 @@ impl ReductionResult for ReductionSTMMCCToILP {
         &self.target
     }
 
-    /// Extract: decode position assignment → permutation → Lehmer code.
     fn extract_solution(
         &self,
         target_solution: &<Self::Target as crate::traits::Problem>::Solution,
