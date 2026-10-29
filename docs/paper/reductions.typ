@@ -14486,6 +14486,65 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
 ]
 
+#let ss_nae = load-example("SetSplitting", "NAESatisfiability")
+#let ss_nae_sol = ss_nae.solutions.at(0)
+#reduction-rule("SetSplitting", "NAESatisfiability",
+  example: true,
+  example-caption: [One NAE clause per subset],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(ss_nae) + " -o set-splitting.json",
+      "pred reduce set-splitting.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate set-splitting.json --config " + cli-config(ss_nae_sol.source_config),
+    )
+
+    The canonical source has $#ss_nae.source.instance.universe_size$ elements and
+    subsets #{ss_nae.source.instance.subsets.map(s => [${#s.map(str).join(", ")}$]).join(", ")}.
+    It produces $#ss_nae.target.instance.num_vars$ Boolean variables and
+    $#ss_nae.target.instance.clauses.len()$ NAE clauses.
+    Under the stored target witness $(#fmt-values(ss_nae_sol.target_config))$,
+    the subsets have truth values
+    #{ss_nae.source.instance.subsets.map(s => [$(#fmt-values(s.map(u => ss_nae_sol.target_config.at(u))))$]).join(", ")}.
+    Each contains both values, so the same vector
+    $(#fmt-values(ss_nae_sol.source_config))$ is a valid splitting.
+  ],
+)[
+  Encode each universe element by a Boolean variable and each subset by its
+  not-all-equal constraint @schaefer1978. The target has exactly $n$ variables
+  and $m$ clauses for a source universe of size $n$ with $m$ subset vectors.
+][
+  _Construction._ For $U = {0, dots, n-1}$, introduce $x_u$ for each $u in U$.
+  In each subset vector, retain the first occurrence of each distinct element.
+  If the resulting list is $(u_1, dots, u_k)$ with $k >= 2$, emit the NAE clause
+  $(x_(u_1), dots, x_(u_k))$. If only one distinct element $u$ remains, emit
+  $(x_u, x_u)$. Source construction excludes empty subset vectors; an empty
+  family of subsets produces an empty formula. Unused elements retain their
+  variables. Positive literal $x_u$ is represented by the signed integer $u+1$;
+  universes outside the target literal domain return a construction error.
+
+  _Correctness._ ($arrow.r.double$) In a valid splitting, every subset contains
+  both colors. Removing repeated occurrences preserves these colors, so assigning
+  each $x_u$ its element's color satisfies every emitted NAE clause.
+  ($arrow.l.double$) In any satisfying target assignment, every clause has both
+  truth values. Giving each element its variable's value therefore splits every
+  source subset. A subset containing only one distinct element is unsplittable;
+  its repeated-literal clause is unsatisfiable, preserving the equivalence.
+
+  _Parameter bounds._ Each clause uses at most $n$ distinct variables, so the
+  sum of clause-variable counts is at most $n m$. A clause has at most $2n$
+  literal occurrences, including the repeated-literal case. Thus the total
+  literal count $L$ is at most $2 n m$, and the sum of within-clause literal-pair
+  counts is at most $L(L-1)/2 <= 2 n m (2 n m + 1)$. For an empty universe, the
+  accepted family is empty and all these counts are zero. Deduplication by
+  scanning previously retained elements takes polynomial time in the source
+  representation length.
+
+  _Solution extraction._ Validate the target witness and return it unchanged.
+  The assignment to every original element is preserved, with no auxiliary
+  variables to discard.
+]
+
 #reduction-rule("SetSplitting", "ILP")[
   Each subset must contain at least one element of each color, encoded as a pair of linear inequalities per subset.
 ][
