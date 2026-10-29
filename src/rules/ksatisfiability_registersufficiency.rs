@@ -1,8 +1,7 @@
 //! Reduction from KSatisfiability (3-SAT) to RegisterSufficiency.
 //!
-//! This is Sethi's Reduction I / Theorem 3.11 (STOC 1973), with native
-//! empty-formula/empty-clause boundary targets, compact variables, and literal
-//! repetition for nonempty short clauses. The corrected extraction
+//! This is Sethi's Reduction I / Theorem 3.11 (STOC 1973), with an
+//! empty-formula boundary target and compact variables. The corrected extraction
 //! rule from issue #872:
 //! - the snapshot is taken immediately after `w[n]`
 //! - `x_k = true` iff `x_pos[k]` has been computed by that snapshot
@@ -337,15 +336,10 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let empty_clause = self
-            .clauses()
-            .iter()
-            .any(|clause| clause.literals.is_empty());
-        if empty_clause || self.num_clauses() == 0 {
-            // Zero vertices need zero registers (YES); one output vertex
-            // cannot be computed with zero registers (NO).
+        if self.num_clauses() == 0 {
+            // Zero vertices need zero registers (YES).
             return Ok(Reduction3SATToRegisterSufficiency {
-                target: RegisterSufficiency::new(usize::from(empty_clause), Vec::new(), 0),
+                target: RegisterSufficiency::new(0, Vec::new(), 0),
                 layout: None,
                 source_num_vars: self.num_vars(),
                 source_variables: Vec::new(),
@@ -377,11 +371,6 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
                         .expect("all appearing SAT variables were collected");
                     let variable = i64::try_from(compact + 1).expect("compact SAT indices fit i64");
                     literals[position] = if literal > 0 { variable } else { -variable };
-                }
-                // Repeating a literal preserves a nonempty disjunction. Every
-                // slot has a real literal and the original first-true lock proof.
-                for position in clause.literals.len()..3 {
-                    literals[position] = literals[0];
                 }
                 literals
             })

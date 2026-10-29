@@ -18,9 +18,12 @@ fn satisfiable_instance() -> KSatisfiability<K3> {
 }
 
 fn unsatisfiable_instance() -> KSatisfiability<K3> {
-    KSatisfiability::<K3>::new_allow_less(
+    KSatisfiability::<K3>::new(
         1,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+        vec![
+            CNFClause::new(vec![1, 1, 1]),
+            CNFClause::new(vec![-1, -1, -1]),
+        ],
     )
 }
 
@@ -49,12 +52,9 @@ fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_tim
     let source = satisfiable_instance();
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
-    let target_solution = construct_timetable_from_assignment(
-        reduction.target_problem(),
-        &[true, true, false],
-        &source,
-    )
-    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let target_solution = reduction
+        .construct_target_solution(&[true, true, false])
+        .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
     assert!(
         reduction
@@ -74,12 +74,9 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
-    let target_solution = construct_timetable_from_assignment(
-        reduction.target_problem(),
-        &[true, true, false],
-        &source,
-    )
-    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let target_solution = reduction
+        .construct_target_solution(&[true, true, false])
+        .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![true, true, false]);

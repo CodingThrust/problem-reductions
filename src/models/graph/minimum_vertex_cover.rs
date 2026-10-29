@@ -137,7 +137,7 @@ impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
 
     /// Check if a configuration is a valid vertex cover.
     pub fn is_valid_solution(&self, config: &[bool]) -> bool {
-        is_vertex_cover_config(&self.graph, config)
+        config.len() == self.graph.num_vertices() && is_vertex_cover_config(&self.graph, config)
     }
 }
 
@@ -207,11 +207,9 @@ where
 }
 
 /// Check if a configuration forms a valid vertex cover.
-pub(crate) fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
+fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
     for (u, v) in graph.edges() {
-        let u_covered = config.get(u).copied().unwrap_or(false);
-        let v_covered = config.get(v).copied().unwrap_or(false);
-        if !u_covered && !v_covered {
+        if !config[u] && !config[v] {
             return false;
         }
     }

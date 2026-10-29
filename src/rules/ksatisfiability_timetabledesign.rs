@@ -826,27 +826,6 @@ impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
     }
 }
 
-#[cfg(any(test, feature = "example-db"))]
-#[allow(dead_code)]
-pub(super) fn construct_timetable_from_assignment(
-    target: &TimetableDesign,
-    assignment: &[bool],
-    source: &KSatisfiability<K3>,
-) -> Option<Vec<Vec<Vec<bool>>>> {
-    let reduction =
-        ReduceTo::<TimetableDesign>::reduce_to(source).expect("reduction should succeed");
-    if reduction.target_problem().num_periods() != target.num_periods()
-        || reduction.target_problem().num_craftsmen() != target.num_craftsmen()
-        || reduction.target_problem().num_tasks() != target.num_tasks()
-        || reduction.target_problem().craftsman_avail() != target.craftsman_avail()
-        || reduction.target_problem().task_avail() != target.task_avail()
-        || reduction.target_problem().requirements() != target.requirements()
-    {
-        return None;
-    }
-    reduction.construct_target_solution(assignment)
-}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;

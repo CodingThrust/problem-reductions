@@ -1,9 +1,8 @@
 //! Reduction from KSatisfiability (3-SAT) to One-In-Three Satisfiability.
 //!
 //! Schaefer's Lemma 3.5 (STOC 1978) expresses a three-input disjunction
-//! using five one-in-three constraints. Missing native clause positions
-//! use the forced false variable; appearing source variables are compacted
-//! and restored through an inverse map during extraction.
+//! using five one-in-three constraints. Appearing source variables are
+//! compacted and restored through an inverse map during extraction.
 
 use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
 use crate::reduction;
@@ -49,10 +48,15 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
 impl crate::rules::AggregateReductionResult for Reduction3SATToOneInThreeSAT {}
 
 #[reduction(
-    transform = upper_bound {
-        num_vars = "num_vars + 2 + 6 * num_clauses",
-        num_clauses = "1 + 5 * num_clauses",
-    })]
+    transform = {
+        exact {
+            num_clauses = "1 + 5 * num_clauses",
+        },
+        upper_bound {
+            num_vars = "num_vars + 2 + 6 * num_clauses",
+        },
+    }
+)]
 impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
     type Result = Reduction3SATToOneInThreeSAT;
 
@@ -101,9 +105,7 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
         clauses.push(CNFClause::new(vec![z_false, z_false, z_true]));
 
         for clause in self.clauses() {
-            // Adding false disjuncts preserves every native clause, including
-            // the empty disjunction, while using the same three-input gadget.
-            let mut literals = [z_false; 3];
+            let mut literals = [0; 3];
             for (position, &literal) in clause.literals.iter().enumerate() {
                 let original = usize::try_from(literal.unsigned_abs())
                     .expect("native SAT indices fit usize")

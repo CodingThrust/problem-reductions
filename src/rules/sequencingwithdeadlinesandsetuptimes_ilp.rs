@@ -63,7 +63,7 @@ impl crate::rules::AggregateReductionResult for ReductionSWDSTToILP {}
         max_constraint_magnitude_bits = "max_time_bits + num_tasks + 2",
         num_vars = "2 * num_tasks^2 + num_tasks",
         num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
-        num_nonzeros = "(2 * num_tasks^2 + num_tasks) * (2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks)",
+        num_nonzeros = "num_tasks^3 * (num_tasks - 1) + 3 * num_tasks^2 * (num_tasks - 1) + 7 * num_tasks * (num_tasks - 1) + 3 * num_tasks^2",
     },
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {

@@ -62,7 +62,7 @@ impl crate::rules::AggregateReductionResult for ReductionSTMWTToILP {}
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits + num_tasks",
         num_vars = "num_tasks^2 + 2 * num_tasks",
         num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
-        num_nonzeros = "(num_tasks^2 + 2 * num_tasks) * (2 * num_tasks^2 + 3 * num_tasks + 1)",
+        num_nonzeros = "4 * num_tasks * (num_tasks - 1) + 5 * num_tasks",
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for SequencingToMinimizeWeightedTardiness {

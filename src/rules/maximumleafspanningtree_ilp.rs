@@ -62,7 +62,7 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 2",
-        num_nonzeros = "(3 * num_edges + num_vertices) * (3 * num_vertices + 2 * num_edges + 1)",
+        num_nonzeros = "11 * num_edges + 2 * num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MaximumLeafSpanningTree<SimpleGraph> {
