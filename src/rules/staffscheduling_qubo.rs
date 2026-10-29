@@ -48,8 +48,8 @@ impl ReductionResult for ReductionStaffSchedulingToQUBO {
 impl crate::rules::AggregateReductionResult for ReductionStaffSchedulingToQUBO {}
 
 #[crate::reduction(transform = upper_bound {
-    num_vars = "63 * (num_schedules + num_periods + 1)",
-    num_quadratic_terms = "63 * (num_schedules + 1) * (63 * (num_schedules + 1) - 1) / 2 + num_periods * (3969 * num_schedules + 1953)",
+    num_vars = "num_workers_bits * (num_schedules + num_periods + 1)",
+    num_quadratic_terms = "num_workers_bits * (num_schedules + 1) * (num_workers_bits * (num_schedules + 1) - 1) / 2 + num_periods * num_workers_bits * (num_workers_bits * num_schedules + (num_workers_bits - 1) / 2)",
 })]
 impl ReduceTo<Decision<QUBO<i64>>> for StaffScheduling {
     type Result = ReductionStaffSchedulingToQUBO;

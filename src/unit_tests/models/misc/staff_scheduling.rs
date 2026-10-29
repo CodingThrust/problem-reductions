@@ -62,6 +62,7 @@ fn test_staff_scheduling_creation() {
     assert_eq!(problem.num_schedules(), 5);
     assert_eq!(problem.requirements(), &[2, 2, 2, 3, 3, 2, 1]);
     assert_eq!(problem.num_workers(), 4);
+    assert_eq!(problem.num_workers_bits(), 3);
     assert_eq!(problem.dimensions(), vec![5; 5]);
 }
 
@@ -148,4 +149,10 @@ fn test_staff_scheduling_paper_example() {
 fn test_staff_scheduling_problem_name_and_variant() {
     assert_eq!(<StaffScheduling as Problem>::NAME, "StaffScheduling");
     assert!(<StaffScheduling as Problem>::variant().is_empty());
+}
+
+#[test]
+fn test_staff_scheduling_zero_workers_use_one_bit() {
+    let problem = StaffScheduling::new(1, vec![vec![true]], vec![0], 0);
+    assert_eq!(problem.num_workers_bits(), 1);
 }
