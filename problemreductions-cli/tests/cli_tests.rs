@@ -5669,9 +5669,11 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         .find(|field| field["field"] == "schedule_horizon")
         .unwrap();
     assert_eq!(horizon["relation"], "unavailable");
-    assert!(horizon["reason"]
-        .as_str()
-        .is_some_and(|reason| !reason.is_empty()));
+    assert!(
+        horizon["reason"]
+            .as_str()
+            .is_some_and(|reason| !reason.is_empty())
+    );
 }
 
 #[test]
@@ -5710,11 +5712,13 @@ fn test_vertex_cover_via_lcs_to_mis_solves_and_recovers_optimum() {
     );
     let selected: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&route).unwrap()).unwrap();
-    assert!(selected["overall_parameters"]["fields"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .all(|field| field["relation"] != "unavailable"));
+    assert!(
+        selected["overall_parameters"]["fields"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|field| field["relation"] != "unavailable")
+    );
     let reduced = pred()
         .args([
             "reduce",
