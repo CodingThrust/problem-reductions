@@ -224,7 +224,7 @@ impl Problem for MinimumWeightSolutionToLinearEquations {
             let columns: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v)
+                .filter(|&(_, &v)| v)
                 .map(|(j, _)| j)
                 .collect();
 

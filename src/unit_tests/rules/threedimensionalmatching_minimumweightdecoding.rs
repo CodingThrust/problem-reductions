@@ -176,7 +176,9 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
         );
     }
 
-    assert!(reduction
-        .extract_solution(&vec![false, true, false])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false, true, false])
+            .is_err()
+    );
 }

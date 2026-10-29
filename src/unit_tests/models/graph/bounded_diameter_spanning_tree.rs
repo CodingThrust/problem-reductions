@@ -26,6 +26,22 @@ fn test_json_enforces_construction_constraints() {
 use super::*;
 
 #[test]
+fn test_bounded_diameter_spanning_tree_create_rejects_undersized_graph() {
+    let error = BoundedDiameterSpanningTree::try_from(BoundedDiameterSpanningTreeCreateSpec {
+        graph: vec![(0, 2)],
+        num_vertices: Some(2),
+        edge_weights: None,
+        weight_bound: 1,
+        diameter_bound: 1,
+    })
+    .unwrap_err();
+    assert!(
+        matches!(error, crate::registry::ConstructionError::Conversion(message)
+        if message == "num_vertices 2 is too small for graph endpoints; need at least 3")
+    );
+}
+
+#[test]
 fn test_json_rebuilds_edge_list() {
     let problem = BoundedDiameterSpanningTree::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
@@ -82,9 +98,11 @@ fn test_bounded_diameter_spanning_tree_evaluate_valid() {
     // Weight: 1+1+1+1 = 4 ≤ 5
     // Tree adjacency: 0-{1,3}, 1-{0}, 2-{3}, 3-{0,2,4}, 4-{3}
     // Diameter: longest path is e.g. 1-0-3-2 or 1-0-3-4 = 3 edges ≤ 3
-    assert!(problem
-        .evaluate(&vec![true, false, true, false, false, true, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![true, false, true, false, false, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -92,9 +110,11 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_weight() {
     let problem = example_instance();
     // Select edges 1,2,4,6: (0,2),(0,3),(1,4),(3,4)
     // Weight: 2+1+2+1 = 6 > 5
-    assert!(!problem
-        .evaluate(&vec![false, true, true, false, true, false, true])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![false, true, true, false, true, false, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -113,13 +133,17 @@ fn test_bounded_diameter_spanning_tree_evaluate_exceeds_diameter() {
 fn test_bounded_diameter_spanning_tree_evaluate_not_tree() {
     let problem = example_instance();
     // Too few edges
-    assert!(!problem
-        .evaluate(&vec![true, true, false, false, false, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, false, false, false, false, false])
+            .unwrap()
+    );
     // Too many edges
-    assert!(!problem
-        .evaluate(&vec![true, true, true, true, true, false, false])
-        .unwrap());
+    assert!(
+        !problem
+            .evaluate(&vec![true, true, true, true, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]

@@ -1,6 +1,6 @@
 //! Binary independence and absorption constraints for a directed graph kernel.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::Kernel;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -36,9 +36,9 @@ impl crate::rules::AggregateReductionResult for ReductionKernelToILP {}
     exact {
         num_vars = "num_vertices",
         num_constraints = "num_arcs + num_vertices",
+        num_nonzeros = "3 * num_arcs + num_vertices",
     },
     upper_bound {
-        num_nonzeros = "3 * num_arcs + num_vertices",
         max_constraint_magnitude_bits = "2",
     },
 })]

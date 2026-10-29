@@ -4,7 +4,7 @@
 //! with exact binary tardy indicators. Position-specific prefix bounds give
 //! both implications of the deadline comparison, including signed model inputs.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingToMinimizeTardyTaskWeight;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
@@ -53,7 +53,7 @@ impl ReductionResult for ReductionSTMTTWToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_processing_time_bits + num_tasks + 2",
-        num_nonzeros = "(num_tasks * num_tasks + num_tasks) * (2 * num_tasks + 2 * num_tasks * num_tasks)",
+        num_nonzeros = "num_tasks^4 - num_tasks^3 + 6 * num_tasks^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {

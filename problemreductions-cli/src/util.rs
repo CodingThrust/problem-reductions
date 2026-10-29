@@ -1,6 +1,6 @@
 //! Shared utilities for CLI and MCP: parsing helpers and random generation.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use num_bigint::BigUint;
 
 // ---------------------------------------------------------------------------

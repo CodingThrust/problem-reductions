@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, ObjectiveSense};
 use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
 use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
@@ -14,12 +14,14 @@ fn binary_attributes_reduce_without_materializing_the_domain_product() {
     assert_eq!(reduction.target_problem().num_constraints(), 64);
     let witness = vec![0; 64];
     let encoded = reduction.encode_source_solution(&witness);
-    assert!(reduction
-        .target_problem()
-        .evaluate(&encoded)
-        .unwrap()
-        .value
-        .is_some());
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&encoded)
+            .unwrap()
+            .value
+            .is_some()
+    );
     assert_eq!(reduction.extract_solution(&encoded).unwrap(), witness);
 }
 

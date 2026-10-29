@@ -1,6 +1,7 @@
 //! Symbolic parameter transformations carried by reduction rules.
 
 use crate::expr::{AlgebraicAnalysis, Expr, ExprNode, ExprNodeId, Symbol};
+use crate::polynomial::{Poly, pow_rational};
 use crate::types::ProblemParameters;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_rational::BigRational;
@@ -150,6 +151,13 @@ impl ParameterTransform {
         );
     }
 
+    /// Declared or propagated unavailable target fields.
+    pub fn unavailable_fields(&self) -> impl Iterator<Item = (&str, &ParameterTransformError)> {
+        self.unavailable
+            .iter()
+            .map(|(name, reason)| (name.as_ref(), reason))
+    }
+
     pub fn expressions(&self) -> impl Iterator<Item = (&str, &Expr)> {
         self.fields
             .iter()
@@ -213,29 +221,47 @@ impl ParameterTransform {
         let mut unavailable = next.unavailable.clone();
         for field in &next.fields {
             let result = (|| {
-                let mut bounded_input = false;
-                for input in field.expression.variables() {
+                // Expansion exposes cancelled dependencies: `n + m - m` no longer reads `m`.
+                let poly = Poly::from_expr(&field.expression);
+                let inputs: Vec<Box<str>> = match &poly {
+                    Some(poly) => poly.variables().iter().map(|v| v.as_str().into()).collect(),
+                    None => field
+                        .expression
+                        .variables()
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                };
+                let mut bounded = HashSet::new();
+                for input in &inputs {
                     if let Some(cause) = self.unavailable(input) {
                         return Err(ParameterTransformError::UnavailableInput {
                             edge: next.edge.clone(),
                             field: field.name.clone(),
-                            input_field: input.into(),
+                            input_field: input.as_ref().into(),
                             cause: Box::new(cause.clone()),
                         });
                     }
-                    bounded_input |= self.relation(input) == Some(ParameterRelation::UpperBound);
+                    if self.relation(input) == Some(ParameterRelation::UpperBound) {
+                        bounded.insert(input.as_ref());
+                    }
                 }
-                let expression = if bounded_input {
-                    positive_polynomial_hull(&field.expression).ok_or_else(|| {
-                        ParameterTransformError::CannotPropagateUpperBound {
+                // Partial hull: keep a negative term only when all its variables are exact,
+                // so the formula is monotone in every upper-bounded input.
+                let expression = match poly {
+                    Some(poly) => poly
+                        .hull(|m| m.keys().all(|v| !bounded.contains(v.as_str())))
+                        .to_expr(),
+                    None if bounded.is_empty() => field.expression.clone(),
+                    None => {
+                        return Err(ParameterTransformError::CannotPropagateUpperBound {
                             edge: next.edge.clone(),
                             field: field.name.clone(),
                             expression: field.expression.to_string().into(),
-                        }
-                    })?
-                } else {
-                    field.expression.clone()
+                        });
+                    }
                 };
+                let bounded_input = !bounded.is_empty();
                 let expression =
                     expression
                         .substitute_complete(&replacements)
@@ -262,102 +288,6 @@ impl ParameterTransform {
         composed.unavailable = unavailable;
         Ok(composed)
     }
-}
-
-type Monomial = BTreeMap<Symbol, BigUint>;
-type Polynomial = BTreeMap<Monomial, BigRational>;
-
-fn positive_polynomial_hull(expression: &Expr) -> Option<Expr> {
-    let polynomial = polynomial(expression)?;
-    let terms = polynomial
-        .into_iter()
-        .filter(|(_, coefficient)| coefficient.is_positive())
-        .map(|(monomial, coefficient)| {
-            monomial
-                .into_iter()
-                .fold(Expr::constant(coefficient), |term, (variable, exponent)| {
-                    term * Expr::pow(
-                        Expr::variable(variable.as_str()),
-                        Expr::integer(BigInt::from(exponent)),
-                    )
-                })
-        });
-    Some(terms.fold(Expr::integer(0), |sum, term| sum + term))
-}
-
-fn polynomial(expression: &Expr) -> Option<Polynomial> {
-    match expression.node() {
-        ExprNode::Const(value) => Some(BTreeMap::from([(BTreeMap::new(), value.clone())])),
-        ExprNode::Var(variable) => Some(BTreeMap::from([(
-            BTreeMap::from([(variable.clone(), BigUint::one())]),
-            BigRational::one(),
-        )])),
-        ExprNode::Add(values) => values.iter().try_fold(BTreeMap::new(), |sum, value| {
-            Some(add_polynomials(sum, polynomial(value)?))
-        }),
-        ExprNode::Mul(values) => values.iter().try_fold(
-            BTreeMap::from([(BTreeMap::new(), BigRational::one())]),
-            |product, value| Some(multiply_polynomials(product, polynomial(value)?)),
-        ),
-        ExprNode::Pow(base, exponent) => {
-            let ExprNode::Const(exponent) = exponent.node() else {
-                return None;
-            };
-            if !exponent.is_integer() {
-                return None;
-            }
-            if exponent.is_negative() {
-                let ExprNode::Const(base) = base.node() else {
-                    return None;
-                };
-                if base.is_zero() {
-                    return None;
-                }
-                return Some(BTreeMap::from([(
-                    BTreeMap::new(),
-                    pow_rational(base.clone(), &exponent.to_integer()),
-                )]));
-            }
-            let mut exponent = exponent.to_integer().magnitude().clone();
-            let mut base = polynomial(base)?;
-            let mut result = BTreeMap::from([(BTreeMap::new(), BigRational::one())]);
-            while !exponent.is_zero() {
-                if exponent.bit(0) {
-                    result = multiply_polynomials(result, base.clone());
-                }
-                exponent >>= 1usize;
-                if !exponent.is_zero() {
-                    base = multiply_polynomials(base.clone(), base);
-                }
-            }
-            Some(result)
-        }
-        ExprNode::Exp(_) | ExprNode::Log(_) | ExprNode::Factorial(_) => None,
-    }
-}
-
-fn add_polynomials(mut left: Polynomial, right: Polynomial) -> Polynomial {
-    for (monomial, right_coefficient) in right {
-        *left.entry(monomial).or_insert_with(BigRational::zero) += right_coefficient;
-    }
-    left.retain(|_, coefficient| !coefficient.is_zero());
-    left
-}
-
-fn multiply_polynomials(left: Polynomial, right: Polynomial) -> Polynomial {
-    let mut product = Polynomial::new();
-    for (left_monomial, left_coefficient) in left {
-        for (right_monomial, right_coefficient) in &right {
-            let mut monomial = left_monomial.clone();
-            for (variable, exponent) in right_monomial {
-                *monomial.entry(variable.clone()).or_default() += exponent;
-            }
-            *product.entry(monomial).or_insert_with(BigRational::zero) +=
-                &left_coefficient * right_coefficient;
-        }
-    }
-    product.retain(|_, coefficient| !coefficient.is_zero());
-    product
 }
 
 fn compile(
@@ -442,26 +372,6 @@ fn evaluate_plan(
     };
     memo.insert(plan.identity(), value.clone());
     Ok(value)
-}
-
-fn pow_rational(mut base: BigRational, exponent: &BigInt) -> BigRational {
-    let negative = exponent.sign() == Sign::Minus;
-    let mut exponent = exponent.magnitude().clone();
-    let mut result = BigRational::one();
-    while !exponent.is_zero() {
-        if exponent.bit(0) {
-            result *= &base;
-        }
-        exponent >>= 1usize;
-        if !exponent.is_zero() {
-            base = &base * &base;
-        }
-    }
-    if negative {
-        result.recip()
-    } else {
-        result
-    }
 }
 
 fn ceil_nonnegative(value: &BigRational) -> BigUint {
@@ -554,21 +464,27 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` declares target parameter field `{field}` more than once")]
     DuplicateTargetField { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` has non-integral constant exponent `{exponent}` in `{expression}`"
+    )]
     NonIntegralConstantExponent {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         exponent: Box<str>,
     },
-    #[error("reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` uses unsupported operator `{operator}` in `{expression}`"
+    )]
     UnsupportedOperator {
         edge: Box<str>,
         field: Box<str>,
         expression: Box<str>,
         operator: &'static str,
     },
-    #[error("reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`"
+    )]
     CannotPropagateUpperBound {
         edge: Box<str>,
         field: Box<str>,
@@ -592,7 +508,9 @@ pub enum ParameterTransformError {
     },
     #[error("reduction `{edge}` target field `{field}` divides by zero")]
     DivisionByZero { edge: Box<str>, field: Box<str> },
-    #[error("reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`")]
+    #[error(
+        "reduction `{edge}` target field `{field}` evaluates to non-integral parameter value `{value}`"
+    )]
     NonIntegralResult {
         edge: Box<str>,
         field: Box<str>,

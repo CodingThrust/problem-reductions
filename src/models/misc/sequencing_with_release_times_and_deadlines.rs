@@ -135,6 +135,25 @@ impl SequencingWithReleaseTimesAndDeadlines {
         self.lengths.len()
     }
 
+    /// Returns the largest number of in-window start times of any task.
+    pub fn max_start_slots(&self) -> u64 {
+        self.lengths
+            .iter()
+            .zip(&self.release_times)
+            .zip(&self.deadlines)
+            .map(|((&length, &release), &deadline)| {
+                // Nonnegative inputs keep `deadline - release` and the slack in range.
+                let slack = deadline - release;
+                if slack < length {
+                    0
+                } else {
+                    (slack - length).unsigned_abs() + 1
+                }
+            })
+            .max()
+            .unwrap_or(0)
+    }
+
     /// Returns the time horizon (maximum deadline).
     pub fn time_horizon(&self) -> i64 {
         self.deadlines.iter().copied().max().unwrap_or(0)
@@ -152,6 +171,7 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     type Value = crate::types::Or;
 
     crate::problem_parameters![
+        ("max_start_slots", max_start_slots),
         ("num_tasks", num_tasks),
         ("time_horizon", time_horizon),
         ("time_horizon_bits", time_horizon_bits),

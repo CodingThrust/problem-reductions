@@ -3,7 +3,7 @@
 //! One integer flow variable per arc. Capacity bounds, multiplier-scaled
 //! conservation at non-terminals, and sink inflow requirement.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;
@@ -48,7 +48,7 @@ impl crate::rules::AggregateReductionResult for ReductionIFWMToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_capacity_bits + num_arcs + 1",
-        num_nonzeros = "num_arcs * (num_arcs + num_vertices - 1)",
+        num_nonzeros = "3 * num_arcs",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for IntegralFlowWithMultipliers {

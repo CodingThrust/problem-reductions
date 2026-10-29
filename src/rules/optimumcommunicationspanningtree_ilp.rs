@@ -7,7 +7,7 @@
 //! - Tree constraints: sum x_e = n-1, and connectivity via flow conservation
 //! - Objective: minimize sum_{(u,v): r>0} r(u,v) * w(e) * (flow_uv(e->dir) + flow_uv(e<-dir))
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::OptimumCommunicationSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -53,7 +53,7 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2) * (1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2)",
+        num_nonzeros = "num_edges + 4 * num_edges * num_vertices * (num_vertices - 1)",
     },
 })]
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {

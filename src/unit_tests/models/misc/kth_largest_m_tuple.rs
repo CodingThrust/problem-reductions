@@ -7,10 +7,12 @@ fn tuple_count_must_fit_usize() {
         KthLargestMTuple::try_new(sets.clone(), 1, 1),
         Err(crate::registry::ConstructionError::IntegerOverflow(_))
     ));
-    assert!(serde_json::from_value::<KthLargestMTuple>(
-        serde_json::json!({"sets": sets, "k": 1, "bound": 1})
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<KthLargestMTuple>(
+            serde_json::json!({"sets": sets, "k": 1, "bound": 1})
+        )
+        .is_err()
+    );
     let problem =
         KthLargestMTuple::try_new(vec![vec![1, 2]; usize::BITS as usize - 1], 1, 1).unwrap();
     assert_eq!(problem.total_tuples(), 1usize << (usize::BITS - 1));

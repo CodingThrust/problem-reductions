@@ -1,32 +1,25 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_minimumvertexcover_to_maximumindependentset_closed_loop() {
+fn test_weighted_independent_set_to_vertex_cover_round_trip() {
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
         .expect("reduction should succeed");
-    let vc_problem = reduction.target_problem();
-
-    // Weights should be preserved
-    assert_eq!(vc_problem.weights().to_vec(), vec![10, 20, 30]);
-}
-
-#[test]
-fn test_reduction_structure() {
-    let is_problem = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-        vec![1i64; 5],
+    let solutions = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
+    assert_eq!(solutions, vec![vec![false, true, false]]);
+    let extracted = reduction.extract_solution(&solutions[0]).unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
+    assert_eq!(
+        is_problem.evaluate(&extracted).unwrap(),
+        crate::types::Max(Some(40))
     );
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is_problem)
-        .expect("reduction should succeed");
-    let vc = reduction.target_problem();
-
-    // Same number of vertices in both problems
-    assert_eq!(vc.graph().num_vertices(), 5);
 }
 
 #[test]

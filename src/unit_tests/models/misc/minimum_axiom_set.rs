@@ -105,11 +105,13 @@ fn test_minimum_axiom_set_evaluate_wrong_length() {
 #[test]
 fn test_minimum_axiom_set_evaluate_out_of_range() {
     let problem = canonical_instance();
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([2, false, false, false, false, false, false, false])
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([2, false, false, false, false, false, false, false])
+        )
+        .is_err()
+    );
 }
 
 #[test]

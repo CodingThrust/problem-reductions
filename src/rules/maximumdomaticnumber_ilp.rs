@@ -8,7 +8,7 @@
 //! - Linking constraints: x_{v,i} ≤ y_i for each v, i
 //! - Objective: maximize Σ y_i
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximumDomaticNumber;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -65,7 +65,7 @@ impl ReductionResult for ReductionDomaticNumberToILP {
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
     },
     upper_bound {
-        num_nonzeros = "(num_vertices * num_vertices + num_vertices) * (num_vertices + num_vertices * num_vertices + num_vertices * num_vertices)",
+        num_nonzeros = "num_vertices^3 + 4 * num_vertices^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {

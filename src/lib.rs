@@ -32,14 +32,16 @@ pub mod growth;
 pub mod io;
 pub mod models;
 pub mod parameters;
+mod path_search;
+pub mod poly_compare;
+pub mod polynomial;
+mod problem_parameters;
 pub mod random;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
 pub mod topology;
 pub mod traits;
-#[allow(dead_code)]
-pub(crate) mod truth_table;
 pub mod types;
 pub mod variant;
 
@@ -47,9 +49,9 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        AlgebraicEquationsOverGF2, ConsecutiveOnesMatrixAugmentation,
-        MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
-        SimultaneousIncongruences, SparseMatrixCompression, BMF, QUBO,
+        AlgebraicEquationsOverGF2, BMF, ConsecutiveOnesMatrixAugmentation,
+        MinimumWeightSolutionToLinearEquations, QUBO, QuadraticAssignment, QuadraticCongruences,
+        SimultaneousIncongruences, SparseMatrixCompression,
     };
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
@@ -114,7 +116,7 @@ pub mod prelude {
 pub use big_o::big_o_normal_form;
 pub use error::{ProblemError, Result};
 pub use expr::{
-    evaluate_approximate, ApproximationError, AsymptoticAnalysisError, Expr, ParseError,
+    ApproximationError, AsymptoticAnalysisError, Expr, ParseError, evaluate_approximate,
 };
 pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
@@ -127,8 +129,8 @@ pub use types::{
 
 // Re-export proc macros for reduction registration and variant declaration
 pub use problemreductions_macros::{
-    aggregate_reduction, declare_variants, reduction, register_aggregate_reduction,
-    register_brute_force, CreateSpec,
+    CreateSpec, aggregate_reduction, declare_variants, reduction, register_aggregate_reduction,
+    register_brute_force,
 };
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`

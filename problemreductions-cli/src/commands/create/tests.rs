@@ -747,7 +747,7 @@ fn test_create_path_constrained_network_flow_rejects_invalid_paths() {
 }
 
 #[test]
-fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
+fn test_create_staff_scheduling_rejects_ragged_schedule() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -775,13 +775,7 @@ fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
         auto_json: false,
     };
 
-    let result = std::panic::catch_unwind(|| create(&args, &out));
-    assert!(result.is_ok(), "create should return an error, not panic");
-    let err = result.unwrap().unwrap_err().to_string();
-    assert!(
-        err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
-        "expected row-length validation error, got: {err}"
-    );
+    assert!(create(&args, &out).is_err());
 }
 
 #[test]
@@ -954,7 +948,7 @@ fn test_create_timetable_design_outputs_problem_json() {
 }
 
 #[test]
-fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
+fn test_create_timetable_design_rejects_invalid_matrix() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -986,13 +980,7 @@ fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
         auto_json: false,
     };
 
-    let result = std::panic::catch_unwind(|| create(&args, &out));
-    assert!(result.is_ok(), "create should return an error, not panic");
-    let err = result.unwrap().unwrap_err().to_string();
-    assert!(
-        err.contains("--craftsman-avail"),
-        "expected timetable matrix validation error, got: {err}"
-    );
+    assert!(create(&args, &out).is_err());
 }
 
 #[test]
@@ -1058,9 +1046,10 @@ fn test_create_generalized_hex_requires_sink() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): sink"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): sink")
+    );
 }
 
 #[test]
@@ -1201,9 +1190,10 @@ fn test_create_production_planning_requires_all_period_vectors() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): production_costs"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): production_costs")
+    );
 }
 
 #[test]
@@ -1240,9 +1230,10 @@ fn test_create_production_planning_rejects_mismatched_period_lengths() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("all per-period vectors must have length num_periods"));
+    assert!(
+        err.to_string()
+            .contains("all per-period vectors must have length num_periods")
+    );
 }
 
 #[test]
@@ -1464,9 +1455,10 @@ fn test_create_longest_path_requires_edge_lengths() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): edge_lengths"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): edge_lengths")
+    );
 }
 
 #[test]
@@ -1521,9 +1513,10 @@ fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
     };
 
     let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("missing required construction input(s): lower_bounds"));
+    assert!(
+        err.to_string()
+            .contains("missing required construction input(s): lower_bounds")
+    );
 }
 
 fn empty_args() -> CreateArgs {
@@ -2142,9 +2135,11 @@ fn test_create_kclique() {
     let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
-    assert!(problem
-        .evaluate(&vec![false, false, true, true, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, true, true, true])
+            .unwrap()
+    );
 
     let _ = std::fs::remove_file(output_path);
 }

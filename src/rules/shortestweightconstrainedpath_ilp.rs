@@ -6,7 +6,7 @@
 //! bound constraint enforces the weight limit, and the objective minimizes
 //! total path length.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::ShortestWeightConstrainedPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -64,7 +64,7 @@ impl ReductionResult for ReductionSWCPToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
-        num_nonzeros = "(2 * num_edges + num_vertices) * (5 * num_edges + 4 * num_vertices + 2)",
+        num_nonzeros = "20 * num_edges + num_vertices + 1",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for ShortestWeightConstrainedPath<SimpleGraph, i64> {

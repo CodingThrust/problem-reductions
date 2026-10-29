@@ -101,7 +101,11 @@ impl crate::rules::AggregateReductionResult for ReductionThreePartitionToSRTD {}
             num_tasks = "num_elements + num_groups - 1",
             time_horizon = "num_groups * (bound + 1) - 1",
         },
-        upper_bound { time_horizon_bits = "max_numeric_magnitude_bits + num_groups + 1", },
+        // Each task's start window lies within [0, time_horizon].
+        upper_bound {
+            time_horizon_bits = "max_numeric_magnitude_bits + num_groups + 1",
+            max_start_slots = "num_groups * (bound + 1)",
+        },
     },
 )]
 impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {

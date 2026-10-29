@@ -20,7 +20,7 @@
 //! Note: All-pairs shortest-path distances are computed using weighted shortest
 //! paths over `edge_lengths`. Unreachable assignment variables are forced to 0.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumSumMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -117,11 +117,15 @@ fn weighted_distances_msmc(
     dist
 }
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "num_vertices + 1",
-    num_vars = "num_vertices + num_vertices^2",
-    num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
-    num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + 2 * num_vertices + 1)",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices + num_vertices^2",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "num_vertices + 1",
+        num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
+        num_nonzeros = "3 * num_vertices^2 + num_vertices",
+    },
 })]
 impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
     type Result = ReductionMSMCToILP;

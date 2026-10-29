@@ -12,7 +12,7 @@
 //! Objective: Minimize 0 (feasibility).
 //! Extraction: Direct 2*|A| variables.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -56,11 +56,15 @@ impl ReductionResult for ReductionD2CIFToILP {
 impl crate::rules::AggregateReductionResult for ReductionD2CIFToILP {}
 
 #[reduction(
-    transform = upper_bound {
-        max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
-        num_vars = "2 * num_arcs",
-        num_constraints = "num_arcs + 2 * num_vertices + 2",
-        num_nonzeros = "(2 * num_arcs) * (num_arcs + 2 * num_vertices + 2)",
+    transform = {
+        exact {
+            num_vars = "2 * num_arcs",
+        },
+        upper_bound {
+            max_constraint_magnitude_bits = "max_capacity * (num_arcs + 1) + 2",
+            num_constraints = "num_arcs + 2 * num_vertices + 2",
+            num_nonzeros = "(2 * num_arcs) * (num_arcs + 2 * num_vertices + 2)",
+        },
     },
 )]
 impl ReduceTo<ILP<i64, i64, Bounded>> for DirectedTwoCommodityIntegralFlow {

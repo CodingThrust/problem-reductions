@@ -26,9 +26,11 @@ fn test_large_link_keeps_one_hot_penalty_strict() {
 #[test]
 fn test_extraction_rejects_forbidden_pair() {
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&worked_example()).unwrap();
-    assert!(reduction
-        .extract_solution(&vec![false, true, true, false])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false, true, true, false])
+            .is_err()
+    );
 }
 
 fn worked_example() -> MinimumDiscretePlanarInverseKinematics {

@@ -14,7 +14,7 @@
 //! Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} u(v)·d(v,u)·y_{v,u}.
 //! Extraction: first n variables (x_v).
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MultipleCopyFileAllocation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -75,7 +75,7 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_vertices + num_vertices^2) * (num_vertices^2 + num_vertices)",
+        num_nonzeros = "3 * num_vertices^2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {

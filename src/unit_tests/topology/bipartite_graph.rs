@@ -62,15 +62,19 @@ fn test_bipartite_graph_invalid_right_index() {
 #[test]
 fn deserialize_checks_partition_endpoints_and_total_size() {
     for edges in [vec![(1, 0)], vec![(0, 1)]] {
-        assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
-            "left_size": 1, "right_size": 1, "edges": edges
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+                "left_size": 1, "right_size": 1, "edges": edges
+            }))
+            .is_err()
+        );
     }
-    assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
-        "left_size": usize::MAX, "right_size": 1, "edges": []
-    }))
-    .is_err());
+    assert!(
+        serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+            "left_size": usize::MAX, "right_size": 1, "edges": []
+        }))
+        .is_err()
+    );
     let graph: BipartiteGraph = serde_json::from_value(serde_json::json!({
         "left_size": 1, "right_size": 1, "edges": [[0, 0]]
     }))
@@ -82,10 +86,12 @@ fn deserialize_checks_partition_endpoints_and_total_size() {
 fn bipartite_graph_rejects_repeated_edges() {
     let edges = vec![(0, 0), (0, 0)];
     assert!(BipartiteGraph::try_new(2, 2, edges.clone()).is_err());
-    assert!(serde_json::from_value::<BipartiteGraph>(serde_json::json!({
-        "left_size": 2, "right_size": 2, "edges": edges,
-    }))
-    .is_err());
+    assert!(
+        serde_json::from_value::<BipartiteGraph>(serde_json::json!({
+            "left_size": 2, "right_size": 2, "edges": edges,
+        }))
+        .is_err()
+    );
     // These are different cross-partition pairs, not reversed copies of one edge.
     let graph = BipartiteGraph::new(2, 2, vec![(0, 1), (1, 0)]);
     assert_eq!(graph.num_edges(), 2);

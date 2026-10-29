@@ -1,15 +1,18 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson};
+use crate::dispatch::{ProblemJson, load_problem, read_input};
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::Result;
 use problemreductions::parameters::ParameterRelation;
-use problemreductions::registry::collect_schemas;
 use problemreductions::registry::ProblemCategory;
+use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{ExecutedPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::path::Path;
+
+#[path = "graph_compare.rs"]
+mod compare_view;
 
 pub fn list(
     query: Option<&str>,
@@ -18,7 +21,7 @@ pub fn list(
     verbose: bool,
     out: &OutputConfig,
 ) -> Result<()> {
-    use crate::output::{format_table, Align};
+    use crate::output::{Align, format_table};
 
     let needs_variant_rows = verbose || out.json || out.output.is_some();
     let catalog = problemreductions::registry::problem_types();
@@ -260,7 +263,7 @@ pub fn list(
 }
 
 pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputConfig) -> Result<()> {
-    use crate::output::{format_table, Align};
+    use crate::output::{Align, format_table};
 
     let num_registered = problemreductions::rules::registry::reduction_entries().len();
     let expanded = all || query.is_some() || verbose || out.json || out.output.is_some();
@@ -460,10 +463,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             let slash = variant_to_full_slash(name, variant);
             let header = format!("{name}{slash}");
             let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
-            if let Some(schema) = schema {
-                if !schema.description.is_empty() {
-                    text.push_str(&format!("  {}\n", schema.description));
-                }
+            if let Some(schema) = schema
+                && !schema.description.is_empty()
+            {
+                text.push_str(&format!("  {}\n", schema.description));
             }
             if !complexity.is_empty() {
                 text.push_str(&format!(
@@ -776,24 +779,25 @@ fn prepare_overall_parameters(
         .collect()
 }
 
+/// Path header showing every problem variant.
+fn fmt_path_chain(graph: &ReductionGraph, reduction_path: &ReductionPath) -> String {
+    reduction_path
+        .steps
+        .iter()
+        .map(|step| fmt_node(graph, &step.name, &step.variant))
+        .collect::<Vec<_>>()
+        .join(&format!(" {} ", crate::output::fmt_outgoing("→")))
+}
+
 fn format_path_text(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> String {
-    // Build formatted path header: Name {v} → Name {v} → ...
-    let path_summary = {
-        let steps = &reduction_path.steps;
-        let mut parts = Vec::new();
-        let mut prev_name = "";
-        for step in steps {
-            if step.name != prev_name {
-                parts.push(fmt_node(graph, &step.name, &step.variant));
-                prev_name = &step.name;
-            }
-        }
-        parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
-    };
-    let mut text = format!("Path ({} steps): {}\n", reduction_path.len(), path_summary);
+    let mut text = format!(
+        "Path ({} steps): {}\n",
+        reduction_path.len(),
+        fmt_path_chain(graph, reduction_path)
+    );
 
     let steps = &reduction_path.steps;
     for i in 0..steps.len().saturating_sub(1) {
@@ -897,6 +901,8 @@ pub fn path(
     target: &str,
     limit: usize,
     instance: Option<&Path>,
+    compare: bool,
+    proofs: bool,
     out: &OutputConfig,
 ) -> Result<()> {
     let src_spec = parse_problem_spec(source)?;
@@ -960,6 +966,8 @@ pub fn path(
             &dst_ref.name,
             &dst_ref.variant,
             limit,
+            compare,
+            proofs,
             out,
         )
     }
@@ -973,6 +981,8 @@ fn path_symbolic(
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
     limit: usize,
+    compare: bool,
+    proofs: bool,
     out: &OutputConfig,
 ) -> Result<()> {
     let batch = find_path_batch(graph, src_name, src_variant, dst_name, dst_variant, limit)?;
@@ -991,18 +1001,43 @@ fn path_symbolic(
             dst_name,
         );
     }
+    let comparison = if compare {
+        let profiles = batch
+            .paths
+            .iter()
+            .map(|p| graph.path_polynomial_profile(p))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Some(compare_view::ComparisonView::new(profiles))
+    } else {
+        None
+    };
     out.emit(
         || {
-            render_paths_text(
-                graph,
-                &batch.paths,
-                src_name,
-                dst_name,
-                batch.truncated,
-                limit,
-            )
+            if let Some(view) = &comparison {
+                let mut text = view.render(graph, &batch.paths, proofs);
+                if batch.truncated {
+                    text.push_str(path_truncation_note(limit));
+                    text.push('\n');
+                }
+                text
+            } else {
+                render_paths_text(
+                    graph,
+                    &batch.paths,
+                    src_name,
+                    dst_name,
+                    batch.truncated,
+                    limit,
+                )
+            }
         },
-        || path_batch_json(graph, &batch, None),
+        || {
+            let mut value = path_batch_json(graph, &batch, None)?;
+            if let Some(view) = &comparison {
+                value["polynomial_comparison"] = view.to_json();
+            }
+            Ok(value)
+        },
     )
 }
 
@@ -1321,7 +1356,63 @@ fn render_tree(graph: &ReductionGraph, nodes: &[NeighborTree], text: &mut String
 
 #[cfg(test)]
 mod tests {
-    use super::push_alias_part;
+    use super::{compare_view::ComparisonView, push_alias_part};
+
+    #[test]
+    fn polynomial_view_distinguishes_incomparable_from_unknown_and_keeps_candidates() {
+        use problemreductions::{expr::Expr, parameters::ParameterRelation, poly_compare::*};
+        let profile = |s| {
+            Profile::new(std::collections::BTreeMap::from([(
+                "size".into(),
+                FieldCertificate::new(&Expr::parse(s), ParameterRelation::Exact),
+            )]))
+        };
+        let view =
+            ComparisonView::new(vec![profile("n"), profile("m"), profile("n^2-m")]).to_json();
+        assert_eq!(view["pairs"][0]["verdict"], "Incomparable");
+        assert_eq!(view["pairs"][1]["verdict"], "Dominated");
+        assert_eq!(view["front"], serde_json::json!([1, 2]));
+        assert_eq!(
+            view["pairs"][0]["fields"]["size"]["forward"]["status"],
+            "No"
+        );
+        assert_eq!(view["schema_version"], 5);
+        assert!(view["pairs"][0]["fields"]["size"]["forward"]["certificate"]["curve"].is_object());
+        assert_eq!(
+            view["pairs"][1]["fields"]["size"]["forward"]["status"],
+            "Yes"
+        );
+        let unresolved =
+            ComparisonView::new(vec![profile("m"), profile("n"), profile("n-m")]).to_json();
+        assert_eq!(unresolved["pairs"][0]["verdict"], "Unknown");
+        assert_eq!(
+            unresolved["pairs"][0]["fields"]["size"]["forward"]["missing_obligation"]["kind"],
+            "validity"
+        );
+        let view = ComparisonView::new(vec![profile("n^2+m^2-n*m"), profile("n^2+m^2")]).to_json();
+        let field = &view["pairs"][0]["fields"]["size"];
+        assert_eq!(field["forward"]["status"], "Yes");
+        assert_eq!(field["forward"]["certificate"]["kind"], "newton");
+        assert_eq!(
+            field["forward"]["certificate"].as_object().unwrap().len(),
+            2
+        );
+        assert_eq!(field["reverse"]["status"], "Yes");
+        assert_eq!(view["front"], serde_json::json!([1, 2]));
+        assert_eq!(view["pairs"][0]["verdict"], "Equivalent");
+        for (formulas, winner, loser) in [(["n", "n^2"], 1, 2), (["n^2", "n"], 2, 1)] {
+            let view = ComparisonView::new(formulas.into_iter().map(profile).collect()).to_json();
+            assert_eq!(
+                view["pairs"][0]["dominates"],
+                serde_json::json!({"winner":winner,"loser":loser})
+            );
+            assert_eq!(view["front"], serde_json::json!([winner]));
+            assert_eq!(
+                view["pairs"][0]["description"],
+                format!("Path {winner} dominates Path {loser} (strict on: size)")
+            );
+        }
+    }
 
     #[test]
     fn push_alias_part_deduplicates_case_insensitively_in_order() {

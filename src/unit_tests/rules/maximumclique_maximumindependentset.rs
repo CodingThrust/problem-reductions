@@ -48,9 +48,11 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
     let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     // MIS on empty graph is all vertices selected
-    assert!(target_solutions
-        .iter()
-        .any(|s| s.iter().filter(|&&selected| selected).count() == 3));
+    assert!(
+        target_solutions
+            .iter()
+            .any(|s| s.iter().filter(|&&selected| selected).count() == 3)
+    );
 
     // Extract solution: should be the full clique {0,1,2}
     let source_sol = reduction.extract_solution(&target_solutions[0]).unwrap();
@@ -83,9 +85,11 @@ fn test_maximumclique_to_maximumindependentset_empty_graph() {
     let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     // MIS on K3 is any single vertex
-    assert!(target_solutions
-        .iter()
-        .all(|s| s.iter().filter(|&&selected| selected).count() == 1));
+    assert!(
+        target_solutions
+            .iter()
+            .all(|s| s.iter().filter(|&&selected| selected).count() == 1)
+    );
 }
 
 #[test]

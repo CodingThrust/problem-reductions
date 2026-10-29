@@ -24,14 +24,16 @@ use super::*;
 use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_nonpositive_lengths() {
-    assert!(LongestPath::try_from(LongestPathI64CreateSpec {
-        graph: vec![(0, 1)],
-        num_vertices: None,
-        edge_lengths: vec![0],
-        source_vertex: 0,
-        target_vertex: 1
-    })
-    .is_err());
+    assert!(
+        LongestPath::try_from(LongestPathI64CreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: None,
+            edge_lengths: vec![0],
+            source_vertex: 0,
+            target_vertex: 1
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
@@ -132,11 +134,13 @@ fn test_longest_path_evaluate_valid_and_invalid_configs() {
     );
     assert_eq!(problem.evaluate(&vec![false; 10]).unwrap(), Max(None));
     assert!(!problem.is_valid_solution(&[true, false, true]));
-    assert!(crate::registry::DynProblem::evaluate_dyn(
-        &problem,
-        &serde_json::json!([1, 0, 1, 0, 1, 0, 1, 0, 1, 2]),
-    )
-    .is_err());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(
+            &problem,
+            &serde_json::json!([1, 0, 1, 0, 1, 0, 1, 0, 1, 2]),
+        )
+        .is_err()
+    );
 }
 
 #[test]

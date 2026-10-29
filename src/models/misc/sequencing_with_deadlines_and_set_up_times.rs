@@ -163,16 +163,16 @@ impl SequencingWithDeadlinesAndSetUpTimes {
         let mut prev_compiler: Option<usize> = None;
         for &task in schedule {
             // Add setup time if the compiler switches.
-            if let Some(prev) = prev_compiler {
-                if prev != self.compilers[task] {
-                    elapsed = elapsed
-                        .checked_add(self.setup_times[self.compilers[task]])
-                        .ok_or_else(|| {
-                            crate::traits::EvaluationError::IntegerOverflow(
-                                "adding sequencing setup time".to_string(),
-                            )
-                        })?;
-                }
+            if let Some(prev) = prev_compiler
+                && prev != self.compilers[task]
+            {
+                elapsed = elapsed
+                    .checked_add(self.setup_times[self.compilers[task]])
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding sequencing setup time".to_string(),
+                        )
+                    })?;
             }
             elapsed = elapsed.checked_add(self.lengths[task]).ok_or_else(|| {
                 crate::traits::EvaluationError::IntegerOverflow(

@@ -6,7 +6,7 @@
 //! - Arc existence: for each consecutive position pair (k, k+1), any pair (v, w) where
 //!   (v, w) is NOT a directed arc is forbidden: x_{v,k} + x_{w,k+1} <= 1
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::DirectedHamiltonianPath;
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
@@ -53,11 +53,15 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionDirectedHamiltonianPathToILP {}
 
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "1",
-    num_vars = "num_vertices^2",
-    num_constraints = "3 * num_vertices + num_vertices^3",
-    num_nonzeros = "(num_vertices^2) * (3 * num_vertices + num_vertices^3)",
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices^2",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "1",
+        num_constraints = "3 * num_vertices + num_vertices^3",
+        num_nonzeros = "num_vertices^2 + 2 * num_vertices^3",
+    },
 })]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;

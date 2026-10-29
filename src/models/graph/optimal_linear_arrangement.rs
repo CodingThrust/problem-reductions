@@ -260,8 +260,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_model_example_specs(
-) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+pub(crate) fn decision_canonical_model_example_specs()
+-> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
     // Path P_4 (0-1-2-3): optimal arrangement has cost 3; bound 3 is YES.
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -276,8 +276,8 @@ pub(crate) fn decision_canonical_model_example_specs(
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_optimal_linear_arrangement_to_optimal_linear_arrangement",
         build: || {

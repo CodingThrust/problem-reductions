@@ -111,18 +111,22 @@ fn test_naesatisfiability_to_satisfiability_witness_and_near_witness() {
     let error = reduction
         .extract_solution(&vec![false, true, false])
         .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("target assignment does not satisfy CNF clauses"));
+    assert!(
+        error
+            .to_string()
+            .contains("target assignment does not satisfy CNF clauses")
+    );
 }
 
 #[test]
 fn test_naesatisfiability_to_satisfiability_rejects_malformed_assignment() {
     let reduction = reduce(&canonical_source());
     assert!(reduction.extract_solution(&vec![false, false]).is_err());
-    assert!(reduction
-        .extract_solution(&vec![false, false, true, false])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false, false, true, false])
+            .is_err()
+    );
 }
 
 #[test]

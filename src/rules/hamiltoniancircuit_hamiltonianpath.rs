@@ -68,7 +68,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
                 _ => {
                     return Err(crate::rules::ExtractionError::invalid(
                         "target path does not have the required pendant endpoints",
-                    ))
+                    ));
                 }
             };
 

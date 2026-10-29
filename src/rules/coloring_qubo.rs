@@ -14,7 +14,7 @@ use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::variant::{KValue, K2, K3, KN};
+use crate::variant::{K2, K3, KN, KValue};
 
 /// Result of reducing KColoring to QUBO.
 #[derive(Debug, Clone)]

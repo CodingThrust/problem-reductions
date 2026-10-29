@@ -7,7 +7,7 @@
 //!   literal expressions, ensuring z_j = 1 only if the clause is satisfied
 //! - Objective: maximize the sum of clause indicators
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::formula::Maximum2Satisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -47,7 +47,7 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "2",
-        num_nonzeros = "(num_vars + num_clauses) * num_clauses",
+        num_nonzeros = "3 * num_clauses",
     },
 })]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {

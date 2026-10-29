@@ -3,7 +3,7 @@
 //! Binary flow variables `f^k_{e,dir}` per commodity per directed arc orientation.
 //! Flow conservation and unit vertex capacities enforce vertex-disjoint paths.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::DisjointConnectingPaths;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -100,7 +100,7 @@ impl crate::rules::AggregateReductionResult for ReductionDCPToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "1",
-        num_nonzeros = "(num_pairs * 2 * num_edges) * (num_pairs * num_vertices + num_vertices)",
+        num_nonzeros = "6 * num_pairs * num_edges",
     },
 })]
 impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {

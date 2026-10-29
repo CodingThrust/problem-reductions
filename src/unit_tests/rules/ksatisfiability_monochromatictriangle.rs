@@ -1,5 +1,5 @@
 use super::add_equality_sender;
-use crate::models::algebraic::{LinearConstraint, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint};
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::graph::MonochromaticTriangle;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -129,19 +129,16 @@ fn test_ksatisfiability_to_monochromatic_triangle_unsatisfiable_all_signs() {
 }
 
 #[test]
-fn test_ksatisfiability_to_monochromatic_triangle_short_and_repeated_literals() {
+fn test_ksatisfiability_to_monochromatic_triangle_repeated_literals() {
     for clauses in [
         vec![],
-        vec![vec![]],
-        vec![vec![1]],
-        vec![vec![1, -2]],
+        vec![vec![1, 1, 1]],
+        vec![vec![1, -2, -2]],
         vec![vec![1, 1, 1], vec![-1, -1, -1]],
         vec![vec![1, -1, 2]],
     ] {
-        let source = KSatisfiability::<K3>::new_allow_less(
-            3,
-            clauses.into_iter().map(CNFClause::new).collect(),
-        );
+        let source =
+            KSatisfiability::<K3>::new(3, clauses.into_iter().map(CNFClause::new).collect());
         let feasible = (0..8).any(|bits| {
             source
                 .evaluate(&(0..3).map(|i| bits & (1 << i) != 0).collect())

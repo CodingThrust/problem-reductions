@@ -3,7 +3,7 @@
 //! Tests square lattice mapping, MappingResult, and config_back.
 
 use super::common::{is_independent_set, solve_mis, solve_mis_config};
-use crate::rules::unitdiskmapping::{ksg, GridKind, MappingResult};
+use crate::rules::unitdiskmapping::{GridKind, MappingResult, ksg};
 use crate::topology::smallgraph;
 
 // === Square Lattice Basic Tests ===
@@ -392,17 +392,7 @@ fn test_grid_graph_nodes_have_weights() {
 
 // === Tape Entry and Ruleset Tests ===
 
-use crate::rules::unitdiskmapping::ksg::{
-    crossing_ruleset_indices, tape_entry_mis_overhead, KsgTapeEntry,
-};
-
-#[test]
-fn test_crossing_ruleset_indices() {
-    let indices = crossing_ruleset_indices();
-    assert_eq!(indices.len(), 13, "Should have 13 crossing patterns");
-    assert_eq!(indices[0], 0);
-    assert_eq!(indices[12], 12);
-}
+use crate::rules::unitdiskmapping::ksg::{KsgTapeEntry, tape_entry_mis_overhead};
 
 #[test]
 fn test_tape_entry_mis_overhead_crossing_patterns() {

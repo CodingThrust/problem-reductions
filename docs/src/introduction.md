@@ -4,9 +4,12 @@ Problem Reductions is a Rust library and command-line tool for NP-hard problems 
 
 {{#include generated/catalog-counts.md}}
 
-- [Atlas](index.html#atlas): every problem variant and reduction, with schemas and overheads
-- [Paper](reductions.pdf): definitions, constructions, and proofs
-- [Rust API](api/problemreductions/index.html): generated from source
+- [**Command line** install `pred`, then show, path, reduce and solve](cli.md)
+- [**Agent skills** workflows for proposing, implementing and reviewing rules](skills.md)
+- [**Rust library** models, reductions and solvers from code](getting-started.md)
+- [**Atlas** every variant and reduction, with schemas and overheads](index.html#atlas)
+- [**Paper** definitions, constructions, and proofs](reductions.pdf)
+- [**Rust API** generated from source](api/problemreductions/index.html)
 
 This guide covers the `pred` CLI, the agent skills shipped with the repository, and the Rust library. Every page has a **Markdown** link for reading without a browser; the [Markdown index](markdown/index.md) lists all pages.
 

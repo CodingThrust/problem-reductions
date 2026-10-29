@@ -11,7 +11,7 @@
 //! The custom aggregate restores the omitted constant and both objective senses;
 //! only zero-penalty configurations certify a feasible source assignment.
 
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP, QUBO};
+use crate::models::algebraic::{Comparison, ILP, ObjectiveSense, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

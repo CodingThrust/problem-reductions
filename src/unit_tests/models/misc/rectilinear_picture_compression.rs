@@ -24,10 +24,12 @@ fn test_rectilinear_picture_compression_rejects_invalid_json_without_panicking()
         serde_json::json!([[]]),
         serde_json::json!([[true], []]),
     ] {
-        assert!(serde_json::from_value::<RectilinearPictureCompression>(
-            serde_json::json!({"matrix": matrix, "bound": 1})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<RectilinearPictureCompression>(
+                serde_json::json!({"matrix": matrix, "bound": 1})
+            )
+            .is_err()
+        );
     }
 }
 

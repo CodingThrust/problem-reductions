@@ -1,6 +1,5 @@
 # Rust
 /target/
-Cargo.lock
 **/*.rs.bk
 *.pdb
 
@@ -74,6 +73,8 @@ tarpaulin-report.html
 
 # Generated documents
 *.pdf
+docs/website/baselines/
+/docs/website/*preview.png
 
 # Reference packages (downloaded for comparison)
 pkgref/
@@ -90,6 +91,12 @@ claude-output.log
 *.json
 !package.json
 !package-lock.json
+!tsconfig.json
+!docs/website/graph-scene.schema.json
+!docs/website/graph-details.schema.json
+!docs/website/path-graph.schema.json
+!docs/website/atlas-data.schema.json
+!docs/website/native-exports.schema.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/
@@ -99,3 +106,5 @@ docs/src/generated/
 .claude/projects/
 docs/research/
 docs/solutions/
+
+/docs/website/src/generated/

@@ -1,9 +1,9 @@
 //! Encode finitely bounded integer ILP variables as binary variables.
 
-use crate::models::algebraic::{Bounded, Comparison, LinearConstraint, ILP};
+use crate::models::algebraic::{Bounded, Comparison, ILP, LinearConstraint};
 use crate::reduction;
-use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::ReductionError;
+use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 struct VarEncoding {
@@ -16,7 +16,7 @@ fn overflow(operation: impl Into<String>) -> ReductionError {
     ReductionError::integer_overflow::<ILP<i64, i64, Bounded>, ILP<bool>>(operation)
 }
 
-fn binary_weights(width: i64) -> Vec<i64> {
+pub(super) fn binary_weights(width: i64) -> Vec<i64> {
     if width == 0 {
         return Vec::new();
     }

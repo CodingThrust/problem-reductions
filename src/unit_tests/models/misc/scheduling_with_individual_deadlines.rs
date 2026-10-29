@@ -31,15 +31,15 @@ fn create_spec_rejects_deadline_count_mismatch() {
         SchedulingWithIndividualDeadlinesCreateSpec::FIELDS[2].name,
         "deadlines"
     );
-    assert!(SchedulingWithIndividualDeadlines::try_from(
-        SchedulingWithIndividualDeadlinesCreateSpec {
+    assert!(
+        SchedulingWithIndividualDeadlines::try_from(SchedulingWithIndividualDeadlinesCreateSpec {
             num_tasks: 2,
             num_processors: 1,
             deadlines: vec![1],
             precedences: None
-        }
-    )
-    .is_err());
+        })
+        .is_err()
+    );
 }
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
@@ -123,9 +123,7 @@ fn test_scheduling_with_individual_deadlines_evaluate_rejects_capacity_violation
 fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadline() {
     let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![i64::MAX], vec![]);
 
-    let result = std::panic::catch_unwind(|| problem.evaluate(&vec![0]).unwrap());
-
-    assert!(matches!(result, Ok(crate::types::Or(true))));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), crate::types::Or(true));
 }
 
 #[test]

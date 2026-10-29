@@ -185,6 +185,12 @@ Use `pred list` to see available problems.")]
         limit: usize,
         /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
         instance: Option<std::path::PathBuf>,
+        /// Compare chosen polynomial certificates in the batch-relative generic order.
+        #[arg(long, conflicts_with = "instance")]
+        compare: bool,
+        /// Show detailed pair verdicts, per-field proofs, and counterexample curves.
+        #[arg(long, requires = "compare")]
+        proofs: bool,
     },
 
     /// Export the reduction graph to JSON
@@ -392,10 +398,10 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
     let cmd = Cli::command();
     for (pattern, name) in subcmds {
         if first_line.contains(pattern) {
-            if let Some(sub) = cmd.find_subcommand(name) {
-                if let Some(help) = sub.get_after_help() {
-                    eprintln!("\n{help}");
-                }
+            if let Some(sub) = cmd.find_subcommand(name)
+                && let Some(help) = sub.get_after_help()
+            {
+                eprintln!("\n{help}");
             }
             return;
         }
@@ -471,16 +477,18 @@ mod tests {
                     .kind(),
                     ErrorKind::UnknownArgument
                 );
-                assert!(Cli::try_parse_from([
-                    "pred",
-                    "create",
-                    "ThreePartition",
-                    "--sizes",
-                    "1,1,1",
-                    "--bound",
-                    "9223372036854775808",
-                ])
-                .is_err());
+                assert!(
+                    Cli::try_parse_from([
+                        "pred",
+                        "create",
+                        "ThreePartition",
+                        "--sizes",
+                        "1,1,1",
+                        "--bound",
+                        "9223372036854775808",
+                    ])
+                    .is_err()
+                );
                 Cli::try_parse_from([
                     "pred",
                     "create",
@@ -501,17 +509,17 @@ mod tests {
         let cli = Cli::try_parse_from([
             "pred",
             "create",
-            "3SAT",
+            "2SAT",
             "--num-vars",
             "3",
             "--clauses",
-            "1,2,3",
+            "1,2",
         ])
         .expect("variant alias parses");
         let Commands::Create(args) = cli.command else {
             panic!("expected create command");
         };
-        assert_eq!(args.problem.as_deref(), Some("KSatisfiability/K3"));
+        assert_eq!(args.problem.as_deref(), Some("KSatisfiability/K2"));
         assert_eq!(args.raw("num-vars"), Some("3"));
     }
 
@@ -567,25 +575,23 @@ mod tests {
 
     #[test]
     fn extract_requires_exactly_one_mapping_input() {
-        assert!(Cli::try_parse_from([
-            "pred",
-            "extract",
-            "bundle.json",
-            "--config",
-            "[true,false]"
-        ])
-        .is_ok());
+        assert!(
+            Cli::try_parse_from(["pred", "extract", "bundle.json", "--config", "[true,false]"])
+                .is_ok()
+        );
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json"]).is_err());
         assert!(Cli::try_parse_from(["pred", "extract", "bundle.json", "--value", "2"]).is_ok());
-        assert!(Cli::try_parse_from([
-            "pred",
-            "extract",
-            "bundle.json",
-            "--config",
-            "[true,false]",
-            "--value",
-            "2"
-        ])
-        .is_err());
+        assert!(
+            Cli::try_parse_from([
+                "pred",
+                "extract",
+                "bundle.json",
+                "--config",
+                "[true,false]",
+                "--value",
+                "2"
+            ])
+            .is_err()
+        );
     }
 }

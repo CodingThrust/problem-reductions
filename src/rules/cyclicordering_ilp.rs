@@ -1,6 +1,6 @@
 //! Sparse rank comparisons for cyclic ordering triples.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::CyclicOrdering;
 use crate::rules::ilp_helpers::{bounded_order_comparison, ranks_to_positions};
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -55,10 +55,12 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for CyclicOrdering {
                     "counting cyclic-ordering variables",
                 )
             })?;
-        let bound = Self::exact_i64(n, "bounding ordering ranks")?;
+        let bound =
+            <Self as ReduceTo<ILP<i64, i64, Bounded>>>::exact_i64(n, "bounding ordering ranks")?;
         let mut variables = vec![
-            IntegerVariable::new(Some(0), Some(bound - 1))
-                .map_err(Self::target_construction)?;
+            IntegerVariable::new(Some(0), Some(bound - 1)).map_err(
+                <Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction
+            )?;
             n
         ];
         variables.resize(count, IntegerVariable::binary());
@@ -74,7 +76,7 @@ impl ReduceTo<ILP<i64, i64, Bounded>> for CyclicOrdering {
             ));
         }
         let target = ILP::with_variables(variables, constraints, vec![], ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<i64, i64, Bounded>>>::target_construction)?;
         crate::rules::ilp_helpers::validate_bounded_constraint_arithmetic::<Self>(&target)?;
         Ok(Self::Result {
             target,

@@ -4,7 +4,7 @@
 //! vertices that maximizes the total edge length.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{is_simple_st_path, Graph, SimpleGraph};
+use crate::topology::{Graph, SimpleGraph, is_simple_st_path};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
@@ -349,8 +349,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_longest_path_to_longest_path",
         build: || {

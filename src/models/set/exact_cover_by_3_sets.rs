@@ -186,10 +186,8 @@ impl ExactCoverBy3Sets {
     pub fn covered_elements(&self, config: &[bool]) -> HashSet<usize> {
         let mut covered = HashSet::new();
         for (i, &selected) in config.iter().enumerate() {
-            if selected {
-                if let Some(subset) = self.subsets.get(i) {
-                    covered.extend(subset.iter().copied());
-                }
+            if selected && let Some(subset) = self.subsets.get(i) {
+                covered.extend(subset.iter().copied());
             }
         }
         covered

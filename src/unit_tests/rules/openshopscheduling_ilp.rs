@@ -37,9 +37,11 @@ fn test_decision_openshopscheduling_to_ilp_preserves_makespan_threshold() {
                 source.evaluate(&result.unwrap()).unwrap(),
                 crate::types::Or(true)
             );
-            assert!(reduction
-                .extract_solution(&vec![0; target.num_vars()])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![0; target.num_vars()])
+                    .is_err()
+            );
         }
     }
     assert_eq!(

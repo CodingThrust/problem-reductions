@@ -1,12 +1,12 @@
+use crate::models::Decision;
 use crate::models::graph::*;
 use crate::models::misc::{BinPacking, MinimumTardinessSequencing};
 use crate::models::set::ComparativeContainment;
-use crate::models::Decision;
 use crate::rules::{ReductionError, ReductionGraph};
 use crate::solvers::{BruteForce, BruteForceProblem};
 use crate::topology::{MultiDigraph, MultiMixedGraph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{One, MAX_EXACT_F64_INTEGER};
+use crate::types::{MAX_EXACT_F64_INTEGER, One};
 use crate::variant::KN;
 use serde::Serialize;
 use std::collections::BTreeSet;

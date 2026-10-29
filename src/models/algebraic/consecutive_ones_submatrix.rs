@@ -21,7 +21,7 @@ inventory::submit! {
         description: "Find K columns of a binary matrix that can be permuted to have the consecutive ones property",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m×n binary matrix A" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Required number of columns K" },
+            FieldInfo { name: "bound", type_name: "usize", description: "Required number of columns K" },
         ],
     }
 }
@@ -62,13 +62,13 @@ inventory::submit! {
 #[serde(try_from = "ConsecutiveOnesSubmatrixData")]
 pub struct ConsecutiveOnesSubmatrix {
     matrix: Vec<Vec<bool>>,
-    bound: i64,
+    bound: usize,
 }
 
 #[derive(Deserialize)]
 struct ConsecutiveOnesSubmatrixData {
     matrix: Vec<Vec<bool>>,
-    bound: i64,
+    bound: usize,
 }
 
 impl TryFrom<ConsecutiveOnesSubmatrixData> for ConsecutiveOnesSubmatrix {
@@ -85,19 +85,19 @@ impl ConsecutiveOnesSubmatrix {
     /// # Panics
     ///
     /// Panics if `bound > n`, or if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
+    pub fn new(matrix: Vec<Vec<bool>>, bound: usize) -> Self {
         Self::try_new(matrix, bound).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn try_new(
         matrix: Vec<Vec<bool>>,
-        bound: i64,
+        bound: usize,
     ) -> Result<Self, crate::registry::ConstructionError> {
         let n = matrix.first().map_or(0, Vec::len);
         if matrix.iter().any(|row| row.len() != n) {
             return Err("all matrix rows must have the same length".into());
         }
-        if !(bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n)) {
+        if bound > n {
             return Err(format!("bound ({bound}) must be <= number of columns ({n})").into());
         }
         Ok(Self { matrix, bound })
@@ -109,7 +109,7 @@ impl ConsecutiveOnesSubmatrix {
     }
 
     /// Returns the bound (the required number of columns).
-    pub fn bound(&self) -> i64 {
+    pub fn bound(&self) -> usize {
         self.bound
     }
 
@@ -218,10 +218,10 @@ impl Problem for ConsecutiveOnesSubmatrix {
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v)
+                    .filter(|&(_, &v)| v)
                     .map(|(i, _)| i)
                     .collect();
-                if usize::try_from(self.bound) != Ok(selected.len()) {
+                if self.bound != selected.len() {
                     return Ok(crate::types::Or(false));
                 }
                 self.any_permutation_has_c1p(&selected)

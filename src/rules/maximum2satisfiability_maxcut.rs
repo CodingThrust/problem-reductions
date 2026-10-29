@@ -54,17 +54,17 @@ fn add_edge_weight(weights: &mut BTreeMap<(usize, usize), i64>, u: usize, v: usi
 }
 
 fn literal_polarity(lit: i64) -> i64 {
-    if lit > 0 {
-        1
-    } else {
-        -1
-    }
+    if lit > 0 { 1 } else { -1 }
 }
 
 #[reduction(
-    transform = upper_bound {
-        num_vertices = "num_vars + 1",
-        num_edges = "(num_vars + 1)^2",
+    transform = {
+        exact {
+            num_vertices = "num_vars + 1",
+        },
+        upper_bound {
+            num_edges = "(num_vars + 1)^2",
+        },
     }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i64>> for Maximum2Satisfiability {

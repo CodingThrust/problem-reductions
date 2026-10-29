@@ -4,7 +4,7 @@
 //! certify that the remaining augmented graph stays connected via unit-flow
 //! commodities from a surviving root to every other surviving vertex.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::BiconnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -81,9 +81,9 @@ impl crate::rules::AggregateReductionResult for ReductionBiconnAugToILP {}
 #[reduction(transform = {
     exact {
         max_constraint_magnitude_bits = "max_numeric_magnitude_bits",
+        num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
     },
     upper_bound {
-        num_vars = "num_potential_edges + 2 * num_vertices * (num_vertices + 1) * (num_edges + num_potential_edges)",
         num_constraints = "1 + num_vertices * (num_vertices + 1) * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
         num_nonzeros = "num_potential_edges + num_vertices * (num_vertices + 1) * (4 * num_edges + 8 * num_potential_edges)",
     },

@@ -3,7 +3,7 @@
 //! Binary variable x_v per vertex. Independence: ∀ edge (u,v): x_u + x_v ≤ 1.
 //! Maximality: ∀ v: x_v + Σ_{u∈N(v)} x_u ≥ 1. Maximize Σ w_v·x_v.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MaximalIS;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -37,11 +37,11 @@ impl ReductionResult for ReductionMxISToILP {
 #[reduction(transform = {
     exact {
         num_vars = "num_vertices",
+        num_constraints = "num_edges + num_vertices",
+        num_nonzeros = "4 * num_edges + num_vertices",
     },
     upper_bound {
         max_constraint_magnitude_bits = "2 * num_edges + 2",
-        num_constraints = "num_edges + num_vertices",
-        num_nonzeros = "4 * num_edges + num_vertices",
     },
 })]
 impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {

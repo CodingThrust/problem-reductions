@@ -1,7 +1,7 @@
 //! Typed internal problem references with catalog-validated variants.
 
-use super::problem_type::ProblemType;
 use super::ConstructionError;
+use super::problem_type::ProblemType;
 use std::collections::BTreeMap;
 
 /// A typed internal reference to a specific problem variant.

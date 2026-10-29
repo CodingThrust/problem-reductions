@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Bounded, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, ObjectiveSense};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -19,18 +19,21 @@ fn test_reduction_creates_valid_ilp_structure() {
 
     // Objective should reference C_t variables with weights
     // C vars are at indices 6, 7, 8
-    assert!(ilp
-        .objective()
-        .iter()
-        .any(|&(idx, coeff)| idx == 6 && coeff == 4));
-    assert!(ilp
-        .objective()
-        .iter()
-        .any(|&(idx, coeff)| idx == 7 && coeff == 2));
-    assert!(ilp
-        .objective()
-        .iter()
-        .any(|&(idx, coeff)| idx == 8 && coeff == 1));
+    assert!(
+        ilp.objective()
+            .iter()
+            .any(|&(idx, coeff)| idx == 6 && coeff == 4)
+    );
+    assert!(
+        ilp.objective()
+            .iter()
+            .any(|&(idx, coeff)| idx == 7 && coeff == 2)
+    );
+    assert!(
+        ilp.objective()
+            .iter()
+            .any(|&(idx, coeff)| idx == 8 && coeff == 1)
+    );
 }
 
 #[test]
@@ -49,10 +52,10 @@ fn test_solution_extraction() {
     sol[1] = 0; // x_{0,1} = 0
     sol[2] = 0; // x_{1,0} = 0
     sol[3] = 1; // x_{1,1} = 1
-                // C vars: indices 4, 5
+    // C vars: indices 4, 5
     sol[4] = 1; // C_0 = 1
     sol[5] = 2; // C_1 = 2
-                // y vars: index 6
+    // y vars: index 6
     sol[6] = 1; // y_{0,1} = 1
 
     let extracted = reduction.extract_solution(&sol).unwrap();

@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use crate::models::algebraic::SimultaneousIncongruences;
-use crate::models::formula::{ksat::first_n_odd_primes, CNFClause, KSatisfiability};
+use crate::models::formula::{CNFClause, KSatisfiability, ksat::first_n_odd_primes};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
@@ -52,11 +52,7 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
 }
 
 fn falsifying_residue(literal: i64) -> u64 {
-    if literal > 0 {
-        2
-    } else {
-        1
-    }
+    if literal > 0 { 2 } else { 1 }
 }
 
 fn modular_inverse(value: u64, modulus: u64) -> Option<u64> {
@@ -180,9 +176,11 @@ fn ensure_prime_product_fits_target(
 #[crate::aggregate_reduction(identity)]
 impl crate::rules::AggregateReductionResult for Reduction3SATToSimultaneousIncongruences {}
 
+// L = product(p_i), with p_i <= 2(n+1)^2 <= 2^(2n+1), so bits(L) <= n(2n+1)+1.
 #[reduction(
     transform = upper_bound {
         num_pairs = "2 * num_vars * (num_vars + 1)^2 + num_clauses",
+        lcm_bits = "num_vars * (2 * num_vars + 1) + 1",
     }
 )]
 impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {

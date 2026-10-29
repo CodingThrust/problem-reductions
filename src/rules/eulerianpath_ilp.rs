@@ -23,7 +23,7 @@
 //! Bang-Jensen and Gutin, *Digraphs: Theory, Algorithms and Applications*,
 //! 2nd ed., Springer (2009).
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::EulerianPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

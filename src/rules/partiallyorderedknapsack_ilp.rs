@@ -3,7 +3,7 @@
 //! Binary variable x_i per item. Capacity constraint Σ w_i·x_i ≤ C.
 //! Precedence constraints: ∀ (a,b): x_b ≤ x_a. Maximize Σ v_i·x_i.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::PartiallyOrderedKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -38,7 +38,7 @@ impl ReductionResult for ReductionPOKToILP {
         num_constraints = "num_precedences + 1",
     },
     upper_bound {
-        num_nonzeros = "num_items * (num_precedences + 1)",
+        num_nonzeros = "num_items + 2 * num_precedences",
     },
 })]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {

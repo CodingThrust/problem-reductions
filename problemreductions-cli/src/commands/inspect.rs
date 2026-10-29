@@ -1,5 +1,5 @@
 use crate::dispatch::{
-    load_problem, read_input, solver_capabilities_view, ProblemJson, ReductionBundle,
+    ProblemJson, ReductionBundle, load_problem, read_input, solver_capabilities_view,
 };
 use crate::output::OutputConfig;
 use anyhow::Result;

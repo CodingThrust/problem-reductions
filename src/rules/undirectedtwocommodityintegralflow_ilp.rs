@@ -24,7 +24,7 @@
 //!
 //! Constraints per edge (7 per edge) + flow conservation (2 per non-terminal vertex) + net flow (2)
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::ilp_helpers::bounded_flow_requirement;
@@ -77,7 +77,7 @@ impl crate::rules::AggregateReductionResult for ReductionU2CIFToILP {}
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_capacity_bits + num_edges + 1",
-        num_nonzeros = "(6 * num_edges) * (7 * num_edges + num_conservation_constraints + 2)",
+        num_nonzeros = "22 * num_edges",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for UndirectedTwoCommodityIntegralFlow {

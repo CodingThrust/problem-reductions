@@ -3,18 +3,34 @@
 
 import argparse
 import ast
+import gzip
 from html import escape
 import json
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from build_graph_details import build_details
 from finalize_website import finalize
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def build_frontend(output, counts, summary):
+    with tempfile.TemporaryDirectory(prefix='problem-reductions-frontend-') as directory:
+        staged = Path(directory)
+        shutil.copytree(ROOT / 'docs/website/src', staged / 'src')
+        shutil.copytree(output / 'assets', staged / 'assets')
+        (staged / 'assets/home-data.js').write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
+        for filename in ('index.html', 'graph.html'):
+            html = (ROOT / 'docs/website' / filename).read_text()
+            for key, value in counts.items():
+                html = html.replace(f"__{key}__", str(value))
+            (staged / filename).write_text(html)
+        subprocess.run(['node', str(ROOT / 'scripts/build_frontend.mjs'), str(staged), str(output)], check=True)
 
 
 def expression_mathml(expression):
@@ -124,34 +140,42 @@ def publish_open_questions(source, output):
     (output / "registry.json").write_bytes(registry)
 
 
+def build_problem_records(output, nodes, edges, schemas):
+    output.mkdir(parents=True, exist_ok=True)
+    records = []
+    for schema in schemas:
+        own = {i for i, node in enumerate(nodes) if node['name'] == schema['name']}
+        incident = [edge for edge in edges if edge['source'] in own or edge['target'] in own]
+        selected = sorted(own | {edge[end] for edge in incident for end in ('source', 'target')})
+        indices = {old: new for new, old in enumerate(selected)}
+        record = {'kind': 'record', 'nodes': [nodes[i] for i in selected],
+                  'edges': [{**edge, 'source': indices[edge['source']], 'target': indices[edge['target']]}
+                            for edge in incident],
+                  'schemas': [schema]}
+        records.append(record)
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-records'],
+                   input=json.dumps(records), text=True, check=True)
+    for record in records:
+        (output / (record['schemas'][0]['name'] + '.json')).write_text(json.dumps(record, separators=(',', ':')))
+
+
 def build(output, graph_path, schemas_path, open_questions=None):
+    subprocess.run(['npm', 'run', 'generate:frontend-contracts'], cwd=ROOT, check=True)
     graph = json.loads(graph_path.read_text())
     schemas = json.loads(schemas_path.read_text())
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'native-exports'],
+                   input=json.dumps({'graph': graph, 'schemas': schemas}), text=True, check=True)
     nodes, edges = graph["nodes"], graph["edges"]
-    if not nodes or any(
-        not 0 <= edge[end] < len(nodes)
-        for edge in edges
-        for end in ("source", "target")
-    ):
-        raise ValueError("The atlas requires nodes and valid edge endpoints")
     source = ROOT / "docs/website"
     output.mkdir(parents=True, exist_ok=True)
     # Replace the board on rebuild before finalizing the main site's assets.
     if (output / "open-questions").exists():
         shutil.rmtree(output / "open-questions")
     shutil.copytree(source / "assets", output / "assets", dirs_exist_ok=True)
-    shutil.copyfile(ROOT / "node_modules/cytoscape/dist/cytoscape.min.js", output / "assets/cytoscape.min.js")
-    shutil.copyfile(ROOT / "node_modules/cytoscape/LICENSE", output / "assets/cytoscape.LICENSE")
     for name in ("sat", "qubo"):
         subprocess.run(["typst", "compile", str(source / "formulas" / f"{name}.typ"),
                         str(output / "assets" / f"{name}.svg")], check=True)
     build_details(output / "assets")
-    for library in ("layout-base", "cose-base", "cytoscape-fcose"):
-        shutil.copyfile(ROOT / "node_modules" / library / "LICENSE",
-                        output / "assets" / f"{library}.LICENSE")
-    (output / "assets/layout-bundle.js").write_text(";\n".join(
-        (ROOT / "node_modules" / library / f"{library}.js").read_text()
-        for library in ("layout-base", "cose-base", "cytoscape-fcose")))
     build_markdown(output)
     # Preserve the original artwork, adapting only its colors for the dark website.
     logo = ET.parse(ROOT / "docs/logo.svg")
@@ -181,11 +205,6 @@ def build(output, graph_path, schemas_path, open_questions=None):
         "VARIANT_COUNT": len(nodes),
         "RULE_COUNT": len(edges),
     }
-    for filename in ("index.html", "graph.html"):
-        html = (source / filename).read_text()
-        for key, value in counts.items():
-            html = html.replace(f"__{key}__", str(value))
-        (output / filename).write_text(html)
     # Some cast rules are covered by shared suites rather than a dedicated file.
     # Only publish direct test links when the file actually exists.
     site_edges = []
@@ -233,18 +252,42 @@ def build(output, graph_path, schemas_path, open_questions=None):
     layout = json.loads(subprocess.run(
         ["node", str(ROOT / "scripts/generate_website_graph_layout.js"), str(graph_path)],
         check=True, capture_output=True, text=True).stdout)
-    payload = json.dumps({**graph, "layout": layout, "nodes": site_nodes,
-                         "edges": site_edges, "schemas": schemas},
-                         ensure_ascii=True)
-    (output / "assets/atlas-data.json").write_text(payload)
+    build_problem_records(output / "assets/problem-data", site_nodes, site_edges, schemas)
     summary = {
+        "kind": "summary",
         "nodes": [{key: node[key] for key in ("name", "category", "variant")} for node in nodes],
         "edges": [{key: edge[key] for key in ("source", "target")} for edge in edges],
         "schemas": [{key: schema[key] for key in ("name", "description")} for schema in schemas],
     }
-    (output / "assets/home-data.js").write_text("window.REDUCTIONS = " + json.dumps(summary, separators=(",", ":")) + ";\n")
-    (output / "assets/graph-data.js").write_text("window.REDUCTIONS = " + json.dumps(
-        {**summary, "layout": layout}, separators=(",", ":")) + ";\n")
+    subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), 'atlas-summary'],
+                   input=json.dumps(summary), text=True, check=True)
+    engine = {"nodes": [{key: node[key] for key in ("name", "variant", "default", "parameter_names")} for node in nodes],
+              "edges": [{key: edge[key] for key in ('source', 'target', 'parameters', 'parameter_contract_error', 'witness', 'turing')}
+                        for edge in edges]}
+    # Each registered reduction's certified target-parameter growth, from the same engine as Paths mode.
+    growth = json.loads(subprocess.run(
+        ["cargo", "run", "--locked", "-q", "-p", "problemreductions-web", "--example", "export_edge_growth"],
+        cwd=ROOT, input=json.dumps(engine), check=True, capture_output=True, text=True).stdout)
+    scene = {"layout": layout, "aliases": graph["aliases"],
+             "edges": [{**{key: edge[key] for key in ("source", "target", "witness", "aggregate", "turing")}, "fields": fields}
+                       for edge, fields in zip(edges, growth, strict=True)],
+             "nodes": [{key: node[key] for key in ("name", "category", "variant", "default")} for node in nodes]}
+    for name, data in (("graph-scene", scene), ("path-graph", engine)):
+        subprocess.run(['node', str(ROOT / 'scripts/validate_website_data.mjs'), name],
+                       input=json.dumps(data), text=True, check=True)
+        # Portable compression also works on static preview servers without Content-Encoding.
+        (output / f"assets/{name}.json.gz").write_bytes(gzip.compress(
+            json.dumps(data, separators=(",", ":")).encode(), mtime=0))
+    # Size-optimized for the browser only: the CLI and tests keep the workspace release profile. The path search
+    # runs at the same speed; only the comparison summary is slower, and it already follows the first routes.
+    subprocess.run(["cargo", "build", "--profile", "wasm-release", "--target", "wasm32-unknown-unknown",
+                    "-p", "problemreductions-web"], cwd=ROOT, check=True)
+    subprocess.run(["wasm-bindgen", "--no-typescript", "--target", "web", "--out-name", "path-selection",
+                    "--out-dir", str(output / "assets"),
+                    str(ROOT / "target/wasm32-unknown-unknown/wasm-release/problemreductions_web.wasm")], check=True)
+    wasm = output / "assets/path-selection_bg.wasm"
+    wasm.with_suffix('.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
+    build_frontend(output, counts, summary)
     finalize(output)
     if open_questions is not None:
         publish_open_questions(open_questions, output / "open-questions")

@@ -3,6 +3,47 @@ use crate::expr::Expr;
 use crate::types::ProblemParameters;
 
 #[test]
+fn partial_hull_preserves_exact_negative_terms_and_bounds_uncertain_inputs() {
+    let first = ParameterTransform::from_fields(
+        "first",
+        [
+            ("v", ParameterRelation::Exact, Expr::parse("n")),
+            ("e", ParameterRelation::UpperBound, Expr::parse("n^2")),
+        ],
+    )
+    .unwrap();
+    let next = ParameterTransform::new(
+        "next",
+        ParameterRelation::Exact,
+        [
+            ("complement", Expr::parse("v*(v-1)/2-e")),
+            ("constant", Expr::parse("10-e")),
+            ("exact", Expr::parse("v*(v-1)/2")),
+            ("mixed", Expr::parse("e+v^3-v-v*e")),
+            ("cancelled", Expr::parse("(e+v)^2-e^2-2*e*v")),
+        ],
+    )
+    .unwrap();
+    let composed = first.compose(&next, "composed").unwrap();
+    for (field, value, relation) in [
+        ("complement", 6, ParameterRelation::UpperBound),
+        ("constant", 10, ParameterRelation::UpperBound),
+        ("exact", 6, ParameterRelation::Exact),
+        ("mixed", 76, ParameterRelation::UpperBound),
+        ("cancelled", 16, ParameterRelation::Exact),
+    ] {
+        assert_eq!(composed.relation(field), Some(relation));
+        assert_eq!(
+            composed
+                .evaluate(&ProblemParameters::new(vec![("n", 4)]))
+                .unwrap()
+                .get(field),
+            Some(value)
+        );
+    }
+}
+
+#[test]
 fn composition_preserves_fields_with_available_dependencies() {
     let first = ParameterTransform::new(
         "A -> B",

@@ -1,5 +1,5 @@
 //! Inventory conservation with exact production setup indicators.
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::misc::ProductionPlanning;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

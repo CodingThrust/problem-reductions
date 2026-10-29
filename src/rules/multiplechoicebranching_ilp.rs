@@ -1,6 +1,6 @@
 //! Reduction from MultipleChoiceBranching with integer weights to integer ILP.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MultipleChoiceBranching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -46,7 +46,7 @@ impl crate::rules::AggregateReductionResult for ReductionMultipleChoiceBranching
     },
     upper_bound {
         max_constraint_magnitude_bits = "max_weight_bits + num_vertices",
-        num_nonzeros = "(num_arcs + num_vertices) * (2 * num_arcs + 2 * num_vertices + num_partition_groups + 1)",
+        num_nonzeros = "7 * num_arcs + num_vertices",
     },
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MultipleChoiceBranching<i64> {

@@ -161,9 +161,11 @@ fn test_integral_flow_homologous_arcs_paper_example() {
 
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
-    assert!(solutions
-        .iter()
-        .all(|solution| problem.evaluate(solution).unwrap().0));
+    assert!(
+        solutions
+            .iter()
+            .all(|solution| problem.evaluate(solution).unwrap().0)
+    );
 }
 
 #[test]

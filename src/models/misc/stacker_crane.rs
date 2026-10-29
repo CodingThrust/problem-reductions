@@ -250,7 +250,7 @@ impl StackerCrane {
         true
     }
 
-    fn mixed_graph_adjacency(&self) -> Vec<Vec<(usize, i64)>> {
+    pub(crate) fn mixed_graph_adjacency(&self) -> Vec<Vec<(usize, i64)>> {
         let mut adjacency = vec![Vec::new(); self.num_vertices];
 
         for (&(tail, head), &length) in self.arcs.iter().zip(&self.arc_lengths) {
@@ -265,7 +265,7 @@ impl StackerCrane {
         adjacency
     }
 
-    fn shortest_path_length(
+    pub(crate) fn shortest_path_length(
         &self,
         adjacency: &[Vec<(usize, i64)>],
         source: usize,
@@ -446,8 +446,8 @@ crate::register_decision_variant!(
 );
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_rule_example_specs(
-) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "decision_stacker_crane_to_stacker_crane",
         build: || {

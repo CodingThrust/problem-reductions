@@ -6,7 +6,7 @@
 //! Cut linking: y_e ≥ x_u - x_v, y_e ≥ x_v - x_u for each edge {u,v}.
 //! Cut bound: Σ w_e y_e ≤ K.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MinimumCutIntoBoundedSets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -46,7 +46,7 @@ impl ReductionResult for ReductionMinCutBSToILP {
     },
     upper_bound {
         max_constraint_magnitude_bits = "num_vertices + 1",
-        num_nonzeros = "(num_vertices + num_edges) * (2 + 2 + 2 * num_edges)",
+        num_nonzeros = "2 * num_vertices + 6 * num_edges + 2",
     },
 })]
 impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {

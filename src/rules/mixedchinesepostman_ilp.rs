@@ -5,7 +5,7 @@
 //! within the length bound. Uses connectivity flow constraints on both
 //! forward and reverse directions.
 
-use crate::models::algebraic::{Bounded, IntegerVariable, LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{Bounded, ILP, IntegerVariable, LinearConstraint, ObjectiveSense};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -46,7 +46,7 @@ impl ReductionResult for ReductionMCPToILP {
     max_constraint_magnitude_bits = "(num_arcs + num_edges + 1) * (num_vertices + 1) + 1",
     num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
     num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
-    num_nonzeros = "(num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1) * (num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2)",
+    num_nonzeros = "26 * num_arcs + 53 * num_edges + 18 * num_vertices + 1",
 })]
 impl ReduceTo<ILP<i64, i64, Bounded>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;

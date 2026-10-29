@@ -1,8 +1,8 @@
 //! Variant reductions for MinimumVertexCover.
 
 use crate::impl_variant_reduction;
-use crate::models::graph::MinimumVertexCover;
 use crate::models::Decision;
+use crate::models::graph::MinimumVertexCover;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::types::One;

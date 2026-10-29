@@ -15,7 +15,7 @@
 //! Deadline enforcement uses the standard big-M trick: for each (j, p),
 //! if `x_{j,p}=1` then the completion time at p must not exceed `d[j]`.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::SequencingWithDeadlinesAndSetUpTimes;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
@@ -63,7 +63,7 @@ impl crate::rules::AggregateReductionResult for ReductionSWDSTToILP {}
         max_constraint_magnitude_bits = "max_time_bits + num_tasks + 2",
         num_vars = "2 * num_tasks^2 + num_tasks",
         num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
-        num_nonzeros = "(2 * num_tasks^2 + num_tasks) * (2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks)",
+        num_nonzeros = "num_tasks^3 * (num_tasks - 1) + 3 * num_tasks^2 * (num_tasks - 1) + 7 * num_tasks * (num_tasks - 1) + 3 * num_tasks^2",
     },
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {

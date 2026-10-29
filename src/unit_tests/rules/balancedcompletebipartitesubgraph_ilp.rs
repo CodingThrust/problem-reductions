@@ -1,8 +1,8 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BalancedCompleteBipartiteSubgraph;
-use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 

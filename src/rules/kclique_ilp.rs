@@ -9,7 +9,7 @@
 //!
 //! The ILP is feasible if and only if the graph contains a clique of size at least k.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::KClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -61,7 +61,7 @@ impl crate::rules::AggregateReductionResult for ReductionKCliqueToILP {}
     max_constraint_magnitude_bits = "k + 1",
     num_vars = "num_vertices",
     num_constraints = "num_vertices^2 + 1",
-    num_nonzeros = "num_vertices * (num_vertices^2 + 1)",
+    num_nonzeros = "num_vertices^2",
 })]
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToILP;

@@ -48,24 +48,32 @@ fn test_nae_clause_with_literal_and_negation_is_always_satisfied() {
 fn test_nae_satisfying_example_from_issue() {
     let problem = issue_problem();
 
-    assert!(problem
-        .evaluate(&vec![false, false, false, true, true])
-        .unwrap());
-    assert!(problem
-        .is_valid_solution(&[false, false, false, true, true])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, false, true, true])
+            .unwrap()
+    );
+    assert!(
+        problem
+            .is_valid_solution(&[false, false, false, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
 fn test_nae_complement_symmetry_for_issue_example() {
     let problem = issue_problem();
 
-    assert!(problem
-        .evaluate(&vec![false, false, false, true, true])
-        .unwrap());
-    assert!(problem
-        .evaluate(&vec![true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, false, true, true])
+            .unwrap()
+    );
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, false, false])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -132,9 +140,11 @@ fn test_nae_serialization_round_trip() {
     assert_eq!(round_trip.num_vars(), problem.num_vars());
     assert_eq!(round_trip.num_clauses(), problem.num_clauses());
     assert_eq!(round_trip.num_literals(), problem.num_literals());
-    assert!(round_trip
-        .evaluate(&vec![false, false, false, true, true])
-        .unwrap());
+    assert!(
+        round_trip
+            .evaluate(&vec![false, false, false, true, true])
+            .unwrap()
+    );
 }
 
 #[test]
@@ -150,11 +160,15 @@ fn test_nae_satisfiability_paper_example() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    assert!(problem
-        .evaluate(&vec![false, false, false, true, true])
-        .unwrap());
-    assert!(problem
-        .evaluate(&vec![true, true, true, false, false])
-        .unwrap());
+    assert!(
+        problem
+            .evaluate(&vec![false, false, false, true, true])
+            .unwrap()
+    );
+    assert!(
+        problem
+            .evaluate(&vec![true, true, true, false, false])
+            .unwrap()
+    );
     assert_eq!(solver.find_all_witnesses(&problem).unwrap().len(), 10);
 }

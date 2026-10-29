@@ -10,7 +10,7 @@
 //! Objective: minimize sum_{i<j} (a_{ji} - a_{ij}) * x_{ij}
 //! (the constant sum_{i<j} a_{ij} does not affect the optimal solution)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MaximumLikelihoodRanking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -127,7 +127,7 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMaximumLikelihoodRankingToILP { target, n })
     }

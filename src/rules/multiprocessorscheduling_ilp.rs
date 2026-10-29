@@ -6,7 +6,7 @@
 //! - Objective: Minimize 0 (feasibility)
 //! - Extraction: argmax_p x_{j,p} for each task j
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::misc::MultiprocessorScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -63,7 +63,7 @@ impl crate::rules::AggregateReductionResult for ReductionMSToILP {}
         num_constraints = "num_tasks + num_processors",
     },
     upper_bound {
-        num_nonzeros = "(num_tasks * num_processors) * (num_tasks + num_processors)",
+        num_nonzeros = "2 * num_tasks * num_processors",
     },
 })]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {

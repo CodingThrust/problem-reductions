@@ -21,10 +21,8 @@ use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
-
-type NodePathOrderKey<'a> = (usize, Vec<(&'static str, &'a BTreeMap<String, String>)>);
 
 /// A source/target pair from the reduction graph, returned by
 /// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
@@ -61,6 +59,8 @@ pub(crate) struct ReductionGraphJson {
     pub(crate) nodes: Vec<NodeJson>,
     /// List of reduction edges.
     pub(crate) edges: Vec<EdgeJson>,
+    /// Catalog aliases grouped by problem family.
+    pub(crate) aliases: BTreeMap<String, Vec<String>>,
 }
 
 impl ReductionGraphJson {
@@ -84,12 +84,16 @@ pub(crate) struct NodeJson {
     pub(crate) name: String,
     /// Variant attributes as key-value pairs.
     pub(crate) variant: BTreeMap<String, String>,
+    /// Whether this is the family's declared default variant.
+    pub(crate) default: bool,
     /// Structural category declared by the problem schema.
     pub(crate) category: crate::registry::ProblemCategory,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
     /// Worst-case time complexity expression (empty if not declared).
     pub(crate) complexity: String,
+    /// Full source domain, including parameters absent from edge formulas.
+    pub(crate) parameter_names: Vec<String>,
 }
 
 /// Internal reference to a problem variant, used as HashMap key.
@@ -150,13 +154,17 @@ pub enum ExecutePathsError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    #[error(
+        "concrete path {path_index} has no registered edge from {source_problem} to {target_problem}"
+    )]
     MissingEdge {
         path_index: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    #[error(
+        "concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable"
+    )]
     NotWitnessExecutable {
         path_index: usize,
         source_problem: String,
@@ -180,20 +188,22 @@ pub enum PathParameterError {
         problem: String,
         variant: BTreeMap<String, String>,
     },
-    #[error(
-        "reduction path contains no registered edge from {source_problem} to {target_problem}"
-    )]
+    #[error("reduction path contains no registered edge from {source_problem} to {target_problem}")]
     MissingEdge {
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model"
+    )]
     TuringEdge {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has an invalid parameter contract: {error}"
+    )]
     InvalidContract {
         step: usize,
         source_problem: String,
@@ -201,15 +211,15 @@ pub enum PathParameterError {
         #[source]
         error: Box<ParameterContractError>,
     },
-    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform")]
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has no symbolic parameter transform"
+    )]
     Unavailable {
         step: usize,
         source_problem: String,
         target_problem: String,
     },
-    #[error(
-        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
-    )]
+    #[error("cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}")]
     Step {
         step: usize,
         source_problem: String,
@@ -545,68 +555,6 @@ impl ReductionGraph {
         ReductionPath { steps }
     }
 
-    fn node_path_order_key(&self, node_path: &[NodeIndex]) -> NodePathOrderKey<'_> {
-        (
-            node_path.len().saturating_sub(1),
-            node_path
-                .iter()
-                .map(|&idx| {
-                    let node = &self.nodes[self.graph[idx]];
-                    (node.name, &node.variant)
-                })
-                .collect(),
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn shortest_node_path(
-        &self,
-        source: NodeIndex,
-        target: NodeIndex,
-        adjacency: &[Vec<NodeIndex>],
-        excluded_nodes: &HashSet<NodeIndex>,
-        excluded_edges: &HashSet<(NodeIndex, NodeIndex)>,
-        max_nodes: usize,
-    ) -> Option<Vec<NodeIndex>> {
-        if excluded_nodes.contains(&source) || max_nodes == 0 {
-            return None;
-        }
-        if source == target {
-            return Some(vec![source]);
-        }
-
-        let mut queue = VecDeque::from([(source, 1usize)]);
-        let mut parents = HashMap::new();
-        let mut visited = HashSet::from([source]);
-
-        while let Some((current, path_nodes)) = queue.pop_front() {
-            if path_nodes == max_nodes {
-                continue;
-            }
-            for &next in &adjacency[current.index()] {
-                if excluded_nodes.contains(&next)
-                    || excluded_edges.contains(&(current, next))
-                    || !visited.insert(next)
-                {
-                    continue;
-                }
-                parents.insert(next, current);
-                if next == target {
-                    let mut path = vec![target];
-                    let mut node = target;
-                    while node != source {
-                        node = parents[&node];
-                        path.push(node);
-                    }
-                    path.reverse();
-                    return Some(path);
-                }
-                queue.push_back((next, path_nodes + 1));
-            }
-        }
-        None
-    }
-
     fn find_k_shortest_node_paths(
         &self,
         source: NodeIndex,
@@ -615,69 +563,34 @@ impl ReductionGraph {
         limit: usize,
         max_nodes: usize,
     ) -> Vec<Vec<NodeIndex>> {
-        if source == target || limit == 0 {
-            return Vec::new();
-        }
-
         let mut adjacency = vec![Vec::new(); self.graph.node_count()];
         for node in self.graph.node_indices() {
             adjacency[node.index()] = self
                 .ordered_outgoing_edges(node, mode)
                 .into_iter()
-                .map(|(target, _)| target)
+                .map(|(target, _)| target.index())
                 .collect();
         }
-
-        let Some(first) = self.shortest_node_path(
-            source,
-            target,
-            &adjacency,
-            &HashSet::new(),
-            &HashSet::new(),
-            max_nodes,
-        ) else {
-            return Vec::new();
-        };
-
-        let mut accepted = vec![first];
-        let mut candidates = BTreeSet::new();
-
-        while accepted.len() < limit {
-            let previous = accepted.last().expect("accepted path exists");
-            for spur_index in 0..previous.len().saturating_sub(1) {
-                let root = &previous[..=spur_index];
-                let excluded_edges = accepted
-                    .iter()
-                    .filter(|path| path.len() > spur_index + 1 && path[..=spur_index] == *root)
-                    .map(|path| (path[spur_index], path[spur_index + 1]))
-                    .collect::<HashSet<_>>();
-                let excluded_nodes = root[..spur_index].iter().copied().collect();
-                let max_spur_nodes = max_nodes.saturating_sub(spur_index);
-                let Some(spur) = self.shortest_node_path(
-                    previous[spur_index],
-                    target,
-                    &adjacency,
-                    &excluded_nodes,
-                    &excluded_edges,
-                    max_spur_nodes,
-                ) else {
-                    continue;
-                };
-                let mut candidate = root[..spur_index].to_vec();
-                candidate.extend(spur);
-                if !accepted.contains(&candidate) {
-                    let key = self.node_path_order_key(&candidate);
-                    candidates.insert((key, candidate));
-                }
-            }
-
-            let Some((_, next)) = candidates.pop_first() else {
-                break;
-            };
-            accepted.push(next);
+        let mut canonical: Vec<_> = self.graph.node_indices().collect();
+        canonical.sort_by_key(|&node| {
+            let variant = &self.nodes[self.graph[node]];
+            (variant.name, &variant.variant)
+        });
+        let mut order = vec![0; canonical.len()];
+        for (rank, node) in canonical.into_iter().enumerate() {
+            order[node.index()] = rank;
         }
-
-        accepted
+        crate::path_search::find_paths(
+            &adjacency,
+            &order,
+            source.index(),
+            target.index(),
+            limit,
+            max_nodes,
+        )
+        .into_iter()
+        .map(|path| path.into_iter().map(NodeIndex::new).collect())
+        .collect()
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -973,6 +886,36 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Polynomial profile of a path: the composed transform's certificates over the
+    /// full source box, with nominal signed formulas kept for audit.
+    pub fn path_polynomial_profile(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<crate::poly_compare::Profile, PathParameterError> {
+        let source = path.steps.first().ok_or(PathParameterError::EmptyPath)?;
+        let names = self.parameter_names(&source.name);
+        let steps = self.path_parameter_transforms(path)?;
+        let composed = match self.compose_transforms(path, &steps)? {
+            Some(composed) => composed,
+            None => crate::parameters::ParameterTransform::new(
+                source.name.clone(),
+                crate::parameters::ParameterRelation::Exact,
+                names
+                    .iter()
+                    .map(|name| (name.as_str(), crate::expr::Expr::variable(name.as_str()))),
+            )
+            .map_err(|error| PathParameterError::Step {
+                step: 0,
+                source_problem: source.name.clone(),
+                target_problem: source.name.clone(),
+                error: Box::new(error),
+            })?,
+        };
+        Ok(crate::poly_compare::Profile::from_path(
+            &names, &steps, &composed,
+        ))
+    }
+
     /// Compose symbolic parameter transforms along a path.
     pub fn compose_path_parameter_transform(
         &self,
@@ -981,19 +924,23 @@ impl ReductionGraph {
         if path.steps.is_empty() {
             return Err(PathParameterError::EmptyPath);
         }
-        if path.steps.len() == 1 {
-            return Ok(None);
-        }
+        self.compose_transforms(path, &self.path_parameter_transforms(path)?)
+    }
 
-        let mut transforms = self.path_parameter_transforms(path)?.into_iter();
-        let Some(mut composed) = transforms.next() else {
+    fn compose_transforms(
+        &self,
+        path: &ReductionPath,
+        transforms: &[crate::parameters::ParameterTransform],
+    ) -> Result<Option<crate::parameters::ParameterTransform>, PathParameterError> {
+        let Some((first, rest)) = transforms.split_first() else {
             return Ok(None);
         };
-        for (offset, transform) in transforms.enumerate() {
+        let mut composed = first.clone();
+        for (offset, transform) in rest.iter().enumerate() {
             let edge_index = offset + 1;
             composed = composed
                 .compose(
-                    &transform,
+                    transform,
                     format!(
                         "{} -> {}",
                         path.steps[0].name,
@@ -1026,11 +973,11 @@ impl ReductionGraph {
             })
             .unwrap_or_default();
         variants.sort();
-        if let Some(default) = self.default_variants.get(name) {
-            if let Some(index) = variants.iter().position(|variant| variant == default) {
-                let default = variants.remove(index);
-                variants.insert(0, default);
-            }
+        if let Some(default) = self.default_variants.get(name)
+            && let Some(index) = variants.iter().position(|variant| variant == default)
+        {
+            let default = variants.remove(index);
+            variants.insert(0, default);
         }
         variants
     }
@@ -1347,9 +1294,11 @@ impl ReductionGraph {
                     NodeJson {
                         name: node.name.to_string(),
                         variant: node.variant.clone(),
+                        default: self.default_variants.get(node.name) == Some(&node.variant),
                         category,
                         doc_path: Self::doc_path_from_module_path(module_path, node.name),
                         complexity: node.complexity.to_string(),
+                        parameter_names: self.parameter_names(node.name),
                     },
                 )
             })
@@ -1432,7 +1381,32 @@ impl ReductionGraph {
                 ))
         });
 
-        ReductionGraphJson { nodes, edges }
+        let mut aliases: BTreeMap<String, Vec<String>> = inventory::iter::<ProblemSchemaEntry>
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.name.to_string(),
+                    entry
+                        .aliases
+                        .iter()
+                        .map(|alias| alias.to_string())
+                        .collect(),
+                )
+            })
+            .collect();
+        for entry in inventory::iter::<crate::registry::VariantEntry> {
+            let family = aliases.entry(entry.name.to_string()).or_default();
+            for alias in entry.aliases {
+                if !family.iter().any(|known| known.eq_ignore_ascii_case(alias)) {
+                    family.push(alias.to_string());
+                }
+            }
+        }
+        ReductionGraphJson {
+            nodes,
+            edges,
+            aliases,
+        }
     }
 
     /// Find the doc_path for a reduction entry matching the given source/target.
@@ -1573,14 +1547,13 @@ pub(crate) fn recover_completed_result(
             .aggregate_view
             .map(|view| view(step.result)?.extract_value_dyn(value.clone()))
             .transpose()?;
-        if let Some(mapped_value) = &mapped {
-            if step
+        if let Some(mapped_value) = &mapped
+            && step
                 .source
                 .aggregate_witness_evaluation(mapped_value)?
                 .is_none()
-            {
-                return Ok(None);
-            }
+        {
+            return Ok(None);
         }
         witness = step.result.extract_solution_dyn(witness.as_ref())?;
         value = step

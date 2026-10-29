@@ -142,16 +142,22 @@ fn test_tardy_ilp_signed_permutations_and_all_indicators() {
                         }
                     }
                 }
-                assert!(reduction
-                    .extract_solution(&vec![0; target.num_vars() + 1])
-                    .is_err());
+                assert!(
+                    reduction
+                        .extract_solution(&vec![0; target.num_vars() + 1])
+                        .is_err()
+                );
                 if count > 0 {
-                    assert!(reduction
-                        .extract_solution(&vec![0; target.num_vars()])
-                        .is_err());
-                    assert!(reduction
-                        .extract_solution(&vec![2; target.num_vars()])
-                        .is_err());
+                    assert!(
+                        reduction
+                            .extract_solution(&vec![0; target.num_vars()])
+                            .is_err()
+                    );
+                    assert!(
+                        reduction
+                            .extract_solution(&vec![2; target.num_vars()])
+                            .is_err()
+                    );
                 }
             }
         }

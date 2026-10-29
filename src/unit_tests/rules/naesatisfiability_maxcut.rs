@@ -225,9 +225,11 @@ fn check_every_cut(source: &NAESatisfiability) {
         decoded.iter().any(|&valid| valid)
     );
     assert!(!AggregateReductionResult::extract_value(&reduction, crate::types::Or(false)).0);
-    assert!(reduction
-        .extract_solution(&vec![false; target.num_vertices() + 1])
-        .is_err());
+    assert!(
+        reduction
+            .extract_solution(&vec![false; target.num_vertices() + 1])
+            .is_err()
+    );
 }
 
 #[test]

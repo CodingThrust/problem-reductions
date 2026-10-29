@@ -2,9 +2,9 @@
 use super::canonical_rule_example_specs;
 use crate::models::decision::Decision;
 use crate::models::misc::{Partition, SequencingToMinimizeTardyTaskWeight};
+use crate::rules::ReduceTo;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReductionResult;
-use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -179,9 +179,11 @@ fn test_partition_to_tardy_weight_all_small_configurations() {
                 source_feasible
             );
             assert!(reduction.extract_solution(&vec![]).is_err());
-            assert!(reduction
-                .extract_solution(&vec![n as usize; n as usize])
-                .is_err());
+            assert!(
+                reduction
+                    .extract_solution(&vec![n as usize; n as usize])
+                    .is_err()
+            );
             assert!(
                 !crate::rules::AggregateReductionResult::extract_value(
                     &reduction,

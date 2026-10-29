@@ -1,6 +1,6 @@
 use crate::dispatch::{
-    load_problem, read_input, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput,
-    ReductionBundle,
+    PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle, load_problem, read_input,
+    serialize_any_problem,
 };
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};

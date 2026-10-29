@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -71,10 +71,12 @@ fn test_lengthboundeddisjointpaths_to_ilp_preserves_edge_order() {
     for index in [1, 13, 15, 16, 17] {
         target_solution[index] = 1;
     }
-    assert!(reduction
-        .target_problem()
-        .is_feasible(&target_solution)
-        .unwrap());
+    assert!(
+        reduction
+            .target_problem()
+            .is_feasible(&target_solution)
+            .unwrap()
+    );
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(
         extracted,
@@ -98,10 +100,12 @@ fn test_lengthboundeddisjointpaths_to_ilp_extracts_path_from_circulation() {
         let source = LengthBoundedDisjointPaths::new(SimpleGraph::new(5, edges), 0, 1, 4);
         let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
         let target_solution = vec![1, 0, 1, 0, 1, 0, 1, 0, 1];
-        assert!(reduction
-            .target_problem()
-            .is_feasible(&target_solution)
-            .unwrap());
+        assert!(
+            reduction
+                .target_problem()
+                .is_feasible(&target_solution)
+                .unwrap()
+        );
         let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, vec![vec![true, false, false, false]]);
         assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(1)));

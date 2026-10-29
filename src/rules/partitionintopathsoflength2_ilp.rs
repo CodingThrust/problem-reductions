@@ -16,7 +16,7 @@
 //!
 //! Objective: Minimize 0 (feasibility)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 use crate::models::graph::PartitionIntoPathsOfLength2;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
@@ -67,13 +67,17 @@ impl ReductionResult for ReductionPIPL2ToILP {
 #[crate::aggregate_reduction(ilp_feasibility)]
 impl crate::rules::AggregateReductionResult for ReductionPIPL2ToILP {}
 
-// With q=floor(n/3) and e distinct non-loop edges: q(n+e) variables,
-// n+2q+3eq rows, and 2nq+8eq terms. Deduplication gives e<=num_edges.
-#[reduction(transform = upper_bound {
-    max_constraint_magnitude_bits = "2",
-    num_vars = "num_vertices * (num_vertices + num_edges) / 3",
-    num_constraints = "5 * num_vertices / 3 + num_edges * num_vertices",
-    num_nonzeros = "(2 * num_vertices^2 + 8 * num_edges * num_vertices) / 3",
+// Construction requires 3 | n and SimpleGraph has no loops or repeated edges,
+// so q = n/3 and e = num_edges: q(n+e) variables, n+2q+3eq rows, 2nq+8eq terms.
+#[reduction(transform = {
+    exact {
+        num_vars = "num_vertices * (num_vertices + num_edges) / 3",
+        num_constraints = "5 * num_vertices / 3 + num_edges * num_vertices",
+        num_nonzeros = "(2 * num_vertices^2 + 8 * num_edges * num_vertices) / 3",
+    },
+    upper_bound {
+        max_constraint_magnitude_bits = "2",
+    },
 })]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;
