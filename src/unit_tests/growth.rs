@@ -238,15 +238,20 @@ fn test_growth_mixed_base_products_are_compared() {
     assert_eq!(terms_of(&g("2^(2*n) * 3^n + 2^n * 4^n")).len(), 1);
 }
 
-/// Weights too close to call in floating point and involving `e` stay
-/// unproved, so both spellings are retained rather than guessed.
+/// A rational base inside the certified interval for `e` stays unproved,
+/// while a base just outside that interval has a provable order.
 #[test]
 fn test_growth_unproved_near_e_comparison_is_retained() {
     let left = g("exp(n)");
-    let right = g("2.7182818285^n");
+    let right = g("2.71828182846^n");
     assert!(!left.dominates(&right));
     assert!(!right.dominates(&left));
-    assert_eq!(terms_of(&g("exp(n) + 2.7182818285^n")).len(), 2);
+    assert_eq!(terms_of(&g("exp(n) + 2.71828182846^n")).len(), 2);
+
+    let above_interval = g("2.7182818285^n");
+    assert!(above_interval.dominates(&left));
+    assert!(!left.dominates(&above_interval));
+    assert_eq!(terms_of(&g("exp(n) + 2.7182818285^n")).len(), 1);
 }
 
 #[test]
@@ -346,7 +351,6 @@ fn test_growth_relation() {
         "(n + 1)^n",
         "2^log(n + m)",
         "2^((n + m)^(1/2))",
-        "log(log(log(n)))",
         "log(2^n * log(m))",
         "log(1)",
         "log(1 + 2^(-n))",
@@ -360,6 +364,17 @@ fn test_growth_relation() {
         );
     }
     assert_eq!(g("2^(2^n)").relation(), None);
+    // The inner iterated logarithm is widened; its upper bound alone cannot
+    // bound the magnitude after applying another logarithm.
+    let nested_log = g("log(log(log(n)))");
+    assert_eq!(nested_log.relation(), None);
+    assert!(
+        nested_log
+            .failures()
+            .expect("unsupported nested logarithm")
+            .iter()
+            .any(|reason| matches!(reason, GrowthFailure::UnprovedLogarithmBound(_)))
+    );
 }
 
 /// `log` of a decaying term is large and negative; its growth must bound the
@@ -387,6 +402,94 @@ fn test_growth_log_of_decaying_term_bounds_magnitude() {
         g("n^2 + log(exp(-n))").relation(),
         Some(ParameterRelation::Exact)
     );
+}
+
+/// Algebraic cancellation can leave an exponentially small positive argument.
+/// An upper bound on that argument is not a magnitude bound for its logarithm.
+#[test]
+fn test_growth_log_of_widened_argument_is_unknown() {
+    let argument = "n*(n+1) - n^2 - n + exp(-n)";
+    for source in [
+        format!("log({argument})"),
+        format!("log({argument})^2"),       // Exactly n^2.
+        format!("n + log({argument}) + 1"), // Exactly 1, never Theta(n).
+        "log(n - m)^2".to_string(),
+        "log(sqrt((n - m)^2))".to_string(),
+    ] {
+        let result = g(&source);
+        assert!(
+            matches!(
+                result.failures(),
+                Some([GrowthFailure::UnprovedLogarithmBound(_)])
+            ),
+            "{source}: {result:?}"
+        );
+        assert_eq!(result.relation(), None, "{source}");
+        assert_eq!(result.to_expr(), None, "{source}");
+        assert!(!result.dominates(&g("n")), "{source}");
+        assert!(!g("n").dominates(&result), "{source}");
+    }
+}
+
+/// A two-sided argument bound still permits growing, bounded, and decaying logs.
+#[test]
+fn test_growth_log_of_exact_argument_remains_supported() {
+    for (source, bound) in [
+        ("log(n + m)", "log(n) + log(m)"),
+        ("log(n^2 - n)", "log(n)"),
+        ("log(1 + exp(-n))", "1"),
+        ("log(exp(-n))^2", "n^2"),
+    ] {
+        assert_eq!(terms_of(&g(source)), terms_of(&g(bound)), "{source}");
+    }
+}
+
+/// Signed upper bounds cannot be squared or multiplied as magnitude bounds.
+#[test]
+fn test_growth_rejects_unproved_signed_exponent_operations() {
+    for source in [
+        "exp(log(sqrt(n^2+1)-n)^2)", // exp(asinh(n)^2), increasing without bound.
+        "exp((sqrt(n^2+n)-n-sqrt(n))^2)", // Exponent is Theta(n), not zero.
+        "exp((sqrt(n^2+n)-n-sqrt(n))*(sqrt(n^2+4*n)-n-4*sqrt(n)))",
+        "(sqrt(n^2+1)-n)^(-n)", // exp(n*asinh(n)), not constant.
+        "(sqrt(n^2+1)-n)^(sqrt(n^2+1)-n-1)",
+    ] {
+        let result = g(source);
+        assert!(result.failures().is_some(), "{source}: {result:?}");
+        assert_eq!(result.relation(), None, "{source}");
+        assert_eq!(result.to_expr(), None, "{source}");
+        assert!(!g("1").dominates(&result), "{source}");
+    }
+}
+
+/// An even power is invariant under negation, also past the exact expansion cap.
+#[test]
+fn test_growth_large_even_exponent_power_keeps_negative_terms() {
+    let negative = g("exp((-n-1)^18)");
+    assert_eq!(negative, g("exp((n+1)^18)"));
+    assert!(negative.dominates(&g("exp(n^18)")));
+    assert!(!g("1").dominates(&negative));
+}
+
+/// Binary64 rounds the first base to one; it must not reverse or prune this order.
+#[test]
+fn test_growth_near_one_bases_use_certified_weight_signs() {
+    let larger = "(9007199254740993/9007199254740992)^(3*n)";
+    let smaller = "(9007199254740994/9007199254740992)^n";
+    assert!(g(larger).dominates(&g(smaller)));
+    assert!(!g(smaller).dominates(&g(larger)));
+    assert_eq!(g(&format!("{larger}+{smaller}")), g(larger));
+
+    // This rational base grows faster than exp(n/2^54). If the exact-product
+    // budget is exceeded, neither an incorrect order nor pruning is allowed.
+    let tiny_exp = g("exp(n/18014398509481984)");
+    let rational = g("(9007199254740993/9007199254740992)^n");
+    assert!(!tiny_exp.dominates(&rational));
+    assert_eq!(terms_of(&add(tiny_exp, rational.clone())).len(), 2);
+
+    assert!(g("exp(n)").dominates(&g("2^n")));
+    assert!(g("3^n").dominates(&g("exp(n)")));
+    assert!(!g("exp(n)").dominates(&g("3^n")));
 }
 
 /// Stirling: `n! ≍ n^(n+1/2)·e^(−n)`, strictly between `(n/e)^n` and `n^n`.
@@ -1099,7 +1202,7 @@ fn broken_from_expr(expression: &Expr) -> Growth {
                 None => Growth::from_expr(expression),
             }
         }
-        ExprNode::Log(value) => log_growth(broken_from_expr(value)),
+        ExprNode::Log(value) => log_growth(broken_from_expr(value), value),
         _ => Growth::from_expr(expression),
     }
 }

@@ -58,6 +58,8 @@
 //! - A variable base `B` with exact expansion `Σ c_i μ_i` is bounded by
 //!   `C · M`, where `C = Σ c_i` and `M` takes the largest power of every
 //!   variable, so `B^E ≤ C^E · M^E`. Any other `factorial(x)` widens to `x^x`.
+//! - A logarithm of an argument with only an upper bound is unknown: bounding
+//!   its magnitude also requires a lower bound on its positive argument.
 //! - `ln ln v` inside an exponent widens to `ln v`.
 //! - The explicit approximation boundary treats [`Expr::log`] as the natural
 //!   logarithm, but all fixed
@@ -67,9 +69,9 @@
 //! # Comparison
 //!
 //! Two terms are compared through their log-space difference `Q`. A weight's
-//! sign is decided exactly when every summand has the same sign, by a
-//! floating-point estimate with a `1e-9` relative margin otherwise, and by
-//! exact rational powers when the estimate is too close to call. `Q` is
+//! sign is decided directly when every summand has the same sign. Mixed signs
+//! use exact rational powers with a certified rational interval for `e`;
+//! overlapping intervals or exhausted arithmetic budgets remain unknown. `Q` is
 //! bounded below when every atom without a proven nonnegative weight is
 //! strictly dominated (componentwise in `(power, log power)`, strictly in one
 //! variable) by an atom with a proven positive weight.
@@ -116,10 +118,26 @@ impl ExpBase {
         }
     }
 
-    fn ln_estimate(&self) -> f64 {
+    fn rational_bounds(&self) -> (BigRational, BigRational) {
         match self {
-            ExpBase::Rational(base) => base.to_f64().map_or(f64::NAN, f64::ln),
-            ExpBase::Natural => 1.0,
+            ExpBase::Rational(base) => (base.clone(), base.clone()),
+            ExpBase::Natural => {
+                // S = sum_{k=0}^{10} 1/k! < e. The remaining series starts at
+                // 1/11!, with each later ratio at most 1/12, so its sum is
+                // at most 12/(11 * 11!). Cache these exact rational bounds.
+                static BOUNDS: std::sync::LazyLock<(BigRational, BigRational)> =
+                    std::sync::LazyLock::new(|| {
+                        let mut factorial = BigInt::one();
+                        let mut lower = BigRational::one();
+                        for k in 1..=10 {
+                            factorial *= k;
+                            lower += BigRational::new(BigInt::one(), factorial.clone());
+                        }
+                        let tail = BigRational::new(BigInt::from(12), factorial * 121);
+                        (lower.clone(), lower + tail)
+                    });
+                BOUNDS.clone()
+            }
         }
     }
 }
@@ -241,59 +259,57 @@ fn weight_sign(weight: &Weight) -> Sign {
         (true, true) => {}
     }
 
-    let (mut sum, mut magnitude) = (0.0_f64, 0.0_f64);
-    for (base, coefficient) in weight {
-        let summand = coefficient.to_f64().unwrap_or(f64::NAN) * base.ln_estimate();
-        sum += summand;
-        magnitude += summand.abs();
-    }
-    if sum.is_finite() && magnitude.is_finite() && sum.abs() > 1e-9 * magnitude {
-        return if sum > 0.0 {
-            Sign::Positive
-        } else {
-            Sign::Negative
-        };
-    }
     exact_weight_sign(weight).unwrap_or(Sign::Unknown)
 }
 
-/// Compare `∏ b^(c_b·D)` with one, for the common denominator `D`.
+/// Compare `∏ b^(c_b·D)` with one, using exact rational interval bounds
+/// and the common denominator `D`. Overlapping intervals remain unproved.
 fn exact_weight_sign(weight: &Weight) -> Option<Sign> {
     let mut denominator = BigInt::one();
     for coefficient in weight.values() {
         let d = coefficient.denom();
-        // lcm(D, d) = D · (d / gcd(D, d)), the reduced denominator of D / d.
         denominator = &denominator * BigRational::new(denominator.clone(), d.clone()).denom();
     }
     let mut bits = 0_u64;
     let mut powers = Vec::new();
     for (base, coefficient) in weight {
-        let ExpBase::Rational(base) = base else {
-            return None;
-        };
+        let (lower, upper) = base.rational_bounds();
         let power = (coefficient * BigRational::from_integer(denominator.clone())).to_integer();
         let magnitude = power.abs().to_u64()?;
-        bits =
-            bits.checked_add(magnitude.checked_mul(base.numer().bits() + base.denom().bits())?)?;
-        powers.push((base, power));
+        let base_bits = (lower.numer().bits() + lower.denom().bits())
+            .max(upper.numer().bits() + upper.denom().bits());
+        bits = bits.checked_add(magnitude.checked_mul(base_bits)?)?;
+        powers.push((lower, upper, power));
     }
     if bits > RATIONAL_POWER_BIT_CAP {
         return None;
     }
-    let (mut above, mut below) = (BigRational::one(), BigRational::one());
-    for (base, power) in powers {
+    let (mut above_lower, mut above_upper, mut below_lower, mut below_upper) = (
+        BigRational::one(),
+        BigRational::one(),
+        BigRational::one(),
+        BigRational::one(),
+    );
+    for (lower, upper, power) in powers {
         let exponent = power.abs().to_i32()?;
         if power.is_positive() {
-            above *= base.pow(exponent);
+            above_lower *= lower.pow(exponent);
+            above_upper *= upper.pow(exponent);
         } else {
-            below *= base.pow(exponent);
+            below_lower *= lower.pow(exponent);
+            below_upper *= upper.pow(exponent);
         }
     }
-    Some(match above.cmp(&below) {
-        Ordering::Greater => Sign::Positive,
-        Ordering::Less => Sign::Negative,
-        Ordering::Equal => Sign::Zero,
-    })
+    if above_lower > below_upper {
+        Some(Sign::Positive)
+    } else if above_upper < below_lower {
+        Some(Sign::Negative)
+    } else if above_lower == above_upper && below_lower == below_upper && above_lower == below_lower
+    {
+        Some(Sign::Zero)
+    } else {
+        None
+    }
 }
 
 /// One growth term, `exp(Σ weight · atom)`. An empty map represents `O(1)`.
@@ -337,6 +353,8 @@ pub enum GrowthFailure {
     RepresentedExponentOutOfRange(String),
     #[error("decaying exponential has a widened exponent: {0}")]
     DecayingWidenedExponent(String),
+    #[error("logarithm argument lacks a proved lower bound: {0}")]
+    UnprovedLogarithmBound(String),
     #[error("missing substitution for {0}")]
     MissingSubstitution(String),
     #[error("Big-O antichain has {terms} terms, exceeding the limit of {limit}")]
@@ -599,7 +617,7 @@ fn growth_from_analysis(
             ),
             Err(failure) => unknown(failure),
         },
-        ExprNode::Log(value) => log_growth(growth_from_analysis(value, analysis, memo)),
+        ExprNode::Log(value) => log_growth(growth_from_analysis(value, analysis, memo), value),
         ExprNode::Factorial(value) => factorial_growth(expression, value, analysis, memo),
     };
     memo.insert(expression.node_identity(), growth.clone());
@@ -730,11 +748,12 @@ fn exponential(bound: LogBound, exponent: &ExponentPoly, source: &Expr) -> Growt
     if !exponent.exact && decaying {
         return unknown(GrowthFailure::DecayingWidenedExponent(source.to_string()));
     }
-    // A widened ln B is only an upper bound for a nonnegative exponent.
-    let exponent_terms = exponent
-        .terms
-        .iter()
-        .filter(|(_, coefficient)| bound.exact || coefficient.is_positive());
+    // Multiplying two signed upper bounds, or reversing one with a negative
+    // exponent, is unsound when the actual base can approach zero.
+    if !bound.exact && (!exponent.exact || exponent.has_negative()) {
+        return unknown(GrowthFailure::UnsupportedExponent(source.to_string()));
+    }
+    let exponent_terms = exponent.terms.iter();
     let mut term = GrowthTerm::one();
     for (monomial, coefficient) in exponent_terms {
         for (log_monomial, weight) in &bound.terms {
@@ -802,7 +821,10 @@ impl ExponentPoly {
 
     fn mul(&self, other: &Self, source: &Expr) -> Result<Self, GrowthFailure> {
         // An upper bound times a factor that may be negative is not an upper bound.
-        if (!self.exact && other.has_negative()) || (!other.exact && self.has_negative()) {
+        if (!self.exact && !other.exact)
+            || (!self.exact && other.has_negative())
+            || (!other.exact && self.has_negative())
+        {
             return Err(GrowthFailure::UnsupportedExponent(source.to_string()));
         }
         let mut terms = Vec::with_capacity(self.terms.len() * other.terms.len());
@@ -817,6 +839,14 @@ impl ExponentPoly {
     fn pow(&self, k: &BigRational, source: &Expr) -> Result<Self, GrowthFailure> {
         if k.is_zero() {
             return Ok(Self::constant(BigRational::one()));
+        }
+        if k.is_one() {
+            return Ok(self.clone());
+        }
+        // A signed upper bound may hide a large negative value. Its square or
+        // other nonlinear power cannot be bounded by powering that upper bound.
+        if !self.exact {
+            return Err(GrowthFailure::UnsupportedExponent(source.to_string()));
         }
         let out_of_range = || GrowthFailure::RepresentedExponentOutOfRange(source.to_string());
         if let (1, Some((monomial, coefficient))) = (self.terms.len(), self.terms.iter().next()) {
@@ -852,21 +882,22 @@ impl ExponentPoly {
             }
             return Ok(result);
         }
-        // (Σ x_i)^k ≤ m^max(k-1, 0) · Σ x_i^k over the positive part.
-        let positive: Vec<_> = self
+        // |Σ x_i|^k ≤ m^max(k-1, 0) · Σ |x_i|^k. Negative terms cannot
+        // be discarded before an even power, including beyond the expansion cap.
+        let magnitudes: Vec<_> = self
             .terms
             .iter()
-            .filter(|(_, coefficient)| coefficient.is_positive())
+            .map(|(monomial, coefficient)| (monomial, coefficient.abs()))
             .collect();
         let excess = (k - BigRational::one()).max(BigRational::zero()).ceil();
         let spread = ceil_power_bound(
-            &BigRational::from_integer(BigInt::from(positive.len())),
+            &BigRational::from_integer(BigInt::from(magnitudes.len())),
             &excess,
         )
         .ok_or_else(out_of_range)?;
-        let mut terms = Vec::with_capacity(positive.len());
-        for (monomial, coefficient) in positive {
-            let bound = ceil_power_bound(coefficient, k).ok_or_else(out_of_range)?;
+        let mut terms = Vec::with_capacity(magnitudes.len());
+        for (monomial, coefficient) in magnitudes {
+            let bound = ceil_power_bound(&coefficient, k).ok_or_else(out_of_range)?;
             terms.push((monomial_pow(monomial, k), &spread * bound));
         }
         Self::from_terms(terms, false).checked(source)
@@ -904,6 +935,11 @@ impl ExponentPoly {
 
     /// `ln(Σ c_i μ_i) ≤ ln C + Σ_v (power_v + log_v) · ln v` over the positive part.
     fn log(&self, source: &Expr) -> Result<Self, GrowthFailure> {
+        // Without a positive-coefficient exact argument, a signed logarithmic
+        // bound may hide arbitrary decay and cannot safely enter exponent algebra.
+        if !self.exact || self.has_negative() {
+            return Err(GrowthFailure::UnprovedLogarithmBound(source.to_string()));
+        }
         let bound = self
             .monomial_bound()
             .ok_or_else(|| GrowthFailure::UnsupportedExponent(source.to_string()))?;
@@ -1204,14 +1240,20 @@ fn into_terms(growth: Growth) -> Vec<GrowthTerm> {
 /// Transfer function for `Log(a)`: `log` of an antichain is `log` of its
 /// dominant term(s), unioned. Uses `log(n^a · m^b) ≍ log n + log m` and
 /// `log(2^(r·n)) ≍ n`. Since `ln max = max ln`, the result is exact when the
-/// argument is exact and every term's logarithm is exact.
-fn log_growth(g: Growth) -> Growth {
+/// argument is exact and every term's logarithm is exact. An upper bound alone
+/// cannot bound the magnitude of a logarithm: its positive argument may approach
+/// zero arbitrarily faster than the represented upper bound.
+fn log_growth(g: Growth, argument: &Expr) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known { terms, relation } => {
-            let exact = relation == ParameterRelation::Exact && terms.iter().all(log_is_exact);
-            known(terms.iter().flat_map(log_term).collect(), exact_if(exact))
-        }
+        GrowthState::Known {
+            relation: ParameterRelation::UpperBound,
+            ..
+        } => unknown(GrowthFailure::UnprovedLogarithmBound(argument.to_string())),
+        GrowthState::Known { terms, .. } => known(
+            terms.iter().flat_map(log_term).collect(),
+            exact_if(terms.iter().all(log_is_exact)),
+        ),
     }
 }
 
