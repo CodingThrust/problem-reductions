@@ -1,53 +1,57 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    ANTICHAIN_CAP, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm, VariableGrowth, add,
-    exact_growth, mul,
+    ANTICHAIN_CAP, Atom, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm, add, known,
+    ln_atom, mul, natural, single_variable,
 };
 use crate::expr::{
     AlgebraicAnalysis, Expr, ExprNode, evaluate_approximate, expression_from_approximation,
 };
+use crate::parameters::ParameterRelation;
 use crate::registry::variant_entries;
 use num_rational::BigRational;
 use num_traits::{FromPrimitive, One, Signed, Zero};
 use serde::Deserialize;
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 
 fn rat(value: f64) -> BigRational {
     BigRational::from_f64(value).unwrap()
 }
 
-/// Build a term from `(exp, poly, logs)` entry lists.
+/// Build a term from `(2^rate·v, v^degree, log(v)^power)` entry lists.
 fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> GrowthTerm {
-    let mut result = GrowthTerm::one();
-    for (variable, rate) in exp {
-        result.insert(
-            (*variable).into(),
-            VariableGrowth::exponential(ExpBase::Rational(rat(2.0)), rat(*rate)),
-        );
-    }
-    for (variable, degree) in poly {
-        let growth = result
-            .variables
-            .entry((*variable).into())
-            .or_insert_with(VariableGrowth::empty);
-        growth.poly = rat(*degree);
-    }
-    for (variable, power) in logs {
-        let growth = result
-            .variables
-            .entry((*variable).into())
-            .or_insert_with(VariableGrowth::empty);
-        growth.log = *power;
-    }
-    result
+    let exp = exp.iter().map(|(variable, rate)| {
+        (
+            Atom::Mono(single_variable(
+                variable,
+                BigRational::one(),
+                BigRational::zero(),
+            )),
+            BTreeMap::from([(ExpBase::Rational(rat(2.0)), rat(*rate))]),
+        )
+    });
+    let poly = poly
+        .iter()
+        .map(|(variable, degree)| (ln_atom(variable), natural(rat(*degree))));
+    let logs = logs.iter().map(|(variable, power)| {
+        (
+            Atom::LogLog((*variable).into()),
+            natural(BigRational::from_integer((*power).into())),
+        )
+    });
+    GrowthTerm::from_atoms(exp.chain(poly).chain(logs))
 }
 
 fn terms_of(g: &Growth) -> &[GrowthTerm] {
     match &g.0 {
-        GrowthState::Known(terms) => terms,
+        GrowthState::Known { terms, .. } => terms,
         GrowthState::Unknown(failures) => panic!("expected known growth, got {failures:?}"),
     }
+}
+
+fn exact(terms: Vec<GrowthTerm>) -> Growth {
+    known(terms, ParameterRelation::Exact)
 }
 
 fn g(s: &str) -> Growth {
@@ -82,7 +86,7 @@ fn test_growth_relations_against_sympy_limits() {
         "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
     ))
     .unwrap();
-    assert_eq!(fixture.growth_cases.len(), 14);
+    assert_eq!(fixture.growth_cases.len(), 29);
 
     for case in fixture.growth_cases {
         let left = g(&case.left);
@@ -98,17 +102,6 @@ fn test_growth_relations_against_sympy_limits() {
             "{} with SymPy ratio limit {}",
             case.name, case.ratio_limit
         );
-    }
-}
-
-fn exponential_growth(factors: &[(f64, f64)]) -> VariableGrowth {
-    VariableGrowth {
-        exp: factors
-            .iter()
-            .map(|(base, coefficient)| (ExpBase::Rational(rat(*base)), rat(*coefficient)))
-            .collect(),
-        poly: BigRational::zero(),
-        log: 0,
     }
 }
 
@@ -214,9 +207,20 @@ fn test_every_registered_complexity_uses_the_shared_analysis() {
         let expression = Expr::parse(entry.complexity);
         let growth = Growth::from_expr(&expression);
         if let Some(rendered) = growth.to_expr() {
+            let reparsed = Growth::from_expr(&rendered);
+            // A rendered upper bound may legitimately re-parse as exact, but an
+            // exact normal form must stay exact.
+            if growth.relation() == Some(ParameterRelation::Exact) {
+                assert_eq!(
+                    reparsed.relation(),
+                    growth.relation(),
+                    "{}",
+                    entry.complexity
+                );
+            }
             assert_eq!(
-                Growth::from_expr(&rendered),
-                growth,
+                terms_of(&reparsed),
+                terms_of(&growth),
                 "{}: {}",
                 entry.name,
                 entry.complexity
@@ -225,93 +229,69 @@ fn test_every_registered_complexity_uses_the_shared_analysis() {
     }
 }
 
-/// Multi-base products remain incomparable when the conservative symbolic
-/// rules cannot prove an ordering, even when a stronger algebra system could.
+/// Mixed-base products are compared through their log weights:
+/// `2^(2n)·3^n = 12^n` dominates `2^n·4^n = 8^n`.
 #[test]
-fn test_growth_unproved_multi_base_comparison_is_retained() {
-    let left = g("2^(2*n) * 3^n");
-    let right = g("2^n * 4^n");
+fn test_growth_mixed_base_products_are_compared() {
+    assert!(g("2^(2*n) * 3^n").dominates(&g("2^n * 4^n")));
+    assert!(!g("2^n * 4^n").dominates(&g("2^(2*n) * 3^n")));
+    assert_eq!(terms_of(&g("2^(2*n) * 3^n + 2^n * 4^n")).len(), 1);
+}
+
+/// A rational base inside the certified interval for `e` stays unproved,
+/// while a base just outside that interval has a provable order.
+#[test]
+fn test_growth_unproved_near_e_comparison_is_retained() {
+    let left = g("exp(n)");
+    let right = g("2.71828182846^n");
     assert!(!left.dominates(&right));
     assert!(!right.dominates(&left));
-    assert_eq!(terms_of(&g("2^(2*n) * 3^n + 2^n * 4^n")).len(), 2);
+    assert_eq!(terms_of(&g("exp(n) + 2.71828182846^n")).len(), 2);
+
+    let above_interval = g("2.7182818285^n");
+    assert!(above_interval.dominates(&left));
+    assert!(!left.dominates(&above_interval));
+    assert_eq!(terms_of(&g("exp(n) + 2.7182818285^n")).len(), 1);
 }
 
 #[test]
 fn test_exponential_product_proof_rules() {
-    let empty = VariableGrowth::empty();
-    let two = exponential_growth(&[(2.0, 1.0)]);
-    let two_squared = exponential_growth(&[(2.0, 2.0)]);
-    let three = exponential_growth(&[(3.0, 1.0)]);
-
-    assert_eq!(empty.cmp_exp(&empty), Some(Ordering::Equal));
-    assert_eq!(empty.cmp_exp(&two), Some(Ordering::Less));
-    assert_eq!(two.cmp_exp(&empty), Some(Ordering::Greater));
-    assert_eq!(two_squared.cmp_exp(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_exp(&two_squared), Some(Ordering::Less));
-    assert_eq!(three.cmp_exp(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_exp(&three), Some(Ordering::Less));
-
-    assert_eq!(
-        exponential_growth(&[(3.0, 2.0)]).cmp_exp(&exponential_growth(&[(2.0, 1.0)])),
-        Some(Ordering::Greater)
-    );
-    assert_eq!(
-        exponential_growth(&[(2.0, 1.0)]).cmp_exp(&exponential_growth(&[(3.0, 2.0)])),
-        Some(Ordering::Less)
-    );
-    assert_eq!(
-        exponential_growth(&[(2.0, 3.0)]).cmp_exp(&exponential_growth(&[(3.0, 1.0)])),
-        None
-    );
-
-    assert_eq!(
-        exponential_growth(&[(0.25, -1.0)]).cmp_exp(&exponential_growth(&[(0.5, -1.0)])),
-        Some(Ordering::Greater)
-    );
-    assert_eq!(
-        exponential_growth(&[(0.5, -1.0)]).cmp_exp(&exponential_growth(&[(0.25, -1.0)])),
-        Some(Ordering::Less)
-    );
-    assert_eq!(
-        exponential_growth(&[(0.25, -2.0)]).cmp_exp(&exponential_growth(&[(0.5, -1.0)])),
-        Some(Ordering::Greater)
-    );
-    assert_eq!(
-        exponential_growth(&[(0.5, -1.0)]).cmp_exp(&exponential_growth(&[(0.25, -2.0)])),
-        Some(Ordering::Less)
-    );
-    assert_eq!(
-        exponential_growth(&[(0.25, -1.0)]).cmp_exp(&exponential_growth(&[(0.5, -2.0)])),
-        None
-    );
-    assert_eq!(two.cmp_exp(&exponential_growth(&[(0.5, -1.0)])), None);
-
-    let natural = VariableGrowth::exponential(ExpBase::Natural, BigRational::one());
-    assert_eq!(natural.cmp_exp(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_exp(&natural), Some(Ordering::Less));
-
+    let cases = [
+        ("2^(2*n)", "2^n", Some(Ordering::Greater)),
+        ("3^n", "2^n", Some(Ordering::Greater)),
+        ("3^(2*n)", "2^n", Some(Ordering::Greater)),
+        ("2^(3*n)", "3^n", Some(Ordering::Greater)),
+        ("0.25^(-n)", "0.5^(-n)", Some(Ordering::Greater)),
+        ("0.25^(-2*n)", "0.5^(-n)", Some(Ordering::Greater)),
+        ("0.25^(-n)", "0.5^(-2*n)", Some(Ordering::Equal)),
+        ("2^n", "0.5^(-n)", Some(Ordering::Equal)),
+        ("4^n", "2^(2*n)", Some(Ordering::Equal)),
+        ("exp(n)", "2^n", Some(Ordering::Greater)),
+        ("2^(2*n) * 3^n", "2^n * 4^n", Some(Ordering::Greater)),
+        ("2^n * m", "2^n * n", None),
+        ("2^(n*m)", "2^(n^2)", None),
+    ];
+    for (left, right, expected) in cases {
+        let (a, b) = (
+            terms_of(&g(left))[0].clone(),
+            terms_of(&g(right))[0].clone(),
+        );
+        assert_eq!(a.cmp(&b), expected, "{left} vs {right}");
+        assert_eq!(
+            b.cmp(&a),
+            expected.map(Ordering::reverse),
+            "{right} vs {left}"
+        );
+    }
     // Constant subtrees normalize before growth comparison.
     assert_eq!(g("(1 + 2)^n"), g("3^n"));
-
-    // Two residual products with no factorwise proof remain incomparable.
-    assert_eq!(
-        exponential_growth(&[(2.0, 2.0), (3.0, 1.0)])
-            .cmp_exp(&exponential_growth(&[(2.0, 1.0), (4.0, 1.0)])),
-        None
-    );
 }
 
 #[test]
 fn test_exponential_product_canonicalization() {
-    let combined = exponential_growth(&[(2.0, 1.0)])
-        .mul(&exponential_growth(&[(2.0, 2.0)]))
-        .unwrap();
-    assert_eq!(combined, exponential_growth(&[(2.0, 3.0)]));
-
-    let cancelled = exponential_growth(&[(2.0, 1.0)])
-        .mul(&exponential_growth(&[(2.0, -1.0)]))
-        .unwrap();
-    assert!(cancelled.is_empty());
+    assert_eq!(g("2^n * 2^(2*n)"), g("2^(3*n)"));
+    assert_eq!(g("2^n * 2^(-n)"), g("1"));
+    assert_eq!(g("4^n * 2^(-2*n)"), g("1"));
 }
 
 #[test]
@@ -333,8 +313,204 @@ fn test_proven_equal_exponential_spelling_is_deterministic() {
 ///    absolute-value idiom.
 #[test]
 fn test_growth_widening() {
-    assert_eq!(g("n - m"), g("n + m"));
-    assert_eq!(g("sqrt((n - m)^2)"), g("n + m"));
+    assert_eq!(terms_of(&g("n - m")), terms_of(&g("n + m")));
+    assert_eq!(terms_of(&g("sqrt((n - m)^2)")), terms_of(&g("n + m")));
+    assert_eq!(g("n - m").relation(), Some(ParameterRelation::UpperBound));
+}
+
+/// Exactness: a known growth is tight unless a step widened it.
+#[test]
+fn test_growth_relation() {
+    for source in [
+        "n",
+        "3",
+        "n^2 + m",
+        "n - 1",
+        "n^2 - n*log(n)",
+        "2^n * n^3 - n^5",
+        "sqrt(n*m)",
+        "log(n)",
+        "log(n + 1)",
+        "log(2^n * m)",
+        "2^(n - log(n))",
+        "(2*n)^n",
+        "n^(n*m)",
+        "factorial(n)",
+        "factorial(n^2/2)",
+    ] {
+        assert_eq!(
+            g(source).relation(),
+            Some(ParameterRelation::Exact),
+            "{source}"
+        );
+    }
+    for source in [
+        "n - m",
+        "-n + 2",
+        "n*m - n^2",
+        "(n + 1)^n",
+        "2^log(n + m)",
+        "2^((n + m)^(1/2))",
+        "log(2^n * log(m))",
+        "log(1)",
+        "log(1 + 2^(-n))",
+        "factorial(n + m)",
+        "factorial(n * log(n))",
+    ] {
+        assert_eq!(
+            g(source).relation(),
+            Some(ParameterRelation::UpperBound),
+            "{source}"
+        );
+    }
+    assert_eq!(g("2^(2^n)").relation(), None);
+    // The inner iterated logarithm is widened; its upper bound alone cannot
+    // bound the magnitude after applying another logarithm.
+    let nested_log = g("log(log(log(n)))");
+    assert_eq!(nested_log.relation(), None);
+    assert!(
+        nested_log
+            .failures()
+            .expect("unsupported nested logarithm")
+            .iter()
+            .any(|reason| matches!(reason, GrowthFailure::UnprovedLogarithmBound(_)))
+    );
+}
+
+/// `log` of a decaying term is large and negative; its growth must bound the
+/// magnitude, so it can neither be dropped from a sum nor vanish under a power.
+#[test]
+fn test_growth_log_of_decaying_term_bounds_magnitude() {
+    assert_eq!(terms_of(&g("log(exp(-n))")), terms_of(&g("n")));
+    assert_eq!(terms_of(&g("log(exp(-n))^2")), terms_of(&g("n^2")));
+    assert_eq!(terms_of(&g("log(2^n * 3^(-m))")), terms_of(&g("n + m")));
+    for source in [
+        "n + log(exp(-n)) + 1",
+        "n^2 + n*log(exp(-n))",
+        "log(n) + log(exp(-log(n)))",
+        "n^(1/2) + log(exp(-(n^(1/2))))",
+        "n + log(exp(-n))^2",
+    ] {
+        assert_eq!(
+            g(source).relation(),
+            Some(ParameterRelation::UpperBound),
+            "{source}"
+        );
+    }
+    // A dominated decaying logarithm still leaves the sum exact.
+    assert_eq!(
+        g("n^2 + log(exp(-n))").relation(),
+        Some(ParameterRelation::Exact)
+    );
+}
+
+/// Algebraic cancellation can leave an exponentially small positive argument.
+/// An upper bound on that argument is not a magnitude bound for its logarithm.
+#[test]
+fn test_growth_log_of_widened_argument_is_unknown() {
+    let argument = "n*(n+1) - n^2 - n + exp(-n)";
+    for source in [
+        format!("log({argument})"),
+        format!("log({argument})^2"),       // Exactly n^2.
+        format!("n + log({argument}) + 1"), // Exactly 1, never Theta(n).
+        "log(n - m)^2".to_string(),
+        "log(sqrt((n - m)^2))".to_string(),
+    ] {
+        let result = g(&source);
+        assert!(
+            matches!(
+                result.failures(),
+                Some([GrowthFailure::UnprovedLogarithmBound(_)])
+            ),
+            "{source}: {result:?}"
+        );
+        assert_eq!(result.relation(), None, "{source}");
+        assert_eq!(result.to_expr(), None, "{source}");
+        assert!(!result.dominates(&g("n")), "{source}");
+        assert!(!g("n").dominates(&result), "{source}");
+    }
+}
+
+/// A two-sided argument bound still permits growing, bounded, and decaying logs.
+#[test]
+fn test_growth_log_of_exact_argument_remains_supported() {
+    for (source, bound) in [
+        ("log(n + m)", "log(n) + log(m)"),
+        ("log(n^2 - n)", "log(n)"),
+        ("log(1 + exp(-n))", "1"),
+        ("log(exp(-n))^2", "n^2"),
+    ] {
+        assert_eq!(terms_of(&g(source)), terms_of(&g(bound)), "{source}");
+    }
+}
+
+/// Signed upper bounds cannot be squared or multiplied as magnitude bounds.
+#[test]
+fn test_growth_rejects_unproved_signed_exponent_operations() {
+    for source in [
+        "exp(log(sqrt(n^2+1)-n)^2)", // exp(asinh(n)^2), increasing without bound.
+        "exp((sqrt(n^2+n)-n-sqrt(n))^2)", // Exponent is Theta(n), not zero.
+        "exp((sqrt(n^2+n)-n-sqrt(n))*(sqrt(n^2+4*n)-n-4*sqrt(n)))",
+        "(sqrt(n^2+1)-n)^(-n)", // exp(n*asinh(n)), not constant.
+        "(sqrt(n^2+1)-n)^(sqrt(n^2+1)-n-1)",
+    ] {
+        let result = g(source);
+        assert!(result.failures().is_some(), "{source}: {result:?}");
+        assert_eq!(result.relation(), None, "{source}");
+        assert_eq!(result.to_expr(), None, "{source}");
+        assert!(!g("1").dominates(&result), "{source}");
+    }
+}
+
+/// An even power is invariant under negation, also past the exact expansion cap.
+#[test]
+fn test_growth_large_even_exponent_power_keeps_negative_terms() {
+    let negative = g("exp((-n-1)^18)");
+    assert_eq!(negative, g("exp((n+1)^18)"));
+    assert!(negative.dominates(&g("exp(n^18)")));
+    assert!(!g("1").dominates(&negative));
+}
+
+/// Binary64 rounds the first base to one; it must not reverse or prune this order.
+#[test]
+fn test_growth_near_one_bases_use_certified_weight_signs() {
+    let larger = "(9007199254740993/9007199254740992)^(3*n)";
+    let smaller = "(9007199254740994/9007199254740992)^n";
+    assert!(g(larger).dominates(&g(smaller)));
+    assert!(!g(smaller).dominates(&g(larger)));
+    assert_eq!(g(&format!("{larger}+{smaller}")), g(larger));
+
+    // This rational base grows faster than exp(n/2^54). If the exact-product
+    // budget is exceeded, neither an incorrect order nor pruning is allowed.
+    let tiny_exp = g("exp(n/18014398509481984)");
+    let rational = g("(9007199254740993/9007199254740992)^n");
+    assert!(!tiny_exp.dominates(&rational));
+    assert_eq!(terms_of(&add(tiny_exp, rational.clone())).len(), 2);
+
+    assert!(g("exp(n)").dominates(&g("2^n")));
+    assert!(g("3^n").dominates(&g("exp(n)")));
+    assert!(!g("exp(n)").dominates(&g("3^n")));
+}
+
+/// Stirling: `n! ≍ n^(n+1/2)·e^(−n)`, strictly between `(n/e)^n` and `n^n`.
+#[test]
+fn test_growth_factorial_stirling() {
+    assert_eq!(g("factorial(n)"), g("n^n * sqrt(n) * exp(-n)"));
+    assert_eq!(g("factorial(2*n)"), g("(2*n)^(2*n) * sqrt(n) * exp(-2*n)"));
+    for (lower, upper) in [
+        ("(n/3)^n", "factorial(n)"),
+        ("factorial(n)", "n^n"),
+        ("factorial(n)", "factorial(n + 1)"),
+        ("2^(n*log(n))", "factorial(2*n)"),
+    ] {
+        assert!(g(upper).dominates(&g(lower)), "{upper} ≻ {lower}");
+        assert!(!g(lower).dominates(&g(upper)), "{lower} ⊁ {upper}");
+    }
+    // Without an exact single-monomial argument, x! ≤ x^x is kept.
+    assert_eq!(
+        terms_of(&g("factorial(n + m)")),
+        terms_of(&g("(n + m)^(n + m)"))
+    );
 }
 
 /// 6. Determinism: the antichain is canonically sorted, so structurally
@@ -351,12 +527,12 @@ fn test_growth_determinism() {
 #[test]
 fn test_growth_unknown_negative_control() {
     assert_eq!(
-        g("2^(n*k)").failures(),
-        Some([GrowthFailure::NonlinearExponent("k * n".to_string())].as_slice())
+        g("2^(2^n)").failures(),
+        Some([GrowthFailure::UnsupportedExponent("2^n".to_string())].as_slice())
     );
     assert!(matches!(
-        g("factorial(n)").failures(),
-        Some([GrowthFailure::FactorialOfNonconstant(_)])
+        g("factorial(2^n)").failures(),
+        Some([GrowthFailure::UnsupportedFactorial(_)])
     ));
     assert!(matches!(
         Growth::from_expr(&Expr::factorial(Expr::rational(7, 2))).failures(),
@@ -367,22 +543,22 @@ fn test_growth_unknown_negative_control() {
         Some([GrowthFailure::InvalidConstantDomain { .. }])
     ));
     assert_eq!(
-        g("factorial(n) + 2^(n*k)").failures(),
+        g("factorial(2^n) + 2^(2^n)").failures(),
         Some(
             [
-                GrowthFailure::NonlinearExponent("k * n".to_string()),
-                GrowthFailure::FactorialOfNonconstant("factorial(n)".to_string()),
+                GrowthFailure::UnsupportedExponent("2^n".to_string()),
+                GrowthFailure::UnsupportedFactorial("factorial(2^n)".to_string()),
             ]
             .as_slice()
         )
     );
 
     // Absorption through the real `from_expr` add/mul paths.
-    let factorial_failure = g("factorial(n)");
-    assert_eq!(g("factorial(n) + n^2"), factorial_failure);
-    assert_eq!(g("n^2 + factorial(n)"), factorial_failure);
-    assert_eq!(g("factorial(n) * n^2"), factorial_failure);
-    assert_eq!(g("n^2 * factorial(n)"), factorial_failure);
+    let factorial_failure = g("factorial(2^n)");
+    assert_eq!(g("factorial(2^n) + n^2"), factorial_failure);
+    assert_eq!(g("n^2 + factorial(2^n)"), factorial_failure);
+    assert_eq!(g("factorial(2^n) * n^2"), factorial_failure);
+    assert_eq!(g("n^2 * factorial(2^n)"), factorial_failure);
 
     // Absorption at the operation level too.
     let n2 = g("n^2");
@@ -406,18 +582,18 @@ fn test_growth_reports_nested_and_numeric_failures() {
     let huge_constant = Expr::parse(&format!("1{}", "0".repeat(400)));
     assert_eq!(Growth::from_expr(&huge_constant), g("1"));
 
-    let unsupported = Expr::factorial(Expr::variable("n"));
+    let factorial = Expr::factorial(Expr::variable("n"));
     assert!(matches!(
-        Growth::from_expr(&Expr::exp(unsupported.clone())).failures(),
-        Some([GrowthFailure::FactorialOfNonconstant(_)])
+        Growth::from_expr(&Expr::exp(factorial.clone())).failures(),
+        Some([GrowthFailure::UnsupportedExponent(_)])
     ));
     assert!(matches!(
-        Growth::from_expr(&Expr::factorial(unsupported)).failures(),
-        Some([GrowthFailure::FactorialOfNonconstant(_)])
+        Growth::from_expr(&Expr::factorial(factorial)).failures(),
+        Some([GrowthFailure::UnsupportedFactorial(_)])
     ));
 
     assert_eq!(Growth::from_expr(&Expr::variable("n")).failures(), None);
-    assert_eq!(exact_growth(Vec::new()).to_expr(), Some(Expr::integer(1)));
+    assert_eq!(exact(Vec::new()).to_expr(), Some(Expr::integer(1)));
 }
 
 /// Pure constants, constant factors, and constant division are all O(1) / dropped.
@@ -443,10 +619,10 @@ fn test_growth_pow_special_cases() {
         g("n^(-1)").failures(),
         Some([GrowthFailure::NegativeExponent(_)])
     ));
-    // Variable base with variable exponent is not representable.
+    // A variable base must expand to a polynomial in variables and logs.
     assert!(matches!(
-        g("n^m").failures(),
-        Some([GrowthFailure::VariableBaseAndExponent(_)])
+        g("(2^n)^m").failures(),
+        Some([GrowthFailure::UnsupportedVariableBase(_)])
     ));
 }
 
@@ -457,7 +633,7 @@ fn test_growth_to_big_o() {
     assert_eq!(g("n^2 + n").to_big_o(), "O(n^2)");
     assert_eq!(g("2^n").to_big_o(), "O(2^n)");
     assert_eq!(g("5").to_big_o(), "O(1)");
-    assert_eq!(g("factorial(n)").to_big_o(), "O(?)");
+    assert_eq!(g("2^(2^n)").to_big_o(), "O(?)");
     // Renders exactly `O(<to_expr>)` for bounded classes.
     let bounded = g("n * m");
     assert_eq!(
@@ -495,31 +671,83 @@ fn test_growth_exponential_roundtrip_is_exact() {
     }
 }
 
-/// `exp(n)` uses base e; unit bases are constant, while decaying directions
-/// remain explicit analysis failures rather than silently widening to O(1).
+/// `exp(n)` uses base e; unit bases are constant, and decaying factors are
+/// represented exactly so they cancel against growing ones.
 #[test]
 fn test_growth_exponential_variants() {
     // exp(n) is represented directly as e^n: exponential, dominates any polynomial.
     let en = g("exp(n)");
     assert!(en.dominates(&g("n^5")));
-    assert!(matches!(
-        g("2^(n - m)").failures(),
-        Some([GrowthFailure::DecayingExponential { variable, .. }]) if variable == "m"
-    ));
     // Unit base is exactly O(1).
     assert_eq!(g("1^n"), g("7"));
-    assert!(matches!(
-        g("0.5^n").failures(),
-        Some([GrowthFailure::DecayingExponential {
-            variable,
-            coefficient,
-            ..
-        }]) if variable == "n" && coefficient == "1"
-    ));
+    // A decaying factor is bounded by O(1) and does not survive a sum with it.
+    assert!(g("1").dominates(&g("0.5^n")));
+    assert_eq!(g("0.5^n + 1"), g("1"));
+    assert!(g("2^n").dominates(&g("2^(n - m)")));
     // A fractional base with a negative exponent grows and retains that exact
     // symbolic base instead of being translated through a common logarithm.
     assert_eq!(g("0.5^(-n)").to_big_o(), "O(0.5^(-1 * n))");
     assert!(g("0.5^(-n)").dominates(&g("n^100")));
+    // A decaying base cannot take a widened exponent.
+    assert!(matches!(
+        g("0.5^sqrt(n + m)").failures(),
+        Some([GrowthFailure::DecayingWidenedExponent(_)])
+    ));
+}
+
+/// Huge constant powers inside an exponent fail fast instead of computing
+/// enormous rationals.
+#[test]
+fn test_growth_huge_exponent_powers_fail_fast() {
+    let start = std::time::Instant::now();
+    for source in [
+        "2^((n + m)^3000000000.5)",
+        "2^((3*n)^2000000000)",
+        "2^((n + m)^99999999999)",
+    ] {
+        assert!(
+            matches!(
+                g(source).failures(),
+                Some([GrowthFailure::RepresentedExponentOutOfRange(_)])
+            ),
+            "{source}: {:?}",
+            g(source)
+        );
+    }
+    assert!(
+        start.elapsed().as_millis() < 100,
+        "took {:?}",
+        start.elapsed()
+    );
+    // Unit coefficients need no budget.
+    assert_eq!(g("2^(n^2000000000)").failures(), None);
+}
+
+/// Nonlinear exponents, variable bases, and factorials are represented.
+#[test]
+fn test_growth_superexponential_shapes() {
+    assert_eq!(g("2^(n*m)").to_big_o(), "O(2^(m * n))");
+    assert_eq!(g("k^n").to_big_o(), "O(k^n)");
+    assert_eq!(
+        g("num_groups^(2*num_groups)").to_big_o(),
+        "O(num_groups^(2 * num_groups))"
+    );
+    // (k + 1)^n ≤ (2k)^n keeps the base-2 factor, which is not O(k^n).
+    assert_eq!(g("(k + 1)^n").to_big_o(), "O(2^n * k^n)");
+    assert!(g("(k + 1)^n").dominates(&g("k^n")));
+    assert!(!g("k^n").dominates(&g("(k + 1)^n")));
+
+    assert!(g("2^(n^2)").dominates(&g("3^n")));
+    assert!(g("2^sqrt(n)").dominates(&g("n^100")));
+    assert!(g("1.0001^n").dominates(&g("2^sqrt(n)")));
+    assert!(g("n^n").dominates(&g("2^(n*log(n))")));
+    assert!(g("2^(0.773*n)").dominates(&g("1.1996^n")));
+    assert!(!g("2^(n*m)").dominates(&g("2^(n^2)")));
+    assert!(!g("2^(n^2)").dominates(&g("2^(n*m)")));
+    // Exponent polynomials expand exactly, including cancellation.
+    assert_eq!(g("2^((n + m)^2 - 2*n*m)"), g("2^(n^2 + m^2)"));
+    // A logarithm of a sum widens to an upper bound with an explicit constant.
+    assert!(g("2^(n*log(n + 1))").dominates(&g("2^(n*log(n))")));
 }
 
 /// `log` lowers each level: log of an exponential is linear, log of a
@@ -531,7 +759,7 @@ fn test_growth_log_levels() {
     assert_eq!(g("log(3^n)"), g("n"));
     assert_eq!(g("log(exp(n))"), g("n"));
     // log(n) is a single log term.
-    assert_eq!(g("log(n)"), exact_growth(vec![term(&[], &[], &[("n", 1)])]));
+    assert_eq!(g("log(n)"), exact(vec![term(&[], &[], &[("n", 1)])]));
     // log(n*m) ≍ log n + log m (two summands, not a product).
     assert_eq!(terms_of(&g("log(n*m)")).len(), 2);
     // log of a constant is O(1).
@@ -540,7 +768,7 @@ fn test_growth_log_levels() {
     // A mixed monomial's log keeps *every* factor class: log(2^n * m) ≍ n + log m.
     // The exponential factor must not swallow the polynomial one.
     let mixed = g("log(2^n * m)");
-    let expected = exact_growth(vec![
+    let expected = exact(vec![
         term(&[], &[("n", 1.0)], &[]),
         term(&[], &[], &[("m", 1)]),
     ]);
@@ -558,7 +786,7 @@ fn test_growth_log_levels() {
 #[test]
 fn test_growth_unknown_dominance() {
     let n2 = g("n^2");
-    let unknown = g("factorial(n)");
+    let unknown = g("2^(2^n)");
     assert!(!unknown.dominates(&n2));
     assert!(!n2.dominates(&unknown));
     assert!(!unknown.dominates(&unknown));
@@ -576,17 +804,17 @@ fn test_growth_antichain_cap_reports_overflow() {
         .map(|variable| term(&[], &[(variable, 1.0)], &[]))
         .collect();
 
-    let at_cap = exact_growth(terms[..ANTICHAIN_CAP].to_vec());
+    let at_cap = exact(terms[..ANTICHAIN_CAP].to_vec());
     assert_eq!(terms_of(&at_cap).len(), ANTICHAIN_CAP);
 
-    let overflow = exact_growth(terms.clone());
+    let overflow = exact(terms.clone());
     assert!(matches!(
         overflow.failures(),
         Some([GrowthFailure::AntichainLimitExceeded { limit, terms }])
             if *limit == ANTICHAIN_CAP && *terms == ANTICHAIN_CAP + 1
     ));
 
-    let reversed = exact_growth(
+    let reversed = exact(
         vars.iter()
             .rev()
             .map(|variable| term(&[], &[(variable, 1.0)], &[]))
@@ -595,21 +823,20 @@ fn test_growth_antichain_cap_reports_overflow() {
     assert_eq!(overflow, reversed);
 }
 
-/// Unproved exponential comparisons obey the same explicit resource limit.
+/// Incomparable exponential terms obey the same explicit resource limit.
 #[test]
-fn test_growth_rejects_large_unproved_exponential_antichain() {
+fn test_growth_rejects_large_exponential_antichain() {
     let terms = (1..=ANTICHAIN_CAP + 1)
         .map(|i| {
-            let mut term = GrowthTerm::one();
-            term.insert(
-                "n".into(),
-                exponential_growth(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]),
-            );
-            term
+            term(
+                &[("n", i as f64), ("m", (ANTICHAIN_CAP + 2 - i) as f64)],
+                &[],
+                &[],
+            )
         })
         .collect::<Vec<_>>();
 
-    let growth = exact_growth(terms.clone());
+    let growth = exact(terms);
     assert!(matches!(
         growth.failures(),
         Some([GrowthFailure::AntichainLimitExceeded { limit, terms }])
@@ -743,35 +970,72 @@ fn gen_exponential_base(rng: &mut SplitMix64, bases: &[f64]) -> Expr {
     expression_from_approximation(bases[rng.below(bases.len() as u64) as usize])
 }
 
-fn gen_expr(rng: &mut SplitMix64, depth: u32, exponential_bases: &[f64]) -> Expr {
+/// Generator knobs: the exponential bases and the leaf generator.
+#[derive(Clone, Copy)]
+struct GenConfig {
+    exponential_bases: &'static [f64],
+    leaf: fn(&mut SplitMix64) -> Expr,
+}
+
+const STABLE: GenConfig = GenConfig {
+    exponential_bases: STABLE_EXPONENTIAL_BASES,
+    leaf: gen_leaf,
+};
+
+/// Constant leaves can hold off an exact term past the finite observation
+/// window (`(192 + sqrt(m))^3` looks like `m^0` until `m ≈ 2^15`), which
+/// breaks the numeric lower-bound check but not the upper-bound one.
+const STABLE_VARIABLE_LEAVES: GenConfig = GenConfig {
+    exponential_bases: STABLE_EXPONENTIAL_BASES,
+    leaf: gen_var,
+};
+
+const ADVERSARIAL: GenConfig = GenConfig {
+    exponential_bases: ADVERSARIAL_EXPONENTIAL_BASES,
+    leaf: gen_leaf,
+};
+
+fn gen_expr(rng: &mut SplitMix64, depth: u32, config: GenConfig) -> Expr {
+    let exponential_bases = config.exponential_bases;
     if depth == 0 {
-        return gen_leaf(rng);
+        return (config.leaf)(rng);
     }
     match rng.below(100) {
-        0..=19 => gen_leaf(rng),
-        20..=39 => {
-            gen_expr(rng, depth - 1, exponential_bases)
-                + gen_expr(rng, depth - 1, exponential_bases)
-        }
-        40..=54 => {
-            gen_expr(rng, depth - 1, exponential_bases)
-                * gen_expr(rng, depth - 1, exponential_bases)
-        }
+        0..=19 => (config.leaf)(rng),
+        20..=39 => gen_expr(rng, depth - 1, config) + gen_expr(rng, depth - 1, config),
+        40..=54 => gen_expr(rng, depth - 1, config) * gen_expr(rng, depth - 1, config),
         55..=69 => Expr::pow(
-            gen_expr(rng, depth - 1, exponential_bases),
+            gen_expr(rng, depth - 1, config),
             Expr::integer(1 + rng.below(3)),
         ),
-        70..=79 => Expr::sqrt(gen_expr(rng, depth - 1, exponential_bases)),
-        80..=89 => Expr::log(gen_expr(rng, depth - 1, exponential_bases)),
-        90..=96 => Expr::pow(
+        70..=79 => Expr::sqrt(gen_expr(rng, depth - 1, config)),
+        80..=89 => Expr::log(gen_expr(rng, depth - 1, config)),
+        90..=95 => Expr::pow(
             gen_exponential_base(rng, exponential_bases),
             gen_linear(rng),
         ),
-        97..=98 => Expr::exp(gen_var(rng)),
-        // ~1% per node: a nonlinear exponent → Unknown (a minority of trees).
+        96 => Expr::exp(gen_var(rng)),
+        // Signed shapes: a subtracted lower-order term (exact through the
+        // dominance rule) and the negative logarithm of a decaying term. The
+        // numeric harness cannot witness an undominated decaying logarithm —
+        // `exp(-x)` underflows f64 past `x ≈ 745` — so that case is pinned by
+        // `test_growth_log_of_decaying_term_bounds_magnitude`.
+        97 => match rng.below(2) {
+            0 => gen_var(rng) * gen_var(rng) - gen_var(rng),
+            _ => Expr::log(Expr::exp(Expr::integer(0) - gen_linear(rng))),
+        },
+        98 => match rng.below(3) {
+            0 => Expr::pow(
+                gen_exponential_base(rng, exponential_bases),
+                gen_nonlinear(rng),
+            ),
+            1 => Expr::pow(gen_var(rng), gen_var(rng)),
+            _ => Expr::factorial(gen_var(rng)),
+        },
+        // ~1% per node: an iterated exponential → Unknown (a minority of trees).
         _ => Expr::pow(
             gen_exponential_base(rng, exponential_bases),
-            gen_nonlinear(rng),
+            Expr::pow(Expr::integer(2), gen_var(rng)),
         ),
     }
 }
@@ -828,6 +1092,13 @@ struct UbResult {
 /// `broken_from_expr`. Parameterizing here is what gives the harness teeth: the
 /// exact same code must accept the sound transfer and reject the broken one.
 fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> UbResult {
+    run_bound(transfer, seed, iters, false)
+}
+
+/// With `lower`, check only growths reported [`ParameterRelation::Exact`], and
+/// check them in the other direction: `growth ≤ C · e` (non-exact results are
+/// counted as `unknown`).
+fn run_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize, lower: bool) -> UbResult {
     // Anchor 2^6; check at 2^8, 2^10, 2^12 — all *larger* than the anchor.
     let anchor = 64_u64;
     let large = [256_u64, 1024, 4096];
@@ -837,11 +1108,16 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
     let mut r = UbResult::default();
 
     for _ in 0..iters {
-        let e = gen_expr(&mut rng, MAX_DEPTH, STABLE_EXPONENTIAL_BASES);
+        let config = if lower {
+            STABLE_VARIABLE_LEAVES
+        } else {
+            STABLE
+        };
+        let e = gen_expr(&mut rng, MAX_DEPTH, config);
         let g = transfer(&e);
         let gexpr = match g.to_expr() {
-            Some(x) => x,
-            None => {
+            Some(x) if !lower || g.relation() == Some(ParameterRelation::Exact) => x,
+            _ => {
                 r.unknown += 1;
                 continue;
             }
@@ -864,7 +1140,8 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
             r.skipped += 1;
             continue;
         }
-        let c = (ve0 / vg0) * slack;
+        let (bounded0, bound0) = if lower { (vg0, ve0) } else { (ve0, vg0) };
+        let c = (bounded0 / bound0) * slack;
 
         let mut conclusive = false;
         for &s in &large {
@@ -881,12 +1158,12 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
             }
             // Both finite and positive: a real, decidable comparison.
             conclusive = true;
-            let bound = c * vg;
-            if ve > bound {
+            let (bounded, bound) = if lower { (vg, c * ve) } else { (ve, c * vg) };
+            if bounded > bound {
                 r.violations += 1;
                 if r.first_violation.is_none() {
                     r.first_violation = Some(format!(
-                        "e = {e}  |  g = {gexpr}  |  s = {s}: eval(e) = {ve} > {c} * {vg} = {bound}"
+                        "e = {e}  |  g = {gexpr}  |  s = {s}: {bounded} > {bound} (eval(e) = {ve}, eval(g) = {vg}, C = {c})"
                     ));
                 }
             }
@@ -925,7 +1202,7 @@ fn broken_from_expr(expression: &Expr) -> Growth {
                 None => Growth::from_expr(expression),
             }
         }
-        ExprNode::Log(value) => log_growth(broken_from_expr(value)),
+        ExprNode::Log(value) => log_growth(broken_from_expr(value), value),
         _ => Growth::from_expr(expression),
     }
 }
@@ -971,6 +1248,56 @@ fn test_growth_property_upper_bound_negative_control() {
     );
 }
 
+/// Every growth reported exact is also a lower bound: `growth ≤ C · e`.
+#[test]
+fn test_growth_property_exact_lower_bound_sound() {
+    let r = run_bound(Growth::from_expr, MASTER_SEED ^ 0x04, UB_ITERS, true);
+    assert_eq!(
+        r.violations,
+        0,
+        "lower-bound violation ({} total); first: {}",
+        r.violations,
+        r.first_violation.as_deref().unwrap_or("<none>")
+    );
+    assert!(
+        r.meaningful >= 3000,
+        "need >= 3000 meaningful exact checks, got {} (non-exact {}, skipped {})",
+        r.meaningful,
+        r.unknown,
+        r.skipped
+    );
+}
+
+/// A deliberately broken transfer function: a top-level `Add` returns the
+/// *product* of its summands' growths and claims it exact. This is still an
+/// upper bound, but not a lower one, so the lower-bound harness must fail.
+fn overgrown_from_expr(expression: &Expr) -> Growth {
+    match expression.node() {
+        ExprNode::Add(values) => {
+            let product = values
+                .iter()
+                .map(Growth::from_expr)
+                .reduce(mul)
+                .expect("normalized sum has at least two terms");
+            match product.failures() {
+                Some(_) => product,
+                None => exact(terms_of(&product).to_vec()),
+            }
+        }
+        _ => Growth::from_expr(expression),
+    }
+}
+
+#[test]
+fn test_growth_property_exact_lower_bound_negative_control() {
+    let r = run_bound(overgrown_from_expr, MASTER_SEED ^ 0x04, UB_ITERS, true);
+    assert!(
+        r.violations > 0,
+        "harness failed to catch the seeded Add bug (meaningful {})",
+        r.meaningful
+    );
+}
+
 // --- Contract 2: idempotence ---
 
 fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
@@ -980,7 +1307,7 @@ fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
 fn growth_approx_eq(a: &Growth, b: &Growth) -> bool {
     match (&a.0, &b.0) {
         (GrowthState::Unknown(_), GrowthState::Unknown(_)) => true,
-        (GrowthState::Known(ta), GrowthState::Known(tb)) => {
+        (GrowthState::Known { terms: ta, .. }, GrowthState::Known { terms: tb, .. }) => {
             ta.len() == tb.len()
                 && ta.iter().all(|t| tb.iter().any(|u| term_approx_eq(t, u)))
                 && tb.iter().all(|u| ta.iter().any(|t| term_approx_eq(t, u)))
@@ -998,7 +1325,7 @@ fn test_growth_property_idempotence() {
     for _ in 0..UB_ITERS {
         // Idempotence is purely symbolic, so it can safely exercise bases near
         // one whose numeric crossover lies far beyond the f64 test window.
-        let e = gen_expr(&mut rng, MAX_DEPTH, ADVERSARIAL_EXPONENTIAL_BASES);
+        let e = gen_expr(&mut rng, MAX_DEPTH, ADVERSARIAL);
         let g = Growth::from_expr(&e);
         let rendered = match g.to_expr() {
             Some(x) => x,

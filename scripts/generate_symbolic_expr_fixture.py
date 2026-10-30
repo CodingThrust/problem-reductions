@@ -148,6 +148,21 @@ GROWTH_CASES = [
     ("exponential_poly_tie_break", "2^n * n", "2^n"),
     ("reverse_polynomial_degree", "n", "n^2"),
     ("reverse_exponential", "n^100", "exp(n)"),
+    ("polynomial_exponent", "2^(n^2)", "3^n"),
+    ("sqrt_exponent_over_polynomial", "2^sqrt(n)", "n^100"),
+    ("exponential_over_sqrt_exponent", "1.0001^n", "2^sqrt(n)"),
+    ("quasi_polynomial", "2^(log(n)^2)", "n^100"),
+    ("self_power_over_binary_power", "n^n", "2^(n * log(n))"),
+    ("variable_base_rate", "n^(2 * n)", "n^n"),
+    ("mixed_base_product", "2^(2 * n) * 3^n", "2^n * 4^n"),
+    ("close_exponential_rates", "2^(0.773 * n)", "1.1996^n"),
+    ("exponent_cancellation", "2^((n + 1)^2 - n^2)", "2^(2 * n)"),
+    ("decaying_factor", "2^n * 0.5^n", "1"),
+    ("reverse_variable_base", "2^n", "n^n"),
+    ("stirling_factorial", "factorial(n)", "n^n * sqrt(n) * exp(-n)"),
+    ("factorial_below_self_power", "n^n", "factorial(n)"),
+    ("factorial_above_base_e_power", "factorial(n)", "(n / 3)^n"),
+    ("scaled_factorial", "factorial(2 * n)", "(2 * n)^(2 * n) * sqrt(n) * exp(-2 * n)"),
 ]
 
 
