@@ -179,7 +179,9 @@ impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
 }
 
 crate::declare_variants! {
-    default MinimumWeightDecoding => "2^(0.0494 * num_cols)" create MinimumWeightDecodingCreateSpec,
+    // Information set decoding exponents are average-case over random codes. Worst case:
+    // meet-in-the-middle over the two column halves of H is exact in 2^(m/2).
+    default MinimumWeightDecoding => "2^(0.5 * num_cols)" create MinimumWeightDecodingCreateSpec,
 }
 
 crate::register_brute_force! {
