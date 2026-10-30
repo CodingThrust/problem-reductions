@@ -2,13 +2,13 @@
 //!
 //! For every simple path A -> ... -> B of 1-3 witness hops, substitute the
 //! path's composed parameter transform into B's registered complexity. The
-//! result is an upper bound on solving A (plus the polynomial reduction cost).
-//! When that derived bound is strictly smaller in Big-O than A's registered
-//! complexity, either A's entry is stale or a transform along the path is
-//! wrong; the audit reports the shortest such witness for each variant.
-//!
-//! The reduction's own running time is not modeled, so a finding whose
-//! registered bound is polynomial is only suggestive.
+//! resulting expression is a candidate bound on solving A. Substitution of
+//! upper-bound parameters requires the target complexity to be monotone in those
+//! parameters; a known growth form alone does not prove that property.
+//! The audit compares represented growth bounds and reports the shortest route
+//! for each candidate improvement. Widening can make a registered bound loose,
+//! and the reduction's own running time is not modeled. Every finding therefore
+//! requires manual verification of monotonicity, tightness, and reduction cost.
 //!
 //! cargo run --release --example complexity_consistency_audit
 use problemreductions::Growth;
@@ -72,9 +72,9 @@ fn extend(graph: &ReductionGraph, path: &mut Vec<Node>, found: &mut Vec<Reductio
 /// The target complexity rewritten in source parameters, if every step composes.
 ///
 /// Substituting upper-bound fields is sound only for a complexity that is
-/// monotone in its parameters. The growth domain analyzes exactly that class
-/// (subtraction widens to addition; anything else is reported unknown), so the
-/// caller skips targets whose own growth is unknown before substituting.
+/// monotone in the substituted parameters. The caller skips unsupported target
+/// growth forms, but support is not a monotonicity proof. Findings must be
+/// checked against the target formula and each transform's accuracy.
 fn derived_complexity(graph: &ReductionGraph, path: &ReductionPath, target: &str) -> Option<Expr> {
     let composed = graph.compose_path_parameter_transform(path).ok()??;
     let replacements: HashMap<&str, &Expr> = composed.expressions().collect();
@@ -128,13 +128,16 @@ fn main() {
         };
         let derived_growth = Growth::from_expr(&derived);
         let registered_growth = Growth::from_expr(&Expr::parse(registered));
-        if let Some(failures) = derived_growth.failures().or(registered_growth.failures()) {
+        let failure = derived_growth
+            .failures()
+            .map(|failures| ("derived", failures))
+            .or_else(|| {
+                registered_growth
+                    .failures()
+                    .map(|failures| ("registered", failures))
+            });
+        if let Some((side, failures)) = failure {
             totals.unknown_growth += 1;
-            let side = if registered_growth.failures().is_some() {
-                "registered"
-            } else {
-                "derived"
-            };
             for failure in failures {
                 let kind = failure.to_string();
                 let kind = kind.split(':').next().unwrap_or_default();
@@ -166,7 +169,7 @@ fn main() {
     println!("Complexity consistency audit (paths of 1-{MAX_HOPS} witness hops)");
     println!("paths examined:        {}", totals.paths);
     println!("  consistent:          {}", totals.consistent);
-    println!("  derived is better:   {}", totals.violations);
+    println!("  candidate improvements:   {}", totals.violations);
     println!("  incomparable Big-O:  {}", totals.incomparable);
     println!("  unknown growth:      {}", totals.unknown_growth);
     println!("  uncomposable:        {}", totals.uncomposable);
@@ -176,7 +179,7 @@ fn main() {
     }
 
     println!(
-        "\n## Registered bound beaten by a derived bound ({} variants)",
+        "\n## Candidate improvements requiring manual review ({} variants)",
         findings.len()
     );
     for (source, list) in &findings {
