@@ -12394,7 +12394,14 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
 #let kc_sat_m = kc_sat_edges.len()
 #let kc_sat_k = kc_sat.source.instance.num_colors
 #let kc_sat_clauses = kc_sat.target.instance.clauses
-#let kc_sat_pair_count = calc.floor(kc_sat_k * (kc_sat_k - 1) / 2)
+// Clause families counted from the loaded target: positive rows select a color,
+// negative pairs inside one vertex block exclude two colors, the rest are edge conflicts.
+#let kc_sat_block(lit) = calc.quo(calc.abs(lit) - 1, kc_sat_k)
+#let kc_sat_selection = kc_sat_clauses.filter(c => c.literals.all(lit => lit > 0))
+#let kc_sat_pairwise = kc_sat_clauses.filter(c => c.literals.len() == 2 and c.literals.all(lit => lit < 0) and kc_sat_block(c.literals.at(0)) == kc_sat_block(c.literals.at(1)))
+#let kc_sat_conflicts = kc_sat_clauses.filter(c => c.literals.all(lit => lit < 0) and not (c.literals.len() == 2 and kc_sat_block(c.literals.at(0)) == kc_sat_block(c.literals.at(1))))
+#assert(kc_sat_selection.len() + kc_sat_pairwise.len() + kc_sat_conflicts.len() == kc_sat_clauses.len())
+#let kc_sat_pair_count = calc.quo(kc_sat_pairwise.len(), kc_sat_n)
 #reduction-rule("KColoring", "Satisfiability",
   example: true,
   example-caption: [Cycle on #kc_sat_n vertices with #kc_sat_k colors],
@@ -12424,14 +12431,14 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
       }))
     }
     The target has $#kc_sat.target.instance.num_vars$ variables,
-    $#kc_sat_n$ selection clauses, $#(kc_sat_n * kc_sat_pair_count)$ pairwise
-    exclusions and $#(kc_sat_m * kc_sat_k)$ edge conflicts: $#kc_sat_clauses.len()$
+    $#kc_sat_selection.len()$ selection clauses, $#kc_sat_pairwise.len()$ pairwise
+    exclusions and $#kc_sat_conflicts.len()$ edge conflicts: $#kc_sat_clauses.len()$
     clauses and $#kc_sat_clauses.map(c => c.literals.len()).sum()$ literal occurrences.
     For vertex $0$, the selection clause is
     #repr(kc_sat_clauses.at(0).literals), and its pairwise clauses are
-    #kc_sat_clauses.slice(kc_sat_n, kc_sat_n + kc_sat_pair_count).map(c => repr(c.literals)).join(", ").
+    #kc_sat_pairwise.slice(0, kc_sat_pair_count).map(c => repr(c.literals)).join(", ").
     The first stored edge contributes
-    #kc_sat_clauses.slice(kc_sat_n * (1 + kc_sat_pair_count), kc_sat_n * (1 + kc_sat_pair_count) + kc_sat_k).map(c => repr(c.literals)).join(", ").
+    #kc_sat_conflicts.slice(0, calc.quo(kc_sat_conflicts.len(), kc_sat_m)).map(c => repr(c.literals)).join(", ").
 
     The canonical coloring is #repr(kc_sat_sol.source_config). Its assignment has
     true literal numbers
@@ -12450,20 +12457,36 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
     *NO example.* Restrict the same fixture graph to
     #let no_k = kc_sat_k - 1
     #let no_vars = kc_sat_n * no_k
-    #let no_pairs = calc.floor(no_k * (no_k - 1) / 2)
+    #let no_pairs = calc.quo(no_k * (no_k - 1), 2)
     #let no_clauses = kc_sat_n + kc_sat_n * no_pairs + kc_sat_m * no_k
     #let no_literals = kc_sat_n * no_k + 2 * kc_sat_n * no_pairs + 2 * kc_sat_m * no_k
-    $k=#no_k$ colors. The target then has $#no_vars$ variables,
-    $#no_clauses$ clauses and $#no_literals$ literal occurrences. The cycle length
-    $#kc_sat_n$ is odd. Starting with color zero, its first
-    $#(kc_sat_n - 1)$ edges force the alternating sequence
-    #let alternating = range(kc_sat_n).map(v => calc.rem(v, no_k))
+    // The argument below needs the fixture to be the cycle (0,1), ..., (n-1,0) of odd length.
+    #let cycle_edges = range(kc_sat_n).map(v => (v, calc.rem(v + 1, kc_sat_n)))
+    #assert(no_k == 2, message: "NO example expects two colors")
+    #assert(kc_sat_n >= 3 and calc.odd(kc_sat_n), message: "NO example expects an odd cycle")
+    #assert(kc_sat_edges.map(e => (e.at(0), e.at(1))) == cycle_edges, message: "NO example expects the cycle edges in order")
+    #let path_edges = kc_sat_edges.slice(0, kc_sat_n - 1)
     #let closing = kc_sat_edges.last()
-    #repr(alternating). The closing edge #repr(closing) has equal colors
-    $#alternating.at(closing.at(0))$ and $#alternating.at(closing.at(1))$.
-    The corresponding false conflict clause is
-    #repr(closing.map(v => -(v * no_k + alternating.at(v) + 1))). Swapping the two
-    color labels gives the other forced assignment, with the same conflict.
+    // Propagate colors along the path edges from a chosen start color.
+    #let forced(start) = {
+      let colors = range(kc_sat_n).map(_ => start)
+      for e in path_edges { colors.at(e.at(1)) = no_k - 1 - colors.at(e.at(0)) }
+      colors
+    }
+    #let false_clause(colors) = closing.map(v => -(v * no_k + colors.at(v) + 1))
+    #let first = forced(0)
+    #let second = forced(1)
+    #assert(first.at(closing.at(0)) == first.at(closing.at(1)))
+    #assert(second.at(closing.at(0)) == second.at(closing.at(1)))
+    $k=#no_k$ colors. The target then has $#no_vars$ variables,
+    $#no_clauses$ clauses and $#no_literals$ literal occurrences. The fixture
+    edges form a cycle of odd length $#kc_sat_n$. Starting with color zero, its first
+    $#path_edges.len()$ edges force the alternating sequence
+    #repr(first). The closing edge #repr(closing) has equal colors
+    $#first.at(closing.at(0))$ and $#first.at(closing.at(1))$, so the conflict
+    clause #repr(false_clause(first)) is false. Starting with color one instead
+    forces #repr(second), which conflicts on the same closing edge with the false
+    clause #repr(false_clause(second)).
     Thus none of the $#calc.pow(no_k, kc_sat_n)$ source configurations and none
     of the $#calc.pow(2, no_vars)$ target assignments is feasible.
   ],
