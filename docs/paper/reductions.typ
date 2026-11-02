@@ -19865,14 +19865,18 @@ The following table shows concrete target-variable counts for example instances,
       let triples = tdm_x3c.source.instance.triples
       let subsets = tdm_x3c.target.instance.subsets
       let selected = tdm_x3c_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+      // For each selected subset, an element that no other subset contains.
+      let private = selected.map(i => (i, subsets.at(i).find(e => subsets.filter(s => s.contains(e)).len() == 1)))
+      assert(private.all(((i, e)) => e != none), message: "the uniqueness argument needs a private element in every selected subset")
+      let domains = ($w$, $x$, $y$)
       [
         *Step 1 -- Source instance.* The canonical source has $q = #q$ and $t = #triples.len()$ triples: #triples.map(tr => "(" + fmt-values(tr) + ")").join(", ").
 
         *Step 2 -- Tag the coordinates.* The target universe is ${0, dots, #(3 * q - 1)}$: $W$ occupies $0, dots, #(q - 1)$, $X$ occupies $#q, dots, #(2 * q - 1)$ and $Y$ occupies $#(2 * q), dots, #(3 * q - 1)$. Triple $(w, x, y)$ becomes ${w, #q + x, #(2 * q) + y}$, giving the subsets #subsets.enumerate().map(((i, s)) => $S_#i = {#fmt-values(s)}$).join(", ").
 
-        *Step 3 -- Verify the witness.* The configuration $(#fmt-values(tdm_x3c_sol.target_config))$ selects #selected.map(i => $S_#i$).join(", "), which are pairwise disjoint and cover all $#(3 * q)$ elements #sym.checkmark. The identical source configuration selects the diagonal triples, a perfect matching #sym.checkmark.
+        *Step 3 -- Verify the witness.* The configuration $(#fmt-values(tdm_x3c_sol.target_config))$ selects #selected.map(i => $S_#i$).join(", "), which are pairwise disjoint and cover all $#(3 * q)$ elements #sym.checkmark. The identical source configuration selects the triples #selected.map(i => "(" + fmt-values(triples.at(i)) + ")").join(", "), a perfect matching #sym.checkmark.
 
-        *Multiplicity:* The fixture stores one canonical witness, and it is the only exact cover: element $#(q - 1)$ ($w = #(q - 1)$) lies only in $S_2$, element $#q$ ($x = 0$) only in $S_0$, and element $#(2 * q + 1)$ ($y = 1$) only in $S_1$, so every exact cover contains $S_0, S_1, S_2$, which already cover $U$. The cross subsets $S_3$ and $S_4$ are disjoint, but no third subset completes them.
+        *Multiplicity:* The fixture stores one canonical witness, and it is the only exact cover: #private.map(((i, e)) => [element $#e$ ($#domains.at(calc.quo(e, q)) = #calc.rem(e, q)$) lies only in $S_#i$]).join(", "), so every exact cover contains #selected.map(i => $S_#i$).join(", "), which already cover $U$.
       ]
     }
   ],
