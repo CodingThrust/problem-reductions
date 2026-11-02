@@ -20048,6 +20048,70 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Both encodings agree that $"config"[i] = 1$ means vertex $i in S$, so extraction keeps the original vertices' bits and drops the auxiliary ones. The complementary witness $f arrow.r -f$ is equally optimal because the quadratic form is invariant under this sign flip.
 ]
 
+// MaxCut → Maximum2Satisfiability (#1102, Gramm et al. 2003)
+#let mc_m2s = load-example(
+  "MaxCut",
+  "Maximum2Satisfiability",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let mc_m2s_sol = mc_m2s.solutions.at(0)
+#let mc_m2s_n = mc_m2s.source.instance.graph.num_vertices
+#let mc_m2s_edges = mc_m2s.source.instance.graph.edges
+#let mc_m2s_m = mc_m2s_edges.len()
+#let mc_m2s_clauses = mc_m2s.target.instance.clauses
+#let mc_m2s_cut(x) = mc_m2s_edges.filter(e => x.at(e.at(0)) != x.at(e.at(1))).len()
+#let mc_m2s_true(l, x) = if l > 0 { x.at(l - 1) } else { not x.at(-l - 1) }
+#let mc_m2s_sat(x) = mc_m2s_clauses.filter(c => c.literals.any(l => mc_m2s_true(l, x))).len()
+#let mc_m2s_pair(j, x) = range(2 * j, 2 * j + 2).filter(i => mc_m2s_clauses.at(i).literals.any(l => mc_m2s_true(l, x))).len()
+#let mc_m2s_all = range(calc.pow(2, mc_m2s_n)).map(mask => range(mc_m2s_n).map(i => calc.rem(calc.quo(mask, calc.pow(2, i)), 2) == 1))
+#let mc_m2s_opt_cut = calc.max(..mc_m2s_all.map(mc_m2s_cut))
+#let mc_m2s_opt_sat = calc.max(..mc_m2s_all.map(mc_m2s_sat))
+#let mc_m2s_x = mc_m2s_sol.target_config
+#let mc_m2s_side = range(mc_m2s_n).map(_ => false)
+#let mc_m2s_lit(l) = if l > 0 { $x_#(l - 1)$ } else { $not x_#(-l - 1)$ }
+#let mc_m2s_clause(c) = $(#mc_m2s_lit(c.literals.at(0)) or #mc_m2s_lit(c.literals.at(1)))$
+#let mc_m2s_edge(e) = $(#e.at(0), #e.at(1))$
+#reduction-rule("MaxCut", "Maximum2Satisfiability",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [$n = #mc_m2s_n$ vertices and $m = #mc_m2s_m$ edges become $#mc_m2s.target.instance.num_vars$ variables and $#mc_m2s_clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(mc_m2s) + " -o maxcut.json",
+      "pred reduce maxcut.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + cli-config(mc_m2s_sol.source_config),
+    )
+
+    *Step 1 -- Source instance.* The unweighted graph has $n = #mc_m2s_n$ vertices and the $m = #mc_m2s_m$ edges #mc_m2s_edges.map(mc_m2s_edge).join(", ").
+
+    *Step 2 -- Build the formula.* One variable per vertex and two clauses per edge, in edge order, give #mc_m2s.target.instance.num_vars variables and the #mc_m2s_clauses.len() clauses #mc_m2s_clauses.map(mc_m2s_clause).join(", ").
+
+    *Step 3 -- Verify the witness.* The canonical assignment $bold(x) = (#fmt-values(mc_m2s_x))$ cuts #mc_m2s_cut(mc_m2s_x) of the #mc_m2s_m edges. The clause pairs of the edges satisfy #range(mc_m2s_m).map(j => str(mc_m2s_pair(j, mc_m2s_x))).join(", ") clauses respectively: 2 for each cut edge and 1 for the uncut ones, #mc_m2s_sat(mc_m2s_x) $= #mc_m2s_m + #mc_m2s_cut(mc_m2s_x)$ in total. Placing every vertex on one side cuts nothing and satisfies exactly the #mc_m2s_sat(mc_m2s_side) $= m$ negative clauses. Enumerating all #mc_m2s_all.len() assignments gives the optima $"OPT"(G) = #mc_m2s_opt_cut$ and $"OPT"(phi) = #mc_m2s_opt_sat = m + "OPT"(G)$, so the witness is optimal on both sides and extracts to the cut $(#fmt-values(mc_m2s_sol.source_config))$ #sym.checkmark.
+
+    *Threshold (NO) check.* For $k = #(mc_m2s_opt_cut + 1)$ no cut of this graph has value at least $k$, and correspondingly no assignment satisfies $m + k = #(mc_m2s_m + mc_m2s_opt_cut + 1)$ clauses, since the target maximum is $#mc_m2s_opt_sat$. Both decision versions answer NO.
+
+    *Multiplicity:* The fixture stores one canonical witness. Complementing every variable leaves both objectives unchanged, so the complementary assignment is equally optimal.
+  ],
+)[
+  This $O(n + m)$ reduction @gramm2003 (Section 5) encodes an unweighted graph $G = (V, E)$ with $n$ vertices and $m$ edges as a 2-CNF formula $phi(G)$ with one variable per vertex and two clauses per edge. Every assignment satisfies exactly $m + "cut"$ clauses, so the target has $n$ variables and $2m$ clauses and maximum cuts are optimal assignments.
+][
+  _Construction._ Let $V = {0, dots, n-1}$ and let $E = (e_0, dots, e_(m-1))$ list the edges, $e_j = (u_j, v_j)$. Create a Boolean variable $x_v$ for each vertex $v$; $x_v = 1$ places $v$ on side 1 of the cut and $x_v = 0$ on side 0. For each $j$ in order, add the clauses $P_j = (x_(u_j) or x_(v_j))$ and $Q_j = (not x_(u_j) or not x_(v_j))$. No other clause is created. The source graph is simple: self-loops and repeated edges are rejected when the graph is constructed. Isolated vertices yield variables occurring in no clause, and an edgeless graph yields $n$ variables and no clause.
+
+  _Correctness._ Write $"cut"(bold(x)) = |{j : x_(u_j) != x_(v_j)}|$ and $"sat"(bold(x))$ for the number of satisfied clauses. For a single edge with $a = x_(u_j)$ and $b = x_(v_j)$: if $a != b$, one of them is 1 and one is 0, so both $P_j$ and $Q_j$ hold; if $a = b = 1$, only $P_j$ holds; if $a = b = 0$, only $Q_j$ holds. The pair therefore contributes $1 + [x_(u_j) != x_(v_j)]$, and summing over the $m$ disjoint pairs gives
+  $
+    "sat"(bold(x)) = m + "cut"(bold(x)) quad "for every" bold(x) in {0, 1}^n.
+  $
+
+  ($arrow.r.double$) If a configuration $bold(x)$ has $"cut"(bold(x)) >= k$, the same vector as an assignment satisfies $m + "cut"(bold(x)) >= m + k$ clauses.
+
+  ($arrow.l.double$) If an assignment $bold(y)$ satisfies at least $m + k$ clauses, the configuration $bold(x) = bold(y)$ (both have length $n$) has $"cut"(bold(x)) = "sat"(bold(y)) - m >= k$.
+
+  The identity map is a bijection between configurations and assignments that adds the constant $m$ to the objective, so $"OPT"(phi(G)) = m + "OPT"(G)$ and the optimal assignments are exactly the maximum cuts.
+
+  _Solution extraction._ Return the assignment unchanged: vertex $v$ goes to side 1 exactly when $x_v$ is true. Its cut value is $"sat"(bold(y)) - m$, so an optimal assignment extracts to a maximum cut. Assignments of the wrong length are rejected.
+]
+
 // 14. HamiltonianPath → IsomorphicSpanningTree (#912)
 #let hp_ist = load-example("HamiltonianPath", "IsomorphicSpanningTree")
 #let hp_ist_sol = hp_ist.solutions.at(0)

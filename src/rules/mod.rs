@@ -94,6 +94,7 @@ pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
 mod longestpath_casts;
 mod maxcut_casts;
+pub(crate) mod maxcut_maximum2satisfiability;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
 pub(crate) mod maxcut_minimummatrixcover;
 pub(crate) mod maximum2satisfiability_maxcut;
@@ -428,6 +429,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_simultaneousincongruences::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
     specs.extend(ksatisfiability_timetabledesign::canonical_rule_example_specs());
+    specs.extend(maxcut_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(maximum2satisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(maximumclique_maximumindependentset::canonical_rule_example_specs());
     specs.extend(decisionmaximumindependentset_integralflowbundles::canonical_rule_example_specs());
