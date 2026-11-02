@@ -19847,6 +19847,55 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Return the ILP solution vector directly: $x_l = 1$ iff triple $m_l$ is selected.
 ]
 
+#let tdm_x3c = load-example("ThreeDimensionalMatching", "ExactCoverBy3Sets")
+#let tdm_x3c_sol = tdm_x3c.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ExactCoverBy3Sets",
+  example: true,
+  example-caption: [$q = #tdm_x3c.source.instance.universe_size$, $t = #tdm_x3c.source.instance.triples.len()$ triples $arrow.r$ #tdm_x3c.target.instance.subsets.len() subsets over $3q = #tdm_x3c.target.instance.universe_size$ elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(tdm_x3c) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_x3c_sol.source_config),
+    )
+
+    #{
+      let q = tdm_x3c.source.instance.universe_size
+      let triples = tdm_x3c.source.instance.triples
+      let subsets = tdm_x3c.target.instance.subsets
+      let selected = tdm_x3c_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+      [
+        *Step 1 -- Source instance.* The canonical source has $q = #q$ and $t = #triples.len()$ triples: #triples.map(tr => "(" + fmt-values(tr) + ")").join(", ").
+
+        *Step 2 -- Tag the coordinates.* The target universe is ${0, dots, #(3 * q - 1)}$: $W$ occupies $0, dots, #(q - 1)$, $X$ occupies $#q, dots, #(2 * q - 1)$ and $Y$ occupies $#(2 * q), dots, #(3 * q - 1)$. Triple $(w, x, y)$ becomes ${w, #q + x, #(2 * q) + y}$, giving the subsets #subsets.enumerate().map(((i, s)) => $S_#i = {#fmt-values(s)}$).join(", ").
+
+        *Step 3 -- Verify the witness.* The configuration $(#fmt-values(tdm_x3c_sol.target_config))$ selects #selected.map(i => $S_#i$).join(", "), which are pairwise disjoint and cover all $#(3 * q)$ elements #sym.checkmark. The identical source configuration selects the diagonal triples, a perfect matching #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness, and it is the only exact cover: element $#(q - 1)$ ($w = #(q - 1)$) lies only in $S_2$, element $#q$ ($x = 0$) only in $S_0$, and element $#(2 * q + 1)$ ($y = 1$) only in $S_1$, so every exact cover contains $S_0, S_1, S_2$, which already cover $U$. The cross subsets $S_3$ and $S_4$ are disjoint, but no third subset completes them.
+      ]
+    }
+  ],
+)[
+  Karp's 3DM and X3C @karp1972 @garey1979 are related by tagging: the three coordinate domains $W = X = Y = {0, dots, q - 1}$ become the disjoint blocks of a $3q$-element universe, and each triple becomes one 3-element subset. The target has $3q$ elements and $t$ subsets, and the selection vector is unchanged.
+][
+  _Construction._ Let the source have universe size $q$ and triples $m_l = (a_l, b_l, c_l)$ for $l = 0, dots, t - 1$, with $a_l, b_l, c_l in {0, dots, q - 1}$. Set $U = {0, dots, 3q - 1}$ and $S_l = {a_l, q + b_l, 2q + c_l}$. Since $a_l < q <= q + b_l < 2q <= 2q + c_l < 3q$, each $S_l$ has three distinct elements of $U$, even when $a_l$, $b_l$, $c_l$ are numerically equal, and $|U|$ is divisible by 3; so $(U, (S_0, dots, S_(t-1)))$ is a valid X3C instance. Duplicate triples give duplicate subsets at their own positions.
+
+  The map $tau(d, v) = d q + v$ from tagged coordinates (domain $d in {0, 1, 2}$, value $v < q$) to $U$ is a bijection, and $S_l = tau({(0, a_l), (1, b_l), (2, c_l)})$.
+
+  _Correctness._ Fix a selection $J subset.eq {0, dots, t - 1}$.
+
+  ($arrow.r.double$) Suppose ${m_l : l in J}$ is a perfect matching: $|J| = q$ and no two selected triples share a coordinate in any domain. If two selected subsets $S_l, S_k$ shared an element $u$, then $u = tau(d, v)$ for a unique $(d, v)$, so both triples would have value $v$ in domain $d$, a contradiction; the selected subsets are pairwise disjoint. Their union then has $3q = |U|$ elements, so it is $U$, and $J$ is an exact cover.
+
+  ($arrow.l.double$) Suppose ${S_l : l in J}$ is an exact cover: $|J| = q$ and every element of $U$ lies in exactly one selected subset. If two selected triples agreed in domain $d$ with value $v$, both subsets would contain $tau(d, v)$, contradicting disjointness. So $|J| = q$ and no coordinate repeats: $J$ selects a perfect matching.
+
+  Both problems also reject a selection whose length differs from $t$, so the two instances have exactly the same solution vectors.
+
+  _Solution extraction._ Return the target selection vector unchanged after checking that it is an exact cover.
+
+  _NO example._ Take $q = 3$ and the five triples $(0, 0, 0)$, $(1, 1, 1)$, $(2, 1, 2)$, $(2, 0, 2)$, $(1, 0, 1)$. The construction gives $U = {0, dots, 8}$ and the subsets ${0, 3, 6}$, ${1, 4, 7}$, ${2, 4, 8}$, ${2, 3, 8}$, ${1, 3, 7}$. On the source side, the $X$-value $2$ occurs in no triple; any $3$ selected triples with pairwise distinct $X$-values would have to use all of $0, 1, 2$, so no selection is a perfect matching. On the target side, the tagged element $q + 2 = 5$ lies in no subset, so no selection covers $U$ and no exact cover exists. Both instances therefore have no solution, as the correctness argument requires.
+]
+
 #let tdm_mwd = load-example("ThreeDimensionalMatching", "MinimumWeightDecoding")
 #let tdm_mwd_sol = tdm_mwd.solutions.at(0)
 #reduction-rule("ThreeDimensionalMatching", "MinimumWeightDecoding",
