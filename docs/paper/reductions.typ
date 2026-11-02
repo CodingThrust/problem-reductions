@@ -12387,6 +12387,157 @@ _Solution extraction and bounds._ Decode a string permutation, concatenate with 
  *Example.* #let ex = load-example("ShortestCommonSuperstring", "QUBO")
  The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
 ]
+#let kc_sat = load-example("KColoring", "Satisfiability")
+#let kc_sat_sol = kc_sat.solutions.at(0)
+#let kc_sat_n = graph-num-vertices(kc_sat.source.instance)
+#let kc_sat_edges = kc_sat.source.instance.graph.edges
+#let kc_sat_m = kc_sat_edges.len()
+#let kc_sat_k = kc_sat.source.instance.num_colors
+#let kc_sat_clauses = kc_sat.target.instance.clauses
+// Clause families counted from the loaded target: positive rows select a color,
+// negative pairs inside one vertex block exclude two colors, the rest are edge conflicts.
+#let kc_sat_block(lit) = calc.quo(calc.abs(lit) - 1, kc_sat_k)
+#let kc_sat_selection = kc_sat_clauses.filter(c => c.literals.all(lit => lit > 0))
+#let kc_sat_pairwise = kc_sat_clauses.filter(c => c.literals.len() == 2 and c.literals.all(lit => lit < 0) and kc_sat_block(c.literals.at(0)) == kc_sat_block(c.literals.at(1)))
+#let kc_sat_conflicts = kc_sat_clauses.filter(c => c.literals.all(lit => lit < 0) and not (c.literals.len() == 2 and kc_sat_block(c.literals.at(0)) == kc_sat_block(c.literals.at(1))))
+#assert(kc_sat_selection.len() + kc_sat_pairwise.len() + kc_sat_conflicts.len() == kc_sat_clauses.len())
+#let kc_sat_pair_count = calc.quo(kc_sat_pairwise.len(), kc_sat_n)
+#reduction-rule("KColoring", "Satisfiability",
+  example: true,
+  example-caption: [Cycle on #kc_sat_n vertices with #kc_sat_k colors],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(kc_sat) + " -o coloring.json",
+      "pred path KColoring/graph=SimpleGraph/k=KN Satisfiability -o paths.json",
+      "pred reduce coloring.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate coloring.json --config " + cli-config(kc_sat_sol.source_config),
+    )
+    Select the direct path from `paths.json` as `route.json` before reducing.
+
+    *YES example.* The fixture has $n=#kc_sat_n$, $m=#kc_sat_m$, $k=#kc_sat_k$
+    and edges #kc_sat_edges.map(e => $(#e.at(0),#e.at(1))$).join(", ").
+    #{
+      let positions = range(kc_sat_n).map(v => (
+        1.5 * calc.cos(90deg + v * 360deg / kc_sat_n),
+        1.5 * calc.sin(90deg + v * 360deg / kc_sat_n),
+      ))
+      align(center, canvas(length: 0.7cm, {
+        for (u, v) in kc_sat_edges { g-edge(positions.at(u), positions.at(v)) }
+        for (v, pos) in positions.enumerate() {
+          let color = kc_sat_sol.source_config.at(v)
+          g-node(pos, name: str(v), fill: graph-colors.at(color), label: str(v))
+        }
+      }))
+    }
+    The target has $#kc_sat.target.instance.num_vars$ variables,
+    $#kc_sat_selection.len()$ selection clauses, $#kc_sat_pairwise.len()$ pairwise
+    exclusions and $#kc_sat_conflicts.len()$ edge conflicts: $#kc_sat_clauses.len()$
+    clauses and $#kc_sat_clauses.map(c => c.literals.len()).sum()$ literal occurrences.
+    For vertex $0$, the selection clause is
+    #repr(kc_sat_clauses.at(0).literals), and its pairwise clauses are
+    #kc_sat_pairwise.slice(0, kc_sat_pair_count).map(c => repr(c.literals)).join(", ").
+    The first stored edge contributes
+    #kc_sat_conflicts.slice(0, calc.quo(kc_sat_conflicts.len(), kc_sat_m)).map(c => repr(c.literals)).join(", ").
+
+    The canonical coloring is #repr(kc_sat_sol.source_config). Its assignment has
+    true literal numbers
+    #kc_sat_sol.target_config.enumerate().filter(((i, b)) => b).map(((i, b)) => str(i + 1)).join(", ").
+    #{
+      let bits = kc_sat_sol.target_config
+      let block_counts = range(kc_sat_n).map(v => bits.slice(v * kc_sat_k, (v + 1) * kc_sat_k).filter(b => b).len())
+      let conflicts = kc_sat_edges.filter(e => kc_sat_sol.source_config.at(e.at(0)) == kc_sat_sol.source_config.at(e.at(1)))
+      let satisfied = kc_sat_clauses.filter(c => c.literals.any(lit => bits.at(calc.abs(lit) - 1) == (lit > 0)))
+      let extracted = range(kc_sat_n).map(v => range(kc_sat_k).find(c => bits.at(v * kc_sat_k + c)))
+      [The true counts per block are #repr(block_counts). There are #conflicts.len()
+       monochromatic edges. The assignment satisfies #satisfied.len() of
+       #kc_sat_clauses.len() clauses and extracts to #repr(extracted).]
+    }
+
+    *NO example.* Restrict the same fixture graph to
+    #let no_k = kc_sat_k - 1
+    #let no_vars = kc_sat_n * no_k
+    #let no_pairs = calc.quo(no_k * (no_k - 1), 2)
+    #let no_clauses = kc_sat_n + kc_sat_n * no_pairs + kc_sat_m * no_k
+    #let no_literals = kc_sat_n * no_k + 2 * kc_sat_n * no_pairs + 2 * kc_sat_m * no_k
+    // The argument below needs the fixture to be the cycle (0,1), ..., (n-1,0) of odd length.
+    #let cycle_edges = range(kc_sat_n).map(v => (v, calc.rem(v + 1, kc_sat_n)))
+    #assert(no_k == 2, message: "NO example expects two colors")
+    #assert(kc_sat_n >= 3 and calc.odd(kc_sat_n), message: "NO example expects an odd cycle")
+    #assert(kc_sat_edges.map(e => (e.at(0), e.at(1))) == cycle_edges, message: "NO example expects the cycle edges in order")
+    #let path_edges = kc_sat_edges.slice(0, kc_sat_n - 1)
+    #let closing = kc_sat_edges.last()
+    // Propagate colors along the path edges from a chosen start color.
+    #let forced(start) = {
+      let colors = range(kc_sat_n).map(_ => start)
+      for e in path_edges { colors.at(e.at(1)) = no_k - 1 - colors.at(e.at(0)) }
+      colors
+    }
+    #let false_clause(colors) = closing.map(v => -(v * no_k + colors.at(v) + 1))
+    #let first = forced(0)
+    #let second = forced(1)
+    #assert(first.at(closing.at(0)) == first.at(closing.at(1)))
+    #assert(second.at(closing.at(0)) == second.at(closing.at(1)))
+    $k=#no_k$ colors. The target then has $#no_vars$ variables,
+    $#no_clauses$ clauses and $#no_literals$ literal occurrences. The fixture
+    edges form a cycle of odd length $#kc_sat_n$. Starting with color zero, its first
+    $#path_edges.len()$ edges force the alternating sequence
+    #repr(first). The closing edge #repr(closing) has equal colors
+    $#first.at(closing.at(0))$ and $#first.at(closing.at(1))$, so the conflict
+    clause #repr(false_clause(first)) is false. Starting with color one instead
+    forces #repr(second), which conflicts on the same closing edge with the false
+    clause #repr(false_clause(second)).
+    Thus none of the $#calc.pow(no_k, kc_sat_n)$ source configurations and none
+    of the $#calc.pow(2, no_vars)$ target assignments is feasible.
+  ],
+)[
+  For a simple undirected graph $G=(V,E)$ with $n=|V|$, $m=|E|$, and runtime
+  color count $k>=0$, encode color selection by Boolean variables $x_(v,c)$.
+  The assignment clauses of @faber2024 (§2.2, equations (8a)–(8b)), together
+  with pairwise at-most-one exclusions, yield an equisatisfiable CNF with
+  $n k$ variables. Garey–Johnson gives the endpoint definitions (@garey1979),
+  rather than this reduction direction. The paper's full ASS-S uses sequential
+  at-most-one and symmetry breaking; neither is used here.
+][
+  _Construction._ Label vertices $0,dots,n-1$ and colors $0,dots,k-1$.
+  Allocate $x_(v,c)$ at Boolean coordinate $v k+c$, with signed one-indexed
+  literal magnitude $v k+c+1$. First append one clause
+  $or.big_(c=0)^(k-1) x_(v,c)$ per vertex, then all pairwise clauses
+  $(not x_(v,a) or not x_(v,b))$ for each vertex and $0<=a<b<k$, and finally
+  $(not x_(u,c) or not x_(v,c))$ for each stored edge $(u,v)$ and color $c$.
+  Preserve empty rows, literal occurrences and stored edge order and orientation.
+
+  _Correctness._ ($arrow.r.double$) Given a proper coloring $f$, set $x_(v,c)$
+  true exactly when $f(v)=c$. Every selection clause holds. Two colors in one
+  vertex cannot both be selected, so all pairwise clauses hold. Adjacent vertices
+  have distinct colors, so each edge conflict has a true negative literal.
+
+  ($arrow.l.double$) A satisfying assignment has at least one true entry in
+  each vertex block by its selection clause. Two true entries would falsify their
+  pairwise exclusion, so each block has exactly one. Extract that unique color.
+  Equal colors across an edge would falsify its conflict clause; therefore the
+  extracted coloring is proper.
+
+  _Solution extraction._ Evaluate the full-length target witness once, reject
+  every non-solution, and read the unique selected color in each block. Reject
+  zero or multiple selected entries; never choose a default. Encoding and
+  extraction are inverse on feasible witnesses, and completed Or values map
+  identically, including infeasibility.
+
+  _Exact overhead and domain._ The three clause families contribute $n$,
+  $n k(k-1)/2$, and $m k$ rows. Their literal counts are $n k$,
+  $n k(k-1)$, and $2m k$. Counts and signed literal indices use checked
+  arithmetic before allocation. Construction takes $O(n+n k^2+m k)$ in the
+  numeric parameters and expanded color domain. If $k=0$ and $n>0$, retained
+  empty clauses make the target infeasible; if $n=0$, the empty CNF and empty
+  coloring are feasible for every $k$. Isolated vertices and components are
+  independent; unused colors are allowed when $k>n$. Odd cycles are not
+  two-colorable, and a complete graph requires $k>=n$. Mathematically a loop
+  would force every color false and parallel edges would duplicate clauses;
+  the SimpleGraph source constructor and deserializer reject both, so they
+  cannot reach this rule.
+]
+
 #let kc_qubo = load-example("KColoring", "DecisionQUBO")
 #let kc_qubo_sol = kc_qubo.solutions.at(0)
 #reduction-rule("KColoring", "DecisionQUBO",

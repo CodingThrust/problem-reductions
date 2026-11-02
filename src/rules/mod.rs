@@ -71,6 +71,7 @@ pub(crate) mod kcoloring_bicliquecover;
 mod kcoloring_casts;
 pub(crate) mod kcoloring_clustering;
 pub(crate) mod kcoloring_partitionintocliques;
+pub(crate) mod kcoloring_satisfiability;
 pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
@@ -355,6 +356,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(staffscheduling_qubo::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
+    specs.extend(kcoloring_satisfiability::canonical_rule_example_specs());
     specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
     specs.extend(schedulingwithindividualdeadlines_qubo::canonical_rule_example_specs());
     specs.extend(precedenceconstrainedscheduling_qubo::canonical_rule_example_specs());
