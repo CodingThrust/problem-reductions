@@ -20048,6 +20048,7 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Both encodings agree that $"config"[i] = 1$ means vertex $i in S$, so extraction keeps the original vertices' bits and drops the auxiliary ones. The complementary witness $f arrow.r -f$ is equally optimal because the quadratic form is invariant under this sign flip.
 ]
 
+// MaxCut → Maximum2Satisfiability (#1102, Gramm et al. 2003)
 #let mc_m2s = load-example(
   "MaxCut",
   "Maximum2Satisfiability",

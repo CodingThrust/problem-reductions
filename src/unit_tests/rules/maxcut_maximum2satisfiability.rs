@@ -110,7 +110,7 @@ fn test_maxcut_to_maximum2satisfiability_issue_example_values() {
 
 #[test]
 fn test_maxcut_to_maximum2satisfiability_pointwise_identity_on_all_small_graphs() {
-    for n in 0..=4usize {
+    for n in 0..=5usize {
         let pairs: Vec<(usize, usize)> = (0..n)
             .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
             .collect();
