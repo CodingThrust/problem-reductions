@@ -86,7 +86,8 @@ impl ExactCoverBy3Sets {
         Self::try_new(universe_size, subsets).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Fallible constructor shared by [`Self::new`], serde, and reductions.
+    pub(crate) fn try_new(
         universe_size: usize,
         mut subsets: Vec<[usize; 3]>,
     ) -> Result<Self, crate::registry::ConstructionError> {
