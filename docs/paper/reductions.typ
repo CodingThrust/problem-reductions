@@ -11801,6 +11801,132 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Solution extraction._ For IS $I subset.eq V'$, return packing $cal(P) = {S_i : v_i in I}$ (same variable assignment).
 ]
 
+// MinimumDominatingSet -> MinimumSetCovering
+#let mds-sc = load-example("MinimumDominatingSet", "MinimumSetCovering")
+#let mds-sc-sol = mds-sc.solutions.at(0)
+#let mds-sc-source = mds-sc.source.instance
+#let mds-sc-target = mds-sc.target.instance
+#let mds-sc-n = graph-num-vertices(mds-sc-source)
+#assert(mds-sc-n >= 3 and mds-sc-source.graph.edges == range(mds-sc-n - 1).map(v => (v, v + 1)))
+#let mds-sc-indices = config => config.enumerate().filter(((v, selected)) => selected).map(((v, _)) => v)
+#let mds-sc-cost = (config, weights) => mds-sc-indices(config).map(v => weights.at(v)).fold(0, (total, w) => total + w)
+#let mds-sc-covered = config => range(mds-sc-target.universe_size).filter(u =>
+  mds-sc-target.sets.enumerate().any(((v, subset)) => config.at(v) and u in subset))
+#let mds-sc-dominates = config => range(mds-sc-n).all(u => config.at(u) or
+  mds-sc-source.graph.edges.any(e => (e.at(0) == u and config.at(e.at(1))) or
+    (e.at(1) == u and config.at(e.at(0)))))
+#let mds-sc-configs = range(calc.pow(2, mds-sc-n)).map(mask => range(mds-sc-n).map(v =>
+  calc.rem(calc.floor(mask / calc.pow(2, v)), 2) == 1))
+#let mds-sc-optimum = mds-sc-cost(mds-sc-sol.target_config, mds-sc-target.weights)
+#let mds-sc-bound = mds-sc-optimum - 1
+#let mds-sc-no-candidates = mds-sc-configs.filter(config => mds-sc-cost(config, mds-sc-target.weights) <= mds-sc-bound)
+#let mds-sc-alternatives = mds-sc-configs.filter(config =>
+  mds-sc-covered(config).len() == mds-sc-target.universe_size and
+  mds-sc-cost(config, mds-sc-target.weights) > mds-sc-optimum
+).sorted(key: config => mds-sc-cost(config, mds-sc-target.weights)).slice(0, 2)
+#assert(mds-sc-target.universe_size == mds-sc-n and mds-sc-target.sets.len() == mds-sc-n)
+#assert(mds-sc-target.weights == mds-sc-source.weights)
+#assert(mds-sc-target.sets.map(s => s.len()).fold(0, (total, size) => total + size) ==
+  mds-sc-n + 2 * graph-num-edges(mds-sc-source))
+#assert(mds-sc-sol.source_config == mds-sc-sol.target_config and mds-sc-dominates(mds-sc-sol.source_config))
+#assert(mds-sc-covered(mds-sc-sol.target_config).len() == mds-sc-target.universe_size)
+#assert(mds-sc-cost(mds-sc-sol.source_config, mds-sc-source.weights) == mds-sc-optimum)
+#assert(mds-sc-configs.filter(config => mds-sc-covered(config).len() == mds-sc-target.universe_size and
+  mds-sc-cost(config, mds-sc-target.weights) <= mds-sc-optimum) == (mds-sc-sol.target_config,))
+#assert(mds-sc-target.weights.all(w => w > 0) and mds-sc-no-candidates.len() > 0)
+#assert(mds-sc-no-candidates.all(config => not mds-sc-dominates(config) and
+  mds-sc-covered(config).len() < mds-sc-target.universe_size))
+#assert(mds-sc-alternatives.len() == 2 and mds-sc-alternatives.all(config => mds-sc-dominates(config)))
+#reduction-rule("MinimumDominatingSet", "MinimumSetCovering",
+  example: true,
+  example-caption: [Closed neighbourhoods of a weighted path],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(mds-sc) + " -o dominating.json",
+      "pred reduce dominating.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dominating.json --config " + cli-config(mds-sc-sol.source_config),
+    )
+    *Source and construction.* The source has #mds-sc-n vertices, edges
+    #{mds-sc-source.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and
+    weights $(#fmt-values(mds-sc-source.weights))$. The universe has
+    #mds-sc-target.universe_size elements and the indexed family has
+    #mds-sc-target.sets.len() sets:
+    #table(
+      columns: (auto, 1fr, auto),
+      [Index], [Closed neighbourhood], [Weight],
+      ..mds-sc-target.sets.enumerate().map(((v, subset)) => (
+        [#v], [${#fmt-values(subset)}$], [#mds-sc-target.weights.at(v)],
+      )).flatten(),
+    )
+    The total membership count is
+    #mds-sc-target.sets.map(s => s.len()).fold(0, (total, size) => total + size),
+    equal to $#mds-sc-n + 2 dot #graph-num-edges(mds-sc-source)$.
+
+    *YES and extraction.* Selecting sets with indices
+    ${#fmt-values(mds-sc-indices(mds-sc-sol.target_config))}$ covers
+    ${#fmt-values(mds-sc-covered(mds-sc-sol.target_config))}$ at cost
+    #mds-sc-optimum. The identical source vector selects vertices
+    ${#fmt-values(mds-sc-indices(mds-sc-sol.source_config))}$ and dominates the graph
+    with cost #mds-sc-cost(mds-sc-sol.source_config, mds-sc-source.weights).
+    Enumeration of the fixture's configurations confirms this is the unique optimum.
+    The following feasible choices are suboptimal:
+    #for config in mds-sc-alternatives [
+      indices ${#fmt-values(mds-sc-indices(config))}$ cost
+      #mds-sc-cost(config, mds-sc-target.weights) on each side;
+    ]
+
+    *NO at a bound.* For this same graph and target family, impose bound
+    #mds-sc-bound. All weights are positive. The only choices of cost at most
+    #mds-sc-bound are the #mds-sc-no-candidates.len() choices below:
+    #for config in mds-sc-no-candidates [
+      indices ${#fmt-values(mds-sc-indices(config))}$ have cost
+      #mds-sc-cost(config, mds-sc-target.weights), cover
+      ${#fmt-values(mds-sc-covered(config))}$, and leave
+      ${#fmt-values(range(mds-sc-target.universe_size).filter(u => u not in mds-sc-covered(config)))}$
+      uncovered and undominated;
+    ]
+    Thus neither side admits a witness within the bound. Without the bound,
+    both remain feasible with optimum #mds-sc-optimum.
+  ],
+)[
+  The closed-neighbourhood construction @umass2018dominatingcover turns weighted
+  domination into weighted covering with exactly $|V|$ universe elements and
+  $|V|$ indexed sets. Garey--Johnson @garey1979 gives the underlying problem
+  definitions; copying weights extends the construction to signed costs.
+][
+  _Construction._ Let $G=(V,E)$ be a simple undirected graph with
+  $V={0,...,n-1}$ and weights $w_v$ in `i64`. Set $U=V$ and, for each vertex
+  $v$, create $D_v={v} union {u : {u,v} in E}$ with weight $w_v$.
+  Keep every indexed set even when neighbourhoods coincide. Each member is in
+  $U$, and one weight accompanies each of the $n$ sets. Each edge contributes
+  two incidences, so total membership is $n+2|E|$ and storage is $O(n+|E|)$;
+  sorting the sets takes polynomial time.
+
+  _Correctness._ ($arrow.r.double$) Given a dominating vertex selection $S$,
+  every $u in V$ either lies in $S$, hence in $D_u$, or has a selected neighbour
+  $v$, hence lies in $D_v$. The corresponding indexed sets cover $U$.
+  ($arrow.l.double$) Given a cover, every vertex $u$ belongs to some selected
+  $D_v$. Then either $u=v$ or ${u,v} in E$, so the same selected indices dominate
+  every source vertex. Costs agree term by term, giving a bijection of feasible
+  configurations and preserving the optimum and every optimal witness.
+
+  _Solution extraction._ Validate the target witness once and copy its Boolean
+  vector: set index $v$ becomes vertex index $v$. Completed minimum values map
+  identically. Infeasible and wrong-length witnesses are rejected; evaluation
+  errors propagate. Both models add selected weights in increasing index order,
+  so `i64` overflow occurs at the same step, including before later cancellation.
+  Construction itself only copies weights; no objective arithmetic is needed.
+
+  _Special cases._ The empty graph gives an empty universe and family with
+  cost zero. An isolated vertex gives a forced singleton, whatever its sign.
+  Disconnected graphs need no extra condition; zero or negative weights may
+  make redundant selections optimal. Equal neighbourhoods retain separate
+  indices and costs. Self-loops and repeated edges are rejected by the source
+  graph type. Every unbounded instance here is feasible by selecting all
+  vertices or sets, so a NO example necessarily specifies a cost bound.
+]
+
 #reduction-rule("MinimumVertexCover", "MinimumSetCovering")[
   A vertex cover must "hit" every edge; set covering must "hit" every universe element. By making each edge a universe element and each vertex the set of its incident edges, the two covering conditions become identical. This is the canonical embedding of vertex cover as a special case of set covering.
 ][
