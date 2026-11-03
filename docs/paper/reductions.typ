@@ -14739,6 +14739,58 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ The hitting set $H$ is directly the vertex cover: $c_v = h_v$ for each $v in V$.
 ]
 
+#let hs_sc = load-example("MinimumHittingSet", "MinimumSetCovering")
+#let hs_sc_sol = hs_sc.solutions.at(0)
+#let hs_sc_n = hs_sc.source.instance.universe_size
+#let hs_sc_sets = hs_sc.source.instance.sets
+#let hs_sc_dual = hs_sc.target.instance.sets
+#let hs_sc_pick = hs_sc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let hs_sc_hits = hs_sc_sets.map(s => s.filter(e => e in hs_sc_pick))
+#let hs_sc_covered = hs_sc_pick.map(u => hs_sc_dual.at(u)).flatten().dedup().sorted()
+#let hs_sc_feasible = range(calc.pow(2, hs_sc_n)).filter(mask => {
+  let pick = range(hs_sc_n).filter(u => calc.rem(calc.quo(mask, calc.pow(2, u)), 2) == 1)
+  hs_sc_sets.all(s => s.any(e => e in pick))
+})
+#let hs_sc_unit = range(hs_sc_n).filter(u => calc.pow(2, u) in hs_sc_feasible)
+#let hs_sc_min = calc.min(..hs_sc_feasible.map(mask => range(hs_sc_n).filter(u => calc.rem(calc.quo(mask, calc.pow(2, u)), 2) == 1).len()))
+#assert(hs_sc_dual.len() == hs_sc_n and hs_sc.target.instance.universe_size == hs_sc_sets.len())
+#assert(hs_sc_sets.all(s => s.len() > 0) and hs_sc_hits.all(h => h.len() > 0))
+#assert(hs_sc_covered == range(hs_sc_sets.len()) and hs_sc_pick.len() == hs_sc_min)
+#assert(hs_sc_unit.len() == 0 and hs_sc_pick.len() == 2)
+#let hs_sc_no_n = 3
+#let hs_sc_no_sets = ((0, 1), (), (2,))
+#let hs_sc_no_dual = range(hs_sc_no_n).map(u => range(hs_sc_no_sets.len()).filter(j => u in hs_sc_no_sets.at(j)))
+#let hs_sc_no_picks = range(calc.pow(2, hs_sc_no_n)).map(mask => range(hs_sc_no_n).filter(u => calc.rem(calc.quo(mask, calc.pow(2, u)), 2) == 1))
+#let hs_sc_no_empty = range(hs_sc_no_sets.len()).filter(j => hs_sc_no_sets.at(j).len() == 0)
+#assert(hs_sc_no_empty == (1,))
+#assert(hs_sc_no_picks.all(h => not hs_sc_no_sets.all(s => s.any(e => e in h))))
+#assert(hs_sc_no_picks.all(h => h.map(u => hs_sc_no_dual.at(u)).flatten().dedup().sorted() != range(hs_sc_no_sets.len())))
+#assert(hs_sc_no_dual.flatten().all(j => j != 1))
+#assert(hs_sc_feasible.filter(mask => range(hs_sc_n).filter(u => calc.rem(calc.quo(mask, calc.pow(2, u)), 2) == 1).len() == hs_sc_min).len() == 1)
+#reduction-rule("MinimumHittingSet", "MinimumSetCovering",
+  example: true,
+  example-caption: [Hitting Set with $|U| = #hs_sc_n$ elements and $m = #hs_sc_sets.len()$ sets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(hs_sc) + " -o hs.json",
+      "pred reduce hs.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hs.json --config " + cli-config(hs_sc_sol.source_config),
+    )
+    *YES instance.* $U = {#range(hs_sc_n).map(str).join(", ")}$ with sets #hs_sc_sets.enumerate().map(((j, s)) => $C_#j = {#fmt-values(s)}$).join(", "). The target has $|U'| = #hs_sc.target.instance.universe_size$ elements and the unit-weight sets #hs_sc_dual.enumerate().map(((u, d)) => $D_#u = {#fmt-values(d)}$).join(", "). The hitting set $H = {#fmt-values(hs_sc_pick)}$ meets #hs_sc_hits.enumerate().map(((j, h)) => $C_#j inter H = {#fmt-values(h)}$).join(", "), and the selected sets cover $D_#hs_sc_pick.at(0) union D_#hs_sc_pick.at(1) = {#fmt-values(hs_sc_covered)} = U'$, both of value #hs_sc_pick.len(). Of the $2^#hs_sc_n$ selections, #hs_sc_feasible.len() are feasible on both sides and the optimum #hs_sc_min is attained only by $H$; no singleton is feasible.
+
+    *NO instance.* $U = {#range(hs_sc_no_n).map(str).join(", ")}$ with sets #hs_sc_no_sets.enumerate().map(((j, s)) => $C_#j = {#fmt-values(s)}$).join(", ") has no hitting set, since no element meets $C_#hs_sc_no_empty.at(0) = emptyset$ (all #hs_sc_no_picks.len() selections fail). The construction gives $U' = {#range(hs_sc_no_sets.len()).map(str).join(", ")}$ and #hs_sc_no_dual.enumerate().map(((u, d)) => $D_#u = {#fmt-values(d)}$).join(", "). Target element $#hs_sc_no_empty.at(0)$ lies in no $D_u$, so none of the #hs_sc_no_picks.len() selections covers $U'$ and the target is infeasible as well.
+  ],
+)[
+  Hitting a family of sets and covering a universe are dual: transposing the incidence relation turns each element into the set of members containing it. This is the dual set system construction, as in the CUHK CSCI3160 exercise solution @tao2024csci3160. @garey1979 gives only the two problem definitions.
+][
+  _Construction._ Given $(U, cal(C))$ with $U = {0, ..., n-1}$ and $cal(C) = (C_0, ..., C_(m-1))$, let the target universe be $U' = {0, ..., m-1}$, one element per source set. For each $u in U$ let $D_u = {j in U' : u in C_j}$ with weight $1$. The target has $n$ sets and $m$ elements, so `universe_size` $= m$ and `num_sets` $= n$ exactly. Empty families, empty members, repeated members and unused elements need no case split: an unused element gives an empty $D_u$, an empty member gives an element in no $D_u$.
+
+  _Correctness._ For $H subset.eq U$, $j in union.big_(u in H) D_u$ iff some $u in H$ has $u in C_j$ iff $H inter C_j != emptyset$. ($arrow.r.double$) If $H$ hits every $C_j$, every $j in U'$ is covered by the sets $D_u$, $u in H$. ($arrow.l.double$) If ${D_u : u in H}$ covers $U'$, each $C_j$ contains some $u in H$. Both sides count $|H|$ unit weights, so feasibility and value coincide for every selection; an empty member makes both sides infeasible.
+
+  _Solution extraction._ The selection vector is returned unchanged (length $n$) after the target witness is checked to be a cover. The objective sum is at most $n$ and the reduction rejects $n > 2^63 - 1$ with a typed error, so the `i64` value never overflows.
+]
+
 #reduction-rule("MinimumHittingSet", "ILP")[
   Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
 ][
@@ -17442,6 +17494,7 @@ The following table shows concrete target-variable counts for example instances,
   ),
   (source: "MaximumMatching", target: "MaximumSetPacking"),
   (source: "MinimumVertexCover", target: "MinimumSetCovering"),
+  (source: "MinimumHittingSet", target: "MinimumSetCovering"),
   (source: "MaxCut", target: "SpinGlass"),
   (source: "SpinGlass", target: "MaxCut"),
   (

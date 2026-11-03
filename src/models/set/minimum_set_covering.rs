@@ -119,7 +119,7 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
             .unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_with_weights(
+    pub(crate) fn try_with_weights(
         universe_size: usize,
         sets: Vec<Vec<usize>>,
         weights: Vec<W>,
