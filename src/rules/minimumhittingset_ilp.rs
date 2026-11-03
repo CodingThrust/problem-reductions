@@ -56,7 +56,7 @@ impl ReduceTo<ILP<bool>> for MinimumHittingSet {
             .collect();
         let objective: Vec<(usize, i64)> = (0..num_vars).map(|i| (i, 1)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionHSToILP { target })
     }
 }

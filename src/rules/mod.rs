@@ -257,6 +257,7 @@ pub(crate) mod minimumfeedbackarcset_ilp;
 pub(crate) mod minimumfeedbackvertexset_ilp;
 pub(crate) mod minimumgraphbandwidth_ilp;
 pub(crate) mod minimumhittingset_ilp;
+pub(crate) mod minimumhittingset_minimumsetcovering;
 pub(crate) mod minimuminternalmacrodatacompression_ilp;
 pub(crate) mod minimummatrixcover_ilp;
 pub(crate) mod minimummaximalmatching_ilp;
@@ -483,6 +484,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimummaximalmatching_minimummatrixdomination::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
+    specs.extend(minimumhittingset_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumhittingset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumweightandorgraph::canonical_rule_example_specs());
