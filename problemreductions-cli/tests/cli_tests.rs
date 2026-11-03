@@ -6884,7 +6884,10 @@ fn test_inspect_excludes_non_witness_reductions() {
         String::from_utf8_lossy(&inspect.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&inspect.stdout).unwrap();
-    assert_eq!(json["reduces_to"], serde_json::json!(["ILP"]));
+    assert_eq!(
+        json["reduces_to"],
+        serde_json::json!(["ILP", "MinimumSetCovering"])
+    );
 
     std::fs::remove_file(problem_file).unwrap();
 }
