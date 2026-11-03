@@ -17661,6 +17661,126 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Binary-to-bounded-integer and bounded-to-general conversions preserve the assignment. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
+// Reduction: HamiltonianPath -> HamiltonianCircuit
+#let hp_hc = load-example("HamiltonianPath", "HamiltonianCircuit")
+#let hp_hc_sol = hp_hc.solutions.at(0)
+#let hp_hc_n = graph-num-vertices(hp_hc.source.instance)
+#let hp_hc_edges = hp_hc.source.instance.graph.edges
+#let hp_hc_target_n = graph-num-vertices(hp_hc.target.instance)
+#let hp_hc_target_edges = hp_hc.target.instance.graph.edges
+#let hp_hc_has_edge(edges, u, v) = edges.any(e => e.contains(u) and e.contains(v))
+#let hp_hc_x = hp_hc_n
+#assert(hp_hc_n >= 2)
+#assert(hp_hc_target_n == hp_hc_n + 1)
+#assert(hp_hc_target_edges.len() == hp_hc_edges.len() + hp_hc_n)
+#assert(hp_hc_sol.source_config.sorted() == range(hp_hc_n))
+#assert(hp_hc_sol.target_config.sorted() == range(hp_hc_target_n))
+#assert(range(hp_hc_n - 1).all(i => hp_hc_has_edge(
+  hp_hc_edges, hp_hc_sol.source_config.at(i), hp_hc_sol.source_config.at(i + 1))))
+#assert(range(hp_hc_target_n).all(i => hp_hc_has_edge(
+  hp_hc_target_edges, hp_hc_sol.target_config.at(i),
+  hp_hc_sol.target_config.at(calc.rem(i + 1, hp_hc_target_n)))))
+#assert(range(hp_hc_n).all(v => hp_hc_has_edge(hp_hc_target_edges, v, hp_hc_x)))
+#assert(hp_hc_target_edges.filter(e => not e.contains(hp_hc_x)).len() == hp_hc_edges.len())
+#assert(hp_hc_edges.all(e => hp_hc_has_edge(hp_hc_target_edges, e.at(0), e.at(1))))
+#let hp_hc_pivot = hp_hc_sol.target_config.position(v => v == hp_hc_x)
+#let hp_hc_extracted = hp_hc_sol.target_config.slice(hp_hc_pivot + 1) + hp_hc_sol.target_config.slice(0, hp_hc_pivot)
+#assert(hp_hc_extracted == hp_hc_sol.source_config)
+// Obtain the negative companion by retaining a star from the source fixture.
+#let hp_hc_no_n = hp_hc_n - 1
+#let hp_hc_no_vertices = range(hp_hc_no_n)
+#let hp_hc_no_center = hp_hc_sol.source_config.at(1)
+#let hp_hc_no_leaves = hp_hc_no_vertices.filter(v => v != hp_hc_no_center)
+#let hp_hc_no_edges = hp_hc_edges.filter(e =>
+  e.all(v => hp_hc_no_vertices.contains(v)) and e.contains(hp_hc_no_center))
+#assert(hp_hc_no_vertices.contains(hp_hc_no_center))
+#assert(hp_hc_no_leaves.len() >= 3)
+#assert(hp_hc_no_edges.len() == hp_hc_no_leaves.len())
+#assert(hp_hc_no_leaves.all(v => hp_hc_has_edge(hp_hc_no_edges, v, hp_hc_no_center)))
+#let hp_hc_no_target_edges = hp_hc_target_edges.filter(e =>
+  e.all(v => hp_hc_no_vertices.contains(v) or v == hp_hc_x) and
+  (e.contains(hp_hc_no_center) or e.contains(hp_hc_x))
+).map(e => e.map(v => if v == hp_hc_x { hp_hc_no_n } else { v }))
+#assert(hp_hc_no_target_edges.len() == hp_hc_no_edges.len() + hp_hc_no_n)
+#assert(hp_hc_no_leaves.all(v => hp_hc_no_target_edges.filter(e => e.contains(v)).len() == 2))
+#reduction-rule("HamiltonianPath", "HamiltonianCircuit",
+  example: true,
+  example-caption: [Add a universal vertex to a path on #hp_hc_n vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(hp_hc) + " -o hp.json",
+      "pred reduce hp.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hp.json --config " + cli-config(hp_hc_sol.source_config),
+    )
+
+    *YES example -- source.* The fixture has $n = #hp_hc_n$ vertices and
+    $m = #hp_hc_edges.len()$ edges: #hp_hc_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+    Its satisfying path is $[#fmt-values(hp_hc_sol.source_config)]$.
+
+    *Construction and round trip.* Add vertex $x = #hp_hc_x$ and its
+    #hp_hc_n spokes. The resulting graph has #hp_hc_target_n vertices and
+    #hp_hc_target_edges.len() edges:
+    #hp_hc_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+    The global bounds evaluate to $#(hp_hc_n + 3)$ vertices and
+    $#(hp_hc_edges.len() + hp_hc_n + 3)$ edges. The target ordering
+    $[#fmt-values(hp_hc_sol.target_config)]$ has all consecutive edges,
+    including its implicit closing edge
+    $(#hp_hc_sol.target_config.last(), #hp_hc_sol.target_config.first())$.
+    Rotating around $x$ and deleting it gives $[#fmt-values(hp_hc_extracted)]$.
+
+    *NO companion.* Restrict the source fixture to vertices
+    ${#fmt-values(hp_hc_no_vertices)}$ and retain only edges incident to
+    $#hp_hc_no_center$: #hp_hc_no_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+    This is a star with #hp_hc_no_n vertices, #hp_hc_no_edges.len() edges,
+    and #hp_hc_no_leaves.len() leaves. Every leaf would have to be a path
+    endpoint, but a path has only two endpoints, so this source is NO.
+    Its reduction adds $x = #hp_hc_no_n$, giving $#(hp_hc_no_n + 1)$ vertices
+    and #hp_hc_no_target_edges.len() edges:
+    #hp_hc_no_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+    The global bounds are $#(hp_hc_no_n + 3)$ and
+    $#(hp_hc_no_edges.len() + hp_hc_no_n + 3)$.
+    Each old leaf has exactly the two neighbors $#hp_hc_no_center$ and
+    $#hp_hc_no_n$. A circuit would force #hp_hc_no_leaves.len() used edges
+    at the old center, exceeding circuit degree two. The target is therefore NO.
+  ],
+)[
+  Add a universal vertex to turn a Hamiltonian path into a Hamiltonian circuit.
+  This is the undirected specialization of the directed construction in
+  @Waggoner2025NPCompleteness (Example problem, Sample solution), extended
+  below to the empty and singleton source conventions. Construction takes
+  $O(n+m+1)$ time and space.
+][
+  _Construction._ Let $G=(V,E)$ be a loopless simple undirected graph, with
+  $V={0,dots,n-1}$, $n=|V|$ and $m=|E|$. For $n<2$, return the fixed triangle
+  on ${0,1,2}$. Otherwise introduce $x=n$ and construct
+  $H=(V union {x}, E union {{v,x}:v in V})$. This adds no old-to-old edge.
+  The exact target sizes are $(3,3)$ for $n<2$ and $(n+1,m+n)$ otherwise.
+  Hence the registered global upper bounds are $n+3$ vertices and $m+n+3$
+  edges. Derived machine sizes, including graph index limits, are checked before allocation and graph
+  construction uses the fallible constructor. Loops and parallel edges are
+  rejected by the source model.
+
+  _Correctness._ ($arrow.r.double$) For $n<2$, the source's empty or singleton
+  ordering is satisfying and the triangle is YES. For $n>=2$, a source path
+  $(v_0,dots,v_(n-1))$ extends to circuit ordering $(x,v_0,dots,v_(n-1))$:
+  its first and closing edges are spokes and every other edge belongs to $E$.
+  ($arrow.l.double$) For $n<2$, the source is YES by its model convention.
+  Otherwise any target circuit visits $x$ once. Rotate to $x$ and remove it;
+  the remaining ordering contains every old vertex once and all consecutive
+  edges have old endpoints, so they belong to $E$. It is a source path.
+  Both orientations and all rotations satisfy this argument. In particular,
+  two isolated source vertices remain NO, a single source edge produces a
+  triangle, and disconnected sources with $n>=2$ remain NO.
+
+  _Solution extraction._ Validate the target ordering once, rejecting malformed
+  or nonsatisfying configurations, including in the small-order branch.
+  For $n<2$, return `[]` or `[0]`. Otherwise locate $x=n$ at position $k$ and
+  return the suffix after $k$ followed by the prefix before $k$. Circuit
+  orderings have no repeated closing vertex. Completed `Or` values map
+  identically; witness counts are not asserted to be preserved.
+]
+
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
 #let hc_hp_sol = hc_hp.solutions.at(0)
 #let hc_hp_n = graph-num-vertices(hc_hp.source.instance)
