@@ -72,7 +72,7 @@ impl MinimumHittingSet {
         Self::try_new(universe_size, sets).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    pub(crate) fn try_new(
         universe_size: usize,
         mut sets: Vec<Vec<usize>>,
     ) -> Result<Self, crate::registry::ConstructionError> {

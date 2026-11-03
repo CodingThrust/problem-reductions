@@ -114,6 +114,7 @@ pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
 mod minimumdominatingset_casts;
+pub(crate) mod minimumdominatingset_minimumhittingset;
 mod minimumfeedbackvertexset_casts;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
@@ -484,6 +485,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumhittingset::canonical_rule_example_specs());
+    specs.extend(minimumdominatingset_minimumhittingset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumweightandorgraph::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());

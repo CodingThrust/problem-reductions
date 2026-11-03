@@ -14739,6 +14739,43 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ The hitting set $H$ is directly the vertex cover: $c_v = h_v$ for each $v in V$.
 ]
 
+// MinimumDominatingSet → MinimumHittingSet (#1096)
+#let mds_hs = load-example("MinimumDominatingSet", "MinimumHittingSet")
+#let mds_hs_sol = mds_hs.solutions.at(0)
+#let mds_hs_n = graph-num-vertices(mds_hs.source.instance)
+#let mds_hs_edges = graph-instance(mds_hs.source.instance).graph.edges.map(e => (e.at(0), e.at(1)))
+#let mds_hs_rows = mds_hs.target.instance.sets
+#let mds_hs_closed(v) = range(mds_hs_n).filter(u => u == v or mds_hs_edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)))
+#let mds_hs_pick = mds_hs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let mds_hs_hits(pick, row) = row.any(u => pick.contains(u))
+#assert(mds_hs_rows == range(mds_hs_n).map(mds_hs_closed), message: "target rows must be the closed neighborhoods")
+#assert(mds_hs_rows.map(r => r.len()).sum() == mds_hs_n + 2 * mds_hs_edges.len(), message: "incidence count n + 2m")
+#assert(mds_hs_rows.all(r => mds_hs_hits(mds_hs_pick, r)), message: "stored witness must hit every row")
+#assert(range(mds_hs_n).all(v => not mds_hs_rows.all(r => mds_hs_hits((v,), r))), message: "no singleton may hit every row")
+#assert(mds_hs_pick.len() == 2, message: "optimum is 2")
+#reduction-rule("MinimumDominatingSet", "MinimumHittingSet",
+  example: true,
+  example-caption: [Unit-weight Dominating Set to Hitting Set (path, $n = #mds_hs_n$, $|E| = #mds_hs_edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(mds_hs) + " -o mds.json",
+      "pred reduce mds.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mds.json --config " + cli-config(mds_hs_sol.source_config),
+    )
+    *YES example.* The path has edges #mds_hs_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "), so the rows are #mds_hs_rows.map(r => $\{#fmt-values(r)\}$).join(", ") with #mds_hs_rows.map(r => r.len()).sum() $= #mds_hs_n + 2 dot #mds_hs_edges.len()$ incidences in total. The selection $H = {#fmt-values(mds_hs_pick)}$ meets every row, hence dominates the path, and has size #mds_hs_pick.len(). \
+    *NO example (bound $k = 1$).* The empty selection hits no row. Each of the #mds_hs_n singletons misses a row: #range(mds_hs_n).map(v => { let miss = mds_hs_rows.position(r => not r.contains(v)); [$#v$ misses $F_#miss = \{#fmt-values(mds_hs_rows.at(miss))\}$] }).join(", "). So neither the Dominating Set nor the Hitting Set question with bound 1 is satisfiable, and the optimum of both is #mds_hs_pick.len().
+  ],
+)[
+  A set of vertices dominates a graph exactly when it hits the closed neighborhood of every vertex; this observation is stated in the literature on Hitting Set kernelization @bannach2018. It is restricted to unit weights because Hitting Set has no element weights (definitions in @garey1979).
+][
+  _Construction._ Given a simple graph $G = (V, E)$ with $V = {0, dots, n - 1}$ and unit weights, let $N[v] = {v} union {u : {u, v} in E}$. Output the Hitting Set instance with universe $U = V$ and one subset $F_v = N[v]$ for each $v in V$, in vertex order and keeping equal subsets. Then $|U| = n$, $|cal(F)| = n$, and the subsets contain $n + 2 |E|$ elements in total.
+
+  _Correctness._ ($arrow.r.double$) If $S$ dominates $G$ and $v in V$, then either $v in S$ or some $u in S$ is adjacent to $v$; in both cases $S inter N[v] != emptyset$, so $S$ hits every $F_v$. ($arrow.l.double$) If $H$ hits every $F_v$, pick $h in H inter N[v]$ for a vertex $v$. Then $h = v$ or $h$ is adjacent to $v$, so $v$ is dominated by $H$. As the same vertex set is used in both directions, the cardinality is preserved and the optima coincide.
+
+  _Solution extraction._ After checking that the target configuration is a hitting set, return it unchanged: universe element $v$ is vertex $v$, so every feasible hitting set, optimal or not, is a dominating set of the same size. The source model admits only simple graphs, so loops and parallel edges do not occur.
+]
+
 #reduction-rule("MinimumHittingSet", "ILP")[
   Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
 ][
