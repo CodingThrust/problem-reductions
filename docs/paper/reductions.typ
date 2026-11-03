@@ -17661,6 +17661,137 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ Binary-to-bounded-integer and bounded-to-general conversions preserve the assignment. Binary encoding returns $x_i = L_i + sum_j w_(i j)y_(i j)$.
 ]
 
+// HamiltonianCircuit → Satisfiability (#1098)
+#let hc_sat = load-example("HamiltonianCircuit", "Satisfiability")
+#let hc_sat_sol = hc_sat.solutions.at(0)
+#let hc_sat_n = hc_sat.source.instance.graph.num_vertices
+#let hc_sat_edges = hc_sat.source.instance.graph.edges
+#let hc_sat_m = hc_sat_edges.len()
+#let hc_sat_clauses = hc_sat.target.instance.clauses.map(c => c.literals)
+#let hc_sat_lit(v, p) = v * hc_sat_n + p + 1
+#let hc_sat_adj(u, v) = hc_sat_edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+#assert(hc_sat_n == 5 and hc_sat_m == hc_sat_n + 1)
+#assert(hc_sat_adj(0, 2) and not hc_sat_adj(0, 3))
+#assert(hc_sat_sol.source_config.sorted() == range(hc_sat_n))
+#assert(range(hc_sat_n).all(p => hc_sat_adj(hc_sat_sol.source_config.at(p), hc_sat_sol.source_config.at(calc.rem(p + 1, hc_sat_n)))))
+#assert(hc_sat_sol.target_config.len() == hc_sat_n * hc_sat_n)
+#assert(hc_sat.target.instance.num_vars == hc_sat_n * hc_sat_n)
+#assert(hc_sat_clauses.len() == 2 * hc_sat_n + hc_sat_n * hc_sat_n * (hc_sat_n - 1) + hc_sat_n * (hc_sat_n * hc_sat_n - 2 * hc_sat_m))
+#assert(hc_sat_clauses.fold(0, (count, c) => count + c.len()) == 4 * calc.pow(hc_sat_n, 3) - 4 * hc_sat_n * hc_sat_m)
+#assert(range(hc_sat_n).all(v => range(hc_sat_n).all(p => hc_sat_sol.target_config.at(v * hc_sat_n + p) == (hc_sat_sol.source_config.at(p) == v))))
+#assert(hc_sat_clauses.all(c => c.any(l => hc_sat_sol.target_config.at(calc.abs(l) - 1) == (l > 0))))
+#reduction-rule("HamiltonianCircuit", "Satisfiability",
+  example: true,
+  example-caption: [A cycle with one chord encoded by a vertex-position matrix],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(hc_sat) + " -o circuit.json",
+      "pred reduce circuit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuit.json --config " + cli-config(hc_sat_sol.source_config),
+    )
+    #{
+      let positions = range(hc_sat_n).map(i => {
+        let a = 90deg - i * 360deg / hc_sat_n
+        (2 * calc.cos(a), 2 * calc.sin(a))
+      })
+      align(center, canvas(length: 0.65cm, {
+        for e in hc_sat_edges { g-edge(positions.at(e.at(0)), positions.at(e.at(1))) }
+        for (v, pos) in positions.enumerate() { g-node(pos, name: str(v), label: str(v)) }
+      }))
+    }
+
+    *YES example.* The loaded graph has $n = #hc_sat_n$ vertices and
+    $m = #hc_sat_m$ edges, namely
+    #hc_sat_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+    Its stored circuit is $[#fmt-values(hc_sat_sol.source_config)]$.
+    There are $#hc_sat.target.instance.num_vars = n^2$ variables.
+    The positive clauses contribute $#(2 * hc_sat_n)$ clauses and
+    $#(2 * hc_sat_n * hc_sat_n)$ literals; the pairwise exclusions contribute
+    $#(hc_sat_n * hc_sat_n * (hc_sat_n - 1))$ clauses and
+    $#(2 * hc_sat_n * hc_sat_n * (hc_sat_n - 1))$ literals.
+    The $#(hc_sat_n * hc_sat_n - 2 * hc_sat_m)$ forbidden ordered vertex pairs
+    contribute $#(hc_sat_n * (hc_sat_n * hc_sat_n - 2 * hc_sat_m))$ successor clauses.
+    The actual target totals are #hc_sat_clauses.len() clauses and
+    #hc_sat_clauses.fold(0, (count, c) => count + c.len()) literal occurrences.
+    Its true literal numbers are
+    #hc_sat_sol.target_config.enumerate().filter(((i, bit)) => bit).map(((i, bit)) => str(i + 1)).join(", ");
+    reading the unique vertex at each position returns the stored circuit.
+    Since $0$ and $3$ are not adjacent, a representative clause is
+    $#(-hc_sat_lit(0, 0)) or #(-hc_sat_lit(3, 1))$ in signed literal notation.
+    Reversing the circuit also satisfies the formula and extraction preserves
+    that orientation; no rotation or reversal is applied by the decoder.
+
+    #{
+      let order = hc_sat_sol.source_config
+      let path = range(hc_sat_n - 1).map(p => (order.at(p), order.at(p + 1)))
+      let degree(v) = path.filter(e => e.contains(v)).len()
+      assert(path.all(e => hc_sat_adj(e.at(0), e.at(1))))
+      assert(not path.any(e => e.contains(0) and e.contains(2)))
+      assert(degree(order.first()) == 1 and degree(order.last()) == 1)
+      let m = path.len()
+      [*NO example.* Retain only the consecutive edges of the stored ordering,
+      omitting its closing edge and the chord. This gives the path
+      #path.map(e => $(#e.at(0), #e.at(1))$).join(", ") on #hc_sat_n vertices,
+      with #m edges. Its target has $#(hc_sat_n * hc_sat_n)$ variables,
+      $#(2 * hc_sat_n + hc_sat_n * hc_sat_n * (hc_sat_n - 1) + hc_sat_n * (hc_sat_n * hc_sat_n - 2 * m))$
+      clauses and $#(4 * calc.pow(hc_sat_n, 3) - 4 * hc_sat_n * m)$ literals.
+      Vertex #order.first() has only one neighbor, whereas a permutation cycle
+      on at least three vertices requires distinct predecessor and successor
+      neighbors. Thus the source is NO, every permutation matrix violates a
+      successor clause, and the uniqueness constraints exclude all remaining
+      Boolean assignments.]
+    }
+  ],
+)[
+  Hamiltonian Circuit in an undirected simple graph @garey1979 reduces to CNF
+  satisfiability by the direct absolute position encoding @velevGao2009.
+  A vertex-position matrix enforces a permutation; forbidden cyclic successor
+  pairs enforce graph adjacency. The target size is $O(n^3)$.
+][
+  _Construction._ Let $G=(V,E)$, $V={0,dots,n-1}$, $n=|V|$, and $m=|E|$.
+  For $n<3$, emit $(z) and (not z)$ over one variable, matching the source's
+  rejection of all such graphs. Otherwise introduce $x_(v,p)$ for vertex $v$
+  and cyclic position $p$, numbered by $ell(v,p)=v n+p+1$ as a signed,
+  one-based literal. For every position, require at least one vertex and
+  exclude every pair of vertices. For every vertex, require at least one
+  position and exclude every pair of positions. For each $p$ and ordered
+  pair $(u,v)$ with $u=v$ or ${u,v} in.not E$, add
+  $not x_(u,p) or not x_(v,(p+1) mod n)$, including the closing position.
+  These are the direct permutation and exclusivity adjacency constraints
+  of @velevGao2009, with explicit exactly-one constraints on both axes.
+
+  _Correctness._ ($arrow.r.double$) An accepted source ordering has $n>=3$.
+  Set precisely its occupied matrix entries true. Each vertex and position
+  occurs once, so both exactly-one families hold. Every cyclic step is a
+  distinct edge, so no emitted successor clause has both entries true.
+  ($arrow.l.double$) A satisfying assignment cannot satisfy the small-graph
+  contradiction. The positive and pairwise clauses give exactly one vertex
+  per position and exactly one position per vertex, hence a permutation.
+  Any equal or non-edge successor pair would falsify its emitted clause.
+  Therefore all cyclic steps, including last-to-first, are edges, and the
+  permutation is an accepted Hamiltonian circuit.
+
+  _Solution extraction._ Validate the target assignment once, then read the
+  unique true vertex in each position and return that ordering. This preserves
+  the starting vertex and orientation. The scan costs $O(n^2)$ after validation.
+
+  _Overhead._ For $n>=3$ there are $n^2$ variables,
+  $2n+n^2(n-1)+n(n^2-2m)$ clauses and $4n^3-4n m$ literal occurrences:
+  $2n$ positive clauses, $n^2(n-1)$ pairwise clauses, and $n$ copies of the
+  $n^2-2m$ forbidden ordered pairs. Redundant equal-successor clauses are
+  retained with multiplicity. The global upper bounds add one variable and
+  two clauses/literals to cover the $(1,2,2)$ small-instance target; omitting
+  the negative edge terms gives the registered bounds. A table of graph
+  adjacencies makes construction $O(n^3)$.
+
+  _Special cases._ An isolated vertex has no permitted successor. A cyclic
+  permutation spanning disconnected components would require a forbidden
+  crossing. These instances are NO. Mathematically, loops cannot supply equal
+  successors and parallel copies do not change adjacency; the Rust simple
+  graph representation rejects both loops and repeated edges.
+]
+
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
 #let hc_hp_sol = hc_hp.solutions.at(0)
 #let hc_hp_n = graph-num-vertices(hc_hp.source.instance)
