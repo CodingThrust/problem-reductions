@@ -55,6 +55,7 @@ pub(crate) mod hamiltoniancircuit_ilp;
 pub(crate) mod hamiltoniancircuit_longestcircuit;
 pub(crate) mod hamiltoniancircuit_quadraticassignment;
 pub(crate) mod hamiltoniancircuit_ruralpostman;
+pub(crate) mod hamiltoniancircuit_satisfiability;
 pub(crate) mod hamiltoniancircuit_stackercrane;
 pub(crate) mod hamiltoniancircuit_strongconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
@@ -392,6 +393,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(hamiltoniancircuit_longestcircuit::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_quadraticassignment::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_ruralpostman::canonical_rule_example_specs());
+    specs.extend(hamiltoniancircuit_satisfiability::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_stackercrane::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_strongconnectivityaugmentation::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
