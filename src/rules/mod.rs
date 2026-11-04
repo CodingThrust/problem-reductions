@@ -1,5 +1,6 @@
 //! Reduction rules between NP-hard problems.
 
+pub(crate) mod boycecoddnormalformviolation_satisfiability;
 pub(crate) mod decisionilp_sat;
 
 pub mod analysis;
@@ -460,6 +461,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
     specs.extend(naesatisfiability_satisfiability::canonical_rule_example_specs());
+    specs.extend(boycecoddnormalformviolation_satisfiability::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(ensemblecomputation_ilp::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
