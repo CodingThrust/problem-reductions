@@ -41,7 +41,7 @@ impl ReductionResult for ReductionX3CToSubsetProduct {
     }
 }
 
-fn product_biguint<I>(values: I) -> BigUint
+pub(crate) fn product_biguint<I>(values: I) -> BigUint
 where
     I: IntoIterator<Item = u64>,
 {
@@ -50,7 +50,7 @@ where
     })
 }
 
-fn assigned_primes(universe_size: usize) -> Vec<u64> {
+pub(crate) fn assigned_primes(universe_size: usize) -> Vec<u64> {
     match universe_size {
         0 => Vec::new(),
         1 => vec![2],

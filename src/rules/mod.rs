@@ -275,6 +275,7 @@ pub(crate) mod multiprocessorscheduling_ilp;
 pub(crate) mod naesatisfiability_ilp;
 pub(crate) mod numericalmatchingwithtargetsums_ilp;
 pub(crate) mod oneinthreesatisfiability_ilp;
+pub(crate) mod oneinthreesatisfiability_subsetproduct;
 pub(crate) mod openshopscheduling_ilp;
 pub(crate) mod optimallineararrangement_ilp;
 pub(crate) mod optimumcommunicationspanningtree_ilp;
@@ -384,6 +385,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(exactcoverby3sets_minimumfaultdetectiontestset::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumaxiomset::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_subsetproduct::canonical_rule_example_specs());
+    specs.extend(oneinthreesatisfiability_subsetproduct::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_biconnectivityaugmentation::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_bottlenecktravelingsalesman::canonical_rule_example_specs());

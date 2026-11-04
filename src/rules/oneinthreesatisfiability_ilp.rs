@@ -66,7 +66,7 @@ impl ReduceTo<ILP<bool>> for OneInThreeSatisfiability {
             vec![],
             ObjectiveSense::Minimize,
         )
-        .map_err(Self::target_construction)?;
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(Self::Result { target })
     }
 }
