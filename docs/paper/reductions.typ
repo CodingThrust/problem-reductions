@@ -19492,6 +19492,195 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ The Subset Sum configuration is the Integer Expression Membership configuration: $x_i = 1$ (right branch) means element $i$ is selected.
 ]
 
+// IntegerExpressionMembership → ILP
+#{
+  let ex = load-example("IntegerExpressionMembership", "ILP")
+  let sol = ex.solutions.at(0)
+  let tree = ex.source.instance.expression
+  let K = ex.source.instance.target
+  let ilp = ex.target.instance
+  let x = sol.target_config
+  let flatten(e, start: 0) = {
+    let kind = e.keys().first()
+    if kind == "Atom" { ((kind: kind, index: start, value: e.Atom),) }
+    else {
+      let children = e.at(kind)
+      let left = flatten(children.at(0), start: start + 1)
+      let right = flatten(children.at(1), start: start + 1 + left.len())
+      ((kind: kind, index: start, left: start + 1, right: start + 1 + left.len()),) + left + right
+    }
+  }
+  let show-expr(e) = {
+    let kind = e.keys().first()
+    if kind == "Atom" { str(e.Atom) }
+    else {
+      let children = e.at(kind)
+      "(" + show-expr(children.at(0)) + (if kind == "Sum" { " + " } else { " ∪ " }) + show-expr(children.at(1)) + ")"
+    }
+  }
+  let reachable(e) = {
+    let kind = e.keys().first()
+    if kind == "Atom" { (e.Atom,) }
+    else {
+      let children = e.at(kind)
+      let left = reachable(children.at(0))
+      let right = reachable(children.at(1))
+      if kind == "Union" { (left + right).dedup().sorted() }
+      else { left.map(l => right.map(r => l + r)).flatten().dedup().sorted() }
+    }
+  }
+  let bitlen(n) = if n < 2 { 1 } else { 1 + bitlen(calc.floor(n / 2)) }
+  let popcount(n) = if n == 0 { 0 } else { calc.rem(n, 2) + popcount(calc.floor(n / 2)) }
+  let nodes = flatten(tree)
+  let atoms = nodes.filter(n => n.kind == "Atom")
+  let A = atoms.len()
+  let S = nodes.filter(n => n.kind == "Sum").len()
+  let U = nodes.filter(n => n.kind == "Union").len()
+  let T = nodes.len()
+  let H = bitlen(calc.max(K, ..atoms.map(n => n.value)))
+  let B = atoms.map(n => popcount(n.value)).sum()
+  let decode(index) = {
+    let node = nodes.at(index)
+    if node.kind == "Atom" { () }
+    else if node.kind == "Sum" { decode(node.left) + decode(node.right) }
+    else {
+      let right = x.at(node.right) == 1
+      (right,) + decode(if right { node.right } else { node.left })
+    }
+  }
+  let choices = decode(0)
+  let choices = choices + range(U - choices.len()).map(_ => false)
+  let values = reachable(tree)
+  let no-K = values.first() + 1
+  let no-H = bitlen(calc.max(no-K, ..atoms.map(n => n.value)))
+  let no-n = T + A * (2 * no-H - 1)
+  let no-m = 1 + 2 * S + U + A * no-H + no-H
+  let no-z = A * (4 * no-H - 2) + B + 1 + 4 * S + 3 * U
+  assert(T == 2 * A - 1 and S + U == A - 1)
+  assert(ilp.variables.len() == T + A * (2 * H - 1))
+  assert(ilp.constraints.len() == 1 + 2 * S + U + A * H + H)
+  assert(ilp.constraints.map(row => row.terms.len()).sum() == A * (4 * H - 2) + B + 1 + 4 * S + 3 * U)
+  assert(ilp.variables.all(v => v.lower_bound == 0 and v.upper_bound == 1))
+  assert(ilp.objective.len() == 0 and ilp.sense == "Minimize")
+  assert(x.len() == ilp.variables.len() and x.all(v => v == 0 or v == 1))
+  assert(ilp.constraints.all(row => row.comparison == "Eq" and row.terms.map(term => x.at(term.at(0)) * term.at(1)).sum() == row.rhs))
+  assert(atoms.map(n => n.value * x.at(n.index)).sum() == K)
+  assert(choices == sol.source_config and K in values)
+  assert(no-K not in values)
+  [
+    #reduction-rule("IntegerExpressionMembership", "ILP",
+      example: true,
+      example-caption: [#A atoms, #U unions, target #K],
+      extra: [
+        #pred-commands(
+          "pred create --example " + rule-spec(ex) + " -o iem.json",
+          "pred path IntegerExpressionMembership ILP/bool/i64 -o paths.json",
+          "pred reduce iem.json --via route.json -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate iem.json --config " + cli-config(sol.source_config),
+        )
+        Select the direct entry from `paths.json` as `route.json` before reducing.
+
+        *YES example.* The fixture expression is #show-expr(tree), with target
+        $K = #K$ and choices $(#fmt-values(sol.source_config))$.
+        Here $A = #A$, $S = #S$, $U = #U$, $T = #T$, $H = #H$, and $B = #B$.
+        The target has $#T + #A dot (2 dot #H - 1) = #ilp.variables.len()$ binary
+        variables, $#(1 + 2 * S + U + A * H + H)$ equality rows, and
+        $#ilp.constraints.map(row => row.terms.len()).sum()$ nonzeros.
+        Its activations are $(#fmt-values(x.slice(0,T)))$.
+        Each stage below is read from the canonical target witness; bits are
+        ordered low to high.
+        #{
+          let cells = ()
+          for (j, atom) in atoms.enumerate() {
+            let prefix = x.slice(T + j * H, T + (j + 1) * H)
+            let carry = x.slice(T + A * H + j * (H - 1), T + A * H + (j + 1) * (H - 1))
+            let total = prefix.enumerate().map(pair => pair.at(1) * calc.pow(2, pair.at(0))).sum()
+            cells += ([#atom.value], [#x.at(atom.index)], [#total], [(#fmt-values(prefix))], [(#fmt-values(carry))])
+          }
+          table(columns: 5, inset: 3pt, [Atom], [Active], [Prefix total], [Prefix bits], [Carry bits], ..cells)
+        }
+        The active atoms sum to $#atoms.map(n => n.value * x.at(n.index)).sum() = #K$.
+        Every emitted row is checked above against the loaded witness, the
+        objective is zero, and active DFS extraction returns
+        $(#fmt-values(choices))$.
+
+        *NO example.* Keep the fixture tree and replace its query by
+        $#no-K = #values.first() + 1$. Its reachable values, computed recursively
+        by union and Minkowski sum, are exactly $\{#fmt-values(values)\}$;
+        $#no-K$ is absent. The new width is $#no-H$, giving $#no-n$ binary
+        variables, $#no-m$ equality rows, and $#no-z$ nonzeros by the construction
+        formulas. Any feasible target would have final prefix in that reachable
+        set, while its final pins demand $#no-K$. Thus both sides are NO.
+      ],
+    )[
+      A tree-activation encoding followed by binary ripple-carry additions,
+      using binary expansion as discussed by @Glover1975ImprovedILP,
+      reduces positive signed-integer expression membership to binary ILP in
+      $O(T + A H)$ time and storage, with coefficients of magnitude at most two.
+      #footnote[Direct formulation derived here; no expansion of the represented integer set is required.]
+    ][
+      _Construction._ Let $A$, $S$, and $U$ count atoms, sums, and unions;
+      $T = 2A-1$ is the node count. Number nodes in preorder and atoms
+      $v_1, dots, v_A$ left to right. Let $H$ be the maximum bit length of the
+      positive atoms and query $K$, so $1 <= H <= 63$ for the signed-i64 domain.
+      Let $v_(j,b)$ and $k_b$ be their bits, $0 <= b < H$.
+
+      Allocate binary activations $a_t$, pin the root to one, and at a sum
+      with children $l,r$ impose $a_l = a_t$ and $a_r = a_t$. At a union impose
+      $a_l + a_r = a_t$. For each atom $j$, allocate prefix bits $p_(j,b)$
+      and internal carry bits $c_(j,b)$, $1 <= b < H$. Use constant boundaries
+      $p_(0,b) = c_(j,0) = c_(j,H) = 0$. Emit
+      $ p_(j-1,b) + v_(j,b) a_(t(j)) + c_(j,b) - p_(j,b) - 2c_(j,b+1) = 0, $
+      where $t(j)$ is atom $j$'s node. Pin $p_(A,b)=k_b$ and minimize zero.
+      Coordinates are all activations, atom-major low-bit-first prefixes, then
+      atom-major low-bit-first internal carries. Rows are root, preorder
+      structural rows, addition rows, then final pins. The target constructor
+      sorts sparse terms; omitted zero terms never merge with other indices.
+
+      _Arithmetic and size._ Multiplying the stage-$j$ rows by $2^b$ and
+      summing cancels internal carries and gives the exact identity
+      $P_j = P_(j-1) + v_j a_(t(j))$, where $P_j = sum_b 2^b p_(j,b)$.
+      Conversely binary addition below $2^H$ gives unique result/carry bits.
+      No terminal carry is allocated, so overflow is forbidden. At $H=1$
+      there are no internal carries. With $B = sum_j "popcount"(v_j)$ the
+      counts are $T+A(2H-1)$ variables, $1+2S+U+A H+H$ rows, and
+      $A(4H-2)+B+1+4S+3U$ nonzeros. The latter counts root (1), sum (4S),
+      union (3U), previous prefixes ($H(A-1)$), atom bits ($B$), carry uses
+      ($2A(H-1)$), current prefixes ($A H$), and final pins ($H$).
+      All indices within a row are distinct. The source registers only $U$;
+      sum-only trees with $U=0$ can be arbitrarily large, so those three size
+      fields are unavailable as functions of registered parameters. Magnitude
+      bits is at most 2, including RHS and binary bounds. Each row has total
+      positive and negative magnitudes at most three, so binary evaluation
+      cannot overflow i64. Layout arithmetic is checked before allocation;
+      bit decomposition never forms a signed $2^63$.
+
+      _Correctness._ ($arrow.r.double$) A satisfying source witness activates
+      exactly its visited tree. Sum and union rows hold, and its selected
+      positive atoms total $K$. Every left-to-right prefix is at most $K$,
+      hence fits $H$ bits; the arithmetic identity supplies a feasible extension.
+
+      ($arrow.l.double$) A feasible target activates the root, both children
+      of every active sum and exactly one child of every active union.
+      Inactive nodes force all descendants inactive. Summing the exact stage
+      identities and using final pins gives $sum_j v_j a_(t(j))=K$.
+      Traversing this active tree therefore evaluates to $K$. Every intermediate
+      source sum is bounded by this positive total, so checked source addition
+      does not overflow. This includes a single atom, sum-only trees and
+      inactive alternatives whose positive totals exceed i64::MAX.
+
+      _Solution extraction._ Validate the target witness once before decoding.
+      Visit sums left then right; at an active union append false for its left
+      child or true for its right child and visit only that child. Skipped
+      subtrees consume no union bits. Append false at the end to length $U$,
+      the model's unused-tail sentinel. The converse proves the resulting
+      source witness satisfies the query; unused-tail multiplicity is not
+      preserved.
+    ]
+  ]
+}
+
 // Removed: ExactCoverBy3Sets → MinimumWeightSolutionToLinearEquations (unsound reduction, #1006)
 
 // 11. KSatisfiability → SimultaneousIncongruences (#554)
