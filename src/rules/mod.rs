@@ -28,6 +28,7 @@ pub(crate) mod cyclicordering_ilp;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
+pub(crate) mod decisionminimumvertexcover_decisionmaximumleafspanningtree;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod ensemblecomputation_ilp;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
@@ -351,6 +352,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs
         .extend(decisionminimumdominatingset_minimumsummulticenter::canonical_rule_example_specs());
     specs.extend(decisionminimumvertexcover_hamiltoniancircuit::canonical_rule_example_specs());
+    specs.extend(
+        decisionminimumvertexcover_decisionmaximumleafspanningtree::canonical_rule_example_specs(),
+    );
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
     specs.extend(staffscheduling_qubo::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
@@ -546,6 +550,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     );
     specs.extend(
         crate::models::graph::maximum_independent_set::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::graph::maximum_leaf_spanning_tree::decision_canonical_rule_example_specs(),
     );
     specs.extend(
         crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),

@@ -218,6 +218,7 @@
   "MaximumIndependentSet": [Maximum Independent Set],
   "DecisionMaximumIndependentSet": [Decision Maximum Independent Set],
   "MaximumLeafSpanningTree": [Maximum Leaf Spanning Tree],
+  "DecisionMaximumLeafSpanningTree": [Decision Maximum Leaf Spanning Tree],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GeneralizedHex": [Generalized Hex],
@@ -6574,6 +6575,52 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ]
   ]
 }
+// DecisionMaximumLeafSpanningTree
+#{
+  let x = load-model-example("DecisionMaximumLeafSpanningTree")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.inner.graph.edges
+  let selected = edges.enumerate().filter(((i, _)) => x.optimal_config.at(i)).map(((_, e)) => e)
+  let degrees = range(nv).map(v => selected.filter(e => e.contains(v)).len())
+  let leaves = range(nv).filter(v => degrees.at(v) == 1)
+  assert(selected.len() == nv - 1)
+  assert(selected.all(e => e.contains(0)))
+  assert(leaves.len() >= x.instance.bound)
+  assert(x.optimal_value)
+  [
+    #problem-def("DecisionMaximumLeafSpanningTree")[
+      Given a simple undirected graph $G=(V,E)$ with $|V| >= 2$ and a signed
+      integer bound $b$, decide whether a spanning tree of $G$ has at least $b$
+      vertices of degree one. A witness selects edges with a Boolean vector
+      in stored edge order; disconnected graphs have no spanning tree.
+    ][
+      This is the decision version of @def:MaximumLeafSpanningTree. It models
+      a minimum number of terminal nodes in a broadcast network, leaving few
+      vertices to act as relays. Fernau et al.'s branching algorithm decides
+      the bound in $O^*(1.8966^n)$ time, where $n=|V|$ @fernau2011LeafTree.
+
+      *Example.* The loaded graph has $#nv$ vertices and $#edges.len()$ edges.
+      Selecting $(#fmt-values(x.optimal_config))$ gives tree degrees
+      $(#degrees.map(str).join(", "))$. Its $#leaves.len()$ leaves meet the bound
+      $#x.instance.bound$, so the answer is YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o leaf-decision.json",
+        "pred solve leaf-decision.json",
+        "pred evaluate leaf-decision.json --config " + cli-config(x.optimal_config),
+      )
+
+      #figure({
+        let positions = range(nv).map(i => if i == 0 { (0, 0) } else {
+          let angle = 360deg * (i - 1) / (nv - 1)
+          (1.3 * calc.cos(angle), 1.3 * calc.sin(angle))
+        })
+        draw-edge-highlight(positions, edges, selected, leaves)
+      }, caption: [A spanning tree with #leaves.len() leaves (blue), meeting bound #x.instance.bound.])
+    ]
+  ]
+}
+
 #{
   let x = load-model-example("MonochromaticTriangle")
   let nv = graph-num-vertices(x.instance)
@@ -17991,6 +18038,124 @@ The following table shows concrete target-variable counts for example instances,
 
   _Solution extraction._ For each variable $x_i$, inspect the truth-setting pair. Set $x_i = 1$ when the cover contains $u_i$, and set $x_i = 0$ otherwise.
 ]
+
+// DecisionMinimumVertexCover → DecisionMaximumLeafSpanningTree
+#{
+  let ex = load-example("DecisionMinimumVertexCover", "DecisionMaximumLeafSpanningTree")
+  let sol = ex.solutions.at(0)
+  let graph = ex.source.instance.inner.graph
+  let n = graph.num_vertices
+  let m = graph.edges.len()
+  let k = ex.source.instance.bound
+  let h = ex.target.instance.inner.graph
+  let N = h.num_vertices
+  let M = h.edges.len()
+  let root = n + m
+  let b = ex.target.instance.bound
+  let cover = range(n).filter(v => sol.source_config.at(v))
+  let selected = h.edges.enumerate().filter(((i, _)) => sol.target_config.at(i)).map(((_, e)) => e)
+  let degrees = range(N).map(v => selected.filter(e => e.contains(v)).len())
+  let leaves = range(N).filter(v => degrees.at(v) == 1)
+  let extracted = range(n).map(v => degrees.at(v) >= 2)
+  let matching = (graph.edges.first(), graph.edges.at(2))
+  let endpoints = matching.flatten()
+  assert(endpoints.dedup().len() == 2 * matching.len())
+  assert(matching.len() == cover.len())
+  assert(graph.edges.all(e => e.any(v => cover.contains(v))))
+  assert(cover.len() == k)
+  assert(N == n + m + 3 and M == n + 2*m + 2)
+  assert(b == N - 1 - calc.min(n, calc.max(-1, k)))
+  assert(sol.source_config == extracted)
+  assert(selected.len() == N - 1)
+  let reached = (root,)
+  for _ in range(N) {
+    for e in selected {
+      if e.any(v => reached.contains(v)) { reached = (reached + e).dedup() }
+    }
+  }
+  assert(reached.len() == N)
+  assert(leaves.len() == N - 1 - cover.len() and leaves.len() >= b)
+  let no-k = matching.len() - 1
+  let no-b = N - 1 - no-k
+  assert(no-b > leaves.len())
+  [
+    #reduction-rule("DecisionMinimumVertexCover", "DecisionMaximumLeafSpanningTree",
+      example: true,
+      example-caption: [A cover of size #cover.len() becomes a spanning tree with #leaves.len() leaves],
+      extra: [
+        #pred-commands(
+          "pred create --example " + rule-spec(ex) + " -o leaf-cover.json",
+          "pred path " + keyed-spec(ex.source) + " " + keyed-spec(ex.target) + " -o leaf-paths.json",
+          "jq '.paths[] | select(.steps == 1)' leaf-paths.json > leaf-route.json",
+          "pred reduce leaf-cover.json --via leaf-route.json -o leaf-bundle.json",
+          "pred solve leaf-bundle.json",
+          "pred evaluate leaf-cover.json --config " + cli-config(sol.source_config),
+        )
+
+        *YES example.* The source edges are #graph.edges.map(e => [$({#e.at(0)}, {#e.at(1)})$]).join(", ").
+        The cover ${#cover.map(str).join(", ")}$ has size $#cover.len() <= #k$.
+        The $#matching.len()$ disjoint edges
+        #matching.map(e => [$({#e.at(0)}, {#e.at(1)})$]).join(" and ")
+        prove this cover minimum. Subdivision vertices are
+        ${#range(n, root).map(str).join(", ")}$, root $#root$, private leaves
+        $#(root+1), #(root+2)$. The target has $N=#N$ vertices and $M=#M$ edges
+        #h.edges.map(e => [$({#e.at(0)}, {#e.at(1)})$]).join(", ").
+        Selecting $(#fmt-values(sol.target_config))$ gives $#selected.len()$ edges,
+        degrees $(#degrees.map(str).join(", "))$, and $#leaves.len()$ leaves,
+        meeting $b=#b$. Extraction gives $(#fmt-values(extracted))$.
+
+        *NO example.* Keep this graph and set the source bound to $#no-k$.
+        The $#matching.len()$ disjoint edges require at least $#matching.len()$
+        selected originals, so the source is NO. The target bound becomes
+        $b = #N - 1 - #no-k = #no-b$. A tree with that many leaves would extract a
+        cover of size at most $#no-k$, contradicting the disjoint edges.
+        The optimum leaf count is $#leaves.len() < #no-b$, so the target is NO.
+      ],
+    )[
+      The universal-root/subdivision construction described by Bonsma for cubic
+      vertex cover @bonsma2012MaxLeaves extends to arbitrary simple graphs by
+      adding two private root leaves. Unit Decision Minimum Vertex Cover reduces
+      to Decision Maximum Leaf Spanning Tree in linear time, with exact sizes
+      $|V(H)|=n+m+3$ and $|E(H)|=n+2m+2$.
+    ][
+      _Construction._ Let $G=(V,E)$, $n=|V|$, $m=|E|$, and signed bound $k$.
+      Keep originals $0, dots,n-1$. For each stored edge $e_j=(u_j,v_j)$ add
+      $a_j=n+j$ and replace the edge by $(u_j,a_j),(v_j,a_j)$. Add root $r=n+m$
+      adjacent to every original and private leaves $p=r+1,q=r+2$ adjacent only
+      to $r$. Store root-to-original edges first, then incidence pairs in source
+      edge order, then $(r,p),(r,q)$. Let $N=n+m+3$, $k'=min(n,max(-1,k))$,
+      and $b=N-1-k'$. Disjoint vertex and edge blocks give the exact sizes.
+
+      _Correctness._ ($arrow.r.double$) A cover $C$ with $|C|<=k$ also has
+      $|C|<=k'$. Select all root spokes, both private edges, and one incidence
+      to a covered endpoint for each $a_j$. This is connected with $N-1$ edges,
+      hence a spanning tree. Only $r$ and vertices in $C$ can be internal, so
+      it has at least $N-1-|C|>=b$ leaves.
+
+      ($arrow.l.double$) In any spanning tree, both private edges are forced,
+      making $r$ internal. The tree path from $a_j$ to $r$ first visits an
+      original endpoint of $e_j$ that is internal on that path. Thus originals
+      of degree at least two form a cover $C_T$. If the tree has $L>=b$ leaves,
+      then $|C_T|<=N-L-1<=k'$. For $k>=0$ this is at most $k$; for $k<0$,
+      $b=N$, impossible because $r$ is internal, so both instances are NO.
+      Applying the two inequalities to
+      optimal witnesses gives $"maxleaf"(H)=n+m+2-"minVC"(G)$.
+
+      _Solution extraction._ Validate once that the edge vector is a spanning
+      tree meeting $b$, then select precisely the originals of tree degree
+      at least two. This works for nonoptimal trees and internal subdivision
+      vertices as well. Both decision values are `Or` and map identically.
+
+      _Boundary cases._ For $n=m=0$, the target is $p-r-q$ with two leaves.
+      An edgeless input gives a star with $n+2$ leaves; isolated originals stay
+      leaves, and the root connects disconnected sources. Negative signed bounds,
+      including the minimum representable integer, normalize to $k'=-1$;
+      bounds above $n$ normalize to $n$. In particular $k'<=n<N-1$, so there is
+      no subtraction underflow to clamp. Size arithmetic, signed conversion,
+      and bound subtraction are checked; unrepresentable results return errors.
+    ]
+  ]
+}
 
 #let dmvc_hc = load-example("DecisionMinimumVertexCover", "HamiltonianCircuit")
 #let dmvc_hc_sol = dmvc_hc.solutions.at(0)

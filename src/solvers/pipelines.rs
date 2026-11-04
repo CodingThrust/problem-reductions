@@ -426,6 +426,12 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
+    ("DecisionMaximumLeafSpanningTree", [("graph", "SimpleGraph")]),
+    ("MaximumLeafSpanningTree", [("graph", "SimpleGraph")]),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
+
+register_ilp_pipeline! {
     ("MaximumLikelihoodRanking", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
