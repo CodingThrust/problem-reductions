@@ -24,6 +24,7 @@ pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod conjunctivequeryfoldability_satisfiability;
 pub(crate) mod cyclicordering_ilp;
 pub(crate) mod decisionmaximumindependentset_integralflowbundles;
 pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
@@ -355,6 +356,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(staffscheduling_qubo::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
+    specs.extend(conjunctivequeryfoldability_satisfiability::canonical_rule_example_specs());
     specs.extend(sequencingtominimizeweightedcompletiontime_qubo::canonical_rule_example_specs());
     specs.extend(schedulingwithindividualdeadlines_qubo::canonical_rule_example_specs());
     specs.extend(precedenceconstrainedscheduling_qubo::canonical_rule_example_specs());
