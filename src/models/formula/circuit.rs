@@ -254,8 +254,59 @@ pub struct CircuitSAT {
 impl CircuitSAT {
     /// Create a new CircuitSAT problem.
     pub fn new(circuit: Circuit) -> Self {
-        let variables = circuit.variables();
-        Self { circuit, variables }
+        Self::try_new(circuit).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    /// Create a CircuitSAT problem, reporting failures to allocate its variable table.
+    /// Repeated outputs remain simultaneous equations, and names are sorted.
+    pub fn try_new(circuit: Circuit) -> Result<Self, crate::registry::ConstructionError> {
+        fn allocation(
+            error: std::collections::TryReserveError,
+        ) -> crate::registry::ConstructionError {
+            crate::registry::ConstructionError::Conversion(format!(
+                "cannot allocate circuit variables: {error}"
+            ))
+        }
+        fn collect<'a>(
+            expr: &'a BooleanExpr,
+            names: &mut Vec<&'a str>,
+        ) -> Result<(), crate::registry::ConstructionError> {
+            match &expr.op {
+                BooleanOp::Var(name) => {
+                    names.try_reserve(1).map_err(allocation)?;
+                    names.push(name);
+                }
+                BooleanOp::Const(_) => {}
+                BooleanOp::Not(inner) => collect(inner, names)?,
+                BooleanOp::And(args) | BooleanOp::Or(args) | BooleanOp::Xor(args) => {
+                    for arg in args {
+                        collect(arg, names)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        let mut names = Vec::new();
+        for assignment in &circuit.assignments {
+            names
+                .try_reserve(assignment.outputs.len())
+                .map_err(allocation)?;
+            names.extend(assignment.outputs.iter().map(String::as_str));
+            collect(&assignment.expr, &mut names)?;
+        }
+        names.sort_unstable();
+        names.dedup();
+        let mut variables = Vec::new();
+        variables
+            .try_reserve_exact(names.len())
+            .map_err(allocation)?;
+        for name in names {
+            let mut owned = String::new();
+            owned.try_reserve_exact(name.len()).map_err(allocation)?;
+            owned.push_str(name);
+            variables.push(owned);
+        }
+        Ok(Self { circuit, variables })
     }
 
     /// Get the circuit.

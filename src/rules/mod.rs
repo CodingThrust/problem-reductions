@@ -172,6 +172,7 @@ mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
 mod steinertree_casts;
+pub(crate) mod subsetproduct_circuitsat;
 pub(crate) mod subsetsum_closestvectorproblem;
 pub(crate) mod subsetsum_integerexpressionmembership;
 pub(crate) mod subsetsum_partition;
@@ -502,6 +503,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(satisfiability_integralflowhomologousarcs::canonical_rule_example_specs());
     specs.extend(satisfiability_naesatisfiability::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
+    specs.extend(subsetproduct_circuitsat::canonical_rule_example_specs());
     specs.extend(sat_coloring::canonical_rule_example_specs());
     specs.extend(sat_ksat::canonical_rule_example_specs());
     specs.extend(sat_maximumindependentset::canonical_rule_example_specs());

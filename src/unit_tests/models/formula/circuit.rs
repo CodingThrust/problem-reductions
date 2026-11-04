@@ -308,3 +308,16 @@ fn test_circuit_sat_paper_example() {
     let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4);
 }
+
+#[test]
+fn test_fallible_circuit_construction_preserves_simultaneous_equations() {
+    let circuit = Circuit::new(vec![
+        Assignment::new(vec!["z".into()], BooleanExpr::var("a")),
+        Assignment::new(vec!["z".into()], BooleanExpr::constant(true)),
+    ]);
+    let target = CircuitSAT::try_new(circuit).unwrap();
+    assert_eq!(target.variable_names(), &["a", "z"]);
+    assert!(target.is_valid_solution(&[true, true]).unwrap());
+    assert!(!target.is_valid_solution(&[false, true]).unwrap());
+    assert!(!target.is_valid_solution(&[false, false]).unwrap());
+}

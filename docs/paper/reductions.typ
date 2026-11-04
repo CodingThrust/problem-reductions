@@ -13540,6 +13540,152 @@ These constructions use the checked sparse penalty and extraction contracts abov
   caption: [Ising gadgets for logic gates. Ground states match truth tables.]
 ) <tab:gadgets>
 
+// SubsetProduct → CircuitSAT
+#let sp_cs = load-example("SubsetProduct", "CircuitSAT")
+#let sp_cs_sol = sp_cs.solutions.at(0)
+#let sp_sizes = sp_cs.source.instance.sizes.map(int)
+#let sp_target = int(sp_cs.source.instance.target)
+#let sp_bits(a) = {
+  let bits = ()
+  while a > 0 { bits.push(calc.rem(a, 2)); a = calc.floor(a / 2) }
+  bits
+}
+#let sp_n = sp_sizes.len()
+#let sp_d = sp_sizes.map(a => sp_bits(a).len()).sum()
+#let sp_h = sp_sizes.map(a => sp_bits(a).sum()).sum()
+#let sp_w = calc.max(1 + sp_d, sp_bits(sp_target).len())
+#let sp_vars = circuit-num-variables(sp_cs.target.instance)
+#let sp_assignments = sp_cs.target.instance.circuit.assignments
+#let sp_nodes(expr) = {
+  let (kind, value) = expr.op.pairs().first()
+  if kind == "Var" or kind == "Const" { 1 }
+  else if kind == "Not" { 1 + sp_nodes(value) }
+  else { 1 + value.map(sp_nodes).sum(default: 0) }
+}
+#let sp_word(value) = range(sp_w).map(b => str(calc.rem(calc.floor(value / calc.pow(2, b)), 2))).join(", ")
+#let sp_node_count = sp_assignments.map(a => sp_nodes(a.expr)).sum()
+#let sp_output_count = sp_assignments.map(a => a.outputs.len()).sum()
+#let sp_prefix = (1,)
+#for (i, a) in sp_sizes.enumerate() {
+  sp_prefix.push(sp_prefix.last() * if sp_cs_sol.source_config.at(i) { a } else { 1 })
+}
+#let sp_wire(name) = {
+  let coordinate = sp_cs.target.instance.variables.position(v => v == name)
+  assert(coordinate != none)
+  sp_cs_sol.target_config.at(coordinate)
+}
+#for (i, expected) in sp_prefix.enumerate() {
+  let actual = range(sp_w).map(b => if sp_wire("p_" + str(i) + "_" + str(b)) { calc.pow(2, b) } else { 0 }).sum()
+  assert(actual == expected)
+}
+#let sp_products = (1,)
+#for a in sp_sizes { sp_products += sp_products.map(p => p * a) }
+#let sp_no = range(sp_sizes.sorted().last() + 1, sp_target).find(b => not sp_products.contains(b))
+#assert(sp_vars == sp_w * (1 + sp_n + 5 * sp_h) + sp_n)
+#assert(sp_assignments.len() == sp_w * (2 + sp_n + 5 * sp_h))
+#assert(sp_output_count == sp_assignments.len())
+#assert(sp_node_count == sp_w * (2 + 8 * sp_n + 15 * sp_h))
+#assert(sp_prefix.last() == sp_target)
+#assert(sp_no > 0 and not sp_products.contains(sp_no))
+#assert(calc.max(1 + sp_d, sp_bits(sp_no).len()) == sp_w)
+#reduction-rule("SubsetProduct", "CircuitSAT",
+  example: true,
+  example-caption: [Select factors from $(#sp_sizes.map(str).join(", "))$ to obtain $#sp_target$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(sp_cs) + " -o subset-product.json",
+      "pred path SubsetProduct CircuitSAT -o paths.json",
+      "jq '.paths[] | select(.path | length == 1)' paths.json > route.json",
+      "pred reduce subset-product.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate subset-product.json --config " + cli-config(sp_cs_sol.source_config),
+    )
+    *Worked YES example.* The fixture has sizes $(#sp_sizes.map(str).join(", "))$
+    and target $#sp_target$. Thus $D=#sp_d$, $H=#sp_h$, and $W=#sp_w$.
+    There are $#sp_n$ selectors, $#(sp_n + 1)$ product words,
+    $#(5 * sp_w * sp_h)$ adder outputs, $#(sp_n * sp_w)$ multiplexers,
+    $#sp_w$ initial constants and $#sp_w$ final pins. The exported target has
+    $#sp_vars$ variables, $#sp_assignments.len()$ assignments,
+    $#sp_output_count$ outputs and $#sp_node_count$ expression nodes.
+
+    The canonical selectors $(#fmt-values(sp_cs_sol.source_config))$ give the
+    prefix products $(#sp_prefix.map(str).join(", "))$. At each stage:
+    #table(columns: 4, [Factor], [Incoming word], [Shifted summands], [Selected word],
+      ..sp_sizes.enumerate().map(((i, a)) => {
+        let summands = sp_bits(a).enumerate().filter(((j, b)) => b == 1)
+          .map(((j, b)) => sp_prefix.at(i) * calc.pow(2, j))
+        assert(summands.sum() == sp_prefix.at(i) * a)
+        (str(a), str(sp_prefix.at(i)), summands.map(str).join(" + "), str(sp_prefix.at(i + 1)))
+      }).flatten())
+    The final little-endian word is $(#sp_word(sp_target))$.
+    Named extraction returns the canonical selectors, whose product is $#sp_target$.
+
+    *Worked NO example.* Keep the fixture's sizes and replace the target by
+    $B=#sp_no$. The width and all four counts remain unchanged. The complete
+    subset-product list is $(#sp_products.sorted().map(str).join(", "))$;
+    none equals $#sp_no$. The final pins demand $(#sp_word(sp_no))$.
+    By backward correctness there can be no satisfying target assignment.
+  ],
+)[
+  Positive arbitrary-precision subset multiplication reduces to simultaneous
+  Boolean equations by a cascade of constant multipliers and selectors. Binary
+  summands and adders are classical arithmetic circuitry @wallace1964fastmultiplier;
+  the ripple cascade and decision-equivalence argument below give this construction.
+  It uses polynomial space and time in the binary input length, without factoring.
+][
+  _Construction._ For positive sizes $a_1, dots, a_n$ and target $B$, define
+  $ell(a)=floor(log_2(a))+1$, $D=sum_i ell(a_i)$, $H=sum_i "popcount"(a_i)$,
+  and $W=max(1+D,ell(B))$. Words are $W$ bits in little-endian order.
+  Introduce free selectors $x_0, dots, x_(n-1)$ and pin $P_0=1$.
+  For each stage $i$, initialize an accumulator to zero. For every set-bit
+  position $j$ of $a_i$, in increasing order, add $P_(i-1) 2^j$ to it with
+  a fresh ripple row and incoming carry zero. Shifted columns below $j$ are
+  literal false. For each column with accumulator bit $u$, shifted bit $v$
+  and carry $c$, emit five fresh equations:
+  $ h=u xor v, quad s=h xor c, quad f=u and v, quad g=h and c, quad d=f or g. $
+  The next column uses carry $d$; retain even the last carry equation.
+  The row's sum bits become the accumulator. Call the final word $T_i$ and emit
+  $P_(i,b)=(x_(i-1) and T_(i,b)) or ((not x_(i-1)) and P_(i-1,b))$.
+  Finally append $W$ constant equations pinning $P_n=B$, reusing its names.
+  Product names are `p_i_b`; adder names include stage, shift, column and gate.
+  The disjoint name families prevent collisions. Repeated final outputs are
+  simultaneous constraints, not overwrites.
+
+  _Correctness._ Each full adder obeys $u+v+c=s+2d$ on all eight input triples,
+  with uniquely determined outputs. Hence a ripple row computes addition modulo
+  $2^W$. Let $Q_i=product_(t=1)^i a_t$. Positivity bounds any selected prefix
+  product by $Q_i$. At stage $i$, every shifted summand and partial accumulation
+  is at most $P_(i-1)a_i<=Q_i<=Q_n<2^D<2^W$ when $n>0$. Thus no shift loses
+  a high bit and every discarded carry is zero. This bound includes branches
+  discarded by selectors. With no items, $1<2^W$ and the repeated pins require
+  exactly $B=1$.
+
+  ($arrow.r.double$) Given a feasible subset, assign its selectors and evaluate
+  fresh gates in construction order. Exact addition and the multiplexers force
+  $P_i=product_(t<=i, x_(t-1)=1) a_t$, so every final pin holds.
+  ($arrow.l.double$) Any satisfying assignment must obey the initial pins and
+  every deterministic gate equation. Induction forces the same exact prefix
+  products, even for unselected multiplication branches. The final pins compare
+  all $W>=ell(B)$ bits, so the extracted subset product is exactly $B$.
+  This also proves unique extension of each feasible selector vector. Ones,
+  repeated items, single items, full-product targets and arbitrarily wide
+  magnitudes require no special cases. Targets wider than $D$ cannot wrap around.
+
+  _Solution extraction._ Validate the complete target witness once, rejecting
+  wrong lengths and unsatisfied equations. Read selector coordinates by names
+  `x_0`, …, `x_(n-1)` in source order; lexicographic variable order is not numeric
+  selector order. Missing coordinates are errors. Completed `Or` values map identically.
+
+  _Size._ The exact counts are $W(1+n+5H)+n$ variables, $W(2+n+5H)$ assignments
+  and outputs, and $W(2+8n+15H)$ expression nodes. Only `num_elements` is a
+  registered source parameter, so all four parameter transforms are unavailable:
+  bit lengths and popcounts cannot be bounded in terms of that parameter alone.
+  For $L=D+ell(B)+n+1$, the circuit has $O(L^2)$ expression nodes; its named
+  encoding takes $O(L^2 log L)$ bits and comparison sorting gives a conservative
+  $O(L^2 log^2 L)$ construction bound. Machine counts, index conversions and
+  allocation sizes are checked; failures are construction errors, never NO answers.
+]
+
 #let fact_cs = load-example("Factoring", "CircuitSAT")
 #let fact_cs_sol = fact_cs.solutions.at(0)
 #let fact-nbf = fact_cs.source.instance.m
