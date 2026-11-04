@@ -31,6 +31,12 @@ jobs:
           token: ${{ secrets.PROJECT_READ_TOKEN }}
           persist-credentials: false
 
+      # The board's stable build interface; its internals may change upstream.
+      - name: Build Open Question Board
+        uses: ./open-questions-source
+        with:
+          output: open-questions-board
+
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
@@ -45,11 +51,6 @@ jobs:
         with:
           node-version: '24.21.0'
           cache: npm
-
-      - name: Build Open Question Board
-        run: |
-          npm --prefix open-questions-source/website ci
-          npm --prefix open-questions-source/website run build
 
       - name: Install mdBook
         run: |
@@ -69,7 +70,7 @@ jobs:
       - name: Build and verify deployment artifact
         run: |
           uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python -m playwright install --with-deps chromium firefox webkit
-          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-source/website/dist
+          uv run --python 3.12.14 --no-project --with-requirements scripts/website-requirements.txt python scripts/check_website.py --output book --open-questions open-questions-board
           npm audit --audit-level=moderate
           git diff --exit-code -- Cargo.lock package-lock.json
 
