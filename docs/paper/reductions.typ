@@ -20306,6 +20306,114 @@ The following table shows concrete target-variable counts for example instances,
   _Boundary cases._ When $k=0$, the target has only terminal $r$; the edge-free tree maps to the empty source forest of cost zero. The same construction works when $beta=0$ or $omega=0$. Gadget costs use checked integer arithmetic.
 ]
 
+// BoyceCoddNormalFormViolation → Satisfiability (#1202)
+#let bcnf_sat = load-example("BoyceCoddNormalFormViolation", "Satisfiability")
+#let bcnf_sat_sol = bcnf_sat.solutions.at(0)
+#reduction-rule("BoyceCoddNormalFormViolation", "Satisfiability",
+  example: true,
+  example-caption: [$N = #bcnf_sat.source.instance.num_attributes$ attributes, $r = #bcnf_sat.source.instance.target_subset.len()$ target attributes],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(bcnf_sat) + " -o bcnf.json",
+      "pred reduce bcnf.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate bcnf.json --config " + cli-config(bcnf_sat_sol.source_config),
+    )
+
+    #{
+      // Everything below is computed from the loaded fixture.
+      let closure-of(fds, start) = {
+        let cur = start
+        let changed = true
+        while changed {
+          changed = false
+          for fd in fds {
+            if fd.at(0).all(a => cur.contains(a)) {
+              for a in fd.at(1) {
+                if not cur.contains(a) {
+                  cur.push(a)
+                  changed = true
+                }
+              }
+            }
+          }
+        }
+        cur.sorted()
+      }
+      let inst = bcnf_sat.source.instance
+      let n = inst.num_attributes
+      let fds = inst.functional_deps
+      let rset = inst.target_subset
+      let r = rset.len()
+      let d = fds.len()
+      let sel = bcnf_sat_sol.source_config
+      let X = range(r).filter(i => sel.at(i)).map(i => rset.at(i))
+      let cl = closure-of(fds, X)
+      let gained = rset.filter(a => not X.contains(a) and cl.contains(a))
+      let missing = rset.filter(a => not cl.contains(a))
+      let big-l = fds.map(fd => fd.at(0).len()).sum()
+      let big-b = fds.map(fd => fd.at(1).len()).sum()
+      let tgt = bcnf_sat.target.instance
+      let tcfg = bcnf_sat_sol.target_config
+      assert(tgt.num_vars == n * (n + 1) + n * d + 2 * r)
+      assert(tgt.clauses.len() == n + 4 * r + n * (big-l + big-b + d + 2 * n) + 2)
+      assert(tcfg.len() == tgt.num_vars)
+      assert(gained.len() > 0 and missing.len() > 0)
+      let layer(t) = range(n).map(a => if tcfg.at(r + t * n + a) { "1" } else { "0" }).join()
+      let trig(t) = range(d).map(k => if tcfg.at(r + (n + 1) * n + t * d + k) { "1" } else { "0" }).join()
+      let outside = range(n).filter(a => not rset.contains(a))
+      let first-layer = if outside.len() > 0 { range(n + 1).position(t => tcfg.at(r + t * n + outside.at(0))) } else { none }
+      assert(outside.len() == 0 or first-layer != none)
+      let gains = range(r).map(i => if tcfg.at(r + (n + 1) * n + n * d + i) { "1" } else { "0" }).join()
+      // The NO example: a dependency cycle over three target attributes.
+      let no-fds = ((range(1), range(1, 2)), (range(1, 2), range(2, 3)), (range(2, 3), range(1)))
+      let no-n = 3
+      let no-sets = range(8).map(m => range(no-n).filter(a => calc.rem(calc.quo(m, calc.pow(2, a)), 2) == 1))
+      let no-gain-and-miss(x) = {
+        let c = closure-of(no-fds, x)
+        range(no-n).any(a => not x.contains(a) and c.contains(a)) and range(no-n).any(a => not c.contains(a))
+      }
+      let no-d = no-fds.len()
+      let no-r = no-n
+      let no-l = no-fds.map(fd => fd.at(0).len()).sum()
+      let no-b = no-fds.map(fd => fd.at(1).len()).sum()
+      let no-vars = no-n * (no-n + 1) + no-n * no-d + 2 * no-r
+      let no-clauses = no-n + 4 * no-r + no-n * (no-l + no-b + no-d + 2 * no-n) + 2
+      let no-lits = no-n + 12 * no-r + no-n * (3 * no-l + 3 * no-b + no-d + 4 * no-n)
+      assert((no-vars, no-clauses, no-lits) == (27, 62, 138))
+      assert(no-sets.all(x => not no-gain-and-miss(x)))
+      // Each selection: either no attribute is gained (empty selection) or none is missing (closure is R).
+      assert(no-sets.all(x => if x.len() == 0 { closure-of(no-fds, x).len() == 0 } else { closure-of(no-fds, x).len() == no-n }))
+      assert(closure-of(no-fds, ()).len() == 0)
+      assert(no-sets.filter(x => x.len() > 0).all(x => closure-of(no-fds, x).len() == no-n))
+      [
+        *Step 1 -- Source.* $N = #n$ attributes, $F = {#fds.map(fd => $#fd.at(0).map(a => $a_#a$).join(",") arrow.r #fd.at(1).map(a => $a_#a$).join(",")$).join(", ")}$, and $R = {#rset.map(a => $a_#a$).join(", ")}$, so $r = #r$, $D = #d$, $L = #big-l$, $B = #big-b$. The canonical witness selects $X = {#X.map(a => $a_#a$).join(", ")}$.
+
+        *Step 2 -- Target size.* The CNF has $N(N+1) + N D + 2 r = #tgt.num_vars$ variables (#r selection, #((n + 1) * n) closure, #(n * d) trigger, #r gain bits), $N + 4 r + N (L + B + D + 2 N) + 2 = #tgt.clauses.len()$ clauses, and $N + 12 r + N (3 L + 3 B + D + 4 N) = #tgt.clauses.map(c => c.literals.len()).sum()$ literal occurrences.
+
+        *Step 3 -- Closure layers.* Over $a_0, dots, a_#(n - 1)$ the layers $c_0, dots, c_#n$ are #(range(n + 1).map(layer).join(", "))\; the trigger vectors for rounds $0, dots, #(n - 1)$ are #(range(n).map(trig).join(", ")). The last layer is $X^+ = {#cl.map(a => $a_#a$).join(", ")}$. #if outside.len() > 0 [Attribute #outside.map(a => $a_#a$).join(", ") lies outside $R$: it keeps a closure bit in every layer, enters at layer #first-layer, and no gain bit reads it.]
+
+        *Step 4 -- Gain and missing attributes.* The gain bits over $R$ are #gains: the gained attribute is #gained.map(a => $a_#a$).join(", ") and the missing one is #missing.map(a => $a_#a$).join(", "). Both final clauses hold, and the complete vector #fmt-values(tcfg) satisfies the CNF; extraction returns its first $r$ bits #fmt-values(sel).
+
+        *NO example.* Take $N = 3$, $F = {a_0 arrow.r a_1, a_1 arrow.r a_2, a_2 arrow.r a_0}$, $R = {a_0, a_1, a_2}$. The empty selection has empty closure (every left side is nonempty), so no attribute is gained; each of the other #(no-sets.len() - 1) selections has closure $R$, so no attribute is missing. Hence the source has no solution. The target has $N(N+1) + N D + 2 r = #no-vars$ variables, $N + 4 r + N (L + B + D + 2 N) + 2 = #no-clauses$ clauses, and $N + 12 r + N (3 L + 3 B + D + 4 N) = #no-lits$ literal occurrences. Every selection fixes all auxiliary bits, and the corresponding assignment violates a final clause, so the CNF is unsatisfiable.
+      ]
+    }
+  ],
+)[
+  Unroll the least functional-dependency closure of the selected attributes into $N$ layers of a Boolean circuit and require, with two final clauses, a gained target attribute and a missing one. The target has $N(N+1) + N D + 2 r$ variables and at most $N + 4 r + N(2 N D + D + 2 N) + 2$ clauses, where $N$ is the number of attributes, $D$ the number of dependencies and $r = |R|$. Layered closure circuits are a standard technique#footnote[The construction is derived directly from the closure predicate of the source problem; it is not taken from a published reduction.].
+][
+  _Construction._ Let $A = {0, dots, N-1}$, $F = ((L_d, R_d))_(d=0)^(D-1)$, $R subset.eq A$ nonempty with $r = |R|$, and let $L = sum_d |L_d|$, $B = sum_d |R_d|$ after normalization. Number the variables: selection bits $x_a$ ($a in R$, in sorted order); closure bits $c_(t,a)$ for $t = 0, dots, N$ and every $a in A$ (round-major); trigger bits $g_(t,d)$ for $t < N$; gain bits $w_a$ ($a in R$). Emit:
+  1. $c_(0,a) <-> x_a$ for $a in R$ (two binary clauses) and the unit $not c_(0,a)$ for $a in.not R$.
+  2. For each round $t < N$: $g_(t,d) <-> and.big_(a in L_d) c_(t,a)$ (one binary clause per $a in L_d$ and one long clause), and $c_(t+1,a) <-> c_(t,a) or or.big_(d : a in R_d) g_(t,d)$ (one binary clause per disjunct and one long clause); the previous-round bit is always a disjunct.
+  3. $w_a <-> (not x_a and c_(N,a))$ for $a in R$ (three clauses).
+  4. The clauses $(or.big_(a in R) w_a)$ and $(or.big_(a in R) not c_(N,a))$.
+  Attributes outside $R$ keep their layer bits, since a derivation may pass through them. Variables: $N(N+1) + N D + 2r$ (exact); clauses $N + 4r + N(L + B + D + 2N) + 2$ and literals $N + 12 r + N(3L + 3B + D + 4N)$, bounded using $L + B <= 2 N D$.
+
+  _Correctness._ Fix $X = {a in R : x_a}$. The initial clauses force $c_0 = X$; given layer $t$, the equivalence gates force $g_(t,d)$ to hold exactly when $L_d$ lies in layer $t$ and layer $t+1$ to be layer $t$ together with every right side of a firing dependency. This iteration is increasing, each changing round adds at least one of the $N$ attributes, and an unchanged layer is a closed set containing $X$ reachable by derivations from $X$, so layer $N$ is exactly the least closure $X^+$. ($arrow.r.double$) For a solution $X$, assign the selection bits, the successive layers, the trigger truths, and $w_a = [a in.not X and a in X^+]$; every gate holds, a gained attribute $a in (X^+ without X) inter R$ makes $w_a$ true, and a missing attribute $b in R without X^+$ makes $not c_(N,b)$ true. ($arrow.l.double$) For a satisfying assignment, $X$ is read from the selection bits and layer $N$ equals $X^+$ by the argument above. A true gain bit gives $a in (X^+ without X) inter R$; the second final clause gives $b in R$ with $b in.not X^+$, and $b in.not X$ because $X subset.eq X^+$. So $X$ is a solution. All auxiliary bits are determined by $X$, so satisfying assignments correspond one-to-one with source solutions. Empty dependency lists, empty right sides, and $X = emptyset$ (every left side is nonempty, so the closure is empty and no attribute is gained) are covered by the same argument.
+
+  _Solution extraction._ Evaluate the target witness once; if it does not satisfy the CNF, reject it. Otherwise return the first $r$ bits, which are already in the source's sorted order of $R$.
+]
+
 #pagebreak()
 #if export-details {
   detail-article("references")[#bibliography("references.bib", style: "ieee")]
