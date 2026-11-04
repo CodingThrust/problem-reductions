@@ -239,6 +239,7 @@ pub(crate) mod maximum2satisfiability_ilp;
 pub(crate) mod maximumclique_ilp;
 pub(crate) mod maximumcokplex_ilp;
 pub(crate) mod maximumcommonedgesubgraph_ilp;
+pub(crate) mod maximumcommonedgesubgraph_maximumclique;
 pub(crate) mod maximumcontactmapoverlap_ilp;
 pub(crate) mod maximumdomaticnumber_ilp;
 pub(crate) mod maximumedgeweightedkclique_ilp;
@@ -431,6 +432,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximum2satisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(maximumclique_maximumindependentset::canonical_rule_example_specs());
     specs.extend(decisionmaximumindependentset_integralflowbundles::canonical_rule_example_specs());
+    specs.extend(maximumcommonedgesubgraph_maximumclique::canonical_rule_example_specs());
     specs.extend(maximumindependentset_maximumclique::canonical_rule_example_specs());
     specs.extend(maximumindependentset_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());

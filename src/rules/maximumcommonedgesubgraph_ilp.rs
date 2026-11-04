@@ -130,7 +130,7 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
         let objective: Vec<(usize, i64)> = (0..num_y).map(|seq| (y_idx(seq), 1)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
-            .map_err(Self::target_construction)?;
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMCESToILP {
             target,
