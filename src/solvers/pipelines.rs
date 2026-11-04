@@ -996,3 +996,8 @@ register_ilp_pipeline! {
     ("DecisionILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
+
+register_ilp_pipeline! {
+    ("SimultaneousIncongruences", []),
+    ("ILP", [("variable", "i64"), ("coefficient", "i64"), ("bounds", "bounded")]),
+}
