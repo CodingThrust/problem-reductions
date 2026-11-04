@@ -13449,6 +13449,173 @@ These constructions use the checked sparse penalty and extraction contracts abov
   _Solution extraction._ Return the target assignment unchanged.
 ]
 
+// Reduction: ConjunctiveQueryFoldability -> Satisfiability
+#{
+  let ex = load-example("ConjunctiveQueryFoldability", "Satisfiability")
+  let src = ex.source.instance
+  let target = ex.target.instance
+  let sol = ex.solutions.at(0)
+  let d = src.domain_size
+  let x = src.num_distinguished
+  let u = src.num_undistinguished
+  let p = src.query1_conjuncts.len()
+  let q = src.query2_conjuncts.len()
+  let code(t) = if t.type == "Constant" { t.index } else if t.type == "Distinguished" {
+    d + t.index
+  } else { d + x + t.index }
+  let candidates(query) = (query.map(a => a.at(1).map(code)).flatten() +
+    if d+x+u > 0 { (0,) } else { () }).sorted().dedup()
+  let c = candidates(src.query2_conjuncts)
+  let fmt-atom(a) = $R_(#a.at(0))(#a.at(1).map(t => str(code(t))).join(", "))$
+  let image(a, w) = (a.at(0), a.at(1).map(t => if t.type == "Undistinguished" {
+    w.at(t.index)
+  } else { code(t) }))
+  let actual-image = src.query1_conjuncts.map(a => image(a, sol.source_config))
+  let target-atoms = src.query2_conjuncts.map(a => (a.at(0), a.at(1).map(code)))
+  assert(actual-image.all(a => target-atoms.contains(a)) and
+    target-atoms.all(a => actual-image.contains(a)))
+  let required(a,b) = {
+    if a.at(0) != b.at(0) { return none }
+    let req = (:)
+    for (ta,tb) in a.at(1).zip(b.at(1)) {
+      if ta.type == "Undistinguished" {
+        let key = str(ta.index)
+        let before = req.at(key, default: none)
+        if before != none and before != code(tb) { return none }
+        req.insert(key,code(tb))
+      } else if code(ta) != code(tb) { return none }
+    }
+    req.len()
+  }
+  let ksum(query) = src.query1_conjuncts.map(a => query.map(b => {
+    let k = required(a,b)
+    if k == none { 0 } else { k }
+  }).sum()).sum()
+  let k = ksum(src.query2_conjuncts)
+  let one-clauses = u*(1+c.len()*(c.len()-1)/2)
+  let one-literals = u*c.len()*c.len()
+  let match-clauses = p*q+k
+  let match-literals = p*q+3*k
+  let cover-clauses = p+q
+  let cover-literals = 2*p*q
+  let literals = target.clauses.map(a => a.literals.len()).sum()
+  assert(target.num_vars == u*c.len()+p*q)
+  assert(target.clauses.len() == one-clauses+match-clauses+cover-clauses)
+  assert(literals == one-literals+match-literals+cover-literals)
+  assert(sol.target_config.len() == target.num_vars)
+  assert(target.clauses.all(a => a.literals.any(l =>
+    sol.target_config.at(calc.abs(l)-1) == (l > 0))))
+  let selectors = sol.target_config.slice(0,u*c.len())
+  let extracted = range(u).map(y => c.at(range(c.len()).find(t => selectors.at(y*c.len()+t))))
+  assert(extracted == sol.source_config)
+  // This fixture has one distinguished term, three variables and a source loop.
+  assert(d == 0 and x == 1 and u == 3 and p == 4 and q == 3)
+  assert(src.query1_conjuncts.last().at(1).len() == 2)
+  assert(src.query1_conjuncts.last().at(1).first() == src.query1_conjuncts.last().at(1).last())
+  let v = src.query1_conjuncts.at(1).at(1).last()
+  let a = src.query2_conjuncts.at(1).at(1).first()
+  let fixed-term = src.query2_conjuncts.first().at(1).first()
+  let rel = src.query2_conjuncts.first().at(0)
+  let no-query = ((rel,(fixed-term,v)), (rel,(v,a)), (rel,(a,fixed-term)))
+  assert(no-query.all(b => b.at(1).len() == 2 and b.at(1).first() != b.at(1).last()))
+  assert(no-query.all(b => required(src.query1_conjuncts.last(),b) == none))
+  let nc = candidates(no-query).len()
+  let nk = ksum(no-query)
+  let nq = no-query.len()
+  let no-vars = u*nc+p*nq
+  let no-clauses = u*(1+nc*(nc - 1)/2)+p*nq+nk+p+nq
+  let no-literals = u*nc*nc+3*nk+3*p*nq
+  reduction-rule("ConjunctiveQueryFoldability", "Satisfiability",
+    example: true,
+    example-caption: [Exact-image query folding encoded in CNF],
+    extra: [
+      #pred-commands(
+        "pred create --example " + rule-spec(ex) + " -o cqf.json",
+        "pred path ConjunctiveQueryFoldability Satisfiability --limit all -o paths.json",
+        "pred reduce cqf.json --via route.json -o bundle.json",
+        "pred solve bundle.json",
+        "pred evaluate cqf.json --config " + cli-config(sol.source_config),
+      )
+      Select the direct entry in `paths.json` as `route.json`.
+
+      *YES example.* Encode constants first, then distinguished and
+      undistinguished variables. The fixture has $d=#d,x=#x,u=#u$,
+      $Q_1=(#src.query1_conjuncts.map(fmt-atom).join(", "))$ and
+      $Q_2=(#src.query2_conjuncts.map(fmt-atom).join(", "))$.
+      The substitution #fmt-values(sol.source_config) has exactly the required
+      image set, including a repeated image atom. Its candidates are
+      #fmt-values(c). The one-hot blocks have #one-clauses clauses and
+      #one-literals literals, the match blocks #match-clauses and
+      #match-literals, and the covers #cover-clauses and #cover-literals.
+      The target therefore has #target.num_vars variables,
+      #target.clauses.len() clauses, and #literals literal occurrences.
+      The complete witness #fmt-values(sol.target_config) satisfies every
+      clause and extracts #fmt-values(extracted).
+
+      *NO example.* Keep the fixture's source query and use
+      $Q_2=(#no-query.map(fmt-atom).join(", "))$.
+      Every target atom has unequal arguments, while the final source atom
+      repeats one variable. Its image always has equal arguments. Thus no
+      substitution has this target image. The #nq corresponding match bits
+      are forced false, contradicting their row cover, so the target is also
+      infeasible. There are #nc candidates and #nk total compatible
+      requirements, giving #no-vars variables, #no-clauses clauses and
+      #no-literals literal occurrences.
+    ],
+  )[
+    A direct one-hot CNF encoding preserves one-step exact equality of atom
+    sets. This differs from the retraction-based folding definition in
+    Chandra and Merlin @chandra1977: the present substitution need not fix
+    its image. Domain compression avoids enumerating a large constant domain.
+  ][
+    _Construction._ Let $d,x,u$ count constants, distinguished variables,
+    and undistinguished variables; put $R=d+x+u$. Number their disjoint terms
+    consecutively, and let $p,q$ be the two query-list lengths. Let $C$ be
+    the sorted terms occurring in the second query, with zero added if
+    $R>0$, and put $c=|C|$. For every variable $y$ and candidate $t$, allocate
+    selector $e_(y,t)$, imposing exactly one choice by a positive row clause
+    and all pairwise negative clauses. Allocate a match $z_(i,j)$ for each
+    source/target atom pair. Force it false if relations, fixed arguments,
+    or repeated-variable requirements conflict. Otherwise let $E_(i,j)$ be
+    its distinct required selectors and emit $(not z_(i,j) or e)$ for each
+    $e in E_(i,j)$ and $(z_(i,j) or or.big_(e in E_(i,j)) not e)$.
+    Finally require a true match in every row and every column. Empty
+    disjunctions are retained as false empty clauses.
+
+    _Correctness._ ($arrow.r.double$) In a feasible exact image, the image
+    of each variable occurring in the first query occurs in the second.
+    Unused variables can map to zero, which is legal whenever any variable
+    exists. Hence a feasible witness can use only $C$. Its selectors and
+    exact atom-equality match bits satisfy every equivalence and both covers.
+    ($arrow.l.double$) A satisfying CNF chooses a legal image for every
+    variable, and the equivalences make each match bit exactly the equality
+    of its two atoms after one substitution. Row covers give image inclusion
+    in the target; column covers give the opposite inclusion. The atom sets
+    are equal. Duplicates do not require a bijection or multiset equality.
+
+    _Solution extraction._ Validate the entire Boolean witness once, then
+    read the candidate chosen for each variable, in source-variable order.
+    Do not apply substitution recursively. Completed `Or` values map
+    identically, including infeasibility.
+
+    _Overhead._ If $K$ sums the distinct requirements over compatible pairs,
+    the exact sizes are $u c+p q$ variables,
+    $u(1+c(c-1)/2)+p q+K+p+q$ clauses and $u c^2+3K+3p q$ literals.
+    Using $c<=R$ and $K<=p q u$ gives the registered upper bounds.
+    The bounds also hold at $R=0$, where $u=c=K=0$. Nullary equal atoms
+    have a positive match unit; incompatible pairs have a negative unit.
+    With $u=0$, only fixed atom equality remains. Both empty queries are
+    feasible; exactly one empty query produces an empty cover clause.
+    Repeated variables contribute one consistent requirement each, and
+    conflicting repetitions are incompatible. The encoding is polynomial
+    in the explicit queries and witness dimension $u$, not in $log u$ alone.
+    Derived machine sizes and signed literal indices are checked; numeric
+    failure is an error, not an infeasibility answer. Metadata bounds may
+    exceed `u64` even for a tiny compressed target and then return a typed
+    range error.
+  ]
+}
+
 #let cs_sat = load-example("CircuitSAT", "Satisfiability")
 #let cs_sat_sol = cs_sat.solutions.at(0)
 #reduction-rule("CircuitSAT", "Satisfiability",
