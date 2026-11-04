@@ -13984,6 +13984,94 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each source vertex $u in V_1$, output the unique $p in V_2$ with $x_(u,p) = 1$ if such a $p$ exists, otherwise the sentinel $|V_2|$ encoding "unmatched".
 ]
 
+// Reduction: MaximumCommonEdgeSubgraph -> MaximumClique
+#let mces_clq = load-example(
+  "MaximumCommonEdgeSubgraph",
+  "MaximumClique",
+  target-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let mces_clq_sol = mces_clq.solutions.at(0)
+#let mces_clq_arcs1 = mces_clq.source.instance.graph_1.arcs
+#let mces_clq_arcs2 = mces_clq.source.instance.graph_2.arcs
+#let mces_clq_n2 = mces_clq.source.instance.graph_2.num_vertices
+// Retained arc pairs (i, j, assignments), recomputed from the loaded instance.
+#let mces_clq_cands = {
+  let out = ()
+  for (i, a) in mces_clq_arcs1.enumerate() {
+    for (j, b) in mces_clq_arcs2.enumerate() {
+      if a.label == b.label and (a.src == a.dst) == (b.src == b.dst) {
+        out.push((i, j, ((a.src, b.src), (a.dst, b.dst))))
+      }
+    }
+  }
+  out
+}
+#let mces_clq_adjacent(p, q) = p.at(2).all(x => q.at(2).all(y => (x.at(0) == y.at(0)) == (x.at(1) == y.at(1))))
+#let mces_clq_edges = {
+  let out = ()
+  for p in range(mces_clq_cands.len()) {
+    for q in range(p + 1, mces_clq_cands.len()) {
+      if mces_clq_adjacent(mces_clq_cands.at(p), mces_clq_cands.at(q)) { out.push((p, q)) }
+    }
+  }
+  out
+}
+#let mces_clq_chosen = mces_clq_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let mces_clq_map = {
+  let f = range(mces_clq.source.instance.graph_1.num_vertices).map(_ => mces_clq_n2)
+  for k in mces_clq_chosen {
+    for (s, t) in mces_clq_cands.at(k).at(2) { f.at(s) = t }
+  }
+  f
+}
+#let mces_clq_degree(v) = mces_clq_edges.filter(e => e.at(0) == v or e.at(1) == v).len()
+#let mces_clq_isolated = range(mces_clq_cands.len()).filter(v => mces_clq_degree(v) == 0)
+#let mces_clq_rest = range(mces_clq_cands.len()).filter(v => mces_clq_degree(v) > 0)
+#assert(mces_clq_isolated.len() == 1)
+#assert(mces_clq_edges.len() == mces_clq_rest.len() * (mces_clq_rest.len() - 1) / 2)
+#assert(mces_clq_rest == mces_clq_chosen)
+#assert(mces_clq_cands.len() == mces_clq.target.instance.graph.num_vertices)
+#assert(mces_clq_edges == mces_clq.target.instance.graph.edges)
+#assert(mces_clq_map == mces_clq_sol.source_config)
+// NO example: a score of m_1 + 1 needs m_1 + 1 pairwise adjacent vertices.
+#let mces_clq_threshold = mces_clq_arcs1.len() + 1
+#assert(mces_clq_edges.len() < mces_clq_threshold * (mces_clq_threshold - 1) / 2)
+#assert(mces_clq_chosen.len() == mces_clq_arcs1.len())
+#reduction-rule("MaximumCommonEdgeSubgraph", "MaximumClique",
+  example: true,
+  example-target-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [Labelled 4-cycle against a 5-vertex digraph with a competing first arc],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(mces_clq) + " -o source.json",
+      "pred reduce source.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + cli-config(mces_clq_sol.source_config),
+    )
+    *YES instance.* The source has $|V_1| = #mces_clq.source.instance.graph_1.num_vertices$ vertices and $|E_1| = #mces_clq_arcs1.len()$ arcs, the second graph $|V_2| = #mces_clq_n2$ vertices and $|E_2| = #mces_clq_arcs2.len()$ arcs. Exactly #mces_clq_cands.len() arc pairs have equal labels and equal loop status:
+    #table(
+      columns: 3,
+      [vertex], [pair $(e, e')$], [assignments],
+      ..mces_clq_cands.enumerate().map(((k, c)) => (
+        [#k],
+        [$(e_#(c.at(0) + 1), e'_#(c.at(1) + 1))$],
+        [$#c.at(2).map(x => $#x.at(0) -> #x.at(1)$).join(", ")$],
+      )).flatten(),
+    )
+    The target has #mces_clq.target.instance.graph.num_vertices vertices and #mces_clq.target.instance.graph.edges.len() edges $#mces_clq_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")$; vertex #mces_clq_isolated.map(str).join(", ") has degree 0 and the remaining #mces_clq_rest.len() vertices are pairwise adjacent, a $K_#mces_clq_rest.len()$. The witness clique $C = {#mces_clq_chosen.map(str).join(", ")}$ extracts to the map $(#fmt-values(mces_clq_map))$, which preserves all #mces_clq_arcs1.len() source arcs (sentinel #mces_clq_n2 means unmatched).
+
+    *NO instance.* A map preserving #mces_clq_threshold arcs would need a clique of #mces_clq_threshold vertices, hence $#(mces_clq_threshold * (mces_clq_threshold - 1) / 2)$ edges, but the target has only #mces_clq_edges.len(); the source cannot exceed $|E_1| = #mces_clq_arcs1.len()$ arcs either. Both answers are NO at threshold #mces_clq_threshold, and the optimum #mces_clq_chosen.len() is the clique number.
+  ],
+)[
+  Build an association graph on the label-compatible pairs of a source arc and a target arc: a clique is a set of arc correspondences whose endpoint assignments form one partial injective vertex map, so the maximum clique size equals the maximum number of preserved arcs. For the restricted class of weakly connected, simple, oriented, node-labelled digraphs, a related clique formulation through extended line digraphs is given in @NeremEtAl2020DirectedMCES; the construction here is proved directly for general edge-labelled digraphs with loops, disconnected graphs and partial maps.
+][
+  _Construction._ Let $G_i = (V_i, E_i)$ with $E_i subset.eq V_i times Sigma times V_i$ and $E_1, E_2$ in their stored order. A pair $(e, e')$ of $e = (u, lambda, v) in E_1$ and $e' = (a, mu, b) in E_2$ is _retained_ iff $lambda = mu$ and $(u = v) <=> (a = b)$. The target graph $H$ has one unit-weight vertex per retained pair, ordered by $e$ and then $e'$, carrying the assignments $A_p = {(u, a), (v, b)}$ (a single assignment for loops). Distinct $p, q$ are adjacent iff $(s = s') <=> (t = t')$ for all $(s, t) in A_p$ and $(s', t') in A_q$, i.e. iff $A_p union A_q$ is a function and injective. $H$ has at most $|E_1| |E_2|$ vertices and at most $binom(|E_1| |E_2|, 2)$ edges.
+
+  _Correctness._ ($arrow.r.double$) Let $f$ be a partial injection preserving the arcs $e_1, dots, e_k$ and let $e'_r = (f(u_r), lambda_r, f(v_r))$ be the target arc of $e_r$ (unique, as arc sets are sets). The pair $(e_r, e'_r)$ is retained: labels agree, and $u_r = v_r <=> f(u_r) = f(v_r)$ because $f$ is injective. All assignments lie in the graph of $f$, so their unions are functions and injective; the $k$ pairs are pairwise adjacent, giving a clique of size $k$. ($arrow.l.double$) Let $C$ be a clique of size $c$ and $g = union_(p in C) A_p$. Pairwise adjacency makes $g$ a partial injection, and each selected pair $(e, e')$ has $g(u) = a$, $g(v) = b$ with $e' = (a, lambda, b) in E_2$, so $e$ is preserved. Two selected pairs cannot share the source arc $e$: agreement on $u$ and $v$ would force the same endpoints and label of the target arc, hence the same $e'$. So $g$ preserves at least $c$ arcs. Both optima coincide, and $max |C| <= min(|E_1|, |E_2|)$.
+
+  _Solution extraction._ Validate that the selection is a clique, set every source vertex to the sentinel $|V_2|$, then write the assignments of each selected vertex. A maximum clique extracts an optimal map; a non-maximum clique can extract a map that preserves more arcs than $|C|$ (three consecutive arcs of a labelled 4-cycle determine all four images), so only the completed optimum values map identically.
+]
+
 #let cmo_ilp = load-example(
   "MaximumContactMapOverlap",
   "ILP",
