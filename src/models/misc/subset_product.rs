@@ -97,7 +97,10 @@ impl SubsetProduct {
         Self::try_new(sizes, target).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new<S, T>(sizes: Vec<S>, target: T) -> Result<Self, crate::registry::ConstructionError>
+    pub(crate) fn try_new<S, T>(
+        sizes: Vec<S>,
+        target: T,
+    ) -> Result<Self, crate::registry::ConstructionError>
     where
         S: ToBigUint,
         T: ToBigUint,

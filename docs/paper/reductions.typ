@@ -19402,6 +19402,110 @@ The following table shows concrete target-variable counts for example instances,
   _Solution extraction._ The X3C configuration equals the Subset Product configuration: select subset $j$ iff $x_j = 1$.
 ]
 
+// OneInThreeSatisfiability → SubsetProduct (#1201)
+#let oit_sp = load-example("OneInThreeSatisfiability", "SubsetProduct")
+#let oit_sp_sol = oit_sp.solutions.at(0)
+#reduction-rule("OneInThreeSatisfiability", "SubsetProduct",
+  example: true,
+  example-caption: [$n = #oit_sp.source.instance.num_vars$ variables, $m = #oit_sp.source.instance.clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(oit_sp) + " -o oit.json",
+      "pred reduce oit.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate oit.json --config " + cli-config(oit_sp_sol.source_config),
+    )
+
+    #{
+      let n = oit_sp.source.instance.num_vars
+      let clauses = oit_sp.source.instance.clauses.map(c => c.literals)
+      let m = clauses.len()
+      let sizes = oit_sp.target.instance.sizes.map(int)
+      let big-b = int(oit_sp.target.instance.target)
+      // First k primes by trial division.
+      let first-primes(k) = {
+        let ps = ()
+        let c = 2
+        while ps.len() < k {
+          if ps.all(p => calc.rem(c, p) != 0) { ps.push(c) }
+          c += 1
+        }
+        ps
+      }
+      let primes = first-primes(n + m)
+      let lit(l) = if l > 0 [$x_#l$] else [$not x_#(-l)$]
+      // Items of the construction for any clause list: index 2i is false, 2i + 1 true.
+      let build(n, clauses) = {
+        let ps = first-primes(n + clauses.len())
+        let items = ()
+        for i in range(n) {
+          for t in range(2) {
+            let v = ps.at(i)
+            for (j, cl) in clauses.enumerate() {
+              for l in cl {
+                if l == (i + 1) * (if t == 1 { 1 } else { -1 }) { v = v * ps.at(n + j) }
+              }
+            }
+            items.push(v)
+          }
+        }
+        (items, ps.fold(1, (a, b) => a * b))
+      }
+      // Prime factorization of an item, as a product.
+      let factored(v) = {
+        let fs = ()
+        let rest = v
+        for p in primes {
+          while calc.rem(rest, p) == 0 {
+            fs.push(p)
+            rest = calc.quo(rest, p)
+          }
+        }
+        fs.map(str).join($dot$)
+      }
+      let (items, b) = build(n, clauses)
+      assert(items == sizes)
+      assert(b == big-b)
+      let chosen = oit_sp_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+      let product = chosen.map(i => sizes.at(i)).fold(1, (a, b) => a * b)
+      assert(product == big-b)
+      let true-pos = range(n).map(i => 2 * i + 1)
+      assert(oit_sp_sol.source_config == true-pos.map(i => oit_sp_sol.target_config.at(i)))
+      [
+        *Step 1 -- Source instance.* The fixture has $n = #n$ variables and the clauses #clauses.enumerate().map(((j, c)) => [$C_#(j + 1) = (#c.map(lit).join($, $))$]).join([, ]). Exactly one literal occurrence must be true in every clause.
+
+        *Step 2 -- Assign primes.* Variables get the primes $(p_1, dots, p_#n) = (#primes.slice(0, n).map(str).join(", "))$ and clauses $(q_1, dots, q_#m) = (#primes.slice(n).map(str).join(", "))$. Each variable $x_i$ contributes a false item $p_i dot product_j q_j^(nu^-_(j i))$ and a true item $p_i dot product_j q_j^(nu^+_(j i))$.
+
+        *Step 3 -- Form the items.* The item list in index order is $(#sizes.map(str).join(", "))$, that is #sizes.map(v => [$#v = #factored(v)$]).join([, ]). The target is $B = #big-b = #factored(big-b)$.
+
+        *Step 4 -- Verify the witness.* The selection $(#fmt-values(oit_sp_sol.target_config))$ picks items #chosen.map(i => str(sizes.at(i))).join([, ]), whose product is #chosen.map(i => str(sizes.at(i))).join($dot$)$= #product = B$. Every $p_i$ occurs once, and the exponent of each $q_j$ counts the true occurrences of clause $C_j$, which is one. Reading the true-item positions $#true-pos.map(str).join(", ")$ gives the assignment $(#fmt-values(oit_sp_sol.source_config))$ #sym.checkmark.
+
+        *NO example.* Take three variables and the clauses $(x_1, x_2, x_3)$ and $(not x_1, not x_2, not x_3)$. If $t$ variables are true, the first clause has $t$ true occurrences and the second has $3 - t$, and $t = 1$ together with $3 - t = 1$ is impossible, so the formula has no solution. #{
+          let no-clauses = ((1, 2, 3), (-1, -2, -3))
+          let (no-items, no-b) = build(3, no-clauses)
+          let no-primes = first-primes(5)
+          // No selection of the six items multiplies to B.
+          for mask in range(64) {
+            let prod = range(6).filter(i => calc.rem(calc.quo(mask, calc.pow(2, i)), 2) == 1).map(i => no-items.at(i)).fold(1, (a, b) => a * b)
+            assert(prod != no-b)
+          }
+          [The construction gives the items $(#no-items.map(str).join(", "))$ and $B = #no-b$, with variable primes $(#no-primes.slice(0, 3).map(str).join(", "))$ and clause primes $(q_1, q_2) = (#no-primes.slice(3).map(str).join(", "))$. A product equal to $B$ takes exactly one item of each variable, and then the exponents of $q_1$ and $q_2$ are $t$ and $3 - t$, which cannot both be one. All $2^6 = 64$ selections have a product different from $#no-b$, so the target is infeasible too #sym.checkmark.]
+        }
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This reduction is derived directly from unique factorization, in the style of the prime-product reduction from ExactCoverBy3Sets. It assigns $n + m$ primes, creates $2n$ items, and sets the target to the product of all assigned primes; the target has exactly $2n$ items, and its values need $O((n + m) log(n + m + 2))$ bits.
+][
+  _Construction._ Let the formula have variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$, each a triple of signed literal occurrences (repeats and both signs of a variable allowed). Let $p_1, dots, p_n, q_1, dots, q_m$ be the first $n + m$ primes, in order. For variable $x_i$ and clause $C_j$ let $nu^-_(j i)$ and $nu^+_(j i)$ count the occurrences of $not x_i$ and $x_i$ in $C_j$. Create two items per variable, in the order false, true: $a_(i,0) = p_i product_j q_j^(nu^-_(j i))$ and $a_(i,1) = p_i product_j q_j^(nu^+_(j i))$. Set $B = product_i p_i dot product_j q_j$. Equal-valued items remain distinct indices.
+
+  _Correctness._ Take a selection $S$ and write $e_i$ for the number of selected items among $a_(i,0), a_(i,1)$. The only items divisible by $p_i$ are these two, so $p_i$ has exponent $e_i$ in the product. ($arrow.r.double$) If an assignment $alpha$ makes exactly one occurrence true in every clause, select $a_(i,1)$ when $alpha(x_i)$ holds and $a_(i,0)$ otherwise. Each $p_i$ occurs once. The exponent of $q_j$ is the number of occurrences of $C_j$ made true by $alpha$, because an occurrence of $x_i$ is true exactly when the true item is chosen and an occurrence of $not x_i$ exactly when the false item is chosen. That number is one, so the product is $B$. ($arrow.l.double$) Suppose the product is $B$. The exponent of $p_i$ in $B$ is one, so exactly one item of each pair is selected, which defines an assignment $alpha$ with $alpha(x_i)$ true iff $a_(i,1)$ is selected. The exponent of $q_j$ is again the number of true occurrences in $C_j$ under $alpha$ and must equal one, so $alpha$ satisfies every clause. The argument counts occurrences, so repeated literals (exponent up to three) and a variable of both signs in one clause are covered; an unused variable contributes only its private prime, and the empty formula gives no items and $B = 1$.
+
+  _Solution extraction._ Validate that the target selection multiplies to $B$, then return source bit $i$ as the selection bit of the true item, position $2i + 1$ counting from zero. No integer is factored.
+]
+
 // ExactCoverBy3Sets → BoundedDiameterSpanningTree (#913)
 #let x3c_bdst = load-example("ExactCoverBy3Sets", "BoundedDiameterSpanningTree")
 #let x3c_bdst_sol = x3c_bdst.solutions.at(0)
