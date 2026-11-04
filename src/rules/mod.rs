@@ -223,6 +223,7 @@ mod ilp_bool_ilp_i64;
 mod ilp_bounded_ilp;
 pub(crate) mod ilp_helpers;
 pub(crate) mod ilp_qubo;
+pub(crate) mod integerexpressionmembership_ilp;
 pub(crate) mod integralflowbundles_ilp;
 pub(crate) mod integralflowhomologousarcs_ilp;
 pub(crate) mod integralflowwithmultipliers_ilp;
@@ -584,6 +585,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(hamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(highlyconnecteddeletion_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
+        specs.extend(integerexpressionmembership_ilp::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
         specs.extend(integralflowhomologousarcs_ilp::canonical_rule_example_specs());
         specs.extend(integralflowwithmultipliers_ilp::canonical_rule_example_specs());
