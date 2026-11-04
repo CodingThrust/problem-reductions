@@ -41,6 +41,7 @@ pub(crate) mod factoring_circuit;
 mod graph;
 pub(crate) mod minimumweightandorgraph_ilp;
 pub(crate) mod partitionintoperfectmatchings_ilp;
+pub(crate) mod simultaneousincongruences_ilp;
 pub(crate) mod twodimensionalconsecutivesets_ilp;
 pub(crate) use graph::{RecoveryStep, recover_completed_result};
 mod binpacking_casts;
@@ -340,6 +341,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumweightandorgraph_ilp::canonical_rule_example_specs());
     specs.extend(boundeddiameterspanningtree_ilp::canonical_rule_example_specs());
     specs.extend(betweenness_ilp::canonical_rule_example_specs());
+    specs.extend(simultaneousincongruences_ilp::canonical_rule_example_specs());
     specs.extend(minimumcodegenerationunlimitedregisters_ilp::canonical_rule_example_specs());
     specs.extend(cyclicordering_ilp::canonical_rule_example_specs());
     specs.extend(twodimensionalconsecutivesets_ilp::canonical_rule_example_specs());

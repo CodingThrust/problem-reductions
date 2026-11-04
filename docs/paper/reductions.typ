@@ -14867,6 +14867,87 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Assign each element its position in the sorted list, rather than returning the list of elements.
 ]
 
+#let si_ilp = load-example("SimultaneousIncongruences", "ILP")
+#let si_ilp_sol = si_ilp.solutions.at(0)
+#let si_ilp_pairs = si_ilp.source.instance.pairs
+#let si_ilp_m = si_ilp_pairs.len()
+#let si_ilp_rho = si_ilp_pairs.map(p => calc.rem(p.at(0), p.at(1)))
+#let si_ilp_L = si_ilp_pairs.fold(1, (l, p) => calc.lcm(l, p.at(1)))
+#let si_ilp_x = si_ilp_sol.target_config.at(0)
+#let si_ilp_no = ((2, 2), (1, 2), (1, 3))
+#reduction-rule("SimultaneousIncongruences", "ILP",
+  example: true,
+  example-caption: [$m = #si_ilp_m$ pairs, period $L = #si_ilp_L$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(si_ilp) + " -o si.json",
+      "pred reduce si.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate si.json --config " + cli-config(si_ilp_sol.source_config),
+    )
+
+    #{
+      assert(si_ilp.target.instance.variables.len() == 1 + 3 * si_ilp_m)
+      assert(si_ilp.target.instance.constraints.len() == 3 * si_ilp_m)
+      assert(si_ilp_sol.target_config.len() == 1 + 3 * si_ilp_m)
+      assert(si_ilp_sol.source_config == si_ilp_x)
+      for (i, p) in si_ilp_pairs.enumerate() {
+        assert(calc.rem(si_ilp_x, p.at(1)) != si_ilp_rho.at(i))
+      }
+      // The stored target vector satisfies every stored row and bound.
+      let tv = si_ilp_sol.target_config
+      for (v, b) in tv.zip(si_ilp.target.instance.variables) {
+        assert(b.lower_bound <= v and v <= b.upper_bound)
+      }
+      for c in si_ilp.target.instance.constraints {
+        let lhs = c.terms.fold(0, (acc, t) => acc + t.at(1) * tv.at(t.at(0)))
+        assert(if c.comparison == "Eq" { lhs == c.rhs } else if c.comparison == "Le" { lhs <= c.rhs } else { lhs >= c.rhs })
+      }
+      // The witness is the only one in one period.
+      assert(range(si_ilp_L).filter(x => si_ilp_pairs.all(p => calc.rem(x, p.at(1)) != calc.rem(p.at(0), p.at(1)))) == (si_ilp_x,))
+      let no_L = si_ilp_no.fold(1, (l, p) => calc.lcm(l, p.at(1)))
+      let no_rho = si_ilp_no.map(p => calc.rem(p.at(0), p.at(1)))
+      assert(no_L == 6)
+      assert(no_rho == (0, 1, 1))
+      let vb = si_ilp.target.instance.variables.map(b => $[#b.lower_bound, #b.upper_bound]$)
+      let rows = si_ilp.target.instance.constraints
+      let sym = c => if c.comparison == "Eq" { $=$ } else if c.comparison == "Le" { $<=$ } else { $>=$ }
+      let lin = c => c.terms.enumerate().map(((k, t)) => {
+        let name = if t.at(0) == 0 { $x$ } else if t.at(0) <= si_ilp_m { $q_#t.at(0)$ } else if t.at(0) <= 2 * si_ilp_m { $r_#(t.at(0) - si_ilp_m)$ } else { $z_#(t.at(0) - 2 * si_ilp_m)$ }
+        let coef = t.at(1)
+        if coef == 1 { if k == 0 { name } else { $+ name$ } } else if coef == -1 { $- name$ } else if coef < 0 { $- #(-coef) name$ } else { $#coef name$ }
+      }).join()
+      assert(range(no_L).all(x => si_ilp_no.any(p => calc.rem(x, p.at(1)) == calc.rem(p.at(0), p.at(1)))))
+      [
+        *Step 1 -- Source instance.* The pairs are #si_ilp_pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "), so the forbidden residues are $rho = (#fmt-values(si_ilp_rho))$ and the period is $L = #si_ilp_L$.
+
+        *Step 2 -- Bounds and rows.* The variable intervals, in order $x, q_1, dots, q_#si_ilp_m, r_1, dots, r_#si_ilp_m, z_1, dots, z_#si_ilp_m$, are #vb.join(", "). The #rows.len() rows are:
+        #for c in rows [
+          - $#lin(c) #sym(c) #c.rhs$
+        ]
+
+        *Step 3 -- YES witness.* The stored target vector is $(#fmt-values(si_ilp_sol.target_config))$. It has $x = #si_ilp_x$; the remainders are $(#range(si_ilp_m).map(i => str(calc.rem(si_ilp_x, si_ilp_pairs.at(i).at(1)))).join(", "))$, none equal to $rho$, and extraction returns $x = #si_ilp_x$.
+
+        *Step 4 -- NO instance.* For the pairs #si_ilp_no.map(p => $(#p.at(0), #p.at(1))$).join(", ") (period #no_L, $rho = (#fmt-values(no_rho))$), pair 1 forces $r_1 = 1$ and so odd $x$, while pair 2 forces $r_2 = 0$ and so even $x$. Every $x in [0,5]$ is excluded, so the target is infeasible.
+      ]
+    }
+
+    *Multiplicity:* The fixture stores one canonical witness; here the witness in one period is unique.
+  ],
+)[
+  Quotient and remainder variables with one binary selector per pair turn each incongruence into linear rows (bounded conditional linearization @glover1975). The target has $1 + 3m$ variables, $3m$ rows and $7m$ nonzeros for $m$ pairs.
+][
+  _Construction._ Let $rho_i = a_i mod b_i$ and $L = op("lcm")(b_1, dots, b_m)$. Variables are $x in [0, L-1]$ and, for each pair, $q_i in [0, L slash b_i - 1]$, $r_i in [0, b_i - 1]$, $z_i in {0, 1}$. Rows for each pair:
+  $ x - b_i q_i - r_i = 0, quad r_i - b_i z_i <= rho_i - 1, quad r_i - b_i z_i >= (rho_i - b_i) + 1. $
+  The objective is zero.
+
+  _Correctness._ For $0 <= r <= b-1$ and $0 <= rho <= b-1$, some $z in {0,1}$ satisfies both selector rows iff $r != rho$: $z = 0$ works iff $r < rho$ (the lower row holds since $r >= 0$) and $z = 1$ works iff $r > rho$ (the upper row holds since $r <= b-1$). ($arrow.r.double$) A witness reduces modulo $L$ without changing any residue, since each $b_i$ divides $L$. Take $q_i = floor(x / b_i)$, $r_i = x mod b_i$ and $z_i = 0$ if $r_i < rho_i$, else $1$; all bounds and rows hold. ($arrow.l.double$) The division row with $0 <= r_i < b_i$ makes $r_i$ the remainder of $x$ modulo $b_i$, and the selector rows then give $r_i != rho_i$, so $x$ avoids every forbidden residue. For $b_i = 1$ neither selector value is feasible, matching the source; the empty input gives one variable fixed to $0$ and no rows.
+
+  _Arithmetic._ Every coefficient, bound and right-hand side has magnitude at most $L <= 2^63 - 1$. In the division row the running sums lie in $[0, L-1]$, then $[-(L - b_i), L-1]$, then $[-(L-1), L-1]$, so no row overflows 64-bit integers.
+
+  _Solution extraction._ Validate that the target vector is feasible, then return its first coordinate $x$.
+]
+
 #reduction-rule("TwoDimensionalConsecutiveSets", "ILP", example: true)[
   Let $P=sum_(S) binom(|S|,2)$ over the input subsets. A bounded-label formulation has $n+P$ variables, $4P$ rows and $10P$ nonzeros. Empty and singleton subsets need no rows.
 ][
