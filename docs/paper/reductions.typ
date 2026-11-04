@@ -14022,6 +14022,103 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each source residue $i in V_1$, find the unique $j$ with $x_(i,j) = 1$ and output $j + 1$; if no such $j$ exists, output $0$ (the CMO sentinel for an unmatched residue).
 ]
 
+#let cmo_clique = load-example(
+  "MaximumContactMapOverlap",
+  "MaximumClique",
+  target-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let cmo_clique_sol = cmo_clique.solutions.at(0)
+#let cmo_clique_inst = cmo_clique.source.instance
+#let cmo_clique_edges = cmo_clique.target.instance.graph.edges
+#let cmo_clique_chosen = cmo_clique_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#reduction-rule("MaximumContactMapOverlap", "MaximumClique",
+  example: true,
+  example-target-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [$|V_1| = #cmo_clique_inst.num_vertices_1$, $|E_1| = #cmo_clique_inst.contacts_1.len()$, $|V_2| = #cmo_clique_inst.num_vertices_2$, $|E_2| = #cmo_clique_inst.contacts_2.len()$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(cmo_clique) + " -o source.json",
+      "pred reduce source.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + cli-config(cmo_clique_sol.source_config),
+    )
+    #{
+      let m1 = cmo_clique_inst.contacts_1.len()
+      let m2 = cmo_clique_inst.contacts_2.len()
+      let n = m1 * m2
+      assert(cmo_clique.target.instance.graph.num_vertices == n)
+      // Recompute the assignments and the compatibility graph from the source instance.
+      let assign = ()
+      for c1 in cmo_clique_inst.contacts_1 {
+        for c2 in cmo_clique_inst.contacts_2 {
+          assign.push(((c1.at(0), c2.at(0)), (c1.at(1), c2.at(1))))
+        }
+      }
+      let sgn(x, y) = if x < y { -1 } else if x == y { 0 } else { 1 }
+      let adjacent(p, q) = p.all(a => q.all(b => sgn(a.at(0), b.at(0)) == sgn(a.at(1), b.at(1))))
+      let computed = ()
+      for p in range(n) {
+        for q in range(p + 1, n) {
+          if adjacent(assign.at(p), assign.at(q)) { computed.push((p, q)) }
+        }
+      }
+      assert(computed == cmo_clique_edges.map(e => (e.at(0), e.at(1))))
+      // Cliques by exhaustive enumeration of vertex subsets.
+      let has-edge(p, q) = computed.contains((calc.min(p, q), calc.max(p, q)))
+      let sizes = ()
+      for mask in range(calc.pow(2, n)) {
+        let sel = range(n).filter(i => calc.rem(calc.quo(mask, calc.pow(2, i)), 2) == 1)
+        if sel.all(p => sel.all(q => p == q or has-edge(p, q))) { sizes.push(sel.len()) }
+      }
+      let omega = calc.max(..sizes)
+      assert(omega == 2 and sizes.filter(k => k >= 3).len() == 0)
+      // The witness: a clique whose extraction preserves the listed contacts.
+      assert(cmo_clique_chosen.all(p => cmo_clique_chosen.all(q => p == q or has-edge(p, q))))
+      let f = cmo_clique_sol.source_config
+      let preserved = cmo_clique_inst.contacts_1.filter(c => f.at(c.at(0)) > 0 and f.at(c.at(1)) > 0 and cmo_clique_inst.contacts_2.contains((f.at(c.at(0)) - 1, f.at(c.at(1)) - 1)))
+      assert(preserved.len() == omega and omega == cmo_clique_chosen.len())
+      // Non-adjacent pair of the text: assignments reverse the order of source positions.
+      assert(not has-edge(0, 4))
+      // Threshold three: all contacts preserved needs every position matched, i.e. the identity.
+      let covered = cmo_clique_inst.contacts_1.flatten().dedup().sorted()
+      assert(covered == range(cmo_clique_inst.num_vertices_1) and cmo_clique_inst.num_vertices_1 == cmo_clique_inst.num_vertices_2)
+      let n1 = cmo_clique_inst.num_vertices_1
+      let identity = range(1, n1 + 1)
+      assert(f.len() == n1)
+      // Both contact maps are paths: n1 vertices, n1 - 1 contacts, degrees 1,1,2,...,2.
+      let degrees(inst-contacts, nv) = range(nv).map(v => inst-contacts.filter(c => c.contains(v)).len()).sorted()
+      let path-degrees = (1, 1) + (2,) * (n1 - 2)
+      assert(cmo_clique_inst.num_vertices_2 == n1 and m1 == n1 - 1 and m2 == n1 - 1)
+      assert(degrees(cmo_clique_inst.contacts_1, n1) == path-degrees and degrees(cmo_clique_inst.contacts_2, n1) == path-degrees)
+      // The assignments of vertices 0 and 4 that disagree on order.
+      let reversed = ()
+      for a in assign.at(0) {
+        for b in assign.at(4) {
+          if sgn(a.at(0), b.at(0)) != sgn(a.at(1), b.at(1)) { reversed.push((a, b)) }
+        }
+      }
+      assert(reversed.len() == 1)
+      let (rev-a, rev-b) = reversed.at(0)
+      assert(rev-a.at(0) != rev-b.at(0) and rev-a.at(1) != rev-b.at(1))
+      let identity-score = cmo_clique_inst.contacts_1.filter(c => cmo_clique_inst.contacts_2.contains((c.at(0), c.at(1)))).len()
+      assert(identity-score == 1 and m1 == 3)
+      [
+        The $#m1 dot #m2 = #n$ vertices pair the contacts $E_1 = #cmo_clique_inst.contacts_1.map(c => $(#c.at(0), #c.at(1))$).join(", ")$ with $E_2 = #cmo_clique_inst.contacts_2.map(c => $(#c.at(0), #c.at(1))$).join(", ")$ in that order, vertex $i |E_2| + j$ pairing the $i$-th source contact with the $j$-th target contact. As unordered graphs both maps are paths on #n1 vertices, yet the compatibility graph has only #computed.len() edges, #computed.map(e => $(#e.at(0), #e.at(1))$).join(" and "): vertices $0$ and $4$ are not adjacent because their assignments #assign.at(0).map(a => $#a.at(0) -> #a.at(1)$).join(", ") and #assign.at(4).map(a => $#a.at(0) -> #a.at(1)$).join(", ") reverse the order of source positions $#calc.min(rev-a.at(0), rev-b.at(0)) < #calc.max(rev-a.at(0), rev-b.at(0))$ (#rev-a.at(0) $->$ #rev-a.at(1) and #rev-b.at(0) $->$ #rev-b.at(1)). The clique $\{#cmo_clique_chosen.map(str).join(", ")\}$ has size #cmo_clique_chosen.len() and extracts to the alignment $(#fmt-values(f))$, which preserves the contacts #preserved.map(c => $(#c.at(0), #c.at(1)) -> (#(f.at(c.at(0)) - 1), #(f.at(c.at(1)) - 1))$).join(" and "), so its score equals the clique size. The maximum clique size and the optimum are both #omega. *NO instance* (threshold $#(m1)$, all contacts preserved): every position $0, dots, #(cmo_clique_inst.num_vertices_1 - 1)$ is an endpoint of a source contact, so preserving all of them forces all positions to be matched, and the only increasing injection of #cmo_clique_inst.num_vertices_1 positions into #cmo_clique_inst.num_vertices_2 positions is the identity $(#fmt-values(identity))$, which preserves only #identity-score contact. Correspondingly the target has no clique of size $#m1$ (its #computed.len() edges form no triangle).
+      ]
+    }
+  ],
+)[
+  Build an order-preserving association graph: one unit-weight vertex for every pair of a source contact and a target contact, adjacent exactly when their proposed residue assignments are mutually consistent. A clique is then a partial injective order-preserving alignment, and the maximum clique size equals the maximum contact map overlap. The clique formulation of contact map overlap is due to @StricklandBarnesSokol2005CMO#footnote[The construction here was derived independently for the definitions of this library; the full text of the cited article was not compared.]. The target has $|E_1| |E_2|$ vertices and at most $|E_1|(|E_1| - 1)|E_2|(|E_2| - 1) slash 2$ edges.
+][
+  _Construction._ Let $G_1 = (V_1, E_1)$, $G_2 = (V_2, E_2)$ with contacts $(u, v)$, $u < v$, in stored order $e_0, dots, e_(m_1 - 1)$ and $d_0, dots, d_(m_2 - 1)$. For each $0 <= i < m_1$, $0 <= j < m_2$ with $e_i = (u, v)$ and $d_j = (a, b)$, create a vertex $p_(i j)$ with index $i m_2 + j$, weight $1$ and assignment set $A_(i j) = {(u, a), (v, b)}$. Distinct vertices $p, q$ are adjacent iff for all $(s, t) in A_p$ and $(s', t') in A_q$: $s < s' arrow.l.r.double t < t'$, $s = s' arrow.l.r.double t = t'$ and $s > s' arrow.l.r.double t > t'$. If either contact set is empty the graph is empty.
+
+  _Correctness._ ($arrow.r.double$) Let $f$ be an alignment (increasing partial injection) preserving the contacts $S subset.eq E_1$. For $e_i in S$ let $j(i)$ index the target contact $(f(u), f(v))$. All assignments of the vertices $p_(i, j(i))$ lie on the graph of $f$, and a function that is injective and increasing on its matched positions preserves $<$, $=$ and $>$; hence these $|S|$ vertices form a clique. ($arrow.l.double$) Let $K$ be a clique and $R = union.big_(p in K) A_p$. Equality preservation makes $R$ a function, and strict-inequality preservation makes it injective and increasing, so $R$ is an alignment. Each $p_(i j) in K$ certifies that $e_i$ is preserved, and two clique vertices cannot share a source contact: they would assign the same images to its endpoints, hence share the target contact. So the score of $R$ is at least $|K|$. Therefore the maximum clique size equals the optimum, and the alignment extracted from a maximum clique is optimal. A clique that is not maximum can extract to an alignment scoring more than its size, because compatible assignments may imply further preserved contacts (if both maps are the triangle on positions $0, 1, 2$, the vertices pairing $(0, 1)$ with $(0, 1)$ and $(1, 2)$ with $(1, 2)$ already force the third contact). Hence no value map for non-optimal witnesses is claimed.
+
+  _Solution extraction._ Reject a selection that is not a clique. Start from the all-unmatched vector of length $|V_1|$ and, for every selected vertex and each of its assignments $(s, t)$, write $t + 1$ at position $s$.
+
+  _Overhead._ The vertex count $|E_1||E_2|$ is exact. Vertices sharing a source contact or a target contact are never adjacent, so at most $2 binom(|E_1|, 2) binom(|E_2|, 2)$ of the $binom(|E_1||E_2|, 2)$ vertex pairs are edges; the edge count is not exact in general.
+]
+
 #let mewkc_ilp = load-example(
   "MaximumEdgeWeightedKClique",
   "ILP",
