@@ -12343,6 +12343,156 @@ _Solution extraction and bounds._ Copy the subset bits; aggregate recovery is id
  The canonical instance and target coefficients are shown below. Its source witness is #repr(ex.solutions.at(0).source_config); the displayed target witness decodes to it and meets the objective or feasibility certificate described above.
 ]
 
+// ComparativeContainment → DecisionQUBO
+#let cc-qubo = load-example("ComparativeContainment", "DecisionQUBO",
+  source-variant: (weight: "One"), target-variant: (weight: "i64"))
+#let cc-source = cc-qubo.source.instance
+#let cc-target = cc-qubo.target.instance
+#let cc-sol = cc-qubo.solutions.at(0)
+#let cc-n = cc-source.universe_size
+#let cc-r = cc-source.r_sets.len()
+#let cc-s = cc-source.s_sets.len()
+#let cc-m = cc-r + 1
+#let cc-outside(a) = range(cc-n).filter(v => not a.contains(v))
+#let cc-g = (cc-source.r_sets + cc-source.s_sets).map(a => calc.max(0, cc-outside(a).len()-1)).sum(default: 0)
+#let cc-selected(bits) = range(cc-n).filter(v => bits.at(v))
+#let cc-count(family, bits) = family.filter(a => cc-selected(bits).all(v => a.contains(v))).len()
+#let cc-energy(bits) = cc-target.inner.entries.map(e => if bits.at(e.at(0)) and bits.at(e.at(1)) { e.at(2) } else { 0 }).sum(default: 0)
+#let cc-extend(bits) = {
+  let aux = ()
+  for a in cc-source.r_sets + cc-source.s_sets {
+    let outside = cc-outside(a)
+    if outside.len() >= 2 {
+      for k in range(2, outside.len()+1) {
+        aux.push(outside.slice(0,k).all(v => not bits.at(v)))
+      }
+    }
+  }
+  bits + aux
+}
+#assert(cc-target.inner.num_vars == cc-n + cc-g)
+#assert(cc-extend(cc-sol.source_config) == cc-sol.target_config)
+#assert(cc-source.s_sets.all(a => range(cc-n).all(v => a.contains(v))))
+#assert(cc-source.r_sets.all(a => cc-outside(a).len() == 2))
+#assert(cc-target.bound == -(cc-m * cc-g + cc-s))
+#assert(cc-count(cc-source.r_sets,cc-sol.source_config) >= cc-count(cc-source.s_sets,cc-sol.source_config))
+#assert(cc-energy(cc-sol.target_config) <= cc-target.bound)
+#let cc-faulty = cc-sol.target_config.enumerate().map(pair => if pair.at(0) == cc-n { not pair.at(1) } else { pair.at(1) })
+#let cc-candidate = cc-sol.source_config.enumerate().map(pair => pair.at(1) or pair.at(0) == cc-source.r_sets.at(0).at(0))
+#assert(cc-energy(cc-faulty) > cc-target.bound)
+#assert(cc-count(cc-source.r_sets,cc-candidate) < cc-count(cc-source.s_sets,cc-candidate))
+#assert(cc-energy(cc-extend(cc-candidate)) > cc-target.bound)
+#let cc-no-s = cc-source.s_sets + cc-source.s_sets
+#let cc-no-bound = cc-target.bound - cc-source.s_sets.len()
+#assert(cc-no-s.len() > cc-r)
+#assert(cc-energy(cc-sol.target_config) > cc-no-bound)
+#reduction-rule("ComparativeContainment", "DecisionQUBO",
+  example: true,
+  example-source-variant: (weight: "One"),
+  example-target-variant: (weight: "i64"),
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(cc-qubo) + " -o containment.json",
+      "pred path ComparativeContainment/One DecisionQUBO/i64 -o paths.json",
+      "jq '.paths[] | select(.steps == 1)' paths.json > route.json",
+      "pred reduce containment.json --via route.json -o bundle.json",
+      "pred solve bundle.json --solver brute-force",
+      "pred evaluate containment.json --config " + cli-config(cc-sol.source_config),
+    )
+  ],
+)[
+  Unit Comparative Containment reduces to integer decision QUBO by chaining
+  containment indicators. The indicator viewpoint follows the
+  #link("https://github.com/CodingThrust/problem-reductions/issues/401")[antecedent containment formulation];
+  the quadratic product penalty is Rosenberg's, as presented in @borosgruber2014quadratization.
+][
+  _Construction._ Let $U={0,dots,n-1}$ be the universe, and $R,S$ the indexed
+  families of sizes $r,s$. Put the universe selection bits $x_v$ first. For
+  each entry $A$, its containment indicator is $t_A=product_(v in U without A)(1-x_v)$.
+  Enumerate its complement increasingly. An empty complement uses constant 1;
+  one element uses its complemented bit; otherwise use a fresh chain of
+  $|U without A|-1$ product bits. Process R before S in input order and never
+  share chain bits across entries. For each binary gate $z=a b$, add
+  $P(a,b,z)=a b-2a z-2b z+3z$. With $M=r+1$, form
+  $H=M sum_"gates" P + sum_(A in S)t_A-sum_(A in R)t_A=C+Q$.
+  Expand into unique upper-triangular entries (diagonals are linear, each
+  coefficient used once), discard zero coefficients, and use bound $-C$.
+
+  _Correctness._ ($arrow.r.double$) A feasible source subset extends by its
+  true prefix products. Every penalty vanishes and $H$ is its S count minus
+  its R count, at most zero; hence $Q<=-C$. ($arrow.l.double$) On any target
+  assignment, each indicator remains binary, so the signed indicator sum is
+  at least $-r$. The gate penalty is nonnegative, vanishes exactly at $z=a b$,
+  and is at least 1 otherwise. One faulty gate would give $H>=M-r=1$.
+  A target witness therefore has every gate correct. Induction along each
+  chain recovers actual containment, and $H<=0$ gives the source inequality.
+
+  _Solution extraction._ Validate the target predicate once and return its
+  first $n$ bits. Reject wrong lengths and assignments above the bound.
+  Completed `Or` values map identically, including NO without a witness.
+  An empty family entry contains only the empty selected subset; a full-universe
+  entry always contributes 1 and needs no gates. With empty universe the
+  single empty witness works exactly when $r>=s$. Empty families and repeated
+  entries retain their count semantics; repeated elements inside a set do
+  not change membership. In particular, empty R with one full-universe S entry
+  is NO: $Q=0$ and bound $-1$.
+
+  _Size and arithmetic._ Write $g=sum_A max(0,n-|A|-1)$ over all indexed
+  entries. There are exactly $n+g$ variables. A first gate has six nonconstant
+  entries and three off-diagonal terms; a later gate has five and three.
+  Each indicator adds at most one diagonal. Thus there are at most $6g+r+s$
+  stored entries and $3g$ off-diagonal terms; coefficient collection can
+  cancel entries. Since $g<=n(r+s)$, the registered bounds are $n+n(r+s)$
+  variables and $6n(r+s)+r+s$ off-diagonal terms. The latter is conservative;
+  neither registered formula asserts equality. Complement scans cost
+  $O(n(r+s))$ plus reading the raw listings; sparse collection adds a
+  logarithmic factor in the number of gate and indicator records.
+
+  Checked size arithmetic and conversions precede expansion. Require
+  $M=r+1<=2^63-1$ and $B=8M g+r+s<=2^63-1$, computing $M g$ before multiplying
+  by 8 so zero gates remain valid. Expanded gates have nonconstant absolute
+  coefficient sums at most $8M$ and constants at most $M$. Consequently the
+  nonconstant norm is at most $B$, and separately $|C|<=M g+r+s<=B$.
+  Every coefficient, accumulation prefix and evaluation on every assignment
+  fits `i64`, even for infeasible assignments. All operations remain checked;
+  an unrepresentable target returns a typed error.
+
+  *YES example.* The loaded source has universe size #cc-n, R entries
+  #repr(cc-source.r_sets) and S entries #repr(cc-source.s_sets). Here
+  $r=#cc-r$, $s=#cc-s$, $M=#cc-m$, $g=#cc-g$: the #cc-n universe bits and
+  #cc-g chain bits give #cc-target.inner.num_vars variables. The target has
+  #cc-target.inner.entries.len() stored entries, of which
+  #(cc-target.inner.entries.filter(e => e.at(0) != e.at(1)).len()) are
+  off-diagonal. Its constant is #(-cc-target.bound), bound #cc-target.bound,
+  coefficient norm #(cc-target.inner.entries.map(e => calc.abs(e.at(2))).sum(default: 0)),
+  and arithmetic certificate #(8*cc-m*cc-g+cc-r+cc-s).
+  Its R complement pairs are #repr(cc-source.r_sets.map(cc-outside)).
+  The full polynomial is specified by triples #repr(cc-target.inner.entries).
+  The selected subset #repr(cc-selected(cc-sol.source_config)) has R count
+  #cc-count(cc-source.r_sets,cc-sol.source_config) and S count
+  #cc-count(cc-source.s_sets,cc-sol.source_config). Its extension
+  #repr(cc-sol.target_config) has $Q=#cc-energy(cc-sol.target_config)$ and
+  $H=#(cc-energy(cc-sol.target_config)-cc-target.bound)$, and extracts back
+  to #repr(cc-sol.source_config). Flipping its first chain bit gives
+  $Q=#cc-energy(cc-faulty)$ and $H=#(cc-energy(cc-faulty)-cc-target.bound)$,
+  which fails the bound. The subset #repr(cc-selected(cc-candidate)) has
+  counts #cc-count(cc-source.r_sets,cc-candidate) and
+  #cc-count(cc-source.s_sets,cc-candidate); its true extension has
+  $Q=#cc-energy(cc-extend(cc-candidate))$, also rejected.
+
+  *NO example.* Double the loaded S family, keeping the same universe and R.
+  Its #cc-no-s.len() full-universe entries always contribute that count,
+  while at most #cc-r R entries can contain any selected subset. The count
+  difference is therefore at least #(cc-no-s.len()-cc-r), strictly positive.
+  There are still #cc-g gates and #cc-target.inner.num_vars variables, and
+  the same nonconstant Q. The constant becomes #(-cc-no-bound), bound
+  #cc-no-bound, and arithmetic certificate #(8*cc-m*cc-g+cc-r+cc-no-s.len()).
+  Every consistent target misses the bound by at least
+  #(cc-no-s.len()-cc-r); every inconsistent target has $H>=M-r=1$.
+  The previous vector still gives $Q=#cc-energy(cc-sol.target_config)$,
+  missing the new bound by #(cc-energy(cc-sol.target_config)-cc-no-bound).
+]
+
 #reduction-rule("ThreeDimensionalMatching", "DecisionQUBO", example: true,
  extra: [#direct-qubo-commands("ThreeDimensionalMatching", "DecisionQUBO")],
 )[
