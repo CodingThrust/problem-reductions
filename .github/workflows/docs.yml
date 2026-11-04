@@ -33,9 +33,6 @@ jobs:
 
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
-      - name: Build Open Question Board
-        run: uv run --project open-questions-source/website --locked python open-questions-source/website/build.py
-
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: '1.99.0'
@@ -48,6 +45,11 @@ jobs:
         with:
           node-version: '24.21.0'
           cache: npm
+
+      - name: Build Open Question Board
+        run: |
+          npm --prefix open-questions-source/website ci
+          npm --prefix open-questions-source/website run build
 
       - name: Install mdBook
         run: |
