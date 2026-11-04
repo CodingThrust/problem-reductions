@@ -3,6 +3,7 @@
 //! Given a connected graph G, find a spanning tree T of G that maximizes
 //! the number of leaves (degree-1 vertices) in T.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -76,7 +77,8 @@ impl<G: Graph> MaximumLeafSpanningTree<G> {
         Self::try_new(graph).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
+    /// Construct a problem, rejecting graphs with fewer than two vertices.
+    pub fn try_new(graph: G) -> Result<Self, crate::registry::ConstructionError> {
         if graph.num_vertices() < 2 {
             return Err("graph must have at least 2 vertices".into());
         }
@@ -228,6 +230,72 @@ crate::register_brute_force! {
     MaximumLeafSpanningTree<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
+crate::decision_problem_meta!(
+    MaximumLeafSpanningTree<SimpleGraph>,
+    "DecisionMaximumLeafSpanningTree"
+);
+
+impl Decision<MaximumLeafSpanningTree<SimpleGraph>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+}
+
+crate::register_decision_variant!(
+    MaximumLeafSpanningTree<SimpleGraph>,
+    "DecisionMaximumLeafSpanningTree",
+    "1.8966^num_vertices",
+    &[],
+    "Decision version: does a spanning tree with >= bound leaves exist?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"])],
+    fields: [
+        FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The underlying graph G=(V,E)" },
+        FieldInfo { name: "bound", type_name: "i64", description: "Minimum number of degree-one tree vertices" },
+    ],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs()
+-> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_maximum_leaf_spanning_tree_simplegraph",
+        instance: Box::new(Decision::new(
+            MaximumLeafSpanningTree::new(SimpleGraph::star(4)),
+            3,
+        )),
+        optimal_config: serde_json::json!([true, true, true]),
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs()
+-> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_maximum_leaf_spanning_tree_to_maximum_leaf_spanning_tree",
+        build: || {
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MaximumLeafSpanningTree<SimpleGraph>,
+            >(
+                Decision::new(MaximumLeafSpanningTree::new(SimpleGraph::star(4)), 3),
+                crate::export::SolutionPair {
+                    source_config: serde_json::json!([true, true, true]),
+                    target_config: serde_json::json!([true, true, true]),
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -256,3 +324,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/maximum_leaf_spanning_tree.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../unit_tests/models/graph/decision_maximum_leaf_spanning_tree.rs"]
+mod decision_tests;
