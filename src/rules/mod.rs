@@ -45,6 +45,7 @@ pub(crate) mod twodimensionalconsecutivesets_ilp;
 pub(crate) use graph::{RecoveryStep, recover_completed_result};
 mod binpacking_casts;
 mod comparativecontainment_casts;
+pub(crate) mod comparativecontainment_qubo;
 pub(crate) mod graph_helpers;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;
@@ -498,6 +499,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         optimallineararrangement_sequencingtominimizeweightedcompletiontime::canonical_rule_example_specs(),
     );
     specs.extend(setsplitting_betweenness::canonical_rule_example_specs());
+    specs.extend(comparativecontainment_qubo::canonical_rule_example_specs());
     specs.extend(setsplitting_naesatisfiability::canonical_rule_example_specs());
     specs.extend(satisfiability_integralflowhomologousarcs::canonical_rule_example_specs());
     specs.extend(satisfiability_naesatisfiability::canonical_rule_example_specs());
