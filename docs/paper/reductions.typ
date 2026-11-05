@@ -641,8 +641,9 @@
 #let format-parameter-contract(fields) = {
   let parts = fields.map(o => {
     if o.contract == "exact" { raw(o.field + " = " + o.formula) }
-    else if o.contract == "bound-only" { raw(o.field + " <= " + o.formula) }
-    else { raw(o.field + " unavailable: " + o.reason) }
+    else if o.contract == "upper_bound" { raw(o.field + " <= " + o.formula) }
+    else if o.contract == "unavailable" { raw(o.field + " unavailable: " + o.reason) }
+    else { panic("unknown parameter contract: " + o.contract) }
   })
   [_Parameter contract:_ #parts.join(", ").]
 }
