@@ -577,3 +577,59 @@ fn ilp_nonzero_bounds_hold_on_dense_sources() {
         vec![1_i64; 10],
     ));
 }
+
+#[test]
+fn vertex_cover_to_bounded_sets_predictions_bound_the_constructed_target() {
+    use crate::models::decision::Decision;
+    use crate::models::graph::{MinimumCutIntoBoundedSets, MinimumVertexCover};
+    use crate::rules::ReduceTo;
+    use crate::topology::SimpleGraph;
+    use crate::traits::Problem;
+    use crate::types::One;
+
+    let entries = crate::rules::registry::reduction_entries();
+    let entry = entries
+        .iter()
+        .find(|e| {
+            e.source_name == "DecisionMinimumVertexCover"
+                && e.target_name == "MinimumCutIntoBoundedSets"
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    let complete = |n: usize| {
+        (0..n)
+            .flat_map(|u| (u + 1..n).map(move |v| (u, v)))
+            .collect::<Vec<_>>()
+    };
+    // Empty, edgeless, sparse and complete graphs, with bounds below, inside and above `0..=n`.
+    let graphs = [
+        (0, vec![]),
+        (4, vec![]),
+        (5, vec![(0, 1), (1, 2), (3, 4)]),
+        (
+            6,
+            vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (3, 4), (4, 5)],
+        ),
+        (5, complete(5)),
+    ];
+    for (n, edges) in graphs {
+        for bound in [-3, -1, 0, 1, n as i64 / 2, n as i64, n as i64 + 3] {
+            let source = Decision::new(
+                MinimumVertexCover::new(SimpleGraph::new(n, edges.clone()), vec![One; n]),
+                bound,
+            );
+            let predicted = transform.evaluate(&source.parameters()).unwrap();
+            let target =
+                ReduceTo::<MinimumCutIntoBoundedSets<SimpleGraph, i64>>::reduce_to(&source)
+                    .unwrap();
+            let actual = crate::rules::ReductionResult::target_problem(&target).parameters();
+            for field in ["num_vertices", "num_edges"] {
+                assert!(
+                    predicted.get(field).unwrap() >= actual.get(field).unwrap(),
+                    "{field}: n={n}, edges={edges:?}, bound={bound}"
+                );
+            }
+        }
+    }
+}

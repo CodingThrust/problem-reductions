@@ -152,7 +152,12 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
             .unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn try_new(
+    /// Create a new MinimumCutIntoBoundedSets problem, reporting invalid input as a typed error.
+    ///
+    /// # Errors
+    /// Returns an error if `edge_weights.len()` differs from `graph.num_edges()`, if `source`
+    /// or `sink` is out of bounds, or if `source == sink`.
+    pub fn try_new(
         graph: G,
         edge_weights: Vec<W>,
         source: usize,
