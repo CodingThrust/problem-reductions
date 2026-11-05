@@ -11662,6 +11662,76 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   _Value and solution extraction._ The target is Decision Minimum Sum Multicenter with bound $B$ (or $-1$ for a negative source bound). Its predicate enforces the cost bound. Decode a YES witness by removing the auxiliary coordinates; completed YES and NO answers pass through unchanged.
 ]
 
+#let dmvc_mcibs = load-example(
+  "DecisionMinimumVertexCover",
+  "MinimumCutIntoBoundedSets",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "i64"),
+)
+#let dmvc_mcibs_sol = dmvc_mcibs.solutions.at(0)
+#let dmvc_mcibs_n = dmvc_mcibs.source.instance.inner.graph.num_vertices
+#let dmvc_mcibs_edges = dmvc_mcibs.source.instance.inner.graph.edges
+#let dmvc_mcibs_k = dmvc_mcibs.source.instance.bound
+#let dmvc_mcibs_tgt = dmvc_mcibs.target.instance
+#let dmvc_mcibs_tedges = dmvc_mcibs_tgt.graph.edges
+#let dmvc_mcibs_w = dmvc_mcibs_tgt.edge_weights
+#let dmvc_mcibs_s = dmvc_mcibs_tgt.source
+#let dmvc_mcibs_t = dmvc_mcibs_tgt.sink
+#let dmvc_mcibs_B = dmvc_mcibs_tgt.size_bound
+// The padding weight M = Phi + 1 is the largest weight of the target.
+#let dmvc_mcibs_M = calc.max(..dmvc_mcibs_w)
+#let dmvc_mcibs_phi = dmvc_mcibs_M - 1
+#let dmvc_mcibs_h = dmvc_mcibs_tedges.filter(e => e.at(0) < dmvc_mcibs_n and e.at(1) < dmvc_mcibs_n)
+#let dmvc_mcibs_is-edge(i, j) = dmvc_mcibs_edges.any(e => (e.at(0) == i and e.at(1) == j) or (e.at(0) == j and e.at(1) == i))
+#let dmvc_mcibs_clamp-t(k) = calc.min(calc.max(dmvc_mcibs_n - k, 0), dmvc_mcibs_n + 1)
+// Vertex sets I of the original vertices with |I| <= limit, as masks, with the value Phi - 2 e_H(I) - |I|.
+#let dmvc_mcibs_cuts(limit) = range(calc.pow(2, dmvc_mcibs_n)).map(mask => {
+  let members = range(dmvc_mcibs_n).filter(i => calc.rem(calc.quo(mask, calc.pow(2, i)), 2) == 1)
+  let inside = dmvc_mcibs_h.filter(e => members.contains(e.at(0)) and members.contains(e.at(1))).len()
+  (members: members, cut: dmvc_mcibs_phi - 2 * inside - members.len())
+}).filter(c => c.members.len() <= limit)
+#let dmvc_mcibs_sink-side = dmvc_mcibs_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => i)
+#let dmvc_mcibs_I = dmvc_mcibs_sink-side.filter(i => i < dmvc_mcibs_n)
+#let dmvc_mcibs_eh = dmvc_mcibs_h.filter(e => dmvc_mcibs_I.contains(e.at(0)) and dmvc_mcibs_I.contains(e.at(1))).len()
+#let dmvc_mcibs_cut = dmvc_mcibs_tedges.enumerate().filter(((i, e)) => dmvc_mcibs_sol.target_config.at(e.at(0)) != dmvc_mcibs_sol.target_config.at(e.at(1))).map(((i, e)) => dmvc_mcibs_w.at(i)).sum()
+#reduction-rule("DecisionMinimumVertexCover", "MinimumCutIntoBoundedSets",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i64"),
+  example-caption: [6-vertex graph with cover bound $k = 3$: the complement graph, two terminals and three padding vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(dmvc_mcibs) + " -o vc.json",
+      "pred reduce vc.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate vc.json --config " + cli-config(dmvc_mcibs_sol.source_config),
+    )
+    *Step 1 -- Source instance.* The source graph has vertices $V = {0, dots, #(dmvc_mcibs_n - 1)}$, $n = #dmvc_mcibs_n$ and edges #{dmvc_mcibs_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, so $m = #dmvc_mcibs_edges.len()$. The bound is $k = #dmvc_mcibs_k$ and the stored cover is $C = {#dmvc_mcibs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
+
+    *Step 2 -- Sizes.* The complement graph $H$ has $binom(n, 2) - m = #(dmvc_mcibs_n * (dmvc_mcibs_n - 1) / 2) - #dmvc_mcibs_edges.len() = #dmvc_mcibs_h.len()$ edges #{dmvc_mcibs_h.map(e => $(#e.at(0), #e.at(1))$).join(", ")}. Hence $Phi = 2 dot #dmvc_mcibs_h.len() + 2 dot #dmvc_mcibs_n = #dmvc_mcibs_phi$ and $M = #dmvc_mcibs_M$. With $T = n - k = #dmvc_mcibs_clamp-t(dmvc_mcibs_k)$ the target has $q = n - T = #(dmvc_mcibs_n - dmvc_mcibs_clamp-t(dmvc_mcibs_k))$ padding vertices, so $#graph-num-vertices(dmvc_mcibs_tgt) = #dmvc_mcibs_n + 2 + #(dmvc_mcibs_n - dmvc_mcibs_clamp-t(dmvc_mcibs_k))$ vertices ($s = #dmvc_mcibs_s$, $t = #dmvc_mcibs_t$) and $#graph-num-edges(dmvc_mcibs_tgt)$ edges; the side bound is $B = #dmvc_mcibs_B$ and the threshold is $theta = Phi - T^2 = #(dmvc_mcibs_phi - calc.pow(dmvc_mcibs_clamp-t(dmvc_mcibs_k), 2))$. The weights are $1$ on the complement edges and on the $#dmvc_mcibs_n$ edges $(i, s)$, then #dmvc_mcibs_w.slice(dmvc_mcibs_h.len() + dmvc_mcibs_n, count: dmvc_mcibs_n).map(str).join(", ") on the edges $(i, t)$, and $M$ on the padding edges.
+
+    *Step 3 -- Verify the stored witness.* The sink's side is ${#dmvc_mcibs_sink-side.map(str).join(", ")}$: the independent set $I = {#dmvc_mcibs_sink-side.filter(i => i < dmvc_mcibs_n).map(str).join(", ")}$ of $G$, the sink and the padding vertices. The sink's side has #dmvc_mcibs_sink-side.len() vertices and the source's side has #(graph-num-vertices(dmvc_mcibs_tgt) - dmvc_mcibs_sink-side.len()), both at most $B = #dmvc_mcibs_B$. Its cut weight is $#dmvc_mcibs_cut = Phi - 2 e_H (I) - |I| = #dmvc_mcibs_phi - 2 dot #dmvc_mcibs_eh - #dmvc_mcibs_I.len()$, which equals $theta$. The original vertices on the source's side, ${#dmvc_mcibs_sol.target_config.slice(0, count: dmvc_mcibs_n).enumerate().filter(((i, x)) => not x).map(((i, _)) => str(i)).join(", ")}$, are the extracted cover of size $#dmvc_mcibs_sol.target_config.slice(0, count: dmvc_mcibs_n).filter(x => not x).len() <= k$ #sym.checkmark
+
+    *Step 4 -- A NO instance.* Take the same graph with $k = #(dmvc_mcibs_k - 1)$. Then $T = #dmvc_mcibs_clamp-t(dmvc_mcibs_k - 1)$, $q = #(dmvc_mcibs_n - dmvc_mcibs_clamp-t(dmvc_mcibs_k - 1))$ and $theta = #(dmvc_mcibs_phi - calc.pow(dmvc_mcibs_clamp-t(dmvc_mcibs_k - 1), 2))$ ($Phi$ and $M$ do not depend on $k$). A cut within $theta$ has no padding vertex on the source's side, so it is $Phi - 2 e_H(I) - |I|$ for an $I$ with $|I| <= T$. Over all #(dmvc_mcibs_cuts(dmvc_mcibs_clamp-t(dmvc_mcibs_k - 1)).len()) such sets, the least value is $#calc.min(..dmvc_mcibs_cuts(dmvc_mcibs_clamp-t(dmvc_mcibs_k - 1)).map(c => c.cut))$, which exceeds $theta$: $G$ has no independent set of size $T$, hence no cover of size at most $k$.
+  ],
+)[
+  Given a Decision Minimum Vertex Cover instance $(G, k)$ with $n$ vertices and $m$ edges, let $H$ be the complement graph, $Phi = 2 |E(H)| + 2 n$ and $T = min(max(n - k, 0), n + 1)$. The target has the $n$ original vertices, a source $s$, a sink $t$ and $q = n - T$ padding vertices ($q = 0$ when $T = n + 1$): $H$ with unit weights, $(i, s)$ of weight $1$, $(i, t)$ of weight $deg_H (i) + 2$, and $(t, p)$ of weight $M = Phi + 1$ for each padding vertex $p$, with side bound $B = n + 1$. $G$ has a cover of size at most $k$ iff the optimal cut is at most $theta = Phi - T^2$. The target has at most $2 n + 2$ vertices and $binom(n, 2) - m + 3 n$ edges, all weights are positive, and $|theta| <= (n + 1)^2$.
+][
+  _Construction._ Write $V = {0, dots, n - 1}$, $s = n$, $t = n + 1$ and let $P$ be the set of $q = n - T$ padding vertices. The target graph $G'$ on $V union {s, t} union P$ has the edges $\{i, j\}$ for $i < j$ with $\{i, j\} in.not E$ (weight $1$), $\{i, s\}$ (weight $1$) and $\{i, t\}$ (weight $deg_H (i) + 2$) for $i in V$, and $\{t, p\}$ (weight $M = Phi + 1$) for $p in P$. The source is $s$, the sink is $t$, and each side may hold $B = n + 1$ vertices. All numbers are polynomial in $n$ and independent of the magnitude of $k$ ($T$ is clamped), and all weights are positive.
+
+  _Cut weight._ Consider a feasible assignment. Let $I subset.eq V$ be the original vertices on $t$'s side, $e_H (I)$ the number of edges of $H$ inside $I$, and $p$ the number of padding vertices on $s$'s side. An edge $\{i, j\}$ of $H$ is cut iff exactly one end is in $I$, which gives $sum_(i in I) deg_H (i) - 2 e_H (I)$. The edge $\{i, s\}$ is cut iff $i in I$, contributing $|I|$, and $\{i, t\}$ is cut iff $i in.not I$, contributing $sum_(i in.not I) (deg_H (i) + 2)$. Together with $M p$ for the padding edges and $sum_(i in V) deg_H (i) = 2 |E(H)|$ the cut weight is
+  $ Phi - 2 e_H (I) - |I| + M p. $
+  The two sides have $1 + |I| + q - p$ and $1 + (n - |I|) + p$ vertices. Since $e_H (I) <= |E(H)|$ and $|I| <= n$, the cut weight is at least $n + M p$. Since $e_H (I) <= binom(|I|, 2)$, also $2 e_H (I) + |I| <= |I|^2$, with equality iff $I$ is a clique of $H$, i.e. an independent set of $G$.
+
+  _Correctness._ ($arrow.r.double$) Let $C$ be a cover with $|C| <= k$. Then $k >= 0$, so $T = max(n - k, 0) <= n$, and $V without C$ is an independent set of size at least $n - k$ and at least $0$, so it contains an independent set $I$ with $|I| = T$. Put $I$, $t$ and all of $P$ on $t$'s side and everything else on $s$'s side. The sink's side holds $1 + T + q = n + 1$ vertices and the source's side $1 + n - T <= n + 1$, so the assignment is feasible. As $I$ is independent in $G$ it is a clique of $H$, so the cut weight is $Phi - T^2 = theta$. The target has finitely many assignments, so an optimal one exists and is at most $theta$.
+  ($arrow.l.double$) Let a feasible assignment have cut weight at most $theta$. If $p >= 1$ the cut weight would be at least $M > Phi >= theta$, so $p = 0$. The sink's side then has $1 + |I| + q <= n + 1$ vertices, so $|I| <= n - q$. If $T <= n$ this is $|I| <= T$; if $T = n + 1$ then $q = 0$ and $|I| <= n$. The bound gives $Phi - 2 e_H (I) - |I| <= Phi - T^2$, hence $T^2 <= 2 e_H (I) + |I| <= |I|^2$. The case $T = n + 1$ is impossible because $|I|^2 <= n^2$. So $T <= n$ and $|I| = T$, and equality throughout shows that $I$ is a clique of $H$. Then $V without I$ meets every edge of $G$ and has $n - T$ vertices, where $n - T = min(k, n) <= k$.
+  Hence $G$ has a cover of size at most $k$ iff the optimum cut is at most $theta$.
+
+  _Solution extraction._ Extraction validates the target configuration once: it must be a feasible partition of the right length whose cut weight is at most $theta$. Otherwise it is rejected. The cover is the set of original vertices on $s$'s side, i.e. the complement of $I$. By the argument above this is a cover of size at most $k$, for every such configuration (optimality is not needed). The special cases are $n = 0$ (the target has only $s$ and $t$), $k >= n$ ($T = 0$, $I = emptyset$, $q = n$) and $k < 0$ ($T = n + 1$, no cut within $theta$).
+
+  _Numeric range._ $theta$, $M$ and every weight are computed with checked 64-bit signed arithmetic, as is the total weight $3 |E(H)| + 3 n + q M$, which bounds every cut, so evaluating the target cannot overflow; unrepresentable sizes are reported as a reduction error before anything is allocated.
+]
+
 #let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
 #let mvc_lcs_sol = mvc_lcs.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "LongestCommonSubsequence",
