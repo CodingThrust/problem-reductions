@@ -23,6 +23,11 @@ make check                                 # fmt-check + clippy + test must pass
 
 `make release` enforces the same branch/clean/up-to-date guard and runs `make check` itself.
 
+If `main` requires a pull request, prepare the version and lockfile changes in a
+release PR and run the same checks there. After it merges, fast-forward local `main`,
+verify its versions and clean state, and tag and push only that merged commit.
+Do not bypass branch protection or push a tag pointing to an unmerged release commit.
+
 ## Version and changelog
 
 ```bash

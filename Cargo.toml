@@ -9,7 +9,7 @@ members = [
 
 [package]
 name = "problemreductions"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.88"
 description = "A library for reducing NP-hard problems"
@@ -35,8 +35,8 @@ highs = "2.4.0"
 inventory = "0.3.24"
 rand = "0.10.2"
 criterion = { version = "0.8.2", optional = true }
-problemreductions-macros = { version = "0.6.0", path = "problemreductions-macros" }
-problemreductions-expr = { version = "0.6.0", path = "problemreductions-expr" }
+problemreductions-macros = { version = "0.7.0", path = "problemreductions-macros" }
+problemreductions-expr = { version = "0.7.0", path = "problemreductions-expr" }
 
 [dev-dependencies]
 proptest = "1.11.0"

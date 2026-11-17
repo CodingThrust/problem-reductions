@@ -1,6 +1,6 @@
 [package]
 name = "problemreductions-cli"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.88"
 description = "CLI tool for exploring NP-hard problem reductions"
@@ -21,7 +21,7 @@ all = ["mcp"]
 mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing-subscriber"]
 
 [dependencies]
-problemreductions = { version = "0.6.0", path = "..", features = ["example-db"] }
+problemreductions = { version = "0.7.0", path = "..", features = ["example-db"] }
 clap = { version = "4.6.7", features = ["derive", "string"] }
 anyhow = "1.0.104"
 serde = { version = "1.0.229", features = ["derive"] }
