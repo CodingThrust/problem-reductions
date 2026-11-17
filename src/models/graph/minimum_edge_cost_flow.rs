@@ -288,11 +288,7 @@ impl MinimumEdgeCostFlow {
         }
 
         // (3) Flow requirement: net flow into sink >= R
-        if balance[self.sink] < self.required_flow {
-            return Ok(false);
-        }
-
-        Ok(true)
+        Ok(balance[self.sink] >= self.required_flow)
     }
 
     /// Compute the edge cost for a feasible flow: sum of prices of arcs with

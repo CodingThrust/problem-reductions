@@ -38,6 +38,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Publish expression crate
+        run: cargo publish --manifest-path problemreductions-expr/Cargo.toml --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for expression crate to be indexed
+        run: sleep 30
+
       - name: Publish macros crate
         run: cargo publish --manifest-path problemreductions-macros/Cargo.toml --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 

@@ -277,17 +277,13 @@ fn construct_schedule_from_assignment(
         if pattern == 0 {
             return None;
         }
-        for pattern_index in 0..7 {
+        for (pattern_index, &job) in construction.clause_jobs[clause_index].iter().enumerate() {
             let slot = if pattern_index + 1 == pattern {
                 source.num_vars() + 1
             } else {
                 source.num_vars() + 2
             };
-            set_task_slot(
-                &mut task_slots,
-                construction.clause_jobs[clause_index][pattern_index],
-                slot,
-            );
+            set_task_slot(&mut task_slots, job, slot);
         }
     }
 

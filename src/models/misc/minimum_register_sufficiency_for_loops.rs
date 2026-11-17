@@ -167,11 +167,7 @@ impl MinimumRegisterSufficiencyForLoops {
         // Check if arc1 is entirely in the gap of arc2.
         let gap2_start = (s2 + l2) % n;
         let dist_s1_in_gap2 = (s1 + n - gap2_start) % n;
-        if dist_s1_in_gap2 + l1 <= n - l2 {
-            return false;
-        }
-
-        true
+        dist_s1_in_gap2 + l1 > n - l2
     }
 }
 

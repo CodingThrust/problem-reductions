@@ -1,6 +1,6 @@
 [package]
 name = "problemreductions-macros"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Procedural macros for problemreductions"
@@ -14,5 +14,5 @@ proc-macro = true
 syn = { version = "3.0.6", features = ["full", "parsing"] }
 quote = "1.0.47"
 proc-macro2 = "1.0.107"
-problemreductions-expr = { version = "0.6.0", path = "../problemreductions-expr" }
+problemreductions-expr = { version = "0.7.0", path = "../problemreductions-expr" }
 num-traits = "0.2.19"
