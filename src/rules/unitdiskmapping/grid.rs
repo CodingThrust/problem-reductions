@@ -172,9 +172,9 @@ impl MappingGrid {
     /// Get all occupied coordinates.
     pub fn occupied_coords(&self) -> Vec<(usize, usize)> {
         let mut coords = Vec::new();
-        for r in 0..self.rows {
-            for c in 0..self.cols {
-                if self.content[r][c].is_occupied() {
+        for (r, row) in self.content.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                if cell.is_occupied() {
                     coords.push((r, c));
                 }
             }
@@ -200,9 +200,9 @@ impl MappingGrid {
     /// Returns a set of (row, col) for cells in the Doubled state.
     pub fn doubled_cells(&self) -> std::collections::HashSet<(usize, usize)> {
         let mut cells = std::collections::HashSet::new();
-        for r in 0..self.rows {
-            for c in 0..self.cols {
-                if matches!(self.content[r][c], CellState::Doubled { .. }) {
+        for (r, row) in self.content.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                if matches!(cell, CellState::Doubled { .. }) {
                     cells.insert((r, c));
                 }
             }
@@ -250,9 +250,9 @@ impl MappingGrid {
         let pos_to_idx: HashMap<(usize, usize), usize> = if config.is_some() {
             let mut map = HashMap::new();
             let mut idx = 0;
-            for r in 0..self.rows {
-                for c in 0..self.cols {
-                    if self.content[r][c].is_occupied() {
+            for (r, row) in self.content.iter().enumerate() {
+                for (c, cell) in row.iter().enumerate() {
+                    if cell.is_occupied() {
                         map.insert((r, c), idx);
                         idx += 1;
                     }
@@ -265,10 +265,9 @@ impl MappingGrid {
 
         let mut lines = Vec::new();
 
-        for r in 0..self.rows {
+        for (r, row) in self.content.iter().enumerate() {
             let mut line = String::new();
-            for c in 0..self.cols {
-                let cell = &self.content[r][c];
+            for (c, cell) in row.iter().enumerate() {
                 let s = if let Some(cfg) = config {
                     if let Some(&idx) = pos_to_idx.get(&(r, c)) {
                         if cfg.get(idx).copied().unwrap_or(0) > 0 {

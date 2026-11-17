@@ -5,10 +5,11 @@ description: Use when cutting a new problemreductions crate release — checks t
 
 # Release
 
-`make release V=x.y.z` bumps the version in `Cargo.toml`, `problemreductions-macros/Cargo.toml`,
-and `problemreductions-cli/Cargo.toml` (plus the inter-crate dependency versions), runs
-`cargo check`, commits `release: vX.Y.Z`, tags `vX.Y.Z`, and pushes `main` and tags. CI then
-publishes all three crates to crates.io. A pushed tag cannot be taken back cleanly, so every
+`make release V=x.y.z` bumps all five workspace package versions and the published
+inter-crate dependency versions, runs `cargo check --workspace`, commits the manifests
+and `Cargo.lock` as `release: vX.Y.Z`, tags `vX.Y.Z`, and pushes `main` and tags. CI then
+publishes expr, macros, library, and CLI in dependency order to crates.io; the web crate
+is not published. A pushed tag cannot be taken back cleanly, so every
 gate below is hard.
 
 ## Gates (refuse if any fails)

@@ -173,12 +173,15 @@ endif
 	$(MAKE) check
 	@echo "Releasing v$(V)..."
 	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-expr/Cargo.toml
 	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
 	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-web/Cargo.toml
+	$(SED_I) 's/problemreductions-expr = { version = "[^"]*"/problemreductions-expr = { version = "$(V)"/' Cargo.toml problemreductions-macros/Cargo.toml
 	$(SED_I) 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
 	$(SED_I) 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
-	cargo check
-	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
+	cargo check --workspace
+	git add Cargo.toml problemreductions-expr/Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml problemreductions-web/Cargo.toml Cargo.lock
 	git commit -m "release: v$(V)"
 	git tag -a "v$(V)" -m "Release v$(V)"
 	git push origin main --tags

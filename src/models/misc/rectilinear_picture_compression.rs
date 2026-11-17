@@ -204,19 +204,19 @@ impl RectilinearPictureCompression {
                 }
                 // Find the rightmost column from c1 that is all-1 in row r1.
                 let mut c_max = n;
-                for c in c1..n {
-                    if !self.matrix[r1][c] {
+                for (c, &filled) in self.matrix[r1].iter().enumerate().skip(c1) {
+                    if !filled {
                         c_max = c;
                         break;
                     }
                 }
                 // Extend downward row by row, narrowing column range.
                 let mut c_end = c_max; // exclusive upper bound on columns
-                for r2 in r1..m {
+                for (r2, row) in self.matrix.iter().enumerate().skip(r1) {
                     // Narrow c_end based on row r2.
                     let mut new_c_end = c1;
-                    for c in c1..c_end {
-                        if self.matrix[r2][c] {
+                    for (c, &filled) in row.iter().enumerate().take(c_end).skip(c1) {
+                        if filled {
                             new_c_end = c + 1;
                         } else {
                             break;
