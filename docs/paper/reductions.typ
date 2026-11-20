@@ -14926,6 +14926,72 @@ The following reductions to Integer Linear Programming are straightforward formu
   vertices as a Boolean vector. Target feasibility maps to the source Boolean value.
 ]
 
+#let sat_ilp = load-example("Satisfiability", "ILP")
+#let sat_ilp_sol = sat_ilp.solutions.at(0)
+#reduction-rule("Satisfiability", "ILP",
+  example: true,
+  example-caption: [One binary variable per SAT variable and one inequality per clause],
+  extra: [
+    #pred-commands(
+      "pred create --example " + rule-spec(sat_ilp) + " -o sat.json",
+      "pred path " + problem-spec(sat_ilp.source) + " " + problem-spec(sat_ilp.target) + " --limit 1 -o paths.json",
+      "jq '.paths[0]' paths.json > route.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + cli-config(sat_ilp_sol.source_config),
+    )
+
+    The source clauses, given as signed literal lists, are
+    #sat_ilp.source.instance.clauses.map(c => [$(#fmt-values(c.literals))$]).join(", ").
+    They produce #sat_ilp.target.instance.variables.len() binary variables and
+    #sat_ilp.target.instance.constraints.len() rows. At the stored ILP witness
+    $(#fmt-values(sat_ilp_sol.target_config))$, the rows evaluate to
+    #sat_ilp.target.instance.constraints.map(row => {
+      let lhs = row.terms.fold(0, (sum, (i, c)) => sum + c * sat_ilp_sol.target_config.at(i))
+      $#lhs >= #row.rhs$
+    }).join(", ").
+    Reading each bit as a truth value gives the satisfying assignment
+    $(#fmt-values(sat_ilp_sol.source_config))$.
+    Appending an empty clause adds the row $0 >= 1$, making the ILP infeasible.
+  ],
+)[
+  Encode CNF satisfiability directly with one binary variable per Boolean variable
+  and one inequality per clause. The encoding follows from the truth values of
+  the literal occurrences.
+][
+  _Construction._ (1) Introduce a binary variable $x_i$ for each source variable
+  $i$. (2) For each clause $C$, let $P$ and $N$ list the variable indices of its
+  positive and negative literal occurrences, respectively. Add
+  $ sum_(i in P) x_i - sum_(j in N) x_j >= 1 - |N|. $
+  The ILP sums coefficients of repeated variables and removes zero coefficients.
+  Use an empty minimization objective.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment makes at least one
+  occurrence true in each clause. A positive occurrence contributes $x_i$ to
+  this count and a negative one contributes $1-x_i$. Moving the constant terms
+  to the right gives the clause row, which the assignment therefore satisfies.
+  ($arrow.l.double$) In a feasible binary assignment, a clause with every
+  literal false would have left-hand side $-|N|$, violating its row. Thus each
+  clause is true under the corresponding Boolean assignment.
+
+  Repeated literals contribute according to their multiplicities.
+  Opposite occurrences of the same variable contribute a total of
+  one true literal, so any row containing such a pair is redundant, even if other
+  terms survive normalization. An empty clause gives the impossible row
+  $0 >= 1$, making the entire formula infeasible. A formula with no clauses gives
+  no rows and every binary assignment is feasible.
+
+  _Overhead._ For $n$ variables, $m$ clauses, and $L$ literal occurrences,
+  the target has exactly $n$ variables and $m$ rows. Each occurrence contributes
+  at most one nonzero after normalization, giving at most $L$ nonzeros. The
+  magnitudes of coefficients, right-hand sides, and binary endpoints are at
+  most $L+1$, so $L+1$ magnitude bits suffice since $L+1 < 2^(L+1)$.
+
+  _Solution extraction._ Validate that the target assignment is feasible and
+  read each $x_i = 1$ as true. Completed ILP feasibility maps to the source
+  Boolean value.
+]
+
 #reduction-rule("NAESatisfiability", "ILP")[
   Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
 ][

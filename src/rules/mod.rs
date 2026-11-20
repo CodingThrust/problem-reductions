@@ -294,6 +294,7 @@ pub(crate) mod registersufficiency_ilp;
 pub(crate) mod resourceconstrainedscheduling_ilp;
 pub(crate) mod rootedtreestorageassignment_ilp;
 pub(crate) mod ruralpostman_ilp;
+pub(crate) mod satisfiability_ilp;
 pub(crate) mod schedulingtominimizeweightedcompletiontime_ilp;
 pub(crate) mod schedulingwithindividualdeadlines_ilp;
 pub(crate) mod sequencingtominimizemaximumcumulativecost_ilp;
@@ -656,6 +657,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(resourceconstrainedscheduling_ilp::canonical_rule_example_specs());
         specs.extend(rootedtreestorageassignment_ilp::canonical_rule_example_specs());
         specs.extend(ruralpostman_ilp::canonical_rule_example_specs());
+        specs.extend(satisfiability_ilp::canonical_rule_example_specs());
         specs
             .extend(schedulingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(schedulingwithindividualdeadlines_ilp::canonical_rule_example_specs());
