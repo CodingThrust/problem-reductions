@@ -18,6 +18,21 @@ fn test_satisfiability_to_ilp_closed_loop() {
     );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
     assert_bf_vs_ilp(&source, &reduction);
+
+    let source = Satisfiability::new(
+        6,
+        vec![
+            CNFClause::new(vec![1, -2, 3]),
+            CNFClause::new(vec![-1, 4, 4]),
+            CNFClause::new(vec![2, -5, 6]),
+            CNFClause::new(vec![-3, -4, 5]),
+            CNFClause::new(vec![-6, 1, -1]),
+            CNFClause::new(vec![-2, -6]),
+            CNFClause::new(vec![3, 5, -4]),
+        ],
+    );
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).unwrap();
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
