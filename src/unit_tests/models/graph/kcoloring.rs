@@ -308,9 +308,17 @@ fn runtime_color_counts_keep_their_native_domain_on_deserialization() {
         let restored: KColoring<KN, SimpleGraph> = serde_json::from_value(data).unwrap();
         assert_eq!(restored.num_colors(), count);
     }
-    let data = serde_json::json!({"graph": {"num_vertices": 0, "edges": []}});
-    let restored: KColoring<KN, SimpleGraph> = serde_json::from_value(data).unwrap();
-    assert_eq!(restored.num_colors(), 0);
+}
+
+#[test]
+fn runtime_coloring_requires_an_explicit_color_count() {
+    let data = serde_json::json!({"graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]}});
+    let mut with_typo = data.clone();
+    with_typo["k"] = serde_json::json!(2);
+    for input in [data, with_typo] {
+        let error = serde_json::from_value::<KColoring<KN, SimpleGraph>>(input).unwrap_err();
+        assert!(error.to_string().contains("missing field `num_colors`"));
+    }
 }
 
 #[test]
