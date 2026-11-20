@@ -280,7 +280,6 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("KSatisfiability", [("k", "K3")]),
     ("Satisfiability", []),
-    ("NAESatisfiability", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
 
@@ -724,7 +723,6 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("Satisfiability", []),
-    ("NAESatisfiability", []),
     ("ILP", [("variable", "bool"), ("coefficient", "i64"), ("bounds", "general")]),
 }
 

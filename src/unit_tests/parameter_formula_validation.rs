@@ -229,6 +229,47 @@ fn every_executable_parameter_formula_matches_a_constructed_target() {
 }
 
 #[test]
+fn sat_clause_rows_match_their_parameter_transform() {
+    use crate::models::algebraic::ILP;
+    use crate::models::formula::{CNFClause, Satisfiability};
+    use crate::traits::Problem;
+
+    let entry = crate::rules::registry::reduction_entries()
+        .into_iter()
+        .find(|entry| {
+            entry.source_name == Satisfiability::NAME
+                && entry.target_name == ILP::<bool>::NAME
+                && entry.target_variant() == ILP::<bool>::variant()
+        })
+        .unwrap();
+    let contract = entry.parameter_contract().unwrap();
+    let transform = contract.transform().unwrap();
+    for (n, clauses) in [
+        (0, vec![]),
+        (0, vec![vec![]]),
+        (4, vec![vec![1, -1], vec![-2, -2, -2, -2], vec![3, 4]]),
+    ] {
+        let source = Satisfiability::new(n, clauses.into_iter().map(CNFClause::new).collect());
+        let predicted = transform.evaluate(&source.parameters()).unwrap();
+        let actual = target_parameters(entry, &source).unwrap();
+        for field in ["num_vars", "num_constraints"] {
+            assert_eq!(transform.relation(field), Some(ParameterRelation::Exact));
+            assert_eq!(predicted.get(field).unwrap(), actual.get(field).unwrap());
+        }
+        for field in ["num_nonzeros", "max_constraint_magnitude_bits"] {
+            assert_eq!(
+                transform.relation(field),
+                Some(ParameterRelation::UpperBound)
+            );
+            assert!(
+                predicted.get(field).unwrap() >= actual.get(field).unwrap(),
+                "{field}"
+            );
+        }
+    }
+}
+
+#[test]
 fn sparse_ilp_predictions_use_construction_counts() {
     use crate::models::{BiconnectivityAugmentation, Factoring, StrongConnectivityAugmentation};
     use crate::topology::{MultiDigraph, SimpleDigraph, SimpleGraph};

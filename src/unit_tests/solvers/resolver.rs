@@ -827,6 +827,52 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
 }
 
 #[test]
+fn sat_and_three_sat_use_clause_rows_in_the_fixed_ilp_pipeline() {
+    use serde_json::json;
+
+    for (name, variant, expected_path) in [
+        (
+            "Satisfiability",
+            BTreeMap::new(),
+            vec!["Satisfiability", "ILP<general, i64, bool>"],
+        ),
+        (
+            "KSatisfiability",
+            BTreeMap::from([("k".into(), "K3".into())]),
+            vec![
+                "KSatisfiability<K3>",
+                "Satisfiability",
+                "ILP<general, i64, bool>",
+            ],
+        ),
+    ] {
+        let mut clauses = vec![
+            json!({"literals": [-1, -1, -1]}),
+            json!({"literals": [1, 2, 2]}),
+        ];
+        for feasible in [true, false] {
+            let loaded =
+                load_dyn(name, &variant, json!({"num_vars": 3, "clauses": clauses})).unwrap();
+            let result = solve(&loaded, SolverRequest::Default).unwrap();
+            let SolverExecution::Ilp { reduction_path } = result.solver else {
+                panic!("expected the default ILP solver for {name}");
+            };
+            assert_eq!(reduction_path, expected_path);
+            if feasible {
+                let SolveOutcome::Optimal { solution, .. } = result.outcome else {
+                    panic!("expected a satisfying assignment for {name}");
+                };
+                assert_eq!(solution[0], false);
+                assert_eq!(solution[1], true);
+                clauses.push(json!({"literals": [-2, -2, -2]}));
+            } else {
+                assert_eq!(result.outcome, SolveOutcome::Infeasible);
+            }
+        }
+    }
+}
+
+#[test]
 fn deterministic_solver_dispatch_customized_default_allows_explicit_ilp_override() {
     use crate::models::graph::RootedTreeArrangement;
     use crate::topology::SimpleGraph;
