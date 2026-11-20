@@ -130,12 +130,12 @@ fn deserialize_present<'de, D: serde::Deserializer<'de>>(
 }
 
 impl<K: KValue, G> TryFrom<KColoringData<G>> for KColoring<K, G> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(data: KColoringData<G>) -> Result<Self, Self::Error> {
         let num_colors = match (K::K, data.num_colors) {
             (Some(fixed), Some(supplied)) if fixed != supplied => {
-                return Err(format!("fixed K requires {fixed} colors, got {supplied}"));
+                return Err(format!("fixed K requires {fixed} colors, got {supplied}").into());
             }
             (fixed, supplied) => supplied.or(fixed).ok_or("missing field `num_colors`")?,
         };
