@@ -56,7 +56,11 @@ inventory::submit! {
 ///     assert!(problem.evaluate(sol).unwrap());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    bound(deserialize = "G: serde::Deserialize<'de>"),
+    try_from = "KColoringData<G>"
+)]
 pub struct KColoring<K: KValue, G> {
     /// The underlying graph.
     graph: G,
@@ -110,40 +114,37 @@ impl TryFrom<RuntimeKColoringCreateSpec> for KColoring<KN, SimpleGraph> {
     }
 }
 
-impl<'de, K: KValue, G: Deserialize<'de>> Deserialize<'de> for KColoring<K, G> {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        #[serde(rename = "KColoring")]
-        struct Data<G> {
-            graph: G,
-            // An explicit null is invalid even for fixed K.
-            #[serde(default, deserialize_with = "deserialize_present_num_colors")]
-            num_colors: Option<usize>,
-        }
+/// Persisted form: `num_colors` may be omitted only when the variant fixes K.
+#[derive(Deserialize)]
+struct KColoringData<G> {
+    graph: G,
+    // Absent is allowed for fixed K; an explicit null is always invalid.
+    #[serde(default, deserialize_with = "deserialize_present")]
+    num_colors: Option<usize>,
+}
 
-        let Data { graph, num_colors } = Data::deserialize(deserializer)?;
-        let num_colors = match (K::K, num_colors) {
+fn deserialize_present<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<usize>, D::Error> {
+    usize::deserialize(deserializer).map(Some)
+}
+
+impl<K: KValue, G> TryFrom<KColoringData<G>> for KColoring<K, G> {
+    type Error = String;
+
+    fn try_from(data: KColoringData<G>) -> Result<Self, Self::Error> {
+        let num_colors = match (K::K, data.num_colors) {
             (Some(fixed), Some(supplied)) if fixed != supplied => {
-                return Err(serde::de::Error::custom(format!(
-                    "fixed K requires {fixed} colors, got {supplied}"
-                )));
+                return Err(format!("fixed K requires {fixed} colors, got {supplied}"));
             }
-            (fixed, supplied) => supplied
-                .or(fixed)
-                .ok_or_else(|| serde::de::Error::missing_field("num_colors"))?,
+            (fixed, supplied) => supplied.or(fixed).ok_or("missing field `num_colors`")?,
         };
         Ok(Self {
-            graph,
+            graph: data.graph,
             num_colors,
             _phantom: std::marker::PhantomData,
         })
     }
-}
-
-fn deserialize_present_num_colors<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<usize>, D::Error> {
-    usize::deserialize(deserializer).map(Some)
 }
 
 impl<K: KValue, G: Graph> KColoring<K, G> {
